@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./scorecard.css";
 
 export const metadata = {
   title: "MetrixIQ — Fleet & Driver Intelligence",
