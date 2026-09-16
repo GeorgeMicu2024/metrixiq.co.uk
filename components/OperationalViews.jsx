@@ -351,6 +351,7 @@ export function DataQualityView({ organizationId, onImport }) {
   const [renameValue,setRenameValue]=useState("");
   const [choice,setChoice]=useState({});
   const [busy,setBusy]=useState("");
+  const [notice,setNotice]=useState("");
 
   const load = useLoad(async()=>{
     const supabase=getSupabaseBrowserClient();
@@ -369,19 +370,28 @@ export function DataQualityView({ organizationId, onImport }) {
 
   async function saveName(driver){
     const name=renameValue.trim();
-    if(!isUsablePersonName(name))return;
+    if(!isUsablePersonName(name)){
+      setNotice("Please enter the full driver name (at least first name and surname).");
+      return;
+    }
     setBusy(driver.id);
+    setNotice("");
     try{
       const supabase=getSupabaseBrowserClient();
-      const {error:updateError}=await supabase.from("drivers").update({full_name:name}).eq("id",driver.id).eq("organization_id",organizationId);
-      if(updateError)throw updateError;
-      const aliases=[
-        {organization_id:organizationId,driver_id:driver.id,alias_type:"name",alias_value:name,alias_normalized:normalizeName(name),confidence:1,source:"manual resolution"},
-        {organization_id:organizationId,driver_id:driver.id,alias_type:"mentor_name",alias_value:name,alias_normalized:nameSignature(name),confidence:1,source:"manual resolution"},
-      ];
-      const {error:aliasError}=await supabase.from("driver_aliases").upsert(aliases,{onConflict:"organization_id,alias_type,alias_normalized"});
-      if(aliasError)throw aliasError;
-      setRenameId("");setRenameValue("");setRefreshKey((v)=>v+1);
+      const {error}=await supabase.rpc("resolve_driver_identity",{
+        p_organization_id:organizationId,
+        p_driver_id:driver.id,
+        p_full_name:name,
+        p_normalized_name:normalizeName(name),
+        p_name_signature:nameSignature(name),
+      });
+      if(error)throw error;
+      setRenameId("");
+      setRenameValue("");
+      setNotice(`${name} saved and linked to ${driver.trid}.`);
+      setRefreshKey((v)=>v+1);
+    }catch(error){
+      setNotice(`Could not save driver name: ${error?.message || "Unknown error"}`);
     }finally{setBusy("");}
   }
 
@@ -389,19 +399,24 @@ export function DataQualityView({ organizationId, onImport }) {
     const driverId=choice[record.id];
     if(!driverId)return;
     setBusy(record.id);
+    setNotice("");
     try{
       const supabase=getSupabaseBrowserClient();
-      const driver=drivers.find((d)=>d.id===driverId);
-      if(record.raw_name&&isUsablePersonName(record.raw_name)){
-        const aliases=[
-          {organization_id:organizationId,driver_id:driverId,alias_type:"name",alias_value:record.raw_name,alias_normalized:normalizeName(record.raw_name),confidence:1,source:"manual data-quality resolution"},
-          {organization_id:organizationId,driver_id:driverId,alias_type:"mentor_name",alias_value:record.raw_name,alias_normalized:nameSignature(record.raw_name),confidence:1,source:"manual data-quality resolution"},
-        ];
-        const {error}=await supabase.from("driver_aliases").upsert(aliases,{onConflict:"organization_id,alias_type,alias_normalized"});if(error)throw error;
-      }
-      const {error:updateError}=await supabase.from("unmatched_driver_records").update({status:"resolved",matched_driver_id:driverId,resolved_at:new Date().toISOString()}).eq("id",record.id);
-      if(updateError)throw updateError;
+      const aliasName=record.raw_name&&isUsablePersonName(record.raw_name)?record.raw_name:"";
+      const {error}=await supabase.rpc("resolve_unmatched_driver_record",{
+        p_organization_id:organizationId,
+        p_record_id:record.id,
+        p_driver_id:driverId,
+        p_alias_name:aliasName,
+        p_normalized_name:aliasName?normalizeName(aliasName):"",
+        p_name_signature:aliasName?nameSignature(aliasName):"",
+      });
+      if(error)throw error;
+      setNotice("Imported record resolved successfully.");
+      setChoice((current)=>{const next={...current};delete next[record.id];return next;});
       setRefreshKey((v)=>v+1);
+    }catch(error){
+      setNotice(`Could not resolve imported record: ${error?.message || "Unknown error"}`);
     }finally{setBusy("");}
   }
 
@@ -411,6 +426,7 @@ export function DataQualityView({ organizationId, onImport }) {
   const resolved=drivers.length-unresolved.length;
   return <>
     <div className="page-heading"><div><span className="page-kicker">DATA QUALITY</span><h1>Identity resolution</h1><p>Keep TRIDs, driver names and name-only Mentor records mapped to one trusted profile.</p></div><button className="btn primary" onClick={onImport}>Import master roster</button></div>
+    {notice && <div className={`import-message ${notice.startsWith("Could not") || notice.startsWith("Please") ? "error" : ""}`}>{notice}</div>}
     <section className="ops-kpi-strip"><div><span>Known drivers</span><strong>{drivers.length}</strong><small>Workspace identities</small></div><div><span>Resolved names</span><strong>{resolved}</strong><small>{drivers.length?`${Math.round(resolved/drivers.length*100)}% coverage`:"0% coverage"}</small></div><div><span>Unresolved TRIDs</span><strong>{unresolved.length}</strong><small>Need trusted name mapping</small></div><div><span>Unmatched records</span><strong>{unmatched.length}</strong><small>Name-only or ambiguous evidence</small></div></section>
 
     <section className="panel"><div className="panel-head"><div><h2>Unresolved driver identities</h2><p>Import MASTER TRID to auto-resolve, or set a trusted name manually.</p></div><span className="panel-badge">{unresolved.length}</span></div><div className="table-wrap"><table className="data-table"><thead><tr><th>TRID</th><th>Current label</th><th>Site</th><th>Resolution</th></tr></thead><tbody>
