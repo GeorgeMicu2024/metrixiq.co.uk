@@ -7,13 +7,37 @@ import { analyseFiles } from "../lib/analyzer";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
 import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView, TARGETS } from "./HistoricalAnalytics";
+import { CdfView, DataQualityView, DriverScorecardsView, IadcView, SiteScorecardsView } from "./OperationalViews";
+import { isUsablePersonName } from "../lib/identity";
 
 const nav = [
-  ["dashboard", "Dashboard"], ["drivers", "Drivers"], ["performance", "Performance"], ["mentor", "Mentor"],
-  ["concessions", "Concessions"], ["coaching", "Coaching"], ["intelligence", "AI Insights"], ["imports", "Smart Import"],
-  ["reports", "Reports"], ["billing", "Plans & Billing"], ["settings", "Settings"],
+  ["dashboard", "Dashboard"],
+  ["site-scorecards", "Site Scorecards"],
+  ["driver-scorecards", "Driver Scorecards"],
+  ["drivers", "Drivers"],
+  ["performance", "Performance"],
+  ["iadc", "IADC"],
+  ["cdf", "CDF Feedback"],
+  ["mentor", "Mentor"],
+  ["concessions", "Concessions"],
+  ["coaching", "Coaching"],
+  ["intelligence", "AI Insights"],
+  ["imports", "Smart Import"],
+  ["data-quality", "Data Quality"],
+  ["reports", "Reports"],
+  ["billing", "Plans & Billing"],
+  ["settings", "Settings"],
 ];
-const icon = { dashboard: "▦", drivers: "◎", performance: "↗", mentor: "◇", concessions: "◆", coaching: "✓", intelligence: "✦", imports: "⇧", reports: "▤", billing: "£", settings: "⚙" };
+const icon = { dashboard:"▦", "site-scorecards":"▤", "driver-scorecards":"◫", drivers:"◎", performance:"↗", iadc:"✓", cdf:"◈", mentor:"◇", concessions:"◆", coaching:"✓", intelligence:"✦", imports:"⇧", "data-quality":"⌁", reports:"▤", billing:"£", settings:"⚙" };
+function navSection(index){
+  if(index===1) return "SCORECARDS";
+  if(index===3) return "OPERATIONS";
+  if(index===10) return "INTELLIGENCE";
+  if(index===11) return "DATA";
+  if(index===13) return "REPORTING";
+  if(index===14) return "ACCOUNT";
+  return "";
+}
 
 const numberOrNull = (value) => value == null || value === "" || Number.isNaN(Number(value)) ? null : Number(value);
 function fmt(value, key) {
@@ -36,7 +60,14 @@ function MetricCard({ label, value, target, note, accent = "good" }) {
 function Action({ n, title, text, onClick }) { return <div className="action-item"><span>{n}</span><div><b>{title}</b><p>{text}</p></div><button type="button" onClick={onClick}>→</button></div>; }
 
 function DriverTable({ drivers, compact = false, onOpen }) {
-  return <div className="table-wrap"><table className="data-table"><thead><tr><th>Driver</th><th>Site</th><th>Performance</th><th>POD</th><th>IADC</th><th>Risk</th>{!compact && <th>Issue</th>}<th /></tr></thead><tbody>{drivers.map((d) => <tr key={`${d.id}-${d.dbId || "demo"}`} className={onOpen ? "driver-row-clickable" : ""} onClick={() => onOpen?.(d)}><td><div className="driver-cell"><span className="driver-avatar">{d.initials || initials(d.name)}</span><div><b>{d.name}</b><small>{d.id}</small></div></div></td><td>{d.site || "—"}</td><td><b>{fmt(d.performance, "performance")}</b></td><td>{fmt(d.pod, "pod")}</td><td>{fmt(d.iadc, "iadc")}</td><td><span className={`risk-pill ${tone(d.risk)}`}>{d.risk || "Low"}</span></td>{!compact && <td className="issue-cell">{d.issue || "No active concern"}</td>}<td><button type="button" className="profile-link" onClick={(e) => { e.stopPropagation(); onOpen?.(d); }}>Open →</button></td></tr>)}</tbody></table></div>;
+  return <div className="table-wrap"><table className="data-table"><thead><tr><th>Driver</th><th>Site</th><th>Performance</th><th>POD</th><th>IADC</th><th>Risk</th>{!compact && <th>Issue</th>}<th /></tr></thead><tbody>{drivers.map((d) => {
+    const unresolved = !isUsablePersonName(d.name);
+    const label = unresolved ? "Unresolved identity" : d.name;
+    return <tr key={`${d.id}-${d.dbId || "driver"}`} className={onOpen ? "driver-row-clickable" : ""} onClick={() => onOpen?.(d)}>
+      <td><div className="driver-cell"><span className={`driver-avatar ${unresolved ? "unresolved" : ""}`}>{unresolved ? "?" : (d.initials || initials(label))}</span><div><b>{label}</b><small>{d.id}</small></div></div></td>
+      <td>{d.site || "—"}</td><td><b>{fmt(d.performance, "performance")}</b></td><td>{fmt(d.pod, "pod")}</td><td>{fmt(d.iadc, "iadc")}</td><td><span className={`risk-pill ${tone(d.risk)}`}>{d.risk || "Low"}</span></td>{!compact && <td className="issue-cell">{unresolved ? "Identity mapping required" : (d.issue || "No active concern")}</td>}<td><button type="button" className="profile-link" onClick={(e) => { e.stopPropagation(); onOpen?.(d); }}>Open →</button></td>
+    </tr>;
+  })}</tbody></table></div>;
 }
 
 function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching }) {
@@ -120,7 +151,7 @@ function ImportsView({ onImported, analysis }) {
     try {
       const result = await analyseFiles(files);
       const saved = await onImported(result, files);
-      setMessage(`Processed ${files.length} file(s) · ${result.recognizedFiles ?? 0} recognised · ${result.unsupportedFiles ?? 0} unsupported · ${result.errorFiles ?? 0} errors · ${result.driverCount} driver profiles · ${saved?.savedMetrics ?? 0} weekly records saved.`);
+      setMessage(`Processed ${files.length} file(s) · ${result.recognizedFiles ?? 0} recognised · ${result.errorFiles ?? 0} errors · ${saved?.savedMetrics ?? 0} driver-week records · ${saved?.savedScorecards ?? 0} site scorecards · ${saved?.savedFeedback ?? 0} CDF events · ${saved?.unmatched ?? 0} unmatched.`);
     } catch (e) {
       setMessage(`Import failed: ${e?.message || "Unknown error"}`);
     } finally {
@@ -153,12 +184,17 @@ async function resolveWorkspace(supabase, user) {
   return { organization, role: "owner" };
 }
 function mapScorecard(row) {
+  const mentor = numberOrNull(row.mentor_score ?? row.ementor ?? row.fico);
+  const name = isUsablePersonName(row.full_name) ? row.full_name : "Unresolved identity";
   return {
-    id: row.trid, dbId: row.driver_id, name: row.full_name, initials: initials(row.full_name), site: row.site, status: row.status,
+    id: row.trid, dbId: row.driver_id, name, initials: initials(name), site: row.site, status: row.status,
     performance: numberOrNull(row.performance), dcr: numberOrNull(row.dcr), pod: numberOrNull(row.pod), iadc: numberOrNull(row.iadc),
-    cc: numberOrNull(row.cc), fico: numberOrNull(row.fico), ementor: numberOrNull(row.ementor), psb: numberOrNull(row.psb),
-    reattempts: numberOrNull(row.reattempts), concessions: numberOrNull(row.concessions), lor: numberOrNull(row.lor), risk: row.risk || "Low",
-    issue: row.issue || "No active concern", dataConfidence: numberOrNull(row.data_confidence), weekLabel: row.week_label,
+    cc: numberOrNull(row.cc), fico: mentor, ementor: mentor, mentor_score: mentor, psb: numberOrNull(row.psb),
+    reattempts: numberOrNull(row.reattempts), concessions: numberOrNull(row.concessions), lor: numberOrNull(row.lor),
+    delivered: numberOrNull(row.delivered), dnr_dpmo: numberOrNull(row.dnr_dpmo), dsc_dpmo: numberOrNull(row.dsc_dpmo),
+    ce_dpmo: numberOrNull(row.ce_dpmo), cdf_dpmo: numberOrNull(row.cdf_dpmo), scorecard_score: numberOrNull(row.scorecard_score),
+    tier: row.tier, risk: row.risk || "Low", issue: row.issue || "No active concern",
+    dataConfidence: numberOrNull(row.data_confidence), weekLabel: row.week_label, rawData: row.raw_data || {},
   };
 }
 
@@ -179,6 +215,7 @@ export default function DashboardClient() {
   const [metricHistoryRows, setMetricHistoryRows] = useState([]);
   const [fleetHistory, setFleetHistory] = useState([]);
   const [globalSearch, setGlobalSearch] = useState("");
+  const [siteFilter, setSiteFilter] = useState("all");
 
   useEffect(() => {
     let alive = true;
@@ -202,7 +239,7 @@ export default function DashboardClient() {
         if (scorecardError) throw scorecardError;
         const { data: metricRows, error: metricRowsError } = await supabase
           .from("driver_metrics")
-          .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,psb,reattempts,concessions,lor,raw_data,drivers(trid,full_name,site)")
+          .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,psb,reattempts,concessions,lor,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,scorecard_score,tier,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)")
           .eq("organization_id", resolved.organization.id)
           .order("period_end", { ascending: true })
           .limit(10000);
@@ -223,11 +260,12 @@ export default function DashboardClient() {
     return () => { alive = false; authListener.subscription.unsubscribe(); };
   }, [router]);
 
-  const drivers = dbDrivers;
+  const sites = [...new Set(dbDrivers.map((d) => d.site).filter(Boolean))].sort();
+  const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
   const liveKpis = dbDrivers.length ? {
-    dcr: avg(dbDrivers, "dcr"), pod: avg(dbDrivers, "pod"), iadc: avg(dbDrivers, "iadc"), cc: avg(dbDrivers, "cc"),
-    fico: avg(dbDrivers, "fico"), ementor: avg(dbDrivers, "ementor"), mentor: avg(dbDrivers, "ementor") ?? avg(dbDrivers, "fico"), psb: avg(dbDrivers, "psb"), reattempts: avg(dbDrivers, "reattempts"),
-    concessions: avg(dbDrivers, "concessions"), lor: avg(dbDrivers, "lor"), data_confidence: avg(dbDrivers, "dataConfidence"),
+    dcr: avg(drivers, "dcr"), pod: avg(drivers, "pod"), iadc: avg(drivers, "iadc"), cc: avg(drivers, "cc"),
+    fico: avg(drivers, "mentor_score") ?? avg(drivers, "ementor") ?? avg(drivers, "fico"), ementor: avg(drivers, "mentor_score") ?? avg(drivers, "ementor") ?? avg(drivers, "fico"), mentor: avg(drivers, "mentor_score") ?? avg(drivers, "ementor") ?? avg(drivers, "fico"), psb: avg(drivers, "psb"), reattempts: avg(drivers, "reattempts"),
+    concessions: avg(drivers, "concessions"), lor: avg(drivers, "lor"), data_confidence: avg(drivers, "dataConfidence"),
   } : {};
   const kpis = { ...liveKpis };
 
@@ -245,7 +283,7 @@ export default function DashboardClient() {
 
     const { data: metricRows, error: metricRowsError } = await supabase
       .from("driver_metrics")
-      .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,psb,reattempts,concessions,lor,raw_data,drivers(trid,full_name,site)")
+      .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,psb,reattempts,concessions,lor,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,scorecard_score,tier,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)")
       .eq("organization_id", workspace.organization.id)
       .order("period_end", { ascending: true })
       .limit(10000);
@@ -265,7 +303,7 @@ export default function DashboardClient() {
     if (!driver.dbId || !workspace?.organization?.id) return;
     setHistoryLoading(true);
     try {
-      const { data } = await getSupabaseBrowserClient().from("driver_metrics").select("period_start,period_end,week_label,performance,dcr,pod,iadc,fico,ementor,risk,issue").eq("organization_id", workspace.organization.id).eq("driver_id", driver.dbId).order("period_end", { ascending: true }).limit(12);
+      const { data } = await getSupabaseBrowserClient().from("driver_metrics").select("period_start,period_end,week_label,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,concessions,cdf_dpmo,risk,issue,raw_data").eq("organization_id", workspace.organization.id).eq("driver_id", driver.dbId).order("period_end", { ascending: true }).limit(12);
       setDriverHistory(data || []);
     } finally { setHistoryLoading(false); }
   }
@@ -273,13 +311,18 @@ export default function DashboardClient() {
 
   let view;
   switch (active) {
+    case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
+    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
     case "drivers": view = <DriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <PerformanceHistoryView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} />; break;
+    case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
+    case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
     case "mentor": view = <MentorHistoryView rows={metricHistoryRows} />; break;
     case "concessions": view = <ConcessionsHistoryView rows={metricHistoryRows} />; break;
     case "coaching": view = <CoachingView drivers={drivers} onOpen={openDriver} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
     case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
+    case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
     case "reports": view = <ReportsView />; break;
     case "billing": view = <BillingView />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
@@ -291,5 +334,5 @@ export default function DashboardClient() {
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
 
-  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{session.role || "Member"} workspace</small></div></div><nav className="app-nav">{nav.map(([id, label], i) => <div key={id}>{[1, 6, 7, 8, 9].includes(i) && <small className="nav-section">{i === 1 ? "OPERATIONS" : i === 6 ? "INTELLIGENCE" : i === 7 ? "DATA" : i === 8 ? "REPORTING" : "ACCOUNT"}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><button className="site-select" type="button" title="Workspace site filter">All sites⌄</button><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
+  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{session.role || "Member"} workspace</small></div></div><nav className="app-nav">{nav.map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><select className="site-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter workspace by site"><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
 }

@@ -30,7 +30,7 @@ function display(value, key) {
   return Math.round(n).toString();
 }
 function mentorScore(row) {
-  return numberOrNull(row?.ementor) ?? numberOrNull(row?.fico);
+  return numberOrNull(row?.mentor_score) ?? numberOrNull(row?.ementor) ?? numberOrNull(row?.fico);
 }
 function periodKey(row) {
   return row.week_label || row.period_end || row.period_start || "Unknown";
