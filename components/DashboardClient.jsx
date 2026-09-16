@@ -4,17 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "./Brand";
 import { analyseFiles } from "../lib/analyzer";
-import { demoDrivers, demoKpis, trend } from "../lib/demo";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
-import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, PerformanceHistoryView } from "./HistoricalAnalytics";
+import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView, TARGETS } from "./HistoricalAnalytics";
 
 const nav = [
-  ["dashboard", "Dashboard"], ["drivers", "Drivers"], ["performance", "Performance"],
+  ["dashboard", "Dashboard"], ["drivers", "Drivers"], ["performance", "Performance"], ["mentor", "Mentor"],
   ["concessions", "Concessions"], ["coaching", "Coaching"], ["intelligence", "AI Insights"], ["imports", "Smart Import"],
   ["reports", "Reports"], ["billing", "Plans & Billing"], ["settings", "Settings"],
 ];
-const icon = { dashboard: "▦", drivers: "◎", performance: "↗", concessions: "◆", coaching: "✓", intelligence: "✦", imports: "⇧", reports: "▤", billing: "£", settings: "⚙" };
+const icon = { dashboard: "▦", drivers: "◎", performance: "↗", mentor: "◇", concessions: "◆", coaching: "✓", intelligence: "✦", imports: "⇧", reports: "▤", billing: "£", settings: "⚙" };
 
 const numberOrNull = (value) => value == null || value === "" || Number.isNaN(Number(value)) ? null : Number(value);
 function fmt(value, key) {
@@ -34,36 +33,29 @@ function avg(rows, key) {
 function MetricCard({ label, value, target, note, accent = "good" }) {
   return <article className="metric-card"><div className="metric-top"><span>{label}</span><i className={`metric-dot ${accent}`} /></div><strong>{value}</strong><div className="metric-bottom"><span>{target}</span><em>{note}</em></div></article>;
 }
-function TrendChart({ values = trend }) {
-  const safe = values?.length > 1 ? values : trend;
-  const pts = safe.map((v, i) => ({ x: 18 + i * (464 / (safe.length - 1)), y: 145 - ((Number(v) - 75) / 20) * 110 }));
-  const line = pts.map((p, i) => (i ? "L" : "M") + p.x + " " + p.y).join(" ");
-  const area = `${line} L ${pts.at(-1)?.x || 480} 160 L 18 160 Z`;
-  return <svg className="trend-chart" width="100%" height="190" viewBox="0 0 500 170" preserveAspectRatio="none" aria-label="Performance trend chart"><defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#6bd8c4" stopOpacity=".36" /><stop offset="1" stopColor="#6bd8c4" stopOpacity="0" /></linearGradient></defs><g stroke="#e7edf2" strokeWidth="1"><line x1="18" y1="35" x2="482" y2="35" /><line x1="18" y1="80" x2="482" y2="80" /><line x1="18" y1="125" x2="482" y2="125" /></g><path d={area} fill="url(#areaGrad)" /><path d={line} fill="none" stroke="#149b86" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />{pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="4" fill="#fff" stroke="#149b86" strokeWidth="3" />)}<g fill="#8b97a7" fontSize="11">{safe.map((_, i) => <text key={i} x={18 + i * (464 / (safe.length - 1))} y="166" textAnchor="middle">{`W${i + 1}`}</text>)}</g></svg>;
-}
-
-function Action({ n, title, text }) { return <div className="action-item"><span>{n}</span><div><b>{title}</b><p>{text}</p></div><button>→</button></div>; }
+function Action({ n, title, text, onClick }) { return <div className="action-item"><span>{n}</span><div><b>{title}</b><p>{text}</p></div><button type="button" onClick={onClick}>→</button></div>; }
 
 function DriverTable({ drivers, compact = false, onOpen }) {
   return <div className="table-wrap"><table className="data-table"><thead><tr><th>Driver</th><th>Site</th><th>Performance</th><th>POD</th><th>IADC</th><th>Risk</th>{!compact && <th>Issue</th>}<th /></tr></thead><tbody>{drivers.map((d) => <tr key={`${d.id}-${d.dbId || "demo"}`} className={onOpen ? "driver-row-clickable" : ""} onClick={() => onOpen?.(d)}><td><div className="driver-cell"><span className="driver-avatar">{d.initials || initials(d.name)}</span><div><b>{d.name}</b><small>{d.id}</small></div></div></td><td>{d.site || "—"}</td><td><b>{fmt(d.performance, "performance")}</b></td><td>{fmt(d.pod, "pod")}</td><td>{fmt(d.iadc, "iadc")}</td><td><span className={`risk-pill ${tone(d.risk)}`}>{d.risk || "Low"}</span></td>{!compact && <td className="issue-cell">{d.issue || "No active concern"}</td>}<td><button type="button" className="profile-link" onClick={(e) => { e.stopPropagation(); onOpen?.(d); }}>Open →</button></td></tr>)}</tbody></table></div>;
 }
 
-function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrivers }) {
+function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching }) {
   const high = drivers.filter((d) => d.risk === "High").length;
   const med = drivers.filter((d) => d.risk === "Medium").length;
   const low = Math.max(0, drivers.length - high - med);
   const health = Math.round(avg(drivers, "performance") || 0);
   const total = Math.max(1, drivers.length);
-  return <><div className="page-heading"><div><span className="page-kicker">OVERVIEW</span><h1>Fleet performance</h1><p>One operating view across driver performance, risk, data quality and coaching.</p></div><div className="page-actions"><button className="btn ghost">Last 4 weeks</button><button className="btn primary" onClick={onImport}>Import reports</button></div></div>
+  return <><div className="page-heading"><div><span className="page-kicker">OVERVIEW</span><h1>Fleet performance</h1><p>One operating view across driver performance, risk, data quality and coaching.</p></div><div className="page-actions"><button className="btn ghost" onClick={onPerformance}>Performance history</button><button className="btn primary" onClick={onImport}>Import reports</button></div></div>
     <section className="summary-strip"><div><span>Fleet health</span><strong>{health}<small>/100</small></strong><em>Current fleet score</em></div><div><span>Active drivers</span><strong>{drivers.length}</strong><em>Current workspace</em></div><div><span>High risk</span><strong>{high}</strong><em>Needs attention</em></div><div><span>Data confidence</span><strong>{kpis.data_confidence != null ? `${Number(kpis.data_confidence).toFixed(0)}%` : "—"}</strong><em>Trusted records</em></div></section>
-    <section className="metric-grid"><MetricCard label="DCR" value={fmt(kpis.dcr, "dcr")} target="Target ≥ 98.8%" note="Fleet average" /><MetricCard label="POD" value={fmt(kpis.pod, "pod")} target="Target ≥ 98.0%" note={(kpis.pod ?? 100) < 98 ? "Watch" : "Healthy"} accent={(kpis.pod ?? 100) < 98 ? "warn" : "good"} /><MetricCard label="IADC" value={fmt(kpis.iadc, "iadc")} target="Target ≥ 80%" note="Fleet average" /><MetricCard label="FICO" value={fmt(kpis.fico, "fico")} target="Target ≥ 790" note="Fleet average" /><MetricCard label="eMentor" value={fmt(kpis.ementor, "ementor")} target="Target ≥ 815" note="Fleet average" /><MetricCard label="Concessions" value={fmt(kpis.concessions, "concessions")} target="Lower is better" note="Monitor" accent="warn" /></section>
+    <section className="metric-grid"><MetricCard label="DCR" value={fmt(kpis.dcr, "dcr")} target={`Target ≥ ${TARGETS.dcr.toFixed(2)}%`} note="Fleet average" accent={kpis.dcr != null && kpis.dcr < TARGETS.dcr ? "warn" : "good"} /><MetricCard label="POD" value={fmt(kpis.pod, "pod")} target={`Target ≥ ${TARGETS.pod.toFixed(2)}%`} note={kpis.pod != null && kpis.pod < TARGETS.pod ? "Watch" : "Healthy"} accent={kpis.pod != null && kpis.pod < TARGETS.pod ? "warn" : "good"} /><MetricCard label="IADC" value={fmt(kpis.iadc, "iadc")} target={`Target ≥ ${TARGETS.iadc}%`} note="Fleet average" accent={kpis.iadc != null && kpis.iadc < TARGETS.iadc ? "warn" : "good"} /><MetricCard label="Mentor Score" value={fmt(kpis.mentor, "mentor")} target={`Target ≥ ${TARGETS.mentor}`} note="Unified driving score" accent={kpis.mentor != null && kpis.mentor < TARGETS.mentor ? "warn" : "good"} /><MetricCard label="Contact Compliance" value={fmt(kpis.cc, "cc")} target="Operational quality" note="Fleet average" /><MetricCard label="Concessions" value={fmt(kpis.concessions, "concessions")} target="Lower is better" note="Weekly quality signal" accent="warn" /></section>
     <section className="dashboard-grid"><article className="panel"><div className="panel-head"><div><h2>Performance trend</h2><p>Combined fleet score versus weekly target</p></div><span className="panel-badge good">Stored history</span></div><HistoryTrendChart history={history} /><div className="chart-legend"><span><i className="legend-line teal" />Fleet performance</span><span><i className="legend-line target" />Target 85</span></div></article>
       <article className="panel"><div className="panel-head"><div><h2>Driver risk</h2><p>Current prioritisation model</p></div><span className="panel-badge">{drivers.length} drivers</span></div><div className="risk-content"><div className="risk-donut" style={{ background: `conic-gradient(#18aa86 0 ${low / total * 100}%, #f0b84b ${low / total * 100}% ${(low + med) / total * 100}%, #ef626b ${(low + med) / total * 100}% 100%)` }}><div><strong>{high}</strong><span>high risk</span></div></div><div className="risk-list"><div><span><i className="risk-dot low" />Low risk</span><b>{low}</b></div><div><span><i className="risk-dot med" />Medium risk</span><b>{med}</b></div><div><span><i className="risk-dot high" />High risk</span><b>{high}</b></div></div></div></article></section>
-    <section className="dashboard-grid lower"><article className="panel"><div className="panel-head"><div><h2>Drivers requiring attention</h2><p>Prioritised by repeated failures and score deterioration</p></div><button className="link-btn" onClick={onDrivers}>View all</button></div><DriverTable drivers={drivers.filter((d) => d.risk !== "Low").slice(0, 6)} compact onOpen={onOpenDriver} /></article><article className="panel"><div className="panel-head"><div><h2>Management actions</h2><p>Recommended next steps from current evidence</p></div></div><div className="action-list"><Action n="01" title="Coach high-risk POD drivers" text={`${high} drivers have repeated quality or compliance deterioration.`} /><Action n="02" title="Review IADC exceptions" text="Check drivers below the operational compliance threshold before next route." /><Action n="03" title="Resolve unmatched TRIDs" text="Keep identity mapping complete before weekly scorecards are finalised." /></div></article></section></>;
+    <section className="dashboard-grid lower"><article className="panel"><div className="panel-head"><div><h2>Drivers requiring attention</h2><p>Prioritised by repeated failures and score deterioration</p></div><button className="link-btn" onClick={onDrivers}>View all</button></div><DriverTable drivers={drivers.filter((d) => d.risk !== "Low").slice(0, 6)} compact onOpen={onOpenDriver} /></article><article className="panel"><div className="panel-head"><div><h2>Management actions</h2><p>Recommended next steps from current evidence</p></div></div><div className="action-list"><Action n="01" title="Coach high-risk drivers" text={`${high} drivers have repeated quality or compliance deterioration.`} onClick={onCoaching} /><Action n="02" title="Review performance history" text="Use the selected reporting window to identify repeated deterioration." onClick={onPerformance} /><Action n="03" title="Import missing evidence" text="Add scorecards, POD, concessions, IADC and Mentor files to complete the weekly picture." onClick={onImport} /></div></article></section></>;
 }
 
-function DriversView({ drivers, onOpen }) {
-  const [q, setQ] = useState("");
+function DriversView({ drivers, onOpen, query = "" }) {
+  const [q, setQ] = useState(query);
+  useEffect(() => setQ(query), [query]);
   const filtered = drivers.filter((d) => `${d.name} ${d.id} ${d.site || ""}`.toLowerCase().includes(q.toLowerCase()));
   return <><div className="page-heading"><div><span className="page-kicker">OPERATIONS</span><h1>Drivers</h1><p>Search every driver profile, metric and current risk status.</p></div></div><section className="panel"><div className="table-tools"><input placeholder="Search name, TRID or site…" value={q} onChange={(e) => setQ(e.target.value)} /><span>{filtered.length} drivers</span></div><DriverTable drivers={filtered} onOpen={onOpen} /></section></>;
 }
@@ -77,26 +69,26 @@ function CoachingView({ drivers, onOpen }) {
 }
 function IntelligenceView({ drivers, onCoaching }) {
   const high = drivers.filter((d) => d.risk === "High");
-  return <><div className="page-heading"><div><span className="page-kicker">INTELLIGENCE</span><h1>AI Insights</h1><p>Evidence-led signals based on imported driver performance data.</p></div></div><div className="intel-app-grid"><article className="insight-hero"><span>PRIORITY SIGNAL</span><h2>{high.length} drivers need intervention before the next reporting cycle.</h2><p>The strongest pattern is repeated POD / IADC deterioration combined with lower performance consistency. Prioritise coaching rather than reviewing every driver equally.</p><button className="btn light" onClick={onCoaching}>Open coaching queue</button></article><article className="panel"><div className="panel-head"><div><h2>Evidence summary</h2><p>What is driving the signal</p></div></div><div className="evidence-list"><div><b>POD quality</b><span>{drivers.filter((d) => d.pod < 97).length} below 97%</span></div><div><b>IADC compliance</b><span>{drivers.filter((d) => d.iadc < 80).length} below 80%</span></div><div><b>Concessions</b><span>{drivers.filter((d) => d.concessions > 4).length} elevated</span></div><div><b>FICO</b><span>{drivers.filter((d) => d.fico && d.fico < 790).length} below 790</span></div></div></article></div></>;
+  return <><div className="page-heading"><div><span className="page-kicker">INTELLIGENCE</span><h1>AI Insights</h1><p>Evidence-led signals based on imported driver performance data.</p></div></div><div className="intel-app-grid"><article className="insight-hero"><span>PRIORITY SIGNAL</span><h2>{high.length} drivers need intervention before the next reporting cycle.</h2><p>The strongest pattern is repeated POD / IADC deterioration combined with lower performance consistency. Prioritise coaching rather than reviewing every driver equally.</p><button className="btn light" onClick={onCoaching}>Open coaching queue</button></article><article className="panel"><div className="panel-head"><div><h2>Evidence summary</h2><p>What is driving the signal</p></div></div><div className="evidence-list"><div><b>DCR</b><span>{drivers.filter((d) => d.dcr != null && d.dcr < TARGETS.dcr).length} below 99.20%</span></div><div><b>POD</b><span>{drivers.filter((d) => d.pod != null && d.pod < TARGETS.pod).length} below 99.60%</span></div><div><b>IADC</b><span>{drivers.filter((d) => d.iadc != null && d.iadc < TARGETS.iadc).length} below 80%</span></div><div><b>Mentor Score</b><span>{drivers.filter((d) => (d.ementor ?? d.fico) != null && (d.ementor ?? d.fico) < TARGETS.mentor).length} below 815</span></div></div></article></div></>;
 }
 
 function coachingRecommendations(d) {
   const items = [];
-  if (numberOrNull(d.iadc) != null && Number(d.iadc) < 80) items.push("Review delivery workflow: Notify of Arrival, follow the first app option, capture a clear POD and swipe at the delivery location.");
-  if (numberOrNull(d.pod) != null && Number(d.pod) < 98) items.push("Coach POD quality and verify the delivery photo clearly shows the parcel at the selected location.");
-  if (numberOrNull(d.dcr) != null && Number(d.dcr) < 98.8) items.push("Review unsuccessful deliveries and complete every possible reattempt before returning to station.");
-  if (numberOrNull(d.fico) != null && Number(d.fico) < 790) items.push("Review driving behaviour and FICO events; agree one measurable driving improvement for the next reporting cycle.");
-  if (numberOrNull(d.ementor) != null && Number(d.ementor) < 815) items.push("eMentor is below target. Reinforce smooth acceleration, braking, cornering and distraction-free driving.");
-  if (numberOrNull(d.concessions) != null && Number(d.concessions) > 2) items.push("Review concessions by delivery and identify repeat location, POD or customer-contact patterns.");
+  if (numberOrNull(d.dcr) != null && Number(d.dcr) < TARGETS.dcr) items.push("DCR is below 99.20%. Review unsuccessful deliveries and complete every possible reattempt.");
+  if (numberOrNull(d.pod) != null && Number(d.pod) < TARGETS.pod) items.push("POD is below 99.60%. Coach clear, customer-presentable delivery photos.");
+  if (numberOrNull(d.iadc) != null && Number(d.iadc) < TARGETS.iadc) items.push("IADC is below 80%. Reinforce Notify of Arrival, first app option, clear POD and swipe at location.");
+  const mentor = numberOrNull(d.ementor) ?? numberOrNull(d.fico);
+  if (mentor != null && mentor < TARGETS.mentor) items.push("Mentor driving score is below 815. Review acceleration, braking, cornering, distraction and speeding.");
+  if (numberOrNull(d.concessions) != null && Number(d.concessions) > 2) items.push("Review weekly concessions and identify repeat delivery, POD or customer-contact patterns.");
   if (!items.length) items.push("No urgent coaching intervention detected. Maintain current workflow and monitor the next reporting cycle.");
   return items;
 }
 
 function DriverScorecardView({ driver, history, historyLoading, onBack }) {
   const metrics = [
-    ["DCR", driver.dcr, "dcr", "Target ≥ 98.8%"], ["POD", driver.pod, "pod", "Target ≥ 98.0%"],
-    ["IADC", driver.iadc, "iadc", "Target ≥ 80%"], ["CC", driver.cc, "cc", "Target ≥ 98.0%"],
-    ["FICO", driver.fico, "fico", "Target ≥ 790"], ["eMentor", driver.ementor, "ementor", "Target ≥ 815"],
+    ["DCR", driver.dcr, "dcr", `Target ≥ ${TARGETS.dcr.toFixed(2)}%`], ["POD", driver.pod, "pod", `Target ≥ ${TARGETS.pod.toFixed(2)}%`],
+    ["IADC", driver.iadc, "iadc", `Target ≥ ${TARGETS.iadc}%`], ["CC", driver.cc, "cc", "Operational quality"],
+    ["Mentor Score", driver.ementor ?? driver.fico, "mentor", `Target ≥ ${TARGETS.mentor}`],
     ["PSB", driver.psb, "psb", "Target ≥ 98.0%"], ["Reattempts", driver.reattempts, "reattempts", "Target ≥ 95%"],
     ["Concessions", driver.concessions, "concessions", "Lower is better"], ["LoR", driver.lor, "lor", "Lower is better"],
   ];
@@ -108,8 +100,8 @@ function DriverScorecardView({ driver, history, historyLoading, onBack }) {
       <div className="scorecard-person"><span className="scorecard-avatar">{driver.initials || initials(driver.name)}</span><div><span className="page-kicker">INDIVIDUAL DRIVER SCORECARD</span><h1>{driver.name}</h1><p>{driver.site || "No site"} · {driver.id} · {driver.status || "Active"}</p></div></div>
       <div className="scorecard-status"><span className={`risk-pill ${tone(driver.risk)}`}>{driver.risk || "Low"} risk</span><strong>{fmt(driver.performance, "performance")}<small>/100</small></strong><em>Performance score</em></div>
     </section>
-    <section className="scorecard-metrics">{metrics.map(([label, value, key, target]) => <MetricCard key={label} label={label} value={fmt(value, key)} target={target} note="Latest result" accent={(key === "pod" && Number(value) < 98) || (key === "iadc" && Number(value) < 80) ? "warn" : "good"} />)}</section>
-    <section className="scorecard-layout"><article className="panel"><div className="panel-head"><div><h2>Performance history</h2><p>{driver.weekLabel ? `Latest period: ${driver.weekLabel}` : "Reporting periods available for this driver"}</p></div><span className="panel-badge">{history.length || 1} period{history.length === 1 ? "" : "s"}</span></div>{historyLoading ? <div className="scorecard-loading">Loading history…</div> : historicalPerformance.length > 1 ? <TrendChart values={historicalPerformance.slice(-8)} /> : <div className="empty-history"><b>Current score: {fmt(driver.performance, "performance")}</b><p>More trend data will appear as weekly scorecards are imported.</p></div>}</article>
+    <section className="scorecard-metrics">{metrics.map(([label, value, key, target]) => <MetricCard key={label} label={label} value={fmt(value, key)} target={target} note="Latest result" accent={(key === "dcr" && Number(value) < TARGETS.dcr) || (key === "pod" && Number(value) < TARGETS.pod) || (key === "iadc" && Number(value) < TARGETS.iadc) || (key === "mentor" && Number(value) < TARGETS.mentor) ? "warn" : "good"} />)}</section>
+    <section className="scorecard-layout"><article className="panel"><div className="panel-head"><div><h2>Performance history</h2><p>{driver.weekLabel ? `Latest period: ${driver.weekLabel}` : "Reporting periods available for this driver"}</p></div><span className="panel-badge">{history.length || 1} period{history.length === 1 ? "" : "s"}</span></div>{historyLoading ? <div className="scorecard-loading">Loading history…</div> : historicalPerformance.length > 1 ? <div className="mini-history-list">{history.slice(-8).map((h)=><div key={h.week_label||h.period_end}><span>{h.week_label||h.period_end}</span><b>{h.performance ?? "—"}</b></div>)}</div> : <div className="empty-history"><b>Current score: {fmt(driver.performance, "performance")}</b><p>More trend data will appear as weekly scorecards are imported.</p></div>}</article>
       <article className="panel"><div className="panel-head"><div><h2>Current risk evidence</h2><p>Latest operational signal</p></div></div><div className="scorecard-issue"><span>Primary issue</span><strong>{driver.issue || "No active concern"}</strong><p>Data confidence: {driver.dataConfidence != null ? `${Number(driver.dataConfidence).toFixed(0)}%` : "Not provided"}</p></div><div className="scorecard-source">Source: {driver.dbId ? "Supabase driver metrics" : "Demo / locally imported analysis"}</div></article></section>
     <section className="panel coaching-recommendations"><div className="panel-head"><div><h2>Coaching action</h2><p>Evidence-led next steps for the manager</p></div></div><div className="recommendation-list">{recommendations.map((text, i) => <div key={text}><span>{String(i + 1).padStart(2, "0")}</span><p>{text}</p></div>)}</div></section>
   </>;
@@ -146,9 +138,9 @@ function ImportsView({ onImported, analysis }) {
     {analysis && <section className="panel import-result"><div className="panel-head"><div><h2>Latest analysis</h2><p>Parsed data is now persisted as weekly historical evidence in your workspace.</p></div><span className="panel-badge good">Saved</span></div><div className="result-grid"><div><span>Drivers</span><strong>{analysis.driverCount}</strong></div><div><span>Periods</span><strong>{analysis.periods?.length || 0}</strong></div><div><span>TRID matches</span><strong>{analysis.matchedByTrid}</strong></div><div><span>Unmatched</span><strong>{analysis.unmatchedDrivers}</strong></div></div></section>}
   </>;
 }
-function ReportsView() { return <><div className="page-heading"><div><span className="page-kicker">REPORTING</span><h1>Report centre</h1><p>Generate management-ready views from current fleet data.</p></div><button className="btn primary" onClick={() => window.print()}>Export current view</button></div><div className="report-grid">{[["Executive Fleet Brief", "Health, KPI, risk and recommended actions"], ["Weekly Fleet Report", "Site performance and driver improvement"], ["Driver Performance", "Individual trend, incidents and coaching"], ["Risk Report", "Prioritised drivers and evidence"], ["Coaching Report", "Queue status and action"], ["Site Comparison", "Cross-site KPI analysis"]].map(([t, d]) => <article key={t}><span>▤</span><h3>{t}</h3><p>{d}</p><button>Generate report →</button></article>)}</div></>; }
-function BillingView() { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Plans & billing</h1><p>Choose the MetrixIQ capability level for your operation.</p></div></div><div className="billing-grid">{[["Free", "£0", ["1 site", "10 drivers", "Core dashboard"]], ["Pro", "£39", ["3 sites", "150 drivers", "Risk & coaching"]], ["Business", "£89", ["10 sites", "500 drivers", "Advanced intelligence"]], ["Full", "£169", ["Unlimited sites", "Owner controls", "Priority support"]]].map(([n, p, fs], i) => <article className={i === 3 ? "current" : ""} key={n}>{i === 3 && <span className="current-tag">Current workspace</span>}<h3>{n}</h3><strong>{p}<small>/month</small></strong><ul>{fs.map((f) => <li key={f}>✓ {f}</li>)}</ul><button className={i === 3 ? "btn ghost" : "btn primary"}>{i === 3 ? "Active" : "Choose plan"}</button></article>)}</div></>; }
-function SettingsView({ session, onLogout }) { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Workspace settings</h1><p>Identity, organisation and data controls.</p></div></div><div className="settings-grid"><section className="panel"><h2>Account identity</h2><div className="setting-row"><span>Name</span><b>{session.name}</b></div><div className="setting-row"><span>Email</span><b>{session.email}</b></div><div className="setting-row"><span>Organisation</span><b>{session.organisation || "My Fleet"}</b></div><div className="setting-row"><span>Access</span><b>{session.role || "Member"}</b></div></section><section className="panel"><h2>Data & security</h2><p className="settings-copy">Authentication and fleet data access are protected by Supabase Auth and row-level security. Smart Import persistence will be connected in the next implementation step.</p><button className="btn danger" onClick={onLogout}>Sign out</button></section></div></>; }
+function ReportsView() { return <><div className="page-heading"><div><span className="page-kicker">REPORTING</span><h1>Report centre</h1><p>Generate management-ready views from current fleet data.</p></div><button className="btn primary" onClick={() => window.print()}>Export current view</button></div><div className="report-grid">{[["Executive Fleet Brief", "Health, KPI, risk and recommended actions"], ["Weekly Fleet Report", "Site performance and driver improvement"], ["Driver Performance", "Individual trend, incidents and coaching"], ["Risk Report", "Prioritised drivers and evidence"], ["Coaching Report", "Queue status and action"], ["Site Comparison", "Cross-site KPI analysis"]].map(([t, d]) => <article key={t}><span>▤</span><h3>{t}</h3><p>{d}</p><button type="button" onClick={() => window.print()}>Open / print →</button></article>)}</div></>; }
+function BillingView() { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Plans & billing</h1><p>Choose the MetrixIQ capability level for your operation.</p></div></div><div className="billing-grid">{[["Free", "£0", ["1 site", "10 drivers", "Core dashboard"]], ["Pro", "£39", ["3 sites", "150 drivers", "Risk & coaching"]], ["Business", "£89", ["10 sites", "500 drivers", "Advanced intelligence"]], ["Full", "£169", ["Unlimited sites", "Owner controls", "Priority support"]]].map(([n, p, fs], i) => <article className={i === 3 ? "current" : ""} key={n}>{i === 3 && <span className="current-tag">Current workspace</span>}<h3>{n}</h3><strong>{p}<small>/month</small></strong><ul>{fs.map((f) => <li key={f}>✓ {f}</li>)}</ul><button className={i === 3 ? "btn ghost" : "btn primary"} disabled title={i === 3 ? "Current workspace plan" : "Stripe billing will be enabled in the billing phase"}>{i === 3 ? "Active" : "Billing setup pending"}</button></article>)}</div></>; }
+function SettingsView({ session, onLogout }) { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Workspace settings</h1><p>Identity, organisation and data controls.</p></div></div><div className="settings-grid"><section className="panel"><h2>Account identity</h2><div className="setting-row"><span>Name</span><b>{session.name}</b></div><div className="setting-row"><span>Email</span><b>{session.email}</b></div><div className="setting-row"><span>Organisation</span><b>{session.organisation || "My Fleet"}</b></div><div className="setting-row"><span>Access</span><b>{session.role || "Member"}</b></div></section><section className="panel"><h2>Data & security</h2><p className="settings-copy">Authentication and fleet data access are protected by Supabase Auth and row-level security. Smart Import history is persisted in Supabase and protected by workspace row-level security.</p><button className="btn danger" onClick={onLogout}>Sign out</button></section></div></>; }
 
 async function resolveWorkspace(supabase, user) {
   const { data: membership, error: membershipError } = await supabase.from("organization_members").select("organization_id, role, organizations(id,name,plan)").eq("user_id", user.id).limit(1).maybeSingle();
@@ -186,6 +178,7 @@ export default function DashboardClient() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [metricHistoryRows, setMetricHistoryRows] = useState([]);
   const [fleetHistory, setFleetHistory] = useState([]);
+  const [globalSearch, setGlobalSearch] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -209,7 +202,7 @@ export default function DashboardClient() {
         if (scorecardError) throw scorecardError;
         const { data: metricRows, error: metricRowsError } = await supabase
           .from("driver_metrics")
-          .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,psb,reattempts,concessions,lor,drivers(trid,full_name,site)")
+          .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,psb,reattempts,concessions,lor,raw_data,drivers(trid,full_name,site)")
           .eq("organization_id", resolved.organization.id)
           .order("period_end", { ascending: true })
           .limit(10000);
@@ -233,7 +226,7 @@ export default function DashboardClient() {
   const drivers = dbDrivers;
   const liveKpis = dbDrivers.length ? {
     dcr: avg(dbDrivers, "dcr"), pod: avg(dbDrivers, "pod"), iadc: avg(dbDrivers, "iadc"), cc: avg(dbDrivers, "cc"),
-    fico: avg(dbDrivers, "fico"), ementor: avg(dbDrivers, "ementor"), psb: avg(dbDrivers, "psb"), reattempts: avg(dbDrivers, "reattempts"),
+    fico: avg(dbDrivers, "fico"), ementor: avg(dbDrivers, "ementor"), mentor: avg(dbDrivers, "ementor") ?? avg(dbDrivers, "fico"), psb: avg(dbDrivers, "psb"), reattempts: avg(dbDrivers, "reattempts"),
     concessions: avg(dbDrivers, "concessions"), lor: avg(dbDrivers, "lor"), data_confidence: avg(dbDrivers, "dataConfidence"),
   } : {};
   const kpis = { ...liveKpis };
@@ -252,7 +245,7 @@ export default function DashboardClient() {
 
     const { data: metricRows, error: metricRowsError } = await supabase
       .from("driver_metrics")
-      .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,psb,reattempts,concessions,lor,drivers(trid,full_name,site)")
+      .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,psb,reattempts,concessions,lor,raw_data,drivers(trid,full_name,site)")
       .eq("organization_id", workspace.organization.id)
       .order("period_end", { ascending: true })
       .limit(10000);
@@ -261,7 +254,6 @@ export default function DashboardClient() {
     setDbDrivers((scorecards || []).map(mapScorecard));
     setMetricHistoryRows(metricRows || []);
     setFleetHistory(aggregateFleetHistory(metricRows || []));
-    setActive("dashboard");
     return saved;
   }
   async function logout() { try { await getSupabaseBrowserClient().auth.signOut(); } finally { localStorage.removeItem("metrixiq.analysis"); router.replace("/login"); } }
@@ -281,8 +273,9 @@ export default function DashboardClient() {
 
   let view;
   switch (active) {
-    case "drivers": view = <DriversView drivers={drivers} onOpen={openDriver} />; break;
-    case "performance": view = <PerformanceHistoryView kpis={kpis} history={fleetHistory} />; break;
+    case "drivers": view = <DriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
+    case "performance": view = <PerformanceHistoryView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} />; break;
+    case "mentor": view = <MentorHistoryView rows={metricHistoryRows} />; break;
     case "concessions": view = <ConcessionsHistoryView rows={metricHistoryRows} />; break;
     case "coaching": view = <CoachingView drivers={drivers} onOpen={openDriver} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
@@ -291,12 +284,12 @@ export default function DashboardClient() {
     case "billing": view = <BillingView />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriversView drivers={drivers} onOpen={openDriver} />; break;
-    default: view = <DashboardView drivers={drivers} kpis={kpis} history={fleetHistory} onImport={() => setActive("imports")} onOpenDriver={openDriver} onDrivers={() => setActive("drivers")} />;
+    default: view = <DashboardView drivers={drivers} kpis={kpis} history={fleetHistory} onImport={() => setActive("imports")} onOpenDriver={openDriver} onDrivers={() => setActive("drivers")} onPerformance={() => setActive("performance")} onCoaching={() => setActive("coaching")} />;
   }
 
   if (authLoading) return <main className="app-loading"><div className="auth-spinner" /><h1>MetrixIQ</h1><p>Loading secure workspace…</p></main>;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
 
-  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{session.role || "Member"} workspace</small></div></div><nav className="app-nav">{nav.map(([id, label], i) => <div key={id}>{[1, 5, 6, 7, 8].includes(i) && <small className="nav-section">{i === 1 ? "OPERATIONS" : i === 5 ? "INTELLIGENCE" : i === 6 ? "DATA" : i === 7 ? "REPORTING" : "ACCOUNT"}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <span>Search drivers, reports or insights…</span><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><button className="site-select">All sites⌄</button><button className="icon-btn">◌</button><button className="icon-btn">●</button><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
+  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{session.role || "Member"} workspace</small></div></div><nav className="app-nav">{nav.map(([id, label], i) => <div key={id}>{[1, 6, 7, 8, 9].includes(i) && <small className="nav-section">{i === 1 ? "OPERATIONS" : i === 6 ? "INTELLIGENCE" : i === 7 ? "DATA" : i === 8 ? "REPORTING" : "ACCOUNT"}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><button className="site-select" type="button" title="Workspace site filter">All sites⌄</button><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
 }
