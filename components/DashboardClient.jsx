@@ -9,6 +9,7 @@ import { persistAnalysis } from "../lib/persistence";
 import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView, TARGETS } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView, DriverScorecardsView, IadcView, SiteScorecardsView } from "./OperationalViews";
 import { ProConcessionsView, ProDriversView, ProMentorView, ProPerformanceView } from "./ProfessionalViewsV7";
+import { ProConcessionsViewV9, ProIadcView, ProMentorViewV9 } from "./ProfessionalViewsV9";
 import { isUsablePersonName } from "../lib/identity";
 
 const nav = [
@@ -261,7 +262,7 @@ export default function DashboardClient() {
     return () => { alive = false; authListener.subscription.unsubscribe(); };
   }, [router]);
 
-  const sites = [...new Set(dbDrivers.map((d) => d.site).filter(Boolean))].sort();
+  const sites = [...new Set(dbDrivers.map((d) => String(d.site || "").trim().toUpperCase()).filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site)))].sort();
   const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
   const liveKpis = dbDrivers.length ? {
     dcr: avg(drivers, "dcr"), pod: avg(drivers, "pod"), iadc: avg(drivers, "iadc"), cc: avg(drivers, "cc"),
@@ -317,10 +318,10 @@ export default function DashboardClient() {
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
     case "drivers": view = <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <ProPerformanceView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
-    case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
+    case "iadc": view = <ProIadcView rows={metricHistoryRows} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
-    case "mentor": view = <ProMentorView rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
-    case "concessions": view = <ProConcessionsView rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
+    case "mentor": view = <ProMentorViewV9 rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
+    case "concessions": view = <ProConcessionsViewV9 rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
     case "coaching": view = <CoachingView drivers={drivers} onOpen={openDriver} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
     case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
