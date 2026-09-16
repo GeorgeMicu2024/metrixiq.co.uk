@@ -353,6 +353,17 @@ export function DataQualityView({ organizationId, onImport }) {
   const [busy,setBusy]=useState("");
   const [notice,setNotice]=useState("");
 
+  async function autoSync(){
+    setBusy("autosync"); setNotice("");
+    try{
+      const {data,error}=await getSupabaseBrowserClient().rpc("sync_driver_directory",{p_organization_id:organizationId});
+      if(error)throw error;
+      const row=Array.isArray(data)?data[0]:null;
+      setNotice(`Identity sync complete${row?`: ${row.updated_names||0} names and ${row.updated_sites||0} sites updated`:""}.`);
+      setRefreshKey((v)=>v+1);
+    }catch(error){setNotice(`Could not sync identities: ${error?.message||"Unknown error"}`);}finally{setBusy("");}
+  }
+
   const load = useLoad(async()=>{
     const supabase=getSupabaseBrowserClient();
     const [{data:drivers,error:driverError},{data:unmatched,error:unmatchedError},{data:aliases,error:aliasError}]=await Promise.all([
@@ -425,7 +436,7 @@ export function DataQualityView({ organizationId, onImport }) {
 
   const resolved=drivers.length-unresolved.length;
   return <>
-    <div className="page-heading"><div><span className="page-kicker">DATA QUALITY</span><h1>Identity resolution</h1><p>Keep TRIDs, driver names and name-only Mentor records mapped to one trusted profile.</p></div><button className="btn primary" onClick={onImport}>Import master roster</button></div>
+    <div className="page-heading"><div><span className="page-kicker">DATA QUALITY</span><h1>Identity resolution</h1><p>Keep TRIDs, driver names and name-only Mentor records mapped to one trusted profile.</p></div><div className="page-actions"><button className="btn ghost" disabled={busy==="autosync"} onClick={autoSync}>{busy==="autosync"?"Syncing…":"Auto-match aliases"}</button><button className="btn primary" onClick={onImport}>Import master roster</button></div></div>
     {notice && <div className={`import-message ${notice.startsWith("Could not") || notice.startsWith("Please") ? "error" : ""}`}>{notice}</div>}
     <section className="ops-kpi-strip"><div><span>Known drivers</span><strong>{drivers.length}</strong><small>Workspace identities</small></div><div><span>Resolved names</span><strong>{resolved}</strong><small>{drivers.length?`${Math.round(resolved/drivers.length*100)}% coverage`:"0% coverage"}</small></div><div><span>Unresolved TRIDs</span><strong>{unresolved.length}</strong><small>Need trusted name mapping</small></div><div><span>Unmatched records</span><strong>{unmatched.length}</strong><small>Name-only or ambiguous evidence</small></div></section>
 

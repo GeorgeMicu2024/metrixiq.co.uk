@@ -8,6 +8,7 @@ import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
 import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView, TARGETS } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView, DriverScorecardsView, IadcView, SiteScorecardsView } from "./OperationalViews";
+import { ProConcessionsView, ProDriversView, ProMentorView, ProPerformanceView } from "./ProfessionalViewsV7";
 import { isUsablePersonName } from "../lib/identity";
 
 const nav = [
@@ -273,6 +274,7 @@ export default function DashboardClient() {
     if (!workspace?.organization?.id) throw new Error("Workspace is not ready yet.");
     const supabase = getSupabaseBrowserClient();
     const saved = await persistAnalysis({ organizationId: workspace.organization.id, analysis: result, files });
+    await supabase.rpc("sync_driver_directory", { p_organization_id: workspace.organization.id });
     setAnalysis(result);
 
     const { data: scorecards, error: scorecardError } = await supabase
@@ -313,12 +315,12 @@ export default function DashboardClient() {
   switch (active) {
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
-    case "drivers": view = <DriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    case "performance": view = <PerformanceHistoryView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} />; break;
+    case "drivers": view = <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
+    case "performance": view = <ProPerformanceView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
     case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
-    case "mentor": view = <MentorHistoryView rows={metricHistoryRows} />; break;
-    case "concessions": view = <ConcessionsHistoryView rows={metricHistoryRows} />; break;
+    case "mentor": view = <ProMentorView rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
+    case "concessions": view = <ProConcessionsView rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
     case "coaching": view = <CoachingView drivers={drivers} onOpen={openDriver} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
     case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
