@@ -10,6 +10,7 @@ import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, Mento
 import { CdfView, DataQualityView, DriverScorecardsView, IadcView, SiteScorecardsView } from "./OperationalViews";
 import { ProConcessionsView, ProDriversView, ProMentorView, ProPerformanceView } from "./ProfessionalViewsV7";
 import { ProConcessionsViewV9, ProIadcView, ProMentorViewV9 } from "./ProfessionalViewsV9";
+import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./ProfessionalViewsV10";
 import { isUsablePersonName } from "../lib/identity";
 
 const nav = [
@@ -318,10 +319,10 @@ export default function DashboardClient() {
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
     case "drivers": view = <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <ProPerformanceView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
-    case "iadc": view = <ProIadcView rows={metricHistoryRows} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
+    case "iadc": view = <DirectIadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
-    case "mentor": view = <ProMentorViewV9 rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
-    case "concessions": view = <ProConcessionsViewV9 rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
+    case "mentor": view = <DirectMentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} />; break;
+    case "concessions": view = <DirectConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} />; break;
     case "coaching": view = <CoachingView drivers={drivers} onOpen={openDriver} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
     case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
