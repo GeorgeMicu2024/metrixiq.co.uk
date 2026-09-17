@@ -117,22 +117,58 @@ function LeaderList({ rows, title, inverse = false, onOpenDriver }) {
 export function SiteScorecardsView({ organizationId, onOpenDriver, onImport }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-    const [{ data: cards, error: cardError }, { data: rows, error: rowError }] = await Promise.all([
-      supabase.from("site_scorecards").select("*").eq("organization_id", organizationId).order("year", { ascending: false }).order("week", { ascending: false }),
-      supabase.from("driver_metrics")
-        .select("driver_id,week_label,period_end,performance,dcr,pod,iadc,cc,mentor_score,ementor,fico,concessions,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,psb,lor,risk,issue,data_confidence,drivers(id,trid,full_name,site,status)")
-        .eq("organization_id", organizationId).limit(10000),
-    ]);
+
+    const { data: cards, error: cardError } = await supabase
+      .from("site_scorecards")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("year", { ascending: false })
+      .order("week", { ascending: false });
+
     if (cardError) throw cardError;
-    if (rowError) throw rowError;
-    return { cards: cards || [], rows: rows || [] };
+
+    const rows = [];
+    const pageSize = 1000;
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("driver_metrics")
+        .select("driver_id,week_label,period_end,performance,dcr,pod,iadc,cc,mentor_score,ementor,fico,concessions,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,psb,lor,risk,issue,data_confidence,drivers(id,trid,full_name,site,status)")
+        .eq("organization_id", organizationId)
+        .order("period_end", { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (error) throw error;
+
+      const page = data || [];
+      rows.push(...page);
+
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
+
+    return { cards: cards || [], rows };
   }, [organizationId]);
 
   const cards = load.data?.cards || [];
   const [selectedId, setSelectedId] = useState("");
-  useEffect(() => { if (cards.length && !selectedId) setSelectedId(cards[0].id); }, [cards, selectedId]);
-  const card = cards.find((c) => c.id === selectedId) || cards[0];
-  const weekRows = useMemo(() => card ? (load.data?.rows || []).filter((row) => row.week_label === card.week_label && (!card.site || !row.drivers?.site || row.drivers.site === card.site)) : [], [card, load.data]);
+
+  useEffect(() => {
+    if (cards.length && !selectedId) setSelectedId(cards[0].id);
+  }, [cards, selectedId]);
+
+  const sortedCards = useMemo(() => cards.slice().sort(weekSort), [cards]);
+  const card = cards.find((item) => item.id === selectedId) || cards[0];
+
+  const weekRows = useMemo(() => {
+    if (!card) return [];
+    return (load.data?.rows || []).filter((row) =>
+      row.week_label === card.week_label &&
+      (!card.site || !row.drivers?.site || row.drivers.site === card.site)
+    );
+  }, [card, load.data]);
+
   const delivered = weekRows.reduce((sum, row) => sum + (num(row.delivered) || 0), 0);
   const concessions = weekRows.reduce((sum, row) => sum + (num(row.concessions) || 0), 0);
   const below = weekRows.filter((row) => {
@@ -143,89 +179,346 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport }) {
       (mentor != null && mentor < TARGETS.mentor);
   }).length;
 
+  const standingClass = (standing) => {
+    const value = String(standing || "").trim().toLowerCase();
+    if (value.includes("fantastic plus")) return "fantastic-plus";
+    if (value.includes("fantastic")) return "fantastic";
+    if (value.includes("great")) return "great";
+    if (value.includes("fair")) return "fair";
+    if (value.includes("poor")) return "poor";
+    if (value.includes("compliance")) return "fantastic";
+    return "neutral";
+  };
+
+  const standingPercent = (standing, fallback = null) => {
+    if (num(fallback) != null) return Math.max(0, Math.min(100, Number(fallback)));
+    const cls = standingClass(standing);
+    if (cls === "fantastic-plus") return 100;
+    if (cls === "fantastic") return 90;
+    if (cls === "great") return 74;
+    if (cls === "fair") return 52;
+    if (cls === "poor") return 28;
+    return 0;
+  };
+
+  const ScoreSegments = ({ standing, score = null }) => {
+    const percent = standingPercent(standing, score);
+    return <div className="sitepro-segments" aria-label={`${standing || "Not rated"} score`}>
+      {[0,1,2,3,4].map((segment) => {
+        const start = segment * 20;
+        const fill = Math.max(0, Math.min(20, percent - start)) / 20 * 100;
+        return <span key={segment}><i style={{ width: `${fill}%` }} /></span>;
+      })}
+    </div>;
+  };
+
+  const rawItemValue = (item) => item && typeof item === "object" ? item.value : item;
+  const rawItemStanding = (item) => item && typeof item === "object" ? item.standing : null;
+
+  const displayValue = (item, format = "plain") => {
+    const value = rawItemValue(item);
+    if (value == null || value === "") return "—";
+    if (format === "pct" && num(value) != null) return `${Number(value).toFixed(2)}%`;
+    if (format === "score" && num(value) != null) return Number(value).toFixed(0);
+    if (format === "dpmo" && num(value) != null) return Math.round(Number(value)).toLocaleString();
+    return String(value);
+  };
+
+  const MetricLine = ({ label, item, format = "plain", accent = false }) => {
+    const standing = rawItemStanding(item);
+    const cls = standingClass(standing);
+    return <div className={`sitepro-metric ${accent ? "accent" : ""}`}>
+      <span>{label}</span>
+      <div>
+        <b className={cls}>{displayValue(item, format)}</b>
+        {standing && <em className={cls}>{standing}</em>}
+      </div>
+    </div>;
+  };
+
+  const metrics = card?.metrics || {};
+
+  const sourceFocus = Array.isArray(card?.focus_areas)
+    ? card.focus_areas.filter(Boolean)
+    : [];
+
+  const generatedFocus = useMemo(() => {
+    if (sourceFocus.length) return sourceFocus;
+
+    const candidates = [
+      ["Delivery Success Conditions (DSC) DPMO", metrics.dsc_dpmo],
+      ["Mentor Adoption Rate", metrics.mentor_adoption_rate],
+      ["Speeding Event Rate (Per 100 Trips)", metrics.speeding_event_rate],
+      ["Customer Delivery Feedback", metrics.cdf_dpmo],
+      ["Contact Compliance", metrics.cc],
+      ["Delivery Completion Rate (DCR)", metrics.dcr],
+      ["Photo-On-Delivery", metrics.pod],
+      ["Pickup Success Behaviours", metrics.psb],
+    ];
+
+    const priority = { poor: 0, fair: 1, great: 2, neutral: 3, fantastic: 4, "fantastic-plus": 5 };
+
+    return candidates
+      .filter(([, item]) => item)
+      .map(([label, item]) => ({
+        label,
+        rank: priority[standingClass(rawItemStanding(item))] ?? 3,
+      }))
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, 3)
+      .map((item) => item.label);
+  }, [card]);
+
   if (load.loading) return <LoadingPanel text="Loading weekly scorecards…" />;
   if (load.error) return <ErrorPanel error={load.error} />;
-  if (!cards.length) return <><div className="page-heading"><div><span className="page-kicker">SCORECARDS</span><h1>Site scorecards</h1><p>Weekly operational scorecards and source metrics.</p></div></div><EmptyPanel title="No site scorecard stored yet" text="Import a DSP Scorecard PDF and MetrixIQ will build the weekly view automatically." action="Import scorecard" onAction={onImport} /></>;
 
-  const metrics = card.metrics || {};
-  return <>
-    <div className="page-heading scorecard-page-heading">
-      <div><span className="page-kicker">SCORECARDS</span><h1>Site scorecard</h1><p>Source-faithful weekly performance with MetrixIQ driver intelligence underneath.</p></div>
-      <div className="scorecard-filter-row">
-        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-          {cards.slice().sort(weekSort).map((item) => <option key={item.id} value={item.id}>{item.site} · {item.year} · {item.week_label}</option>)}
+  if (!cards.length) {
+    return <>
+      <div className="page-heading">
+        <div>
+          <span className="page-kicker">SCORECARDS</span>
+          <h1>Site scorecards</h1>
+          <p>Weekly operational scorecards and source metrics.</p>
+        </div>
+      </div>
+      <EmptyPanel
+        title="No site scorecard stored yet"
+        text="Import a DSP Scorecard PDF and MetrixIQ will build the weekly report automatically."
+        action="Import scorecard"
+        onAction={onImport}
+      />
+    </>;
+  }
+
+  const previousCardIndex = sortedCards.findIndex((item) => item.id === card.id);
+  const previousCard = previousCardIndex >= 0 ? sortedCards[previousCardIndex + 1] : null;
+  const scoreDelta =
+    num(card.overall_score) != null && num(previousCard?.overall_score) != null
+      ? Number(card.overall_score) - Number(previousCard.overall_score)
+      : null;
+
+  return <div className="sitepro-root">
+    <div className="page-heading sitepro-page-heading">
+      <div>
+        <span className="page-kicker">SCORECARDS</span>
+        <h1>Site scorecard</h1>
+        <p>Source-faithful weekly DSP performance with MetrixIQ operational context.</p>
+      </div>
+
+      <div className="sitepro-controls">
+        <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+          {sortedCards.map((item) =>
+            <option key={item.id} value={item.id}>
+              {item.site} · {item.year} · {item.week_label}
+            </option>
+          )}
         </select>
         <button className="btn ghost" onClick={() => window.print()}>Export / print</button>
       </div>
     </div>
 
-    <section className="team-overview-card">
-      <div className="team-overview-head"><div><span>TEAM OVERVIEW</span><h2>{card.site} · {card.year}, {card.week_label}</h2></div><span className={`standing-chip ${(card.standing || "").toLowerCase().replace(/\s+/g, "-")}`}>{card.standing || "Not rated"}</span></div>
-      <div className="team-kpis">
-        <div><strong>{weekRows.length}</strong><span>Drivers</span></div>
-        <div><strong>{Math.round(delivered).toLocaleString()}</strong><span>Parcels</span></div>
-        <div><strong>{Math.round(concessions)}</strong><span>Concessions</span></div>
-        <div><strong>{below}</strong><span>Below target</span></div>
-      </div>
-      <div className="overall-score-row">
-        <div><span>Overall source score</span><strong>{card.overall_score == null ? "—" : Number(card.overall_score).toFixed(2)}</strong><em>{card.standing || "—"}</em></div>
-        <div className="rank-block"><span>Site rank</span><strong>{card.site_rank ?? "—"}</strong><small>{card.rank_delta != null ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW` : "No rank movement data"}</small></div>
-      </div>
+    <section className="sitepro-report">
+      <header className="sitepro-report-head">
+        <div>
+          <span className="sitepro-eyebrow">DSP WEEKLY SCORECARD</span>
+          <h2>{card.site || "Site"} · Week {card.week || String(card.week_label || "").replace(/\D/g, "")} — {card.year}</h2>
+        </div>
+
+        <div className="sitepro-rank">
+          <span>Rank at {card.site || "site"}</span>
+          <strong>{card.site_rank ?? "—"}</strong>
+          <small>
+            {card.rank_delta != null
+              ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW`
+              : "WoW unavailable"}
+          </small>
+        </div>
+      </header>
+
+      <section className="sitepro-overall">
+        <div className="sitepro-overall-copy">
+          <span>Overall Score</span>
+          <div>
+            <strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong>
+            <em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em>
+          </div>
+          {scoreDelta != null &&
+            <small className={scoreDelta >= 0 ? "positive" : "negative"}>
+              {scoreDelta >= 0 ? "+" : ""}{scoreDelta.toFixed(2)} vs previous stored week
+            </small>
+          }
+        </div>
+
+        <div className="sitepro-overall-track">
+          <ScoreSegments standing={card.standing} score={card.overall_score} />
+          <div className="sitepro-scale">
+            <span>Poor</span><span>Fair</span><span>Great</span><span>Fantastic</span><span>Fantastic+</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="sitepro-section">
+        <div className="sitepro-section-title">
+          <div>
+            <span>COMPLIANCE AND SAFETY</span>
+            <ScoreSegments standing={card.safety_standing} />
+          </div>
+          <strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong>
+        </div>
+
+        <p className="sitepro-note">
+          You need to achieve Fantastic in Safety to qualify for Scorecard incentives.
+        </p>
+
+        <div className="sitepro-two-col">
+          <div className="sitepro-metric-group">
+            <h3>Safety</h3>
+            <MetricLine label="Safe Driving Metric (FICO)" item={metrics.mentor_score} format="score" />
+            <MetricLine label="Speeding Event Rate (Per 100 Trips)" item={metrics.speeding_event_rate} />
+            <MetricLine label="Mentor Adoption Rate" item={metrics.mentor_adoption_rate} format="pct" />
+          </div>
+
+          <div className="sitepro-metric-group">
+            <h3>Compliance</h3>
+            <MetricLine label="Vehicle Audit (VSA) Compliance" item={metrics.vsa} format="pct" />
+            <MetricLine label="Breach of Contract (BOC)" item={metrics.boc} />
+            <MetricLine label="Working Hours Compliance (WHC)" item={metrics.whc} format="pct" />
+            <MetricLine label="Comprehensive Audit Score (CAS)" item={metrics.cas} />
+          </div>
+        </div>
+      </section>
+
+      <section className="sitepro-section">
+        <div className="sitepro-section-title">
+          <div>
+            <span>DELIVERY QUALITY &amp; SWC</span>
+            <ScoreSegments standing={card.delivery_quality_standing} />
+          </div>
+          <strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong>
+        </div>
+
+        <div className="sitepro-two-col quality">
+          <div>
+            <div className="sitepro-metric-group">
+              <h3>Customer Delivery Experience</h3>
+              <MetricLine label="Customer Escalation DPMO" item={metrics.ce_dpmo} format="dpmo" />
+              <MetricLine label="Customer Delivery Feedback" item={metrics.cdf_dpmo} format="dpmo" />
+            </div>
+
+            <div className="sitepro-metric-group sitepro-subgroup">
+              <h3>Standard Work Compliance</h3>
+              <MetricLine label="Photo-On-Delivery" item={metrics.pod} format="pct" />
+              <MetricLine label="Contact Compliance" item={metrics.cc} format="pct" />
+            </div>
+          </div>
+
+          <div className="sitepro-metric-group">
+            <h3>Quality</h3>
+            <MetricLine label="Delivery Completion Rate (DCR)" item={metrics.dcr} format="pct" />
+            <MetricLine label="Delivered Not Received (DNR DPMO)" item={metrics.dnr_dpmo} format="dpmo" accent />
+            <MetricLine label="Lost on Road (LoR) DPMO" item={metrics.lor} format="dpmo" />
+            <MetricLine label="Delivery Success Conditions (DSC DPMO)" item={metrics.dsc_dpmo} format="dpmo" />
+            <p className="sitepro-quality-note">Metrics highlighted in red are for visibility only and do not impact final DSP Scores / Tiers.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="sitepro-section compact">
+        <div className="sitepro-section-title">
+          <div>
+            <span>CAPACITY</span>
+            <ScoreSegments standing={card.capacity_standing} />
+          </div>
+          <strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong>
+        </div>
+
+        <div className="sitepro-single-metric">
+          <MetricLine label="Capacity Reliability" item={metrics.capacity_reliability} format="pct" />
+        </div>
+      </section>
+
+      <section className="sitepro-section compact">
+        <div className="sitepro-section-title">
+          <div>
+            <span>PICKUP QUALITY</span>
+            <ScoreSegments standing={card.pickup_quality_standing} />
+          </div>
+          <strong className={standingClass(card.pickup_quality_standing)}>{card.pickup_quality_standing || "—"}</strong>
+        </div>
+
+        <div className="sitepro-single-metric">
+          <MetricLine label="Pickup Success Behaviours" item={metrics.psb} />
+        </div>
+      </section>
+
+      <section className="sitepro-focus">
+        <span>RECOMMENDED FOCUS AREAS</span>
+        <ol>
+          {generatedFocus.length
+            ? generatedFocus.map((focus, index) => <li key={`${focus}-${index}`}>{focus}</li>)
+            : <li>No focus areas were supplied in this scorecard.</li>
+          }
+        </ol>
+      </section>
     </section>
 
-    <section className="scorecard-section-grid">
-      <article className="panel source-scorecard-section">
-        <div className="source-section-head"><div><span>SAFETY & COMPLIANCE</span><h2>{card.safety_standing || "—"}</h2></div></div>
-        <div className="source-two-col">
-          <div><h3>Safety</h3>
-            <ScorecardMetricRow label="Mentor / FICO score" item={metrics.mentor_score} />
-            <ScorecardMetricRow label="Speeding event rate" item={metrics.speeding_event_rate} />
-            <ScorecardMetricRow label="Mentor adoption rate" item={metrics.mentor_adoption_rate} format="pct" />
-          </div>
-          <div><h3>Compliance</h3>
-            <ScorecardMetricRow label="Vehicle Audit compliance" item={metrics.vsa} format="pct" />
-            <ScorecardMetricRow label="Breach of Contract" item={metrics.boc} />
-            <ScorecardMetricRow label="Working Hours compliance" item={metrics.whc} format="pct" />
-            <ScorecardMetricRow label="Comprehensive Audit" item={metrics.cas} />
-          </div>
-        </div>
+    <section className="sitepro-context">
+      <article>
+        <span>Drivers measured</span>
+        <strong>{weekRows.length}</strong>
+        <small>{card.week_label}</small>
       </article>
-
-      <article className="panel source-scorecard-section">
-        <div className="source-section-head"><div><span>DELIVERY QUALITY & CUSTOMER</span><h2>{card.delivery_quality_standing || "—"}</h2></div></div>
-        <div className="source-two-col">
-          <div><h3>Customer experience</h3>
-            <ScorecardMetricRow label="Customer Escalation DPMO" item={metrics.ce_dpmo} />
-            <ScorecardMetricRow label="Customer Delivery Feedback" item={metrics.cdf_dpmo} />
-            <ScorecardMetricRow label="Photo on Delivery" item={metrics.pod} format="pct" />
-            <ScorecardMetricRow label="Contact Compliance" item={metrics.cc} format="pct" />
-          </div>
-          <div><h3>Quality</h3>
-            <ScorecardMetricRow label="Delivery Completion Rate" item={metrics.dcr} format="pct" />
-            <ScorecardMetricRow label="DNR DPMO" item={metrics.dnr_dpmo} />
-            <ScorecardMetricRow label="Lost on Road DPMO" item={metrics.lor} />
-            <ScorecardMetricRow label="DSC DPMO" item={metrics.dsc_dpmo} />
-          </div>
-        </div>
+      <article>
+        <span>Parcels delivered</span>
+        <strong>{Math.round(delivered).toLocaleString()}</strong>
+        <small>Driver evidence total</small>
       </article>
-
-      <article className="panel source-scorecard-section wide">
-        <div className="source-section-head"><div><span>CAPACITY & PICKUP</span><h2>{card.capacity_standing || card.pickup_quality_standing || "—"}</h2></div></div>
-        <div className="source-two-col">
-          <div><h3>Capacity</h3><ScorecardMetricRow label="Capacity Reliability" item={metrics.capacity_reliability} format="pct" /></div>
-          <div><h3>Pickup</h3><ScorecardMetricRow label="Pickup Success Behaviours" item={metrics.psb} /></div>
-        </div>
+      <article>
+        <span>Concessions</span>
+        <strong>{Math.round(concessions)}</strong>
+        <small>Same reporting week</small>
+      </article>
+      <article>
+        <span>Below operational target</span>
+        <strong>{below}</strong>
+        <small>DCR / POD / IADC / Mentor</small>
       </article>
     </section>
 
-    {Array.isArray(card.focus_areas) && card.focus_areas.length > 0 && <section className="panel focus-area-panel"><div className="panel-head"><div><h2>Recommended focus areas</h2><p>Imported from the source scorecard.</p></div></div><div className="focus-chips">{card.focus_areas.map((focus, index) => <span key={`${focus}-${index}`}>{index + 1}. {focus}</span>)}</div></section>}
-
-    <section className="leaderboard-grid">
+    <section className="leaderboard-grid sitepro-leaders">
       <LeaderList rows={weekRows} title="Top 5 performers" onOpenDriver={onOpenDriver} />
       <LeaderList rows={weekRows} title="Bottom 5 — attention" inverse onOpenDriver={onOpenDriver} />
     </section>
-  </>;
+
+    <style jsx global>{`
+      .sitepro-root{width:100%;padding-bottom:30px;color:#26384c}
+      .sitepro-page-heading{align-items:flex-start;margin-bottom:16px}
+      .sitepro-controls{display:flex;gap:8px;align-items:center}
+      .sitepro-controls select{height:39px;min-width:185px;padding:0 11px;border:1px solid #dce4ea;border-radius:9px;background:#fff;color:#26394c;font-size:10px;font-weight:800;outline:none}
+      .sitepro-report{background:#fff;border:1px solid #dce4e9;border-radius:16px;box-shadow:0 7px 25px rgba(26,44,62,.055);overflow:hidden}
+      .sitepro-report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:22px 28px 18px;border-bottom:1px solid #e3e8ec;background:linear-gradient(180deg,#fff 0%,#fbfcfd 100%)}
+      .sitepro-eyebrow{display:block;font-size:11px;font-weight:950;letter-spacing:.12em;color:#273a4e}.sitepro-report-head h2{margin:5px 0 0;font-size:20px;letter-spacing:-.015em;color:#1f3042}
+      .sitepro-rank{text-align:right}.sitepro-rank span{display:block;font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8592a0}.sitepro-rank strong{display:block;margin-top:3px;font-size:28px;color:#21364a}.sitepro-rank small{display:block;margin-top:1px;color:#83919f;font-size:8px}
+      .sitepro-overall{display:grid;grid-template-columns:260px 1fr;gap:30px;align-items:center;padding:18px 28px 20px;border-bottom:1px solid #e0e6ea}
+      .sitepro-overall-copy>span{display:block;font-size:10px;font-weight:900;color:#33485d}.sitepro-overall-copy>div{display:flex;align-items:baseline;gap:12px;margin-top:4px}.sitepro-overall-copy strong{font-size:34px;letter-spacing:-.025em;color:#1f3247}.sitepro-overall-copy em{font-size:18px;font-style:normal;font-weight:900}.sitepro-overall-copy small{display:block;margin-top:3px;font-size:8px;font-weight:800}.sitepro-overall-copy small.positive{color:#3c8869}.sitepro-overall-copy small.negative{color:#b44e58}
+      .sitepro-overall-track{padding-top:8px}.sitepro-segments{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.sitepro-segments>span{position:relative;display:block;height:12px;border-radius:3px;background:#e5e7e9;overflow:hidden}.sitepro-segments>span>i{display:block;height:100%;background:#477bc9;border-radius:3px}
+      .sitepro-scale{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:7px}.sitepro-scale span{text-align:center;color:#9aa4ae;font-size:7px;font-weight:800}
+      .sitepro-section{padding:20px 28px 21px;border-bottom:1px solid #dfe5e9}.sitepro-section.compact{padding-bottom:18px}
+      .sitepro-section-title{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;margin-bottom:8px}.sitepro-section-title>div>span{display:block;margin-bottom:8px;font-size:15px;font-weight:900;color:#2c3b4c}.sitepro-section-title .sitepro-segments{max-width:760px}.sitepro-section-title strong{align-self:start;padding-top:1px;font-size:17px}.sitepro-note{margin:1px 0 18px;color:#5e6c7a;font-size:8px}
+      .sitepro-two-col{display:grid;grid-template-columns:1fr 1fr;gap:46px;padding:0 12px}.sitepro-two-col.quality{align-items:start}.sitepro-metric-group h3{margin:0 0 9px;color:#1f3042;font-size:13px}.sitepro-subgroup{margin-top:17px}
+      .sitepro-metric{display:grid;grid-template-columns:minmax(180px,1fr) auto;align-items:center;gap:14px;min-height:26px;border-bottom:1px dotted #edf0f2}.sitepro-metric:last-child{border-bottom:0}.sitepro-metric>span{color:#29394a;font-size:9px}.sitepro-metric>div{display:flex;align-items:center;justify-content:flex-end;gap:4px;text-align:right}.sitepro-metric b{font-size:9px}.sitepro-metric em{font-size:8px;font-style:normal;font-weight:850}.sitepro-metric.accent>span{color:#be2f34}
+      .sitepro-single-metric{max-width:520px;padding:0 12px}.sitepro-quality-note{margin:9px 0 0;color:#c33a3a;font-size:7px;font-style:italic;text-align:right}
+      .sitepro-focus{padding:19px 28px 22px;background:#fbfcfd}.sitepro-focus>span{display:block;font-size:15px;font-weight:900;color:#2a3b4c}.sitepro-focus ol{margin:7px 0 0;padding-left:22px}.sitepro-focus li{margin:4px 0;color:#263748;font-size:10px}
+      .sitepro-context{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:11px}.sitepro-context article{padding:13px 14px;border:1px solid #dfe6eb;border-radius:11px;background:#fff}.sitepro-context span{display:block;font-size:8px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#8794a1}.sitepro-context strong{display:block;margin-top:4px;font-size:20px;color:#21364b}.sitepro-context small{display:block;margin-top:3px;color:#9aa4ae;font-size:8px}.sitepro-leaders{margin-top:11px}
+      .sitepro-root .fantastic-plus{color:#3d8c45}.sitepro-root .fantastic{color:#467ecb}.sitepro-root .great{color:#84a936}.sitepro-root .fair{color:#dd8d12}.sitepro-root .poor{color:#cf3238}.sitepro-root .neutral{color:#97a0aa}
+      @media(max-width:1100px){.sitepro-overall{grid-template-columns:1fr}.sitepro-two-col{gap:24px}.sitepro-context{grid-template-columns:repeat(2,1fr)}}
+      @media(max-width:760px){.sitepro-controls{width:100%;flex-wrap:wrap}.sitepro-controls select{flex:1}.sitepro-report-head,.sitepro-overall,.sitepro-section,.sitepro-focus{padding-left:18px;padding-right:18px}.sitepro-two-col{grid-template-columns:1fr;padding:0}.sitepro-section-title{grid-template-columns:1fr}.sitepro-rank{text-align:left}.sitepro-context{grid-template-columns:1fr}.sitepro-segments{gap:5px}.sitepro-scale{gap:5px}}
+      @media print{.sitepro-page-heading,.sitepro-context,.sitepro-leaders,.sidebar,.app-topbar{display:none!important}.sitepro-report{box-shadow:none;border:0}.sitepro-root{padding:0}.sitepro-section{break-inside:avoid}}
+    `}</style>
+  </div>;
 }
+
+
 
 export function DriverScorecardsView({ organizationId, onOpenDriver, onImport }) {
   const load = useLoad(async () => {
