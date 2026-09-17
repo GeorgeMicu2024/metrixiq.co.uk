@@ -359,6 +359,44 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
   const maxWeekly=
     Math.max(1,...weekTotals);
 
+  const chartWidth=760;
+  const chartHeight=245;
+  const chartLeft=45;
+  const chartRight=25;
+  const chartTop=32;
+  const chartBottom=46;
+  const chartPlotWidth=chartWidth-chartLeft-chartRight;
+  const chartPlotHeight=chartHeight-chartTop-chartBottom;
+  const importedValues=weeks
+    .map((week,index)=>presentSet.has(week)?weekTotals[index]:null)
+    .filter(v=>v!=null);
+  const chartMax=Math.max(1,...importedValues);
+  const chartMin=Math.min(...importedValues);
+  const chartSpan=Math.max(1,chartMax-chartMin);
+  const trendPoints=weeks.map((week,index)=>{
+    const imported=presentSet.has(week);
+    const value=weekTotals[index];
+    const x=weeks.length<=1
+      ?chartLeft+chartPlotWidth/2
+      :chartLeft+(index/(weeks.length-1))*chartPlotWidth;
+    const y=imported
+      ?chartTop+((chartMax-value)/chartSpan)*chartPlotHeight
+      :null;
+    const previousIndex=[...weeks]
+      .slice(0,index)
+      .map((w,i)=>presentSet.has(w)?i:-1)
+      .filter(i=>i>=0)
+      .pop();
+    const previousValue=previousIndex==null?null:weekTotals[previousIndex];
+    const delta=imported&&previousValue!=null?value-previousValue:null;
+    return {week,index,imported,value,x,y,delta};
+  });
+  const importedTrendPoints=trendPoints.filter(p=>p.imported);
+  const linePoints=importedTrendPoints.map(p=>`${p.x},${p.y}`).join(" ");
+  const areaPoints=importedTrendPoints.length
+    ?`${chartLeft},${chartTop+chartPlotHeight} ${linePoints} ${importedTrendPoints[importedTrendPoints.length-1].x},${chartTop+chartPlotHeight}`
+    :"";
+
   const priority=
     [...ranking]
       .sort((a,b)=>
@@ -649,13 +687,13 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
                     }
 
                     const tone=
-                      value>=4
-                        ?"high"
-                        :value>=2
-                          ?"med"
-                          :value===1
-                            ?"low"
-                            :"zero";
+                      value===0
+                        ?"good"
+                        :value===1
+                          ?"warn"
+                          :value===2
+                            ?"med"
+                            :"high";
 
                     return <td
                       key={week}
@@ -721,33 +759,134 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
             </div>
           </div>
 
-          <div className="cx2-bars">
-            {weeks.map((week,index)=>{
-              const imported=presentSet.has(week);
-              const value=weekTotals[index];
+          <div className="cx2-trend-shell">
+            <div className="cx2-trend-legend">
+              <span><i className="dot current"/>Weekly DNR</span>
+              <span className="hint">Click a week to open its driver ranking</span>
+            </div>
 
-              const height=
-                imported
-                  ?Math.max(
-                    8,
-                    Math.round((value/maxWeekly)*100)
-                  )
-                  :0;
-
-              return <button
-                type="button"
-                disabled={!imported}
-                onClick={()=>chooseWeek(week)}
-                className={!imported?"missing":""}
-                key={week}
+            <div className="cx2-trend-chart">
+              <svg
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                role="img"
+                aria-label="Weekly concessions trend"
+                preserveAspectRatio="none"
               >
-                <span>{imported?value:"—"}</span>
-                <div>
-                  <i style={{height:`${height}%`}}/>
-                </div>
-                <small>{week}</small>
-              </button>;
-            })}
+                <defs>
+                  <linearGradient id="cx2TrendFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#4e9788" stopOpacity="0.22"/>
+                    <stop offset="100%" stopColor="#4e9788" stopOpacity="0.02"/>
+                  </linearGradient>
+                </defs>
+
+                {[0,0.25,0.5,0.75,1].map((step)=>{
+                  const y=chartTop+step*chartPlotHeight;
+                  return <line
+                    key={step}
+                    x1={chartLeft}
+                    y1={y}
+                    x2={chartWidth-chartRight}
+                    y2={y}
+                    className="cx2-gridline"
+                  />;
+                })}
+
+                {areaPoints&&<polygon
+                  points={areaPoints}
+                  fill="url(#cx2TrendFill)"
+                />}
+
+                {linePoints&&<polyline
+                  points={linePoints}
+                  className="cx2-trend-line"
+                />}
+
+                {trendPoints.map((point)=>{
+                  if(!point.imported){
+                    return <g key={point.week}>
+                      <circle
+                        cx={point.x}
+                        cy={chartTop+chartPlotHeight}
+                        r="5"
+                        className="cx2-missing-dot"
+                      />
+                      <text
+                        x={point.x}
+                        y={chartHeight-11}
+                        textAnchor="middle"
+                        className="cx2-axis-label missing"
+                      >
+                        {point.week}
+                      </text>
+                    </g>;
+                  }
+
+                  const selected=effectiveRankWeek===point.week;
+
+                  return <g
+                    key={point.week}
+                    className="cx2-point-group"
+                    onClick={()=>chooseWeek(point.week)}
+                  >
+                    {selected&&<circle
+                      cx={point.x}
+                      cy={point.y}
+                      r="12"
+                      className="cx2-selected-ring"
+                    />}
+
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      r="6"
+                      className="cx2-point"
+                    />
+
+                    <text
+                      x={point.x}
+                      y={Math.max(18,point.y-15)}
+                      textAnchor="middle"
+                      className="cx2-point-value"
+                    >
+                      {point.value}
+                    </text>
+
+                    <text
+                      x={point.x}
+                      y={chartHeight-11}
+                      textAnchor="middle"
+                      className={`cx2-axis-label ${selected?"selected":""}`}
+                    >
+                      {point.week}
+                    </text>
+                  </g>;
+                })}
+              </svg>
+            </div>
+
+            <div className="cx2-delta-row">
+              {trendPoints.map((point)=>
+                <button
+                  key={point.week}
+                  type="button"
+                  disabled={!point.imported}
+                  onClick={()=>chooseWeek(point.week)}
+                  className={`${effectiveRankWeek===point.week?"selected":""} ${!point.imported?"missing":""}`}
+                >
+                  <span>{point.week}</span>
+                  <b>{point.imported?point.value:"—"}</b>
+                  <small className={point.delta>0?"up":point.delta<0?"down":"flat"}>
+                    {point.delta==null
+                      ?"No comparison"
+                      :point.delta>0
+                        ?`+${point.delta} vs prev`
+                        :point.delta<0
+                          ?`${point.delta} vs prev`
+                          :"No change"}
+                  </small>
+                </button>
+              )}
+            </div>
           </div>
         </article>
 
@@ -1209,24 +1348,28 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
         font-weight:800;
       }
 
-      .cx2-score.zero{
-        background:#f1f4f6;
-        color:#8b98a6;
+      .cx2-score.good{
+        background:#e5f5ec;
+        color:#26744f;
+        border:1px solid #cce9d9;
       }
 
-      .cx2-score.low{
-        background:#f7f1df;
-        color:#8b6a25;
+      .cx2-score.warn{
+        background:#fff4cf;
+        color:#8a6818;
+        border:1px solid #f2e3ad;
       }
 
       .cx2-score.med{
-        background:#f6e7c3;
-        color:#8c610a;
+        background:#fde6b7;
+        color:#925f0a;
+        border:1px solid #f2d591;
       }
 
       .cx2-score.high{
-        background:#f5dddf;
-        color:#a2464d;
+        background:#f7dde0;
+        color:#a3424b;
+        border:1px solid #edc7cc;
       }
 
       .cx2-empty{
@@ -1262,6 +1405,171 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
         grid-template-columns:minmax(0,1.45fr) minmax(320px,.8fr);
         gap:14px;
         margin-bottom:14px;
+      }
+
+      .cx2-trend-shell{
+        display:flex;
+        flex-direction:column;
+        gap:12px;
+      }
+
+      .cx2-trend-legend{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:14px;
+        color:#66778a;
+        font-size:11px;
+      }
+
+      .cx2-trend-legend span{
+        display:flex;
+        align-items:center;
+        gap:7px;
+      }
+
+      .cx2-trend-legend .dot{
+        width:8px;
+        height:8px;
+        border-radius:50%;
+        display:inline-block;
+        background:#4e9788;
+      }
+
+      .cx2-trend-legend .hint{
+        color:#9aa5b1;
+      }
+
+      .cx2-trend-chart{
+        height:300px;
+        border:1px solid #e6ebef;
+        background:linear-gradient(180deg,#fcfefe 0%,#ffffff 100%);
+        border-radius:13px;
+        overflow:hidden;
+      }
+
+      .cx2-trend-chart svg{
+        width:100%;
+        height:100%;
+        display:block;
+        overflow:visible;
+      }
+
+      .cx2-gridline{
+        stroke:#e8edf1;
+        stroke-width:1;
+        stroke-dasharray:3 5;
+      }
+
+      .cx2-trend-line{
+        fill:none;
+        stroke:#4e9788;
+        stroke-width:4;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+
+      .cx2-point-group{
+        cursor:pointer;
+      }
+
+      .cx2-point{
+        fill:#ffffff;
+        stroke:#4e9788;
+        stroke-width:4;
+      }
+
+      .cx2-selected-ring{
+        fill:rgba(78,151,136,.13);
+        stroke:#8fc1b6;
+        stroke-width:1;
+      }
+
+      .cx2-missing-dot{
+        fill:#ffffff;
+        stroke:#c6ced6;
+        stroke-width:2;
+        stroke-dasharray:2 2;
+      }
+
+      .cx2-point-value{
+        fill:#1e3147;
+        font-size:12px;
+        font-weight:800;
+      }
+
+      .cx2-axis-label{
+        fill:#7d8b9b;
+        font-size:10px;
+        font-weight:800;
+      }
+
+      .cx2-axis-label.selected{
+        fill:#2f7668;
+      }
+
+      .cx2-axis-label.missing{
+        fill:#b4bdc6;
+      }
+
+      .cx2-delta-row{
+        display:grid;
+        grid-template-columns:repeat(8,minmax(82px,1fr));
+        gap:7px;
+      }
+
+      .cx2-delta-row button{
+        min-width:0;
+        border:1px solid #e1e7ec;
+        background:#fff;
+        border-radius:10px;
+        padding:8px 9px;
+        text-align:left;
+        cursor:pointer;
+      }
+
+      .cx2-delta-row button.selected{
+        border-color:#8ebeb3;
+        background:#eff8f5;
+      }
+
+      .cx2-delta-row button.missing{
+        border-style:dashed;
+        background:#fafbfc;
+        cursor:not-allowed;
+      }
+
+      .cx2-delta-row span{
+        display:block;
+        font-size:9px;
+        font-weight:800;
+        color:#8a97a6;
+      }
+
+      .cx2-delta-row b{
+        display:block;
+        margin-top:2px;
+        font-size:16px;
+        color:#20344a;
+      }
+
+      .cx2-delta-row small{
+        display:block;
+        margin-top:3px;
+        font-size:9px;
+        font-weight:800;
+      }
+
+      .cx2-delta-row small.up{
+        color:#b54b57;
+      }
+
+      .cx2-delta-row small.down{
+        color:#2f7d5f;
+      }
+
+      .cx2-delta-row small.flat{
+        color:#8895a3;
       }
 
       .cx2-bars{
@@ -1418,6 +1726,12 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
 
         .cx2-overview-grid{
           grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:1100px){
+        .cx2-delta-row{
+          grid-template-columns:repeat(4,minmax(82px,1fr));
         }
       }
 
