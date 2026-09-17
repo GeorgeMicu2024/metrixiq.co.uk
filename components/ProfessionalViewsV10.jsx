@@ -14,33 +14,72 @@ const trid = (d) => d?.trid || d?.id || "—";
 
 function useDbRows(organizationId, kind){
   const [state,setState]=useState({loading:true,error:"",rows:[]});
+
   useEffect(()=>{
     let alive=true;
-    if(!organizationId){setState({loading:false,error:"",rows:[]});return ()=>{};}
+
+    if(!organizationId){
+      setState({loading:false,error:"",rows:[]});
+      return ()=>{};
+    }
+
     (async()=>{
       try{
         setState((s)=>({...s,loading:true,error:""}));
+
         const supabase=getSupabaseBrowserClient();
-        let query=supabase.from("driver_metrics")
-          .select("driver_id,week_label,period_start,period_end,iadc,mentor_score,ementor,fico,concessions,raw_data,risk,issue,drivers(id,trid,full_name,site,status)")
-          .eq("organization_id",organizationId)
-          .order("period_end",{ascending:true})
-          .limit(10000);
-        if(kind==="iadc") query=query.not("iadc","is",null);
-        
-        const {data,error}=await query;
-        if(error)throw error;
-        const rows=(data||[]).filter((row)=>{
-          if(kind==="mentor") return n(row.mentor_score ?? row.ementor ?? row.fico)!=null || row.raw_data?.mentor;
+        const PAGE_SIZE=1000;
+        const allRows=[];
+
+        for(let from=0;;from+=PAGE_SIZE){
+          let query=supabase
+            .from("driver_metrics")
+            .select("driver_id,week_label,period_start,period_end,iadc,mentor_score,ementor,fico,concessions,raw_data,risk,issue,drivers(id,trid,full_name,site,status)")
+            .eq("organization_id",organizationId)
+            .order("period_end",{ascending:true})
+            .order("driver_id",{ascending:true})
+            .range(from,from+PAGE_SIZE-1);
+
+          if(kind==="iadc"){
+            query=query.not("iadc","is",null);
+          }
+
+          const {data,error}=await query;
+
+          if(error) throw error;
+
+          const page=data||[];
+          allRows.push(...page);
+
+          if(page.length<PAGE_SIZE) break;
+        }
+
+        const rows=allRows.filter((row)=>{
+          if(kind==="mentor"){
+            return n(row.mentor_score ?? row.ementor ?? row.fico)!=null || row.raw_data?.mentor;
+          }
           return true;
         });
-        if(alive)setState({loading:false,error:"",rows});
+
+        if(alive){
+          setState({loading:false,error:"",rows});
+        }
+
       }catch(error){
-        if(alive)setState({loading:false,error:error?.message||"Could not load data.",rows:[]});
+        if(alive){
+          setState({
+            loading:false,
+            error:error?.message||"Could not load data.",
+            rows:[]
+          });
+        }
       }
     })();
+
     return ()=>{alive=false;};
+
   },[organizationId,kind]);
+
   return state;
 }
 function Loading({text}){return <section className="panel ops-empty"><div className="auth-spinner"/><b>{text}</b></section>;}
