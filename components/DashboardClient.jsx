@@ -57,6 +57,33 @@ function avg(rows, key) {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
 
+const DRIVER_METRIC_SELECT = "driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,psb,reattempts,concessions,lor,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,scorecard_score,tier,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)";
+
+async function fetchAllDriverMetricRows(supabase, organizationId) {
+  const pageSize = 1000;
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("driver_metrics")
+      .select(DRIVER_METRIC_SELECT)
+      .eq("organization_id", organizationId)
+      .order("period_end", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const page = data || [];
+    rows.push(...page);
+
+    if (page.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return rows;
+}
+
 function MetricCard({ label, value, target, note, accent = "good" }) {
   return <article className="metric-card"><div className="metric-top"><span>{label}</span><i className={`metric-dot ${accent}`} /></div><strong>{value}</strong><div className="metric-bottom"><span>{target}</span><em>{note}</em></div></article>;
 }
@@ -240,13 +267,7 @@ export default function DashboardClient() {
         });
         const { data: scorecards, error: scorecardError } = await supabase.from("driver_scorecards").select("*").eq("organization_id", resolved.organization.id).order("full_name");
         if (scorecardError) throw scorecardError;
-        const { data: metricRows, error: metricRowsError } = await supabase
-          .from("driver_metrics")
-          .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,psb,reattempts,concessions,lor,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,scorecard_score,tier,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)")
-          .eq("organization_id", resolved.organization.id)
-          .order("period_end", { ascending: true })
-          .limit(10000);
-        if (metricRowsError) throw metricRowsError;
+        const metricRows = await fetchAllDriverMetricRows(supabase, resolved.organization.id);
         if (alive) {
           setDbDrivers((scorecards || []).map(mapScorecard));
           setMetricHistoryRows(metricRows || []);
@@ -285,13 +306,7 @@ export default function DashboardClient() {
       .order("full_name");
     if (scorecardError) throw scorecardError;
 
-    const { data: metricRows, error: metricRowsError } = await supabase
-      .from("driver_metrics")
-      .select("driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,psb,reattempts,concessions,lor,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,scorecard_score,tier,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)")
-      .eq("organization_id", workspace.organization.id)
-      .order("period_end", { ascending: true })
-      .limit(10000);
-    if (metricRowsError) throw metricRowsError;
+    const metricRows = await fetchAllDriverMetricRows(supabase, workspace.organization.id);
 
     setDbDrivers((scorecards || []).map(mapScorecard));
     setMetricHistoryRows(metricRows || []);
