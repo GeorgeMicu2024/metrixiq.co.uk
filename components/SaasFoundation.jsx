@@ -24,6 +24,15 @@ const NAV_MIN_PLAN = {
   reports: "pro",
 
   intelligence: "business",
+  team: "business",
+};
+
+const PLAN_LABELS = {
+  free: "Free",
+  pro: "Starter",
+  business: "Professional",
+  full: "Business",
+  suspended: "Suspended",
 };
 
 function rowFromRpc(data) {
@@ -32,12 +41,7 @@ function rowFromRpc(data) {
 }
 
 function planLabel(plan) {
-  const value = String(plan || "free").toLowerCase();
-  if (value === "pro") return "Pro";
-  if (value === "business") return "Business";
-  if (value === "full") return "Full";
-  if (value === "suspended") return "Suspended";
-  return "Free";
+  return PLAN_LABELS[String(plan || "free").toLowerCase()] || "Free";
 }
 
 function dateLabel(value) {
@@ -67,9 +71,25 @@ function daysLeft(value) {
   return Math.max(0, Math.ceil((end - Date.now()) / 86400000));
 }
 
-export function canAccessNav(id, access, platformAdmin) {
+async function authToken() {
+  const supabase = getSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  const token = data?.session?.access_token;
+  if (!token) throw new Error("Your secure session has expired. Please sign in again.");
+  return token;
+}
+
+export function canAccessNav(id, access, platformAdmin, workspaceRole = "viewer") {
   if (id === "admin") return Boolean(platformAdmin);
   if (platformAdmin) return true;
+
+  const role = String(workspaceRole || "viewer").toLowerCase();
+  const managers = ["owner", "admin", "manager"];
+
+  if (["billing", "team", "imports", "data-quality"].includes(id) && !managers.includes(role)) {
+    return false;
+  }
 
   const effective = String(access?.effective_plan || "free").toLowerCase();
   const required = NAV_MIN_PLAN[id] || "full";
@@ -208,10 +228,34 @@ export function PlanOnboardingView({ organizationId, organizationName, onComplet
 export function BillingProView({ access, organizationId, onAccessChanged, platformAdmin = false }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [cycle, setCycle] = useState("month");
 
   const trialDays = daysLeft(access?.trial_ends_at);
   const effectivePlan = platformAdmin ? "full" : String(access?.effective_plan || "free");
   const status = platformAdmin ? "active" : String(access?.subscription_status || "free");
+
+  async function refreshAccess() {
+    if (!organizationId) return;
+    const supabase = getSupabaseBrowserClient();
+    const { data, error: accessError } = await supabase.rpc("get_workspace_access", {
+      p_organization_id: organizationId,
+    });
+    if (accessError) throw accessError;
+    onAccessChanged?.(rowFromRpc(data));
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("billing") !== "success") return;
+
+    const timer = window.setTimeout(() => {
+      refreshAccess().catch(() => {});
+      window.history.replaceState({}, "", "/app");
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [organizationId]);
 
   async function startTrial() {
     if (!organizationId || busy) return;
@@ -225,13 +269,7 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
         p_organization_id: organizationId,
       });
       if (trialError) throw trialError;
-
-      const { data, error: accessError } = await supabase.rpc("get_workspace_access", {
-        p_organization_id: organizationId,
-      });
-      if (accessError) throw accessError;
-
-      onAccessChanged?.(rowFromRpc(data));
+      await refreshAccess();
     } catch (e) {
       setError(e?.message || "Could not start the trial.");
     } finally {
@@ -239,12 +277,102 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
     }
   }
 
+  async function beginCheckout(plan) {
+    if (!organizationId || busy) return;
+
+    setBusy(plan);
+    setError("");
+
+    try {
+      const token = await authToken();
+      const response = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          organizationId,
+          plan,
+          interval: cycle,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Could not start Stripe Checkout.");
+      if (!payload?.url) throw new Error("Stripe Checkout URL was not returned.");
+
+      window.location.assign(payload.url);
+    } catch (e) {
+      setError(e?.message || "Could not start Stripe Checkout.");
+      setBusy("");
+    }
+  }
+
+  async function openPortal() {
+    if (!organizationId || busy) return;
+
+    setBusy("portal");
+    setError("");
+
+    try {
+      const token = await authToken();
+      const response = await fetch("/api/billing/portal", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ organizationId }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Could not open the billing portal.");
+      if (!payload?.url) throw new Error("Billing portal URL was not returned.");
+
+      window.location.assign(payload.url);
+    } catch (e) {
+      setError(e?.message || "Could not open the billing portal.");
+      setBusy("");
+    }
+  }
+
   const plans = [
-    ["Free", "free", "£0", "Core dashboard for small teams", ["Dashboard", "Drivers", "Performance"]],
-    ["Pro", "pro", "£39", "Weekly operations & scorecards", ["Scorecards", "IADC / Mentor / CDF", "Coaching & reports"]],
-    ["Business", "business", "£89", "Advanced fleet intelligence", ["Everything in Pro", "AI Insights", "Expanded operations"]],
-    ["Full", "full", "£169", "Maximum platform capability", ["Everything in Business", "Premium feature set", "Priority capability"]],
+    {
+      name: "Free",
+      key: "free",
+      month: "£0",
+      year: "£0",
+      description: "Core fleet visibility for small teams",
+      features: ["Dashboard", "Drivers", "Core performance"],
+    },
+    {
+      name: "Starter",
+      key: "pro",
+      month: "£29",
+      year: "£290",
+      description: "Weekly operational scorecards and quality tools",
+      features: ["Scorecards", "IADC / Mentor / CDF", "Coaching & reports"],
+    },
+    {
+      name: "Professional",
+      key: "business",
+      month: "£69",
+      year: "£690",
+      description: "Advanced fleet intelligence for growing operations",
+      features: ["Everything in Starter", "AI Insights", "Team Management"],
+    },
+    {
+      name: "Business",
+      key: "full",
+      month: "£149",
+      year: "£1,490",
+      description: "Maximum MetrixIQ capability for larger operations",
+      features: ["Everything in Professional", "Full platform access", "Premium capability"],
+    },
   ];
+
+  const hasStripeSubscription = ["active", "past_due", "cancelled"].includes(status);
 
   return (
     <>
@@ -252,7 +380,15 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
         <div>
           <span className="page-kicker">ACCOUNT</span>
           <h1>Plans & billing</h1>
-          <p>Manage your MetrixIQ access level and subscription.</p>
+          <p>Secure subscriptions powered by Stripe.</p>
+        </div>
+
+        <div className="page-actions">
+          {hasStripeSubscription && !platformAdmin && (
+            <button className="btn ghost" disabled={Boolean(busy)} onClick={openPortal}>
+              {busy === "portal" ? "Opening…" : "Manage subscription"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -264,8 +400,10 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
             {status === "trialing"
               ? `Premium trial · ${trialDays} day${trialDays === 1 ? "" : "s"} remaining`
               : status === "active"
-                ? "Paid subscription active"
-                : "Free workspace"}
+                ? "Stripe subscription active"
+                : status === "past_due"
+                  ? "Payment requires attention"
+                  : "Free workspace"}
           </p>
         </div>
 
@@ -278,38 +416,48 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
         )}
       </section>
 
+      <div className="saas-cycle-switch">
+        <button className={cycle === "month" ? "active" : ""} onClick={() => setCycle("month")}>
+          Monthly
+        </button>
+        <button className={cycle === "year" ? "active" : ""} onClick={() => setCycle("year")}>
+          Annual
+        </button>
+      </div>
+
       {error && <div className="saas-error">{error}</div>}
 
       <div className="saas-billing-grid">
-        {plans.map(([name, key, price, description, features]) => {
-          const active = effectivePlan === key && (status === "active" || status === "free");
-          const trialActive = status === "trialing" && key === "full";
+        {plans.map((plan) => {
+          const active = effectivePlan === plan.key && (status === "active" || status === "free");
+          const amount = cycle === "year" ? plan.year : plan.month;
+          const period = cycle === "year" ? "/year" : "/month";
 
           return (
-            <article key={key} className={key === "business" ? "recommended" : ""}>
-              {key === "business" && <span className="saas-recommended">POPULAR</span>}
-              <h3>{name}</h3>
-              <strong>{price}<small>/month</small></strong>
-              <p>{description}</p>
-              <ul>{features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul>
+            <article key={plan.key} className={plan.key === "business" ? "recommended" : ""}>
+              {plan.key === "business" && <span className="saas-recommended">POPULAR</span>}
+              <h3>{plan.name}</h3>
+              <strong>{amount}<small>{plan.key === "free" ? "" : period}</small></strong>
+              <p>{plan.description}</p>
+              <ul>{plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul>
 
-              {active || trialActive ? (
-                <button className="saas-secondary wide" disabled>
-                  {trialActive ? "Trial active" : "Current plan"}
+              {platformAdmin ? (
+                <button className="saas-secondary wide" disabled>Owner access</button>
+              ) : active ? (
+                <button className="saas-secondary wide" disabled>Current plan</button>
+              ) : plan.key === "free" ? (
+                <button className="saas-secondary wide" disabled>Free access</button>
+              ) : hasStripeSubscription ? (
+                <button className="saas-primary wide" disabled={Boolean(busy)} onClick={openPortal}>
+                  Manage in Stripe
                 </button>
-              ) : key === "full" && status === "free" && !access?.trial_started_at ? (
-                <button className="saas-primary wide" disabled={Boolean(busy)} onClick={startTrial}>
-                  {busy === "trial" ? "Starting…" : "Try Full free for 7 days"}
-                </button>
-              ) : key === "free" ? (
-                <button className="saas-secondary wide" disabled>Available</button>
               ) : (
                 <button
                   className="saas-primary wide"
-                  disabled
-                  title="Stripe Checkout will be connected in the next R1 billing step."
+                  disabled={Boolean(busy)}
+                  onClick={() => beginCheckout(plan.key)}
                 >
-                  Stripe checkout next
+                  {busy === plan.key ? "Opening Stripe…" : `Choose ${plan.name}`}
                 </button>
               )}
             </article>
@@ -317,12 +465,365 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
         })}
       </div>
 
+      {!platformAdmin && status === "free" && !access?.trial_started_at && (
+        <div className="saas-billing-note">
+          <b>Not ready to subscribe?</b>
+          <p>You can still unlock the full platform for 7 days with no card required.</p>
+          <button className="saas-secondary" disabled={Boolean(busy)} onClick={startTrial}>
+            {busy === "trial" ? "Starting…" : "Start 7-Day Trial"}
+          </button>
+        </div>
+      )}
+
       <div className="saas-billing-note">
-        <b>R1 billing foundation is active.</b>
+        <b>Live Stripe catalogue</b>
         <p>
-          Free and 7-day trial access are live. Paid plan buttons are intentionally locked until
-          Stripe Checkout and webhook synchronization are connected, so nobody can be charged
-          without the subscription state being verified automatically.
+          MetrixIQ currently uses the live Stripe Starter, Professional and Business products
+          already configured on your Stripe account. Checkout is hosted securely by Stripe.
+        </p>
+      </div>
+
+      <SaasStyles />
+    </>
+  );
+}
+
+export function TeamManagementView({ organizationId, workspaceRole, platformAdmin = false }) {
+  const [members, setMembers] = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("viewer");
+  const [sites, setSites] = useState("");
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const canManage = platformAdmin || ["owner", "admin", "manager"].includes(String(workspaceRole || "").toLowerCase());
+
+  async function load() {
+    if (!organizationId) return;
+    setError("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const [{ data: userData }, membersResult, invitesResult] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase.rpc("list_team_members", { p_organization_id: organizationId }),
+        supabase.rpc("list_team_invites", { p_organization_id: organizationId }),
+      ]);
+
+      if (membersResult.error) throw membersResult.error;
+      if (invitesResult.error) throw invitesResult.error;
+
+      setCurrentUserId(userData?.user?.id || "");
+      setMembers((membersResult.data || []).map((member) => ({
+        ...member,
+        edit_role: member.role,
+        edit_sites: (member.site_scope || []).join(", "),
+      })));
+      setInvites(invitesResult.data || []);
+    } catch (e) {
+      setError(e?.message || "Could not load team members.");
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, [organizationId]);
+
+  async function invite() {
+    if (!canManage || !email.trim()) return;
+
+    setBusy("invite");
+    setError("");
+    setMessage("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const siteScope = sites.split(",").map((value) => value.trim()).filter(Boolean);
+
+      const { data, error: inviteError } = await supabase.rpc("create_team_invite", {
+        p_organization_id: organizationId,
+        p_email: email.trim(),
+        p_role: role,
+        p_site_scope: siteScope,
+      });
+
+      if (inviteError) throw inviteError;
+
+      const result = Array.isArray(data) ? data[0] : data;
+      setMessage(
+        result?.status === "accepted"
+          ? "The registered user was added to this workspace."
+          : "Invite created. Ask the user to register/sign in with the invited email."
+      );
+
+      setEmail("");
+      setRole("viewer");
+      setSites("");
+      await load();
+    } catch (e) {
+      setError(e?.message || "Could not create the invite.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  function editMember(userId, patch) {
+    setMembers((current) => current.map((member) => (
+      member.user_id === userId ? { ...member, ...patch } : member
+    )));
+  }
+
+  async function saveMember(member) {
+    setBusy(`save-${member.user_id}`);
+    setError("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const siteScope = String(member.edit_sites || "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      const { error: updateError } = await supabase.rpc("update_team_member", {
+        p_organization_id: organizationId,
+        p_user_id: member.user_id,
+        p_role: member.edit_role,
+        p_site_scope: siteScope,
+      });
+
+      if (updateError) throw updateError;
+      await load();
+    } catch (e) {
+      setError(e?.message || "Could not update the team member.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function removeMember(member) {
+    if (!window.confirm(`Remove ${member.full_name || member.email || "this user"} from the workspace?`)) return;
+
+    setBusy(`remove-${member.user_id}`);
+    setError("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: removeError } = await supabase.rpc("remove_team_member", {
+        p_organization_id: organizationId,
+        p_user_id: member.user_id,
+      });
+
+      if (removeError) throw removeError;
+      await load();
+    } catch (e) {
+      setError(e?.message || "Could not remove the team member.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function cancelInvite(invite) {
+    setBusy(`invite-${invite.token}`);
+    setError("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error: cancelError } = await supabase.rpc("cancel_team_invite", {
+        p_organization_id: organizationId,
+        p_token: invite.token,
+      });
+
+      if (cancelError) throw cancelError;
+      await load();
+    } catch (e) {
+      setError(e?.message || "Could not cancel the invite.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function copySignupLink() {
+    try {
+      await navigator.clipboard.writeText("https://www.metrixiq.co.uk/login");
+      setMessage("Signup link copied. The invite is matched automatically by email.");
+    } catch {
+      setMessage("Signup URL: https://www.metrixiq.co.uk/login");
+    }
+  }
+
+  return (
+    <>
+      <div className="page-heading">
+        <div>
+          <span className="page-kicker">ACCOUNT</span>
+          <h1>Team Management</h1>
+          <p>Invite managers, dispatchers and viewers into this workspace.</p>
+        </div>
+      </div>
+
+      {error && <div className="saas-error">{error}</div>}
+      {message && <div className="saas-success">{message}</div>}
+
+      <section className="panel team-invite-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Invite a team member</h2>
+            <p>Existing accounts are added immediately. New users are linked when they register with the invited email.</p>
+          </div>
+        </div>
+
+        <div className="team-invite-grid">
+          <label>
+            <span>Email</span>
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="manager@company.co.uk" />
+          </label>
+
+          <label>
+            <span>Role</span>
+            <select value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="manager">Manager</option>
+              <option value="dispatcher">Dispatcher</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Site scope</span>
+            <input value={sites} onChange={(e) => setSites(e.target.value)} placeholder="DLS2, DXM3 · blank = all sites" />
+          </label>
+
+          <button className="saas-primary" disabled={!canManage || busy === "invite"} onClick={invite}>
+            {busy === "invite" ? "Inviting…" : "Create invite"}
+          </button>
+        </div>
+      </section>
+
+      <section className="panel team-list-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Workspace team</h2>
+            <p>{members.length} member{members.length === 1 ? "" : "s"}</p>
+          </div>
+        </div>
+
+        <div className="table-wrap">
+          <table className="data-table team-table">
+            <thead>
+              <tr>
+                <th>Person</th>
+                <th>Role</th>
+                <th>Site scope</th>
+                <th>Joined</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((member) => {
+                const protectedMember = ["owner", "admin"].includes(member.role);
+                const isSelf = member.user_id === currentUserId;
+
+                return (
+                  <tr key={member.user_id}>
+                    <td>
+                      <b>{member.full_name || "Unnamed user"}</b>
+                      <small className="saas-cell-small">{member.email || "No email"}</small>
+                    </td>
+
+                    <td>
+                      <select
+                        value={member.edit_role}
+                        disabled={!canManage || protectedMember}
+                        onChange={(e) => editMember(member.user_id, { edit_role: e.target.value })}
+                      >
+                        {protectedMember && <option value={member.role}>{member.role}</option>}
+                        {!protectedMember && <>
+                          <option value="manager">Manager</option>
+                          <option value="dispatcher">Dispatcher</option>
+                          <option value="viewer">Viewer</option>
+                        </>}
+                      </select>
+                    </td>
+
+                    <td>
+                      <input
+                        value={member.edit_sites}
+                        disabled={!canManage || protectedMember}
+                        onChange={(e) => editMember(member.user_id, { edit_sites: e.target.value })}
+                        placeholder="All sites"
+                      />
+                    </td>
+
+                    <td>{dateLabel(member.joined_at)}</td>
+
+                    <td>
+                      {!protectedMember && (
+                        <div className="team-actions">
+                          <button
+                            className="team-save"
+                            disabled={!canManage || busy === `save-${member.user_id}`}
+                            onClick={() => saveMember(member)}
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="team-remove"
+                            disabled={!canManage || isSelf || busy === `remove-${member.user_id}`}
+                            onClick={() => removeMember(member)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {!members.length && <tr><td colSpan="5">No team members found.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel team-pending-panel">
+        <div className="panel-head">
+          <div>
+            <h2>Pending invites</h2>
+            <p>Invites expire after 14 days.</p>
+          </div>
+          <button className="btn ghost" onClick={copySignupLink}>Copy signup link</button>
+        </div>
+
+        <div className="team-pending-list">
+          {invites.map((invite) => (
+            <div key={invite.token}>
+              <div>
+                <b>{invite.email}</b>
+                <small>
+                  {invite.role} · {(invite.site_scope || []).length ? invite.site_scope.join(", ") : "All sites"} · expires {dateLabel(invite.expires_at)}
+                </small>
+              </div>
+              <button
+                disabled={busy === `invite-${invite.token}`}
+                onClick={() => cancelInvite(invite)}
+              >
+                Cancel
+              </button>
+            </div>
+          ))}
+
+          {!invites.length && <p className="team-empty">No pending invites.</p>}
+        </div>
+      </section>
+
+      <div className="saas-billing-note">
+        <b>Role model</b>
+        <p>
+          Managers can manage the workspace and team. Dispatchers and viewers receive reduced management navigation.
+          Site scope is stored now and will be enforced across every operational dataset in the dedicated security-hardening step.
         </p>
       </div>
 
@@ -558,9 +1059,9 @@ export function PlatformAdminView() {
                             aria-label={`Change plan for ${account.organization_name || account.email}`}
                           >
                             <option value="free">Free</option>
-                            <option value="pro">Pro</option>
-                            <option value="business">Business</option>
-                            <option value="full">Full</option>
+                            <option value="pro">Starter</option>
+                            <option value="business">Professional</option>
+                            <option value="full">Business</option>
                           </select>
 
                           <button
@@ -588,8 +1089,8 @@ export function PlatformAdminView() {
       <div className="saas-billing-note">
         <b>Protected platform control</b>
         <p>
-          The account directory and administrative actions are enforced by Supabase SECURITY DEFINER
-          functions that only accept the platform owner. Hiding this page in the UI is not the security boundary.
+          The account directory and administrative actions are enforced by protected Supabase functions
+          that only accept the platform owner.
         </p>
       </div>
 
@@ -683,7 +1184,9 @@ function SaasStyles() {
       .wide{width:100%}
       .saas-fine{margin:10px 0 0;color:#929da6;font-size:8px;line-height:1.5}
       .saas-trust{text-align:center;margin:19px 0 0;color:#98a3ad;font-size:8px}
-      .saas-error{margin:12px 0;padding:10px 12px;border:1px solid #efc8cd;border-radius:8px;background:#fff3f4;color:#a7414c;font-size:9px}
+      .saas-error,.saas-success{margin:12px 0;padding:10px 12px;border-radius:8px;font-size:9px}
+      .saas-error{border:1px solid #efc8cd;background:#fff3f4;color:#a7414c}
+      .saas-success{border:1px solid #c9e5dc;background:#f2faf7;color:#347562}
       .saas-current-plan{
         display:flex;
         justify-content:space-between;
@@ -701,6 +1204,9 @@ function SaasStyles() {
       .saas-trial-counter{text-align:right}
       .saas-trial-counter strong{display:block;font-size:28px;color:#347f6d}
       .saas-trial-counter span,.saas-trial-counter small{display:block;color:#8a98a3;font-size:8px}
+      .saas-cycle-switch{display:flex;width:max-content;margin:0 0 12px;padding:3px;border:1px solid #dce5e9;border-radius:10px;background:#fff}
+      .saas-cycle-switch button{border:0;border-radius:7px;background:transparent;padding:7px 13px;color:#71808d;font-size:8px;font-weight:900;cursor:pointer}
+      .saas-cycle-switch button.active{background:#183044;color:#fff}
       .saas-billing-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
       .saas-billing-grid article{
         position:relative;
@@ -723,7 +1229,7 @@ function SaasStyles() {
         background:#f5faf8;
       }
       .saas-billing-note b{display:block;color:#30584e;font-size:9px}
-      .saas-billing-note p{margin:4px 0 0;color:#70837e;font-size:8px;line-height:1.55}
+      .saas-billing-note p{margin:4px 0 8px;color:#70837e;font-size:8px;line-height:1.55}
       .saas-owner-chip{
         display:inline-flex;
         align-items:center;
@@ -784,9 +1290,33 @@ function SaasStyles() {
       }
       .saas-admin-actions button.suspend{border:1px solid #efc7cc;background:#fff4f5;color:#a4434e}
       .saas-admin-actions button.restore{border:1px solid #c9e5dc;background:#f2faf7;color:#347562}
+      .team-invite-panel,.team-list-panel,.team-pending-panel{margin-bottom:11px}
+      .team-invite-grid{display:grid;grid-template-columns:1.4fr .7fr 1fr auto;gap:9px;align-items:end}
+      .team-invite-grid label>span{display:block;margin-bottom:5px;color:#7a8995;font-size:8px;font-weight:900}
+      .team-invite-grid input,.team-invite-grid select,.team-table input,.team-table select{
+        width:100%;
+        height:36px;
+        border:1px solid #dbe4e8;
+        border-radius:8px;
+        background:#fff;
+        padding:0 9px;
+        color:#34495c;
+        font-size:8px;
+      }
+      .team-table{min-width:900px}
+      .team-actions{display:flex;gap:5px}
+      .team-actions button,.team-pending-list button{height:30px;padding:0 9px;border-radius:7px;font-size:7px;font-weight:900;cursor:pointer}
+      .team-save{border:1px solid #c9e5dc;background:#f2faf7;color:#347562}
+      .team-remove,.team-pending-list button{border:1px solid #efc7cc;background:#fff4f5;color:#a4434e}
+      .team-pending-list>div{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid #edf1f3}
+      .team-pending-list>div:last-child{border-bottom:0}
+      .team-pending-list b{display:block;font-size:9px}
+      .team-pending-list small{display:block;margin-top:3px;color:#8a98a3;font-size:8px}
+      .team-empty{margin:0;color:#8b98a2;font-size:9px}
       @media(max-width:1050px){
         .saas-billing-grid{grid-template-columns:repeat(2,1fr)}
         .saas-admin-summary{grid-template-columns:repeat(2,1fr)}
+        .team-invite-grid{grid-template-columns:1fr 1fr}
       }
       @media(max-width:700px){
         .saas-fullscreen{padding:14px}
@@ -798,6 +1328,7 @@ function SaasStyles() {
         .saas-admin-filters{width:100%;flex-direction:column}
         .saas-admin-filters input,.saas-admin-filters select{width:100%;min-width:0}
         .saas-admin-toolbar{align-items:flex-start;flex-direction:column}
+        .team-invite-grid{grid-template-columns:1fr}
       }
     `}</style>
   );

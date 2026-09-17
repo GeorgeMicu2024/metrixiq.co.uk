@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "./Brand";
-import { BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspaceView, canAccessNav } from "./SaasFoundation";
+import {BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspaceView, canAccessNav, TeamManagementView } from "./SaasFoundation";
 import { analyseFiles } from "../lib/analyzer";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
@@ -30,10 +30,11 @@ const nav = [
   ["data-quality", "Data Quality"],
   ["reports", "Reports"],
   ["billing", "Plans & Billing"],
+  ["team", "Team Management"],
   ["settings", "Settings"],
   ["admin", "Super Admin"],
 ];
-const icon = { dashboard:"▦", "site-scorecards":"▤", "driver-scorecards":"◫", drivers:"◎", performance:"↗", iadc:"✓", cdf:"◈", mentor:"◇", concessions:"◆", coaching:"✓", intelligence:"✦", imports:"⇧", "data-quality":"⌁", reports:"▤", billing:"£", settings:"⚙", admin:"♛" };
+const icon = { dashboard:"▦", "site-scorecards":"▤", "driver-scorecards":"◫", drivers:"◎", performance:"↗", iadc:"✓", cdf:"◈", mentor:"◇", concessions:"◆", coaching:"✓", intelligence:"✦", imports:"⇧", "data-quality":"⌁", reports:"▤", billing:"£", settings:"⚙", team:"◉", admin:"♛" };
 function navSection(index){
   if(index===1) return "SCORECARDS";
   if(index===3) return "OPERATIONS";
@@ -41,7 +42,7 @@ function navSection(index){
   if(index===11) return "DATA";
   if(index===13) return "REPORTING";
   if(index===14) return "ACCOUNT";
-  if(index===16) return "PLATFORM";
+  if(index===17) return "PLATFORM";
   return "";
 }
 
@@ -300,6 +301,7 @@ export default function DashboardClient() {
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) { router.replace("/login"); return; }
         const user = userData.user;
+        await supabase.rpc("redeem_my_pending_invites");
         const { data: profile } = await supabase.from("profiles").select("full_name,email").eq("id", user.id).maybeSingle();
         const resolved = await resolveWorkspace(supabase, user);
         const { data: adminFlag, error: adminFlagError } = await supabase.rpc("is_platform_admin");
@@ -397,6 +399,7 @@ export default function DashboardClient() {
     case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
     case "reports": view = <ReportsView />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
+    case "team": view = <TeamManagementView organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
     case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriversView drivers={drivers} onOpen={openDriver} />; break;
@@ -409,5 +412,5 @@ export default function DashboardClient() {
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
   if (!platformAdmin && access && !access.onboarding_completed) return <PlanOnboardingView organizationId={workspace?.organization?.id} organizationName={workspace?.organization?.name} onComplete={setAccess} onLogout={logout} />;
 
-  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.filter(([id]) => canAccessNav(id, access, platformAdmin)).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><select className="site-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter workspace by site"><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
+  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.filter(([id]) => canAccessNav(id, access, platformAdmin, session?.role)).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><select className="site-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter workspace by site"><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
 }
