@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "./Brand";
+import { BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspaceView, canAccessNav } from "./SaasFoundation";
 import { analyseFiles } from "../lib/analyzer";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
@@ -201,247 +202,6 @@ function ImportsView({ onImported, analysis }) {
     {analysis && <section className="panel import-result"><div className="panel-head"><div><h2>Latest analysis</h2><p>Parsed data is now persisted as weekly historical evidence in your workspace.</p></div><span className="panel-badge good">Saved</span></div><div className="result-grid"><div><span>Drivers</span><strong>{analysis.driverCount}</strong></div><div><span>Periods</span><strong>{analysis.periods?.length || 0}</strong></div><div><span>TRID matches</span><strong>{analysis.matchedByTrid}</strong></div><div><span>Unmatched</span><strong>{analysis.unmatchedDrivers}</strong></div></div></section>}
   </>;
 }
-function PlatformAdminView() {
-  const [accounts, setAccounts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-
-  async function loadAccounts() {
-    setLoading(true);
-    setError("");
-    try {
-      const supabase = getSupabaseBrowserClient();
-      const { data, error: rpcError } = await supabase.rpc("admin_list_accounts");
-      if (rpcError) throw rpcError;
-      setAccounts(data || []);
-    } catch (e) {
-      setError(e?.message || "Could not load registered accounts.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  const q = query.trim().toLowerCase();
-  const filtered = accounts.filter((account) => {
-    const haystack = `${account.full_name || ""} ${account.email || ""} ${account.organization_name || ""} ${account.plan || ""} ${account.subscription_status || ""}`.toLowerCase();
-    const matchesSearch = !q || haystack.includes(q);
-    const matchesStatus =
-      statusFilter === "all" ||
-      account.subscription_status === statusFilter ||
-      (statusFilter === "paid" && account.subscription_status === "active" && account.plan !== "free");
-    return matchesSearch && matchesStatus;
-  });
-
-  const uniqueUsers = new Set(accounts.map((account) => account.user_id)).size;
-  const freeCount = accounts.filter((account) => (account.plan || "free") === "free" && account.subscription_status !== "trialing").length;
-  const trialCount = accounts.filter((account) => account.subscription_status === "trialing").length;
-  const paidCount = accounts.filter((account) => account.subscription_status === "active" && account.plan !== "free").length;
-
-  function dateLabel(value) {
-    if (!value) return "—";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "—";
-    return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  }
-
-  function trialLabel(value) {
-    if (!value) return "—";
-    const end = new Date(value);
-    const diff = end.getTime() - Date.now();
-    if (Number.isNaN(end.getTime())) return "—";
-    if (diff <= 0) return "Expired";
-    const days = Math.ceil(diff / 86400000);
-    return `${days} day${days === 1 ? "" : "s"} left`;
-  }
-
-  function statusClass(value) {
-    if (value === "active") return "active";
-    if (value === "trialing") return "trial";
-    if (value === "past_due") return "past-due";
-    if (value === "cancelled") return "cancelled";
-    return "free";
-  }
-
-  return <>
-    <div className="page-heading">
-      <div>
-        <span className="page-kicker">PLATFORM CONTROL</span>
-        <h1>Super Admin</h1>
-        <p>Registered accounts, workspaces and subscription visibility across MetrixIQ.</p>
-      </div>
-      <div className="page-actions">
-        <span className="superadmin-owner-badge">Platform Owner</span>
-        <button className="btn ghost" onClick={loadAccounts} disabled={loading}>
-          {loading ? "Refreshing…" : "Refresh"}
-        </button>
-      </div>
-    </div>
-
-    <section className="superadmin-summary">
-      <article>
-        <span>REGISTERED USERS</span>
-        <strong>{uniqueUsers}</strong>
-        <small>All MetrixIQ accounts</small>
-      </article>
-      <article>
-        <span>FREE</span>
-        <strong>{freeCount}</strong>
-        <small>Permanent free access</small>
-      </article>
-      <article>
-        <span>7-DAY TRIAL</span>
-        <strong>{trialCount}</strong>
-        <small>Premium trial accounts</small>
-      </article>
-      <article>
-        <span>PAID</span>
-        <strong>{paidCount}</strong>
-        <small>Active paid subscriptions</small>
-      </article>
-    </section>
-
-    <section className="panel superadmin-panel">
-      <div className="superadmin-toolbar">
-        <div>
-          <span>ACCOUNT DIRECTORY</span>
-          <h2>Customers & subscriptions</h2>
-        </div>
-        <div className="superadmin-filters">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, email or workspace…"
-          />
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">All subscriptions</option>
-            <option value="free">Free</option>
-            <option value="trialing">Trial</option>
-            <option value="paid">Paid</option>
-            <option value="past_due">Past due</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-      </div>
-
-      {error && <div className="form-error">{error}</div>}
-
-      <div className="table-wrap">
-        <table className="data-table superadmin-table">
-          <thead>
-            <tr>
-              <th>Account</th>
-              <th>Workspace</th>
-              <th>Access</th>
-              <th>Plan</th>
-              <th>Subscription</th>
-              <th>Trial</th>
-              <th>Registered</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && !accounts.length &&
-              <tr><td colSpan="7"><div className="ops-mini-empty">Loading registered accounts…</div></td></tr>
-            }
-
-            {!loading && filtered.map((account) =>
-              <tr key={`${account.user_id}-${account.organization_id || "none"}`}>
-                <td>
-                  <div className="superadmin-user">
-                    <span>{initials(account.full_name || account.email || "U")}</span>
-                    <div>
-                      <b>{account.full_name || "Unnamed account"}</b>
-                      <small>{account.email || "No email"}</small>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <b>{account.organization_name || "No workspace"}</b>
-                </td>
-                <td>
-                  <span className={`superadmin-role ${account.workspace_role === "owner" ? "owner" : ""}`}>
-                    {account.workspace_role || "customer"}
-                  </span>
-                </td>
-                <td>
-                  <b className="superadmin-plan">{String(account.plan || "free").toUpperCase()}</b>
-                </td>
-                <td>
-                  <span className={`superadmin-status ${statusClass(account.subscription_status)}`}>
-                    {String(account.subscription_status || "free").replace("_", " ")}
-                  </span>
-                </td>
-                <td>
-                  {account.subscription_status === "trialing"
-                    ? <div className="superadmin-trial"><b>{trialLabel(account.trial_ends_at)}</b><small>{dateLabel(account.trial_ends_at)}</small></div>
-                    : "—"}
-                </td>
-                <td>{dateLabel(account.created_at)}</td>
-              </tr>
-            )}
-
-            {!loading && !filtered.length &&
-              <tr><td colSpan="7"><div className="ops-mini-empty">No accounts match this filter.</div></td></tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section className="superadmin-note">
-      <div>
-        <b>Owner-only control</b>
-        <p>This page is backed by a protected Supabase RPC. Other users cannot retrieve the platform account directory even if they manually try to open the route.</p>
-      </div>
-      <span>SUPER ACCESS</span>
-    </section>
-
-    <style jsx global>{`
-      .superadmin-owner-badge{display:inline-flex;align-items:center;height:36px;padding:0 12px;border-radius:8px;background:#13273a;color:#9fe0cf;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
-      .superadmin-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
-      .superadmin-summary article{padding:16px;border:1px solid #dfe6eb;border-radius:12px;background:#fff;box-shadow:0 4px 14px rgba(28,49,67,.035)}
-      .superadmin-summary span{display:block;font-size:8px;font-weight:900;letter-spacing:.09em;color:#8795a2}
-      .superadmin-summary strong{display:block;margin-top:6px;font-size:26px;letter-spacing:-.02em;color:#20364a}
-      .superadmin-summary small{display:block;margin-top:4px;color:#9aa5af;font-size:8px}
-      .superadmin-panel{padding:0;overflow:hidden}
-      .superadmin-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:15px 16px;border-bottom:1px solid #e6ecef}
-      .superadmin-toolbar>div:first-child>span{font-size:8px;font-weight:900;letter-spacing:.1em;color:#4b9384}
-      .superadmin-toolbar h2{margin:3px 0 0;font-size:16px;color:#203449}
-      .superadmin-filters{display:flex;gap:8px}
-      .superadmin-filters input,.superadmin-filters select{height:35px;border:1px solid #dce4e9;border-radius:8px;background:#fff;padding:0 10px;color:#33465a;font-size:9px;outline:none}
-      .superadmin-filters input{min-width:240px}
-      .superadmin-table{min-width:1000px}
-      .superadmin-table th{font-size:8px}
-      .superadmin-table td{font-size:9px}
-      .superadmin-user{display:flex;align-items:center;gap:9px}
-      .superadmin-user>span{display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:#e9f3f0;color:#377b6d;font-size:8px;font-weight:900}
-      .superadmin-user b{display:block;color:#26394b}
-      .superadmin-user small{display:block;margin-top:2px;color:#8e9aa5;font-size:8px}
-      .superadmin-role,.superadmin-status{display:inline-flex;align-items:center;padding:4px 7px;border-radius:999px;font-size:7px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
-      .superadmin-role{background:#eef2f5;color:#607080}
-      .superadmin-role.owner{background:#172d40;color:#9ee1cf}
-      .superadmin-plan{font-size:8px;color:#30465a}
-      .superadmin-status.free{background:#eef2f4;color:#667683}
-      .superadmin-status.trial{background:#fff1cf;color:#9a6c10}
-      .superadmin-status.active{background:#e4f5ef;color:#347b67}
-      .superadmin-status.past-due{background:#fff0e5;color:#a96024}
-      .superadmin-status.cancelled{background:#f7e8ea;color:#a9444f}
-      .superadmin-trial b{display:block;color:#9a6c10;font-size:8px}.superadmin-trial small{display:block;margin-top:2px;color:#98a2ac;font-size:7px}
-      .superadmin-note{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-top:11px;padding:14px 16px;border:1px solid #d7e5e1;border-radius:11px;background:#f5faf8}
-      .superadmin-note b{display:block;color:#26483f;font-size:9px}.superadmin-note p{margin:3px 0 0;max-width:760px;color:#6e807b;font-size:8px;line-height:1.5}.superadmin-note>span{font-size:8px;font-weight:900;letter-spacing:.1em;color:#4b9384}
-      @media(max-width:1000px){.superadmin-summary{grid-template-columns:repeat(2,1fr)}.superadmin-toolbar{align-items:flex-start;flex-direction:column}.superadmin-filters{width:100%}.superadmin-filters input{flex:1;min-width:0}}
-      @media(max-width:650px){.superadmin-summary{grid-template-columns:1fr 1fr}.superadmin-filters{flex-direction:column}.superadmin-filters input,.superadmin-filters select{width:100%}.superadmin-note{align-items:flex-start;flex-direction:column}}
-    `}</style>
-  </>;
-}
-
-
-
 function ReportsView() { return <><div className="page-heading"><div><span className="page-kicker">REPORTING</span><h1>Report centre</h1><p>Generate management-ready views from current fleet data.</p></div><button className="btn primary" onClick={() => window.print()}>Export current view</button></div><div className="report-grid">{[["Executive Fleet Brief", "Health, KPI, risk and recommended actions"], ["Weekly Fleet Report", "Site performance and driver improvement"], ["Driver Performance", "Individual trend, incidents and coaching"], ["Risk Report", "Prioritised drivers and evidence"], ["Coaching Report", "Queue status and action"], ["Site Comparison", "Cross-site KPI analysis"]].map(([t, d]) => <article key={t}><span>▤</span><h3>{t}</h3><p>{d}</p><button type="button" onClick={() => window.print()}>Open / print →</button></article>)}</div></>; }
 function BillingView() { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Plans & billing</h1><p>Choose the MetrixIQ capability level for your operation.</p></div></div><div className="billing-grid">{[["Free", "£0", ["1 site", "10 drivers", "Core dashboard"]], ["Pro", "£39", ["3 sites", "150 drivers", "Risk & coaching"]], ["Business", "£89", ["10 sites", "500 drivers", "Advanced intelligence"]], ["Full", "£169", ["Unlimited sites", "Owner controls", "Priority support"]]].map(([n, p, fs], i) => <article className={i === 3 ? "current" : ""} key={n}>{i === 3 && <span className="current-tag">Current workspace</span>}<h3>{n}</h3><strong>{p}<small>/month</small></strong><ul>{fs.map((f) => <li key={f}>✓ {f}</li>)}</ul><button className={i === 3 ? "btn ghost" : "btn primary"} disabled title={i === 3 ? "Current workspace plan" : "Stripe billing will be enabled in the billing phase"}>{i === 3 ? "Active" : "Billing setup pending"}</button></article>)}</div></>; }
 function SettingsView({ session, onLogout }) { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Workspace settings</h1><p>Identity, organisation and data controls.</p></div></div><div className="settings-grid"><section className="panel"><h2>Account identity</h2><div className="setting-row"><span>Name</span><b>{session.name}</b></div><div className="setting-row"><span>Email</span><b>{session.email}</b></div><div className="setting-row"><span>Organisation</span><b>{session.organisation || "My Fleet"}</b></div><div className="setting-row"><span>Access</span><b>{session.role || "Member"}</b></div></section><section className="panel"><h2>Data & security</h2><p className="settings-copy">Authentication and fleet data access are protected by Supabase Auth and row-level security. Smart Import history is persisted in Supabase and protected by workspace row-level security.</p><button className="btn danger" onClick={onLogout}>Sign out</button></section></div></>; }
@@ -530,6 +290,7 @@ export default function DashboardClient() {
   const [globalSearch, setGlobalSearch] = useState("");
   const [siteFilter, setSiteFilter] = useState("all");
   const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [access, setAccess] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -543,8 +304,13 @@ export default function DashboardClient() {
         const resolved = await resolveWorkspace(supabase, user);
         const { data: adminFlag, error: adminFlagError } = await supabase.rpc("is_platform_admin");
         if (adminFlagError) throw adminFlagError;
+        await supabase.rpc("touch_last_login");
+        const { data: accessRows, error: accessError } = await supabase.rpc("get_workspace_access", { p_organization_id: resolved.organization.id });
+        if (accessError) throw accessError;
+        const accessState = Array.isArray(accessRows) ? (accessRows[0] || null) : accessRows;
         if (!alive) return;
         setPlatformAdmin(Boolean(adminFlag));
+        setAccess(accessState);
         setWorkspace(resolved);
         setSession({
           name: profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "MetrixIQ User",
@@ -630,7 +396,7 @@ export default function DashboardClient() {
     case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
     case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
     case "reports": view = <ReportsView />; break;
-    case "billing": view = <BillingView />; break;
+    case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
     case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriversView drivers={drivers} onOpen={openDriver} />; break;
@@ -640,6 +406,8 @@ export default function DashboardClient() {
   if (authLoading) return <main className="app-loading"><div className="auth-spinner" /><h1>MetrixIQ</h1><p>Loading secure workspace…</p></main>;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
+  if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
+  if (!platformAdmin && access && !access.onboarding_completed) return <PlanOnboardingView organizationId={workspace?.organization?.id} organizationName={workspace?.organization?.name} onComplete={setAccess} onLogout={logout} />;
 
-  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{session.role || "Member"} workspace</small></div></div><nav className="app-nav">{nav.filter(([id]) => id !== "admin" || platformAdmin).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><select className="site-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter workspace by site"><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
+  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.filter(([id]) => canAccessNav(id, access, platformAdmin)).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>AI</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>Ctrl K</kbd></div></div><div className="topbar-right"><select className="site-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter workspace by site"><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
 }
