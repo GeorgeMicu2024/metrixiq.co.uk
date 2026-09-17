@@ -199,7 +199,10 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
   const load=useDbRows(organizationId,"concessions");
   const [range,setRange]=useState(8);
   const [query,setQuery]=useState("");
-  const [view,setView]=useState("overview");
+  const [view,setView]=useState("matrix");
+  const [rankWeek,setRankWeek]=useState("");
+  const [sortMode,setSortMode]=useState("desc");
+  const [showMode,setShowMode]=useState("all");
 
   if(load.loading)return <Loading text="Loading concessions intelligence…"/>;
   if(load.error)return <ErrorBox error={load.error}/>;
@@ -220,14 +223,14 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
       .reduce((sum,r)=>sum+(n(r.concessions)||0),0)
   );
 
-  const m=new Map();
+  const map=new Map();
 
   for(const row of concessionRows){
     if(!weekSet.has(row.week_label))continue;
 
     const driver=row.drivers||{};
     const id=row.driver_id||trid(driver);
-    const current=m.get(id)||{
+    const current=map.get(id)||{
       id,
       driver,
       byWeek:{},
@@ -236,81 +239,153 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
 
     current.byWeek[row.week_label]=n(row.concessions);
     current.row=row;
-    m.set(id,current);
+    map.set(id,current);
   }
 
-  const ranking=[...m.values()]
-    .map(x=>{
-      const values=weeks.map(w=>
-        Object.prototype.hasOwnProperty.call(x.byWeek,w)
-          ? x.byWeek[w]
-          : null
-      );
+  const ranking=[...map.values()].map(x=>{
+    const values=weeks.map(w=>
+      Object.prototype.hasOwnProperty.call(x.byWeek,w)
+        ?x.byWeek[w]
+        :null
+    );
 
-      const reported=values.filter(v=>v!=null);
-      const total=reported.reduce((a,b)=>a+b,0);
-      const affected=reported.filter(v=>v>0).length;
+    const reported=values.filter(v=>v!=null);
+    const total=reported.reduce((a,b)=>a+b,0);
+    const affected=reported.filter(v=>v>0).length;
 
-      return {
-        ...x,
-        values,
-        total,
-        reported:reported.length,
-        affected,
-        avg:reported.length?total/reported.length:0
-      };
-    })
-    .sort((a,b)=>b.total-a.total||b.affected-a.affected);
+    return {
+      ...x,
+      values,
+      total,
+      reported:reported.length,
+      affected,
+      avg:reported.length?total/reported.length:0
+    };
+  });
 
   const importedWeeks=weeks.filter(w=>presentSet.has(w));
   const latestWeek=importedWeeks[importedWeeks.length-1]||"";
   const previousWeek=importedWeeks[importedWeeks.length-2]||"";
 
-  const latestIndex=weeks.indexOf(latestWeek);
-  const previousIndex=weeks.indexOf(previousWeek);
+  const effectiveRankWeek=
+    rankWeek==="total"
+      ?"total"
+      :rankWeek&&presentSet.has(rankWeek)&&weeks.includes(rankWeek)
+        ?rankWeek
+        :(latestWeek||"total");
 
-  const latestTotal=latestIndex>=0?weekTotals[latestIndex]:null;
-  const previousTotal=previousIndex>=0?weekTotals[previousIndex]:null;
+  const valueFor=(item)=>{
+    if(effectiveRankWeek==="total")return item.total;
 
-  const wow=
-    latestTotal!=null&&previousTotal!=null
-      ? latestTotal-previousTotal
-      : null;
+    return Object.prototype.hasOwnProperty.call(item.byWeek,effectiveRankWeek)
+      ?item.byWeek[effectiveRankWeek]
+      :null;
+  };
 
-  const latestValue=(item)=>
-    latestWeek&&Object.prototype.hasOwnProperty.call(item.byWeek,latestWeek)
-      ? item.byWeek[latestWeek]
-      : null;
-
-  const affectedDrivers=ranking.filter(x=>(latestValue(x)||0)>0).length;
-  const repeatDrivers=ranking.filter(x=>x.affected>=2).length;
-  const missingWeeks=weeks.filter(w=>!presentSet.has(w));
-  const selectedTotal=weekTotals.reduce((a,b)=>a+b,0);
-  const maxWeekly=Math.max(1,...weekTotals);
-
-  const priority=[...ranking]
-    .sort((a,b)=>
-      (latestValue(b)||0)-(latestValue(a)||0) ||
-      b.total-a.total
-    )
-    .slice(0,5);
-
-  const filtered=ranking.filter(x=>
+  let filtered=ranking.filter(x=>
     `${dname(x.driver)} ${trid(x.driver)}`
       .toLowerCase()
       .includes(query.toLowerCase())
   );
 
+  if(showMode==="affected"){
+    filtered=filtered.filter(x=>(valueFor(x)||0)>0);
+  }
+
+  if(showMode==="repeat"){
+    filtered=filtered.filter(x=>x.affected>=2);
+  }
+
+  filtered=[...filtered].sort((a,b)=>{
+    if(sortMode==="name"){
+      return dname(a.driver).localeCompare(dname(b.driver));
+    }
+
+    const av=valueFor(a);
+    const bv=valueFor(b);
+
+    const aa=av==null?-1:Number(av);
+    const bb=bv==null?-1:Number(bv);
+
+    if(sortMode==="asc"){
+      return aa-bb||a.total-b.total;
+    }
+
+    return bb-aa||b.total-a.total;
+  });
+
+  const selectedWeekIndex=
+    effectiveRankWeek==="total"
+      ?-1
+      :weeks.indexOf(effectiveRankWeek);
+
+  const selectedTotal=
+    effectiveRankWeek==="total"
+      ?weekTotals.reduce((a,b)=>a+b,0)
+      :(selectedWeekIndex>=0?weekTotals[selectedWeekIndex]:0);
+
+  const selectedAffected=
+    ranking.filter(x=>(valueFor(x)||0)>0).length;
+
+  const leader=
+    [...ranking]
+      .filter(x=>(valueFor(x)||0)>0)
+      .sort((a,b)=>
+        (valueFor(b)||0)-(valueFor(a)||0)||
+        b.total-a.total
+      )[0]||null;
+
+  const latestIndex=weeks.indexOf(latestWeek);
+  const previousIndex=weeks.indexOf(previousWeek);
+
+  const latestTotal=
+    latestIndex>=0
+      ?weekTotals[latestIndex]
+      :null;
+
+  const previousTotal=
+    previousIndex>=0
+      ?weekTotals[previousIndex]
+      :null;
+
+  const wow=
+    latestTotal!=null&&previousTotal!=null
+      ?latestTotal-previousTotal
+      :null;
+
+  const missingWeeks=
+    weeks.filter(w=>!presentSet.has(w));
+
+  const maxWeekly=
+    Math.max(1,...weekTotals);
+
+  const priority=
+    [...ranking]
+      .sort((a,b)=>
+        (valueFor(b)||0)-(valueFor(a)||0)||
+        b.total-a.total
+      )
+      .slice(0,5);
+
+  const chooseWeek=(week)=>{
+    if(!presentSet.has(week))return;
+
+    setRankWeek(week);
+    setSortMode("desc");
+    setShowMode("affected");
+    setView("matrix");
+  };
+
   return <>
-    <div className="page-heading conx-heading">
+    <div className="cx2-head">
       <div>
-        <span className="page-kicker">QUALITY INTELLIGENCE</span>
+        <span className="cx2-kicker">QUALITY INTELLIGENCE</span>
         <h1>Concessions</h1>
-        <p>DNR performance, weekly movement and driver-level risk in one operational view.</p>
+        <p>Weekly DNR performance, driver ranking and repeat-risk analysis.</p>
       </div>
 
-      <div className="conx-actions">
-        <div className="conx-view-tabs">
+      <div className="cx2-head-actions">
+        <div className="cx2-view-tabs">
           <button
             type="button"
             className={view==="overview"?"active":""}
@@ -318,6 +393,7 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
           >
             Overview
           </button>
+
           <button
             type="button"
             className={view==="matrix"?"active":""}
@@ -331,231 +407,275 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
       </div>
     </div>
 
-    <section className="conx-kpis">
+    <section className="cx2-kpis">
       <article>
-        <span>Latest report</span>
-        <strong>{latestTotal??"—"}</strong>
-        <small>{latestWeek||"No imported week"}</small>
-      </article>
+        <span>
+          {effectiveRankWeek==="total"
+            ?"Selected period"
+            :`${effectiveRankWeek} concessions`}
+        </span>
 
-      <article className={wow>0?"negative":wow<0?"positive":""}>
-        <span>WoW movement</span>
-        <strong>
-          {wow==null?"—":wow===0?"0":`${wow>0?"↑":"↓"} ${Math.abs(wow)}`}
-        </strong>
+        <strong>{selectedTotal}</strong>
+
         <small>
-          {wow==null
-            ?"Previous report unavailable"
-            :wow<0
-              ?`Fewer DNR vs ${previousWeek}`
-              :wow>0
-                ?`More DNR vs ${previousWeek}`
-                :`No change vs ${previousWeek}`}
+          {effectiveRankWeek==="total"
+            ?`${weeks.length} weeks selected`
+            :"Total DNR"}
         </small>
       </article>
 
       <article>
         <span>Affected drivers</span>
-        <strong>{affectedDrivers}</strong>
-        <small>{latestWeek||"Latest report"}</small>
+        <strong>{selectedAffected}</strong>
+        <small>
+          {effectiveRankWeek==="total"
+            ?"Across selected period"
+            :effectiveRankWeek}
+        </small>
       </article>
 
       <article>
-        <span>Repeat drivers</span>
-        <strong>{repeatDrivers}</strong>
-        <small>2+ affected weeks</small>
+        <span>Highest driver</span>
+        <strong>{leader?valueFor(leader):"—"}</strong>
+        <small>
+          {leader
+            ?dname(leader.driver)
+            :"No affected drivers"}
+        </small>
+      </article>
+
+      <article className={wow>0?"risk":wow<0?"good":""}>
+        <span>Latest movement</span>
+        <strong>
+          {wow==null
+            ?"—"
+            :wow===0
+              ?"0"
+              :`${wow>0?"↑":"↓"} ${Math.abs(wow)}`}
+        </strong>
+        <small>
+          {latestWeek&&previousWeek
+            ?`${latestWeek} vs ${previousWeek}`
+            :"Previous week unavailable"}
+        </small>
       </article>
     </section>
 
-    {view==="overview"&&<>
-      <section className="conx-main-grid">
-        <article className="panel conx-trend-card">
-          <div className="conx-panel-head">
-            <div>
-              <span>WEEKLY TREND</span>
-              <h2>Concessions movement</h2>
-              <p>Lower is better. Missing reports are excluded from the trend.</p>
-            </div>
-            <strong>{selectedTotal}</strong>
-          </div>
-
-          <div className="conx-bars">
-            {weeks.map((week,index)=>{
-              const imported=presentSet.has(week);
-              const value=weekTotals[index];
-              const height=imported
-                ?Math.max(8,Math.round((value/maxWeekly)*100))
-                :0;
-
-              return <div className={`conx-bar-item ${!imported?"missing":""}`} key={week}>
-                <span>{imported?value:"—"}</span>
-                <div className="conx-bar-track">
-                  {imported&&<i style={{height:`${height}%`}}/>}
-                </div>
-                <small>{week}</small>
-              </div>;
-            })}
-          </div>
-        </article>
-
-        <article className="panel conx-health-card">
-          <div className="conx-panel-head">
-            <div>
-              <span>DATA HEALTH</span>
-              <h2>Reporting status</h2>
-              <p>Import coverage for the selected period.</p>
-            </div>
-          </div>
-
-          <div className="conx-health-list">
-            {[...weeks].reverse().map((week)=>{
-              const imported=presentSet.has(week);
-              const index=weeks.indexOf(week);
-
-              return <div key={week}>
-                <span className={`conx-dot ${imported?"ok":"missing"}`}/>
-                <div>
-                  <b>{week}</b>
-                  <small>{imported?`${weekTotals[index]} concessions stored`:"Report not imported"}</small>
-                </div>
-                <em className={imported?"ok":"missing"}>
-                  {imported?"Imported":"Missing"}
-                </em>
-              </div>;
-            })}
-          </div>
-        </article>
-      </section>
-
-      <section className="panel conx-priority-card">
-        <div className="conx-panel-head">
-          <div>
-            <span>DRIVER RISK</span>
-            <h2>Priority drivers</h2>
-            <p>Drivers with the highest current and recurring DNR exposure.</p>
-          </div>
-        </div>
-
-        <div className="conx-priority-list">
-          {priority.map((item,index)=>{
-            const current=latestValue(item);
-
-            return <button
-              type="button"
-              key={item.id}
-              onClick={()=>onOpenDriver?.(
-                openShape(item.row,{concessions:item.total})
-              )}
-            >
-              <span className="conx-rank">{index+1}</span>
-
-              <div className="conx-driver">
-                <b>{dname(item.driver)}</b>
-                <small>{trid(item.driver)} · {siteLabel(item.driver)}</small>
-              </div>
-
-              <div className="conx-current">
-                <span>Latest</span>
-                <strong>{current??"—"}</strong>
-              </div>
-
-              <div className="conx-current">
-                <span>{range==="all"?"All-time":"Period"}</span>
-                <strong>{item.total}</strong>
-              </div>
-
-              <div className="conx-current">
-                <span>Weeks</span>
-                <strong>{item.affected}</strong>
-              </div>
-
-              <span className="profile-link">Open →</span>
-            </button>;
-          })}
-        </div>
-      </section>
-
-      {missingWeeks.length>0&&
-        <div className="conx-report-note">
-          <span>!</span>
-          <div>
-            <b>{missingWeeks.length} report{missingWeeks.length>1?"s":""} missing</b>
-            <small>{missingWeeks.join(", ")} · no value is treated as zero.</small>
-          </div>
-        </div>
-      }
-    </>}
-
     {view==="matrix"&&
-      <section className="panel conx-matrix-card">
-        <div className="conx-matrix-head">
+      <section className="cx2-card cx2-matrix-card">
+        <div className="cx2-card-head">
           <div>
             <span>DRIVER DETAIL</span>
-            <h2>Weekly concession matrix</h2>
-            <p>Driver-level DNR history across the selected reporting period.</p>
+            <h2>Weekly concession ranking</h2>
+            <p>Select a week to instantly rank drivers by that week.</p>
           </div>
 
-          <input
-            className="v10-search"
-            value={query}
-            onChange={e=>setQuery(e.target.value)}
-            placeholder="Search driver or TRID…"
-          />
+          <div className="cx2-summary-pill">
+            <b>
+              {effectiveRankWeek==="total"
+                ?"Period total"
+                :effectiveRankWeek}
+            </b>
+            <span>
+              {selectedTotal} concessions · {selectedAffected} affected
+            </span>
+          </div>
         </div>
 
-        <div className="table-wrap">
-          <table className="data-table conx-table">
+        <div className="cx2-toolbar">
+          <label>
+            <span>Rank by</span>
+            <select
+              value={effectiveRankWeek}
+              onChange={e=>setRankWeek(e.target.value)}
+            >
+              <option value="total">Total period</option>
+
+              {importedWeeks.map(w=>
+                <option key={w} value={w}>{w}</option>
+              )}
+            </select>
+          </label>
+
+          <label>
+            <span>Show</span>
+            <select
+              value={showMode}
+              onChange={e=>setShowMode(e.target.value)}
+            >
+              <option value="all">All drivers</option>
+              <option value="affected">Affected only</option>
+              <option value="repeat">Repeat drivers</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Sort</span>
+            <select
+              value={sortMode}
+              onChange={e=>setSortMode(e.target.value)}
+            >
+              <option value="desc">Highest first</option>
+              <option value="asc">Lowest first</option>
+              <option value="name">Name A–Z</option>
+            </select>
+          </label>
+
+          <label className="cx2-search-label">
+            <span>Search</span>
+            <input
+              value={query}
+              onChange={e=>setQuery(e.target.value)}
+              placeholder="Driver name or TRID…"
+            />
+          </label>
+
+          <button
+            type="button"
+            className="cx2-reset"
+            onClick={()=>{
+              setRankWeek("");
+              setSortMode("desc");
+              setShowMode("all");
+              setQuery("");
+            }}
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="cx2-week-strip">
+          {weeks.map((w,i)=>{
+            const imported=presentSet.has(w);
+            const selected=effectiveRankWeek===w;
+
+            return <button
+              key={w}
+              type="button"
+              disabled={!imported}
+              className={`${selected?"selected":""} ${!imported?"missing":""}`}
+              onClick={()=>chooseWeek(w)}
+            >
+              <span>{w}</span>
+              <strong>{imported?weekTotals[i]:"—"}</strong>
+            </button>;
+          })}
+
+          <button
+            type="button"
+            className={effectiveRankWeek==="total"?"selected":""}
+            onClick={()=>{
+              setRankWeek("total");
+              setSortMode("desc");
+            }}
+          >
+            <span>Total</span>
+            <strong>{weekTotals.reduce((a,b)=>a+b,0)}</strong>
+          </button>
+        </div>
+
+        <div className="cx2-table-wrap">
+          <table className="cx2-table">
             <thead>
               <tr>
                 <th>#</th>
                 <th>Driver</th>
                 <th>TRID</th>
+
                 {weeks.map(w=>
                   <th
                     key={w}
-                    className={`${w===latestWeek?"latest":""} ${!presentSet.has(w)?"missing":""}`}
+                    className={effectiveRankWeek===w?"selected-col":""}
                   >
-                    {w}
+                    <button
+                      type="button"
+                      disabled={!presentSet.has(w)}
+                      onClick={()=>chooseWeek(w)}
+                    >
+                      {w}
+                    </button>
                   </th>
                 )}
-                <th>Total</th>
+
+                <th className={effectiveRankWeek==="total"?"selected-col":""}>
+                  Total
+                </th>
+
                 <th>Affected</th>
-                <th />
+                <th></th>
               </tr>
             </thead>
 
             <tbody>
               {filtered.map((item,index)=>
-                <tr key={item.id}>
-                  <td><span className="conx-rank">{index+1}</span></td>
-
+                <tr
+                  key={item.id}
+                  className={index<3&&sortMode==="desc"?"top-row":""}
+                >
                   <td>
-                    <b>{dname(item.driver)}</b>
-                    <small className="history-date">{siteLabel(item.driver)}</small>
+                    <span className="cx2-rank">{index+1}</span>
                   </td>
 
-                  <td><code className="v10-trid">{trid(item.driver)}</code></td>
+                  <td className="cx2-driver-cell">
+                    <b>{dname(item.driver)}</b>
+                    <small>{siteLabel(item.driver)}</small>
+                  </td>
+
+                  <td>
+                    <code>{trid(item.driver)}</code>
+                  </td>
 
                   {item.values.map((value,j)=>{
                     const week=weeks[j];
+                    const imported=presentSet.has(week);
+                    const selected=effectiveRankWeek===week;
 
-                    if(!presentSet.has(week)){
-                      return <td key={week} className="conx-missing-cell">—</td>;
+                    if(!imported){
+                      return <td
+                        key={week}
+                        className={`cx2-empty ${selected?"selected-col":""}`}
+                      >
+                        —
+                      </td>;
                     }
 
                     if(value==null){
-                      return <td key={week}><span className="conx-zero">—</span></td>;
+                      return <td
+                        key={week}
+                        className={selected?"selected-col":""}
+                      >
+                        <span className="cx2-score zero">—</span>
+                      </td>;
                     }
 
-                    const cls=value>=3?"high":value===2?"medium":value===1?"low":"zero";
+                    const tone=
+                      value>=4
+                        ?"high"
+                        :value>=2
+                          ?"med"
+                          :value===1
+                            ?"low"
+                            :"zero";
 
-                    return <td key={week} className={week===latestWeek?"latest":""}>
-                      <span className={`conx-value ${cls}`}>{value}</span>
+                    return <td
+                      key={week}
+                      className={selected?"selected-col":""}
+                    >
+                      <span className={`cx2-score ${tone}`}>
+                        {value}
+                      </span>
                     </td>;
                   })}
 
-                  <td><strong className="conx-total">{item.total}</strong></td>
-                  <td>{item.affected}/{item.reported}</td>
+                  <td className={effectiveRankWeek==="total"?"selected-col":""}>
+                    <b className="cx2-total">{item.total}</b>
+                  </td>
+
+                  <td>
+                    <span className="cx2-affected">
+                      {item.affected}/{item.reported}
+                    </span>
+                  </td>
 
                   <td>
                     <button
@@ -573,14 +693,782 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
               {!filtered.length&&
                 <tr>
                   <td colSpan={6+weeks.length}>
-                    <div className="v10-empty">No concessions match this search.</div>
+                    <div className="v10-empty">
+                      No drivers match the selected filters.
+                    </div>
                   </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+
+        <div className="cx2-footnote">
+          <span>{filtered.length} drivers shown</span>
+          <span>Click any week header to rank by that week.</span>
+        </div>
       </section>
     }
+
+    {view==="overview"&&<>
+      <section className="cx2-overview-grid">
+        <article className="cx2-card">
+          <div className="cx2-card-head">
+            <div>
+              <span>WEEKLY TREND</span>
+              <h2>Concessions movement</h2>
+              <p>Lower is better.</p>
+            </div>
+          </div>
+
+          <div className="cx2-bars">
+            {weeks.map((week,index)=>{
+              const imported=presentSet.has(week);
+              const value=weekTotals[index];
+
+              const height=
+                imported
+                  ?Math.max(
+                    8,
+                    Math.round((value/maxWeekly)*100)
+                  )
+                  :0;
+
+              return <button
+                type="button"
+                disabled={!imported}
+                onClick={()=>chooseWeek(week)}
+                className={!imported?"missing":""}
+                key={week}
+              >
+                <span>{imported?value:"—"}</span>
+                <div>
+                  <i style={{height:`${height}%`}}/>
+                </div>
+                <small>{week}</small>
+              </button>;
+            })}
+          </div>
+        </article>
+
+        <article className="cx2-card">
+          <div className="cx2-card-head">
+            <div>
+              <span>TOP DRIVERS</span>
+              <h2>
+                {effectiveRankWeek==="total"
+                  ?"Selected period"
+                  :effectiveRankWeek}
+              </h2>
+              <p>Highest DNR counts.</p>
+            </div>
+          </div>
+
+          <div className="cx2-top-list">
+            {priority.map((item,index)=>
+              <button
+                key={item.id}
+                type="button"
+                onClick={()=>onOpenDriver?.(
+                  openShape(item.row,{concessions:item.total})
+                )}
+              >
+                <span className="cx2-rank">{index+1}</span>
+
+                <div>
+                  <b>{dname(item.driver)}</b>
+                  <small>{trid(item.driver)}</small>
+                </div>
+
+                <strong>{valueFor(item)??"—"}</strong>
+              </button>
+            )}
+          </div>
+        </article>
+      </section>
+
+      <section className="cx2-card cx2-health">
+        <div className="cx2-card-head">
+          <div>
+            <span>REPORTING HEALTH</span>
+            <h2>Imported weeks</h2>
+            <p>
+              {missingWeeks.length
+                ?`${missingWeeks.length} missing report${missingWeeks.length>1?"s":""}`
+                :"All selected weeks are available."}
+            </p>
+          </div>
+        </div>
+
+        <div className="cx2-health-row">
+          {weeks.map((w,i)=>
+            <button
+              key={w}
+              type="button"
+              disabled={!presentSet.has(w)}
+              onClick={()=>chooseWeek(w)}
+              className={presentSet.has(w)?"ok":"missing"}
+            >
+              <span>{w}</span>
+              <b>
+                {presentSet.has(w)
+                  ?weekTotals[i]
+                  :"Not imported"}
+              </b>
+            </button>
+          )}
+        </div>
+      </section>
+    </>}
+
+    <style jsx>{`
+      .cx2-head{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:24px;
+        margin-bottom:18px;
+      }
+
+      .cx2-head h1{
+        font-size:32px;
+        line-height:1.1;
+        margin:5px 0 7px;
+        color:#152238;
+      }
+
+      .cx2-head p{
+        margin:0;
+        color:#7b8898;
+        font-size:14px;
+      }
+
+      .cx2-kicker,
+      .cx2-card-head span{
+        font-size:10px;
+        font-weight:800;
+        letter-spacing:.14em;
+        color:#4a9384;
+      }
+
+      .cx2-head-actions{
+        display:flex;
+        align-items:center;
+        gap:12px;
+        flex-wrap:wrap;
+        justify-content:flex-end;
+      }
+
+      .cx2-view-tabs{
+        display:flex;
+        padding:4px;
+        border:1px solid #dce4ea;
+        background:#edf2f5;
+        border-radius:12px;
+      }
+
+      .cx2-view-tabs button{
+        border:0;
+        background:transparent;
+        padding:9px 15px;
+        border-radius:9px;
+        font-weight:750;
+        color:#687789;
+        cursor:pointer;
+      }
+
+      .cx2-view-tabs button.active{
+        background:#fff;
+        color:#14243a;
+        box-shadow:0 1px 5px rgba(18,35,55,.1);
+      }
+
+      .cx2-kpis{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:12px;
+        margin-bottom:16px;
+      }
+
+      .cx2-kpis article{
+        background:#fff;
+        border:1px solid #dfe6ec;
+        border-radius:14px;
+        padding:17px 18px;
+        min-height:104px;
+        box-shadow:0 1px 2px rgba(16,35,54,.025);
+      }
+
+      .cx2-kpis article.risk{
+        border-left:3px solid #d7656f;
+      }
+
+      .cx2-kpis article.good{
+        border-left:3px solid #4e9788;
+      }
+
+      .cx2-kpis span{
+        display:block;
+        font-size:10px;
+        text-transform:uppercase;
+        letter-spacing:.1em;
+        font-weight:800;
+        color:#8290a1;
+      }
+
+      .cx2-kpis strong{
+        display:block;
+        margin-top:9px;
+        font-size:29px;
+        line-height:1;
+        color:#17263b;
+      }
+
+      .cx2-kpis small{
+        display:block;
+        margin-top:7px;
+        color:#6d7d8f;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .cx2-card{
+        background:#fff;
+        border:1px solid #dfe6ec;
+        border-radius:16px;
+        padding:18px;
+        box-shadow:0 2px 8px rgba(19,37,56,.03);
+      }
+
+      .cx2-card-head{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:18px;
+        margin-bottom:16px;
+      }
+
+      .cx2-card-head h2{
+        font-size:19px;
+        color:#17263b;
+        margin:3px 0 4px;
+      }
+
+      .cx2-card-head p{
+        margin:0;
+        color:#8491a0;
+        font-size:13px;
+      }
+
+      .cx2-summary-pill{
+        display:flex;
+        flex-direction:column;
+        align-items:flex-end;
+        padding:8px 11px;
+        background:#f4f8f7;
+        border:1px solid #dceae6;
+        border-radius:10px;
+      }
+
+      .cx2-summary-pill b{
+        font-size:12px;
+        color:#2d6f62;
+      }
+
+      .cx2-summary-pill span{
+        font-size:10px;
+        color:#708075;
+        letter-spacing:0;
+        margin-top:2px;
+      }
+
+      .cx2-toolbar{
+        display:grid;
+        grid-template-columns:150px 150px 150px minmax(220px,1fr) auto;
+        gap:10px;
+        align-items:end;
+        padding:13px;
+        background:#f6f8fa;
+        border:1px solid #e3e8ed;
+        border-radius:12px;
+        margin-bottom:12px;
+      }
+
+      .cx2-toolbar label{
+        display:flex;
+        flex-direction:column;
+        gap:5px;
+      }
+
+      .cx2-toolbar label>span{
+        font-size:9px;
+        font-weight:800;
+        letter-spacing:.1em;
+        text-transform:uppercase;
+        color:#8b97a6;
+      }
+
+      .cx2-toolbar select,
+      .cx2-toolbar input{
+        width:100%;
+        height:40px;
+        border:1px solid #d8e0e7;
+        border-radius:9px;
+        background:#fff;
+        padding:0 11px;
+        color:#24364b;
+        font-weight:650;
+        outline:none;
+      }
+
+      .cx2-toolbar select:focus,
+      .cx2-toolbar input:focus{
+        border-color:#7fb4a8;
+        box-shadow:0 0 0 3px rgba(78,151,136,.1);
+      }
+
+      .cx2-reset{
+        height:40px;
+        border:1px solid #d8e0e7;
+        background:#fff;
+        color:#66778a;
+        border-radius:9px;
+        padding:0 14px;
+        font-weight:750;
+        cursor:pointer;
+      }
+
+      .cx2-reset:hover{
+        background:#f0f4f6;
+      }
+
+      .cx2-week-strip{
+        display:flex;
+        gap:7px;
+        overflow:auto;
+        padding:2px 0 12px;
+      }
+
+      .cx2-week-strip button{
+        min-width:68px;
+        border:1px solid #dfe6ec;
+        background:#fff;
+        border-radius:10px;
+        padding:8px 10px;
+        cursor:pointer;
+        text-align:left;
+      }
+
+      .cx2-week-strip button span{
+        display:block;
+        font-size:9px;
+        font-weight:800;
+        color:#8996a5;
+        text-transform:uppercase;
+      }
+
+      .cx2-week-strip button strong{
+        display:block;
+        font-size:16px;
+        color:#21344a;
+        margin-top:2px;
+      }
+
+      .cx2-week-strip button.selected{
+        background:#eaf5f2;
+        border-color:#8ebeb3;
+      }
+
+      .cx2-week-strip button.selected span,
+      .cx2-week-strip button.selected strong{
+        color:#2f7467;
+      }
+
+      .cx2-week-strip button.missing{
+        border-style:dashed;
+        background:#fafbfc;
+        cursor:not-allowed;
+      }
+
+      .cx2-week-strip button:disabled strong{
+        color:#b2bac4;
+      }
+
+      .cx2-table-wrap{
+        overflow:auto;
+        border:1px solid #e4e9ee;
+        border-radius:12px;
+      }
+
+      .cx2-table{
+        width:100%;
+        border-collapse:separate;
+        border-spacing:0;
+        min-width:1100px;
+        background:#fff;
+      }
+
+      .cx2-table th{
+        position:sticky;
+        top:0;
+        z-index:2;
+        background:#f8fafb;
+        padding:10px 9px;
+        border-bottom:1px solid #dfe6ec;
+        text-align:center;
+        font-size:9px;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+        color:#7b8999;
+        white-space:nowrap;
+      }
+
+      .cx2-table th:nth-child(2),
+      .cx2-table td:nth-child(2){
+        text-align:left;
+      }
+
+      .cx2-table th button{
+        border:0;
+        background:transparent;
+        font:inherit;
+        color:inherit;
+        cursor:pointer;
+        padding:0;
+      }
+
+      .cx2-table th button:disabled{
+        cursor:not-allowed;
+        color:#b7bec7;
+      }
+
+      .cx2-table td{
+        padding:10px 9px;
+        border-bottom:1px solid #edf1f4;
+        text-align:center;
+        color:#33465b;
+        font-size:12px;
+        white-space:nowrap;
+      }
+
+      .cx2-table tbody tr:hover td{
+        background:#fbfcfd;
+      }
+
+      .cx2-table tbody tr.top-row td{
+        background:#fdfefe;
+      }
+
+      .cx2-table .selected-col{
+        background:#eef7f4!important;
+      }
+
+      .cx2-driver-cell b{
+        display:block;
+        color:#1f3045;
+        font-size:12px;
+      }
+
+      .cx2-driver-cell small{
+        display:block;
+        color:#98a3af;
+        font-size:10px;
+        margin-top:2px;
+      }
+
+      .cx2-table code{
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+        font-size:10px;
+        background:#f2f5f7;
+        padding:5px 6px;
+        border-radius:6px;
+        color:#506276;
+      }
+
+      .cx2-rank{
+        display:inline-flex;
+        width:28px;
+        height:28px;
+        align-items:center;
+        justify-content:center;
+        border-radius:8px;
+        background:#edf2f5;
+        color:#607184;
+        font-weight:800;
+      }
+
+      .cx2-score{
+        display:inline-flex;
+        min-width:30px;
+        height:28px;
+        align-items:center;
+        justify-content:center;
+        padding:0 7px;
+        border-radius:8px;
+        font-weight:800;
+      }
+
+      .cx2-score.zero{
+        background:#f1f4f6;
+        color:#8b98a6;
+      }
+
+      .cx2-score.low{
+        background:#f7f1df;
+        color:#8b6a25;
+      }
+
+      .cx2-score.med{
+        background:#f6e7c3;
+        color:#8c610a;
+      }
+
+      .cx2-score.high{
+        background:#f5dddf;
+        color:#a2464d;
+      }
+
+      .cx2-empty{
+        color:#b2bbc5;
+      }
+
+      .cx2-total{
+        display:inline-flex;
+        min-width:34px;
+        justify-content:center;
+        padding:6px 8px;
+        border-radius:8px;
+        background:#edf2f5;
+        color:#25384d;
+      }
+
+      .cx2-affected{
+        color:#6c7d8f;
+        font-weight:700;
+      }
+
+      .cx2-footnote{
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        padding:10px 3px 0;
+        color:#8b97a5;
+        font-size:10px;
+      }
+
+      .cx2-overview-grid{
+        display:grid;
+        grid-template-columns:minmax(0,1.45fr) minmax(320px,.8fr);
+        gap:14px;
+        margin-bottom:14px;
+      }
+
+      .cx2-bars{
+        height:220px;
+        display:flex;
+        gap:10px;
+        align-items:stretch;
+        padding-top:6px;
+      }
+
+      .cx2-bars button{
+        flex:1;
+        display:grid;
+        grid-template-rows:22px 1fr 20px;
+        gap:6px;
+        border:0;
+        background:transparent;
+        cursor:pointer;
+        text-align:center;
+      }
+
+      .cx2-bars button>span{
+        font-size:11px;
+        font-weight:800;
+        color:#32465b;
+      }
+
+      .cx2-bars button>div{
+        display:flex;
+        align-items:flex-end;
+        justify-content:center;
+        border-radius:7px;
+        background:#f3f6f8;
+        overflow:hidden;
+      }
+
+      .cx2-bars button i{
+        display:block;
+        width:34px;
+        min-height:5px;
+        border-radius:6px 6px 2px 2px;
+        background:#4e9788;
+      }
+
+      .cx2-bars button small{
+        font-weight:800;
+        color:#8290a0;
+      }
+
+      .cx2-bars button.missing{
+        cursor:not-allowed;
+      }
+
+      .cx2-bars button.missing>div{
+        border:1px dashed #d9e0e6;
+        background:#fafbfc;
+      }
+
+      .cx2-top-list button{
+        width:100%;
+        display:grid;
+        grid-template-columns:34px 1fr 50px;
+        align-items:center;
+        gap:10px;
+        border:0;
+        border-top:1px solid #edf1f4;
+        background:transparent;
+        padding:11px 2px;
+        text-align:left;
+        cursor:pointer;
+      }
+
+      .cx2-top-list button:first-child{
+        border-top:0;
+      }
+
+      .cx2-top-list button:hover{
+        background:#fafcfd;
+      }
+
+      .cx2-top-list b{
+        display:block;
+        color:#22354b;
+      }
+
+      .cx2-top-list small{
+        display:block;
+        color:#96a1ad;
+        font-size:10px;
+        margin-top:2px;
+      }
+
+      .cx2-top-list strong{
+        text-align:right;
+        font-size:18px;
+        color:#1f3348;
+      }
+
+      .cx2-health{
+        margin-bottom:10px;
+      }
+
+      .cx2-health-row{
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+      }
+
+      .cx2-health-row button{
+        border:1px solid #dfe6ec;
+        border-radius:10px;
+        background:#fff;
+        padding:9px 12px;
+        min-width:95px;
+        text-align:left;
+        cursor:pointer;
+      }
+
+      .cx2-health-row button.ok{
+        border-left:3px solid #4e9788;
+      }
+
+      .cx2-health-row button.missing{
+        border-left:3px solid #caa04e;
+        cursor:not-allowed;
+      }
+
+      .cx2-health-row span{
+        display:block;
+        font-size:10px;
+        font-weight:800;
+        color:#8491a0;
+      }
+
+      .cx2-health-row b{
+        display:block;
+        font-size:12px;
+        color:#23364b;
+        margin-top:2px;
+      }
+
+      @media(max-width:1250px){
+        .cx2-kpis{
+          grid-template-columns:repeat(2,1fr);
+        }
+
+        .cx2-toolbar{
+          grid-template-columns:repeat(3,1fr);
+        }
+
+        .cx2-search-label{
+          grid-column:span 2;
+        }
+
+        .cx2-overview-grid{
+          grid-template-columns:1fr;
+        }
+      }
+
+      @media(max-width:850px){
+        .cx2-head{
+          flex-direction:column;
+        }
+
+        .cx2-head-actions{
+          justify-content:flex-start;
+        }
+
+        .cx2-kpis{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .cx2-toolbar{
+          grid-template-columns:1fr 1fr;
+        }
+
+        .cx2-search-label{
+          grid-column:1/-1;
+        }
+
+        .cx2-reset{
+          grid-column:1/-1;
+        }
+
+        .cx2-card{
+          padding:13px;
+        }
+      }
+
+      @media(max-width:560px){
+        .cx2-kpis{
+          grid-template-columns:1fr;
+        }
+
+        .cx2-toolbar{
+          grid-template-columns:1fr;
+        }
+
+        .cx2-search-label,
+        .cx2-reset{
+          grid-column:auto;
+        }
+
+        .cx2-summary-pill{
+          display:none;
+        }
+      }
+    `}</style>
   </>;
 }
