@@ -230,48 +230,425 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport }) {
 export function DriverScorecardsView({ organizationId, onOpenDriver, onImport }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-    const { data, error } = await supabase.from("driver_metrics")
-      .select("driver_id,week_label,period_end,performance,dcr,pod,iadc,cc,mentor_score,ementor,fico,concessions,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,psb,lor,risk,issue,data_confidence,drivers(id,trid,full_name,site,status)")
-      .eq("organization_id", organizationId).order("period_end", { ascending: false }).limit(10000);
-    if (error) throw error;
-    return data || [];
+
+    const { data: cards, error: cardsError } = await supabase
+      .from("site_scorecards")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("year", { ascending: false })
+      .order("week", { ascending: false });
+
+    if (cardsError) throw cardsError;
+
+    const select = "driver_id,week_label,period_start,period_end,performance,scorecard_score,tier,dcr,pod,iadc,cc,mentor_score,ementor,fico,concessions,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,psb,lor,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)";
+    const rows = [];
+    const pageSize = 1000;
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("driver_metrics")
+        .select(select)
+        .eq("organization_id", organizationId)
+        .order("period_end", { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (error) throw error;
+
+      const page = data || [];
+      rows.push(...page);
+
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
+
+    return { cards: cards || [], rows };
   }, [organizationId]);
 
-  const rows = load.data || [];
-  const weeks = useMemo(() => [...new Set(rows.map((r) => r.week_label).filter(Boolean))].sort((a, b) => Number(b.replace(/\D/g, "")) - Number(a.replace(/\D/g, ""))), [rows]);
-  const [week, setWeek] = useState("");
-  const [query, setQuery] = useState("");
-  useEffect(() => { if (weeks.length && !week) setWeek(weeks[0]); }, [weeks, week]);
-  const selected = useMemo(() => rows.filter((r) => r.week_label === week).filter((r) => `${r.drivers?.full_name || ""} ${r.drivers?.trid || ""}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => (indexFor(b) ?? -1) - (indexFor(a) ?? -1)), [rows, week, query]);
+  const rows = load.data?.rows || [];
+  const cards = load.data?.cards || [];
 
-  if (load.loading) return <LoadingPanel text="Loading driver scorecards…" />;
+  const yearForRow = (row) => {
+    const raw = String(row.period_end || row.period_start || "");
+    const match = raw.match(/^(20\d{2})/);
+    return match ? Number(match[1]) : null;
+  };
+
+  const periodKeyForRow = (row) => {
+    const year = yearForRow(row);
+    return `${year || "unknown"}-${row.week_label || "Unknown"}`;
+  };
+
+  const sourceTier = (score, sourceTierValue = "") => {
+    const value = num(score);
+    if (value != null) {
+      if (value < 50) return { label: "Poor", cls: "poor" };
+      if (value < 70) return { label: "Fair", cls: "fair" };
+      if (value < 85) return { label: "Great", cls: "great" };
+      if (value < 93) return { label: "Fantastic", cls: "fantastic" };
+      return { label: "Fantastic Plus", cls: "fantastic-plus" };
+    }
+
+    const source = String(sourceTierValue || "").trim().toLowerCase();
+    if (source.includes("fantastic plus")) return { label: "Fantastic Plus", cls: "fantastic-plus" };
+    if (source === "fantastic") return { label: "Fantastic", cls: "fantastic" };
+    if (source === "great") return { label: "Great", cls: "great" };
+    if (source === "fair") return { label: "Fair", cls: "fair" };
+    if (source === "poor") return { label: "Poor", cls: "poor" };
+    return { label: "Unrated", cls: "unrated" };
+  };
+
+  const periodMap = useMemo(() => {
+    const map = new Map();
+
+    for (const row of rows) {
+      if (!row.week_label) continue;
+      const key = periodKeyForRow(row);
+      const year = yearForRow(row);
+      const current = map.get(key) || {
+        key,
+        year,
+        weekLabel: row.week_label,
+        periodEnd: row.period_end || "",
+        rows: [],
+      };
+      current.rows.push(row);
+      if (row.period_end && (!current.periodEnd || row.period_end > current.periodEnd)) current.periodEnd = row.period_end;
+      map.set(key, current);
+    }
+
+    for (const card of cards) {
+      const key = `${card.year || "unknown"}-${card.week_label || `W${String(card.week || "").padStart(2, "0")}`}`;
+      const current = map.get(key) || {
+        key,
+        year: card.year || null,
+        weekLabel: card.week_label || `W${String(card.week || "").padStart(2, "0")}`,
+        periodEnd: "",
+        rows: [],
+      };
+      current.card = card;
+      map.set(key, current);
+    }
+
+    return [...map.values()].sort((a, b) => {
+      const ay = Number(a.year || 0);
+      const by = Number(b.year || 0);
+      if (ay !== by) return by - ay;
+      const aw = Number(String(a.weekLabel || "").replace(/\D/g, "")) || 0;
+      const bw = Number(String(b.weekLabel || "").replace(/\D/g, "")) || 0;
+      return bw - aw;
+    });
+  }, [rows, cards]);
+
+  const [periodKey, setPeriodKey] = useState("");
+  const [query, setQuery] = useState("");
+  const [groupFilter, setGroupFilter] = useState("all");
+
+  useEffect(() => {
+    if (periodMap.length && !periodMap.some((period) => period.key === periodKey)) {
+      setPeriodKey(periodMap[0].key);
+    }
+  }, [periodMap, periodKey]);
+
+  const period = periodMap.find((item) => item.key === periodKey) || periodMap[0] || null;
+  const card = period?.card || cards.find((item) =>
+    item.week_label === period?.weekLabel &&
+    (!period?.year || Number(item.year) === Number(period.year))
+  ) || null;
+
+  const periodRows = useMemo(() => {
+    if (!period) return [];
+    return period.rows
+      .filter((row) => {
+        const text = `${row.drivers?.full_name || ""} ${row.drivers?.trid || ""} ${row.drivers?.site || ""}`.toLowerCase();
+        return text.includes(query.toLowerCase());
+      })
+      .map((row) => {
+        const sourceScore = num(row.scorecard_score ?? row.raw_data?.scorecard_score);
+        const sourceTierValue = row.tier ?? row.raw_data?.tier ?? row.raw_data?.scorecard_tier;
+        const rank = sourceTier(sourceScore, sourceTierValue);
+        return { ...row, sourceScore, sourceRank: rank };
+      })
+      .filter((row) => groupFilter === "all" || row.sourceRank.cls === groupFilter)
+      .sort((a, b) => {
+        const as = a.sourceScore ?? -1;
+        const bs = b.sourceScore ?? -1;
+        if (as !== bs) return bs - as;
+        return displayDriverName(a.drivers).localeCompare(displayDriverName(b.drivers));
+      });
+  }, [period, query, groupFilter]);
+
+  const groupOrder = [
+    { label: "Fantastic Plus", cls: "fantastic-plus", min: "93+" },
+    { label: "Fantastic", cls: "fantastic", min: "85–92.99" },
+    { label: "Great", cls: "great", min: "70–84.99" },
+    { label: "Fair", cls: "fair", min: "50–69.99" },
+    { label: "Poor", cls: "poor", min: "≤49.99" },
+  ];
+
+  const groupCounts = groupOrder.reduce((acc, group) => {
+    acc[group.cls] = periodRows.filter((row) => row.sourceRank.cls === group.cls).length;
+    return acc;
+  }, {});
+
+  const totalDrivers = period?.rows?.length || 0;
+  const delivered = (period?.rows || []).reduce((sum, row) => sum + (num(row.delivered) || 0), 0);
+  const concessions = (period?.rows || []).reduce((sum, row) => sum + (num(row.concessions) || 0), 0);
+  const scoreRows = (period?.rows || []).map((row) => num(row.scorecard_score ?? row.raw_data?.scorecard_score)).filter((value) => value != null);
+  const averageDriverScore = scoreRows.length ? scoreRows.reduce((a, b) => a + b, 0) / scoreRows.length : null;
+
+  const overallScore = num(card?.overall_score);
+  const overallStanding = card?.standing || (averageDriverScore != null ? sourceTier(averageDriverScore).label : "Not rated");
+
+  const fmtPercentFlexible = (value) => {
+    const nValue = num(value);
+    if (nValue == null) return "—";
+    return `${nValue.toFixed(2)}%`;
+  };
+
+  const metricTone = (key, value) => {
+    const v = num(value);
+    if (v == null) return "neutral";
+
+    if (key === "concessions") return v === 0 ? "good" : v < 3 ? "warn" : "bad";
+    if (key === "fico") return v >= 815 ? "good" : v >= 800 ? "warn" : "bad";
+    if (key === "dcr") return v >= 99.2 ? "good" : v >= 98 ? "warn" : "bad";
+    if (key === "pod") return v >= 99.6 ? "good" : v >= 99 ? "warn" : "bad";
+    if (key === "cc") return v >= 99 ? "good" : v >= 95 ? "warn" : "bad";
+    if (key === "dsc_dpmo") return v === 0 ? "good" : v < 1000 ? "warn" : "bad";
+    if (key === "lor") return v === 0 ? "good" : "bad";
+    if (key === "ce_dpmo") return v === 0 ? "good" : "bad";
+    if (key === "cdf_dpmo") return v < 4000 ? "good" : v < 8000 ? "warn" : "bad";
+    if (key === "psb") return v === 0 ? "good" : "bad";
+    return "neutral";
+  };
+
+  const metricCell = (key, value, formatter = plain) =>
+    <span className={`scorex-metric ${metricTone(key, value)}`}>{formatter(value)}</span>;
+
+  if (load.loading) return <LoadingPanel text="Loading weekly scorecard archive…" />;
   if (load.error) return <ErrorPanel error={load.error} />;
 
-  return <>
-    <div className="page-heading scorecard-page-heading">
-      <div><span className="page-kicker">DRIVER INTELLIGENCE</span><h1>Driver scorecards</h1><p>Weekly driver metrics, ranking, evidence and coaching access.</p></div>
-      <div className="scorecard-filter-row"><select value={week} onChange={(e) => setWeek(e.target.value)}>{weeks.map((w) => <option key={w}>{w}</option>)}</select><button className="btn primary" onClick={onImport}>Import reports</button></div>
+  if (!periodMap.length) {
+    return <>
+      <div className="page-heading">
+        <div>
+          <span className="page-kicker">SCORECARDS</span>
+          <h1>Weekly scorecards</h1>
+          <p>Upload an Amazon DSP scorecard and MetrixIQ will build the weekly driver table automatically.</p>
+        </div>
+      </div>
+      <EmptyPanel
+        title="No scorecard history stored yet"
+        text="Import a DSP Scorecard PDF, XLSX or CSV. MetrixIQ will detect the week, drivers, ranks and scorecard metrics."
+        action="Import scorecard"
+        onAction={onImport}
+      />
+    </>;
+  }
+
+  const archiveCards = periodMap.slice(0, 12);
+
+  return <div className="scorex-root">
+    <div className="page-heading scorex-heading">
+      <div>
+        <span className="page-kicker">WEEKLY SCORECARD ARCHIVE</span>
+        <h1>Driver scorecards</h1>
+        <p>Source score, Amazon rank and every recognised scorecard metric stored week by week.</p>
+      </div>
+
+      <div className="scorex-actions">
+        <select value={periodKey} onChange={(event) => setPeriodKey(event.target.value)}>
+          {periodMap.map((item) =>
+            <option key={item.key} value={item.key}>
+              {item.year || "—"} · {item.weekLabel} · {item.card?.standing || "Scorecard"}
+            </option>
+          )}
+        </select>
+        <button className="btn primary" onClick={onImport}>Import scorecard</button>
+      </div>
     </div>
-    <section className="panel">
-      <div className="table-tools"><input placeholder="Search driver name or TRID…" value={query} onChange={(e) => setQuery(e.target.value)} /><span>{selected.length} drivers · {week || "No week"}</span></div>
-      <div className="table-wrap"><table className="data-table pro-driver-score-table"><thead><tr><th>#</th><th>Driver</th><th>Index</th><th>DCR</th><th>POD</th><th>IADC</th><th>Mentor</th><th>CC</th><th>Concessions</th><th>CDF DPMO</th><th>Risk</th><th /></tr></thead><tbody>
-        {selected.map((row, index) => {
-          const driver = row.drivers || {};
-          const score = indexFor(row);
-          const tier = tierForIndex(score);
-          return <tr key={`${row.driver_id}-${week}`}>
-            <td><span className="rank-badge">{index + 1}</span></td>
-            <td><div className="driver-cell"><span className="driver-avatar">{displayDriverName(driver).slice(0,1)}</span><div><b>{displayDriverName(driver)}</b><small>{driver.trid}</small></div></div></td>
-            <td><b>{score == null ? "—" : score.toFixed(1)}</b><small className={`tier-inline ${tier.cls}`}>{tier.label}</small></td>
-            <td>{pct(row.dcr)}</td><td>{pct(row.pod)}</td><td>{pct(row.iadc)}</td><td>{plain(row.mentor_score ?? row.ementor ?? row.fico)}</td><td>{pct(row.cc)}</td><td>{plain(row.concessions)}</td><td>{plain(row.cdf_dpmo)}</td><td><span className={`risk-pill risk-${String(row.risk || "Low").toLowerCase()}`}>{row.risk || "Low"}</span></td>
-            <td><button className="profile-link" onClick={() => onOpenDriver?.(driverShape(row))}>Open →</button></td>
-          </tr>;
-        })}
-        {!selected.length && <tr><td colSpan="12"><div className="ops-mini-empty">No driver evidence stored for this week.</div></td></tr>}
-      </tbody></table></div>
+
+    <section className="scorex-hero">
+      <div>
+        <span>{period?.year || ""} · {period?.weekLabel || "WEEK"}</span>
+        <h2>{period?.weekLabel || "WEEK"} — {String(overallStanding).toUpperCase()}</h2>
+        <p>Amazon source scorecard · {totalDrivers} drivers recognised</p>
+      </div>
+      <strong>{overallScore != null ? `${overallScore.toFixed(2)}%` : averageDriverScore != null ? averageDriverScore.toFixed(2) : "—"}</strong>
     </section>
-  </>;
+
+    <section className="scorex-summary">
+      <article><span>Drivers</span><strong>{totalDrivers}</strong><small>Stored for {period?.weekLabel}</small></article>
+      <article><span>Delivered</span><strong>{Math.round(delivered).toLocaleString()}</strong><small>Source total</small></article>
+      <article><span>Concessions</span><strong>{Math.round(concessions)}</strong><small>Source total</small></article>
+      <article><span>Avg TOTAL SCORE</span><strong>{averageDriverScore == null ? "—" : averageDriverScore.toFixed(1)}</strong><small>Driver scorecard average</small></article>
+    </section>
+
+    <section className="scorex-archive">
+      <div className="scorex-section-head">
+        <div><span>HISTORY</span><h2>Weekly scorecard evidence</h2></div>
+        <small>{periodMap.length} stored period{periodMap.length === 1 ? "" : "s"}</small>
+      </div>
+      <div className="scorex-archive-grid">
+        {archiveCards.map((item) => {
+          const itemCard = item.card;
+          const values = item.rows.map((row) => num(row.scorecard_score ?? row.raw_data?.scorecard_score)).filter((value) => value != null);
+          const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
+          const standing = itemCard?.standing || (avg != null ? sourceTier(avg).label : "Stored");
+          const cls = sourceTier(avg, standing).cls;
+          return <button
+            type="button"
+            key={item.key}
+            className={`${item.key === periodKey ? "active" : ""} ${cls}`}
+            onClick={() => setPeriodKey(item.key)}
+          >
+            <span>{item.year || "—"}</span>
+            <b>{item.weekLabel}</b>
+            <em>{standing}</em>
+            <strong>{num(itemCard?.overall_score) != null ? `${Number(itemCard.overall_score).toFixed(2)}%` : avg != null ? avg.toFixed(1) : "—"}</strong>
+            <small>{item.rows.length} drivers</small>
+          </button>;
+        })}
+      </div>
+    </section>
+
+    <section className="scorex-rank-strip">
+      {groupOrder.map((group) =>
+        <button
+          type="button"
+          key={group.cls}
+          className={`${group.cls} ${groupFilter === group.cls ? "active" : ""}`}
+          onClick={() => setGroupFilter((current) => current === group.cls ? "all" : group.cls)}
+        >
+          <span>{group.label}</span>
+          <strong>{groupCounts[group.cls] || 0}</strong>
+          <small>{group.min}</small>
+        </button>
+      )}
+    </section>
+
+    <section className="panel scorex-table-panel">
+      <div className="scorex-table-tools">
+        <div>
+          <span>SCORECARD REGISTER</span>
+          <h2>{period?.weekLabel} driver ranking</h2>
+        </div>
+        <div>
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search name or Transporter ID…"
+          />
+          {groupFilter !== "all" &&
+            <button type="button" className="scorex-clear" onClick={() => setGroupFilter("all")}>
+              Clear rank filter
+            </button>
+          }
+        </div>
+      </div>
+
+      <div className="table-wrap scorex-table-wrap">
+        <table className="data-table scorex-table">
+          <thead>
+            <tr>
+              <th>Transporter ID</th>
+              <th>RANK</th>
+              <th>Name</th>
+              <th>Concessions</th>
+              <th>TOTAL SCORE</th>
+              <th>FICO</th>
+              <th>Delivered</th>
+              <th>DCR</th>
+              <th>DSC DPMO</th>
+              <th>LoR DPMO</th>
+              <th>POD</th>
+              <th>CC</th>
+              <th>CE</th>
+              <th>CDF DPMO</th>
+              <th>PSB</th>
+              <th />
+            </tr>
+          </thead>
+
+          <tbody>
+            {groupOrder.map((group) => {
+              const groupRows = periodRows.filter((row) => row.sourceRank.cls === group.cls);
+              if (!groupRows.length) return null;
+
+              return [
+                <tr key={`${group.cls}-header`} className={`scorex-group-row ${group.cls}`}>
+                  <td colSpan="16">
+                    <div>
+                      <b>{group.label}</b>
+                      <span>{group.min} TOTAL SCORE</span>
+                      <strong>{groupRows.length} driver{groupRows.length === 1 ? "" : "s"}</strong>
+                    </div>
+                  </td>
+                </tr>,
+                ...groupRows.map((row) => {
+                  const driver = row.drivers || {};
+                  const mentor = num(row.mentor_score ?? row.ementor ?? row.fico);
+                  return <tr key={`${row.driver_id}-${period?.key}`} className={`scorex-driver-row ${row.sourceRank.cls}`}>
+                    <td><b className="scorex-trid">{driver.trid || "—"}</b></td>
+                    <td><span className={`scorex-rank ${row.sourceRank.cls}`}>{row.sourceRank.label}</span></td>
+                    <td><b>{displayDriverName(driver)}</b></td>
+                    <td>{metricCell("concessions", row.concessions)}</td>
+                    <td><span className={`scorex-total ${row.sourceRank.cls}`}>{row.sourceScore == null ? "—" : row.sourceScore.toFixed(0)}</span></td>
+                    <td>{metricCell("fico", mentor)}</td>
+                    <td><span className="scorex-delivered">{plain(row.delivered)}</span></td>
+                    <td>{metricCell("dcr", row.dcr, fmtPercentFlexible)}</td>
+                    <td>{metricCell("dsc_dpmo", row.dsc_dpmo)}</td>
+                    <td>{metricCell("lor", row.lor)}</td>
+                    <td>{metricCell("pod", row.pod, fmtPercentFlexible)}</td>
+                    <td>{metricCell("cc", row.cc, fmtPercentFlexible)}</td>
+                    <td>{metricCell("ce_dpmo", row.ce_dpmo)}</td>
+                    <td>{metricCell("cdf_dpmo", row.cdf_dpmo)}</td>
+                    <td>{metricCell("psb", row.psb)}</td>
+                    <td><button className="profile-link" onClick={() => onOpenDriver?.(driverShape(row))}>Open →</button></td>
+                  </tr>;
+                })
+              ];
+            })}
+
+            {!periodRows.length &&
+              <tr>
+                <td colSpan="16">
+                  <div className="ops-mini-empty">
+                    No scorecard rows match this selection. If this is an older import, re-upload the original scorecard so TOTAL SCORE and RANK can be captured.
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <style jsx global>{`
+      .scorex-root{width:100%;padding-bottom:30px}
+      .scorex-heading{align-items:flex-start}
+      .scorex-actions{display:flex;gap:8px;align-items:center}
+      .scorex-actions select{height:38px;min-width:210px;border:1px solid #dbe3e9;border-radius:9px;background:#fff;padding:0 10px;color:#273b50;font-size:10px;font-weight:800}
+      .scorex-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 24px;margin-bottom:10px;border-radius:15px;background:linear-gradient(120deg,#111c2b 0%,#172c3f 60%,#194f48 100%);color:#fff;box-shadow:0 8px 26px rgba(20,38,55,.12)}
+      .scorex-hero span{font-size:9px;font-weight:900;letter-spacing:.13em;color:#92d6c5}.scorex-hero h2{margin:4px 0;font-size:22px}.scorex-hero p{margin:0;color:#aebcca;font-size:10px}.scorex-hero>strong{font-size:33px;letter-spacing:-.03em;color:#8ef061}
+      .scorex-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:13px}.scorex-summary article{padding:13px 15px;border:1px solid #dfe6eb;border-radius:11px;background:#fff}.scorex-summary span{display:block;font-size:8px;font-weight:900;letter-spacing:.08em;color:#8794a1}.scorex-summary strong{display:block;margin-top:5px;font-size:20px;color:#203449}.scorex-summary small{display:block;margin-top:4px;color:#9aa4ae;font-size:8px}
+      .scorex-archive{margin-bottom:13px}.scorex-section-head{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:7px}.scorex-section-head span{font-size:8px;font-weight:900;letter-spacing:.11em;color:#4d9485}.scorex-section-head h2{margin:3px 0 0;font-size:15px;color:#203449}.scorex-section-head small{color:#8a97a4;font-size:8px}
+      .scorex-archive-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}.scorex-archive-grid button{display:grid;grid-template-columns:auto 1fr;gap:2px 7px;padding:9px 10px;border:1px solid #dfe6eb;border-radius:10px;background:#fff;text-align:left;cursor:pointer}.scorex-archive-grid button.active{border-color:#4e9688;box-shadow:0 0 0 2px rgba(78,150,136,.12)}.scorex-archive-grid button>span{font-size:7px;color:#98a4af}.scorex-archive-grid button>b{grid-column:1;font-size:12px;color:#21364b}.scorex-archive-grid button>em{grid-column:2;grid-row:1/3;align-self:center;justify-self:end;font-size:7px;font-style:normal;font-weight:900;text-transform:uppercase}.scorex-archive-grid button>strong{font-size:12px;color:#243a4e}.scorex-archive-grid button>small{justify-self:end;color:#97a2ad;font-size:7px}
+      .scorex-archive-grid button.fantastic-plus>em{color:#2b7d56}.scorex-archive-grid button.fantastic>em{color:#4f8147}.scorex-archive-grid button.great>em{color:#9a6917}.scorex-archive-grid button.fair>em{color:#9c5d36}.scorex-archive-grid button.poor>em{color:#ac3940}
+      .scorex-rank-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}.scorex-rank-strip button{display:grid;grid-template-columns:1fr auto;align-items:center;gap:3px 8px;padding:10px 12px;border:1px solid #dfe6eb;border-radius:10px;background:#fff;text-align:left;cursor:pointer;transition:.15s}.scorex-rank-strip button.active{transform:translateY(-1px);box-shadow:0 5px 14px rgba(20,40,60,.08)}.scorex-rank-strip span{font-size:9px;font-weight:900}.scorex-rank-strip strong{font-size:17px}.scorex-rank-strip small{grid-column:1/3;font-size:7px;color:#8b97a3}.scorex-rank-strip .fantastic-plus{border-left:4px solid #6bbf3d;color:#2d6f28}.scorex-rank-strip .fantastic{border-left:4px solid #68a45a;color:#47763f}.scorex-rank-strip .great{border-left:4px solid #e6a126;color:#8e5e0a}.scorex-rank-strip .fair{border-left:4px solid #d69b9b;color:#915151}.scorex-rank-strip .poor{border-left:4px solid #e32620;color:#a5292c}
+      .scorex-table-panel{padding:0;overflow:hidden}.scorex-table-tools{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:14px 16px;border-bottom:1px solid #e6ecef}.scorex-table-tools>div:first-child span{font-size:8px;font-weight:900;letter-spacing:.1em;color:#4b9384}.scorex-table-tools h2{margin:3px 0 0;font-size:16px;color:#203449}.scorex-table-tools>div:last-child{display:flex;gap:7px}.scorex-table-tools input{height:34px;min-width:220px;border:1px solid #dce4e9;border-radius:8px;padding:0 10px;font-size:9px}.scorex-clear{border:1px solid #dce4e9;border-radius:8px;background:#f7f9fa;padding:0 10px;color:#617184;font-size:8px;font-weight:800}
+      .scorex-table-wrap{max-height:68vh}.scorex-table{min-width:1500px}.scorex-table thead th{position:sticky;top:0;z-index:4;background:#d8d8d8;color:#111;border-right:1px solid #a9a9a9;font-size:8px;font-weight:900;white-space:nowrap}.scorex-table td{border-right:1px solid #edf0f2;white-space:nowrap;font-size:8px}.scorex-group-row td{padding:7px 11px!important;border-top:2px solid #283746;border-bottom:1px solid #b7c0c7}.scorex-group-row td>div{display:flex;align-items:center;gap:12px}.scorex-group-row b{font-size:10px;text-transform:uppercase}.scorex-group-row span{font-size:7px;opacity:.75}.scorex-group-row strong{margin-left:auto;font-size:8px}.scorex-group-row.fantastic-plus td{background:#87ef3d;color:#183d10}.scorex-group-row.fantastic td{background:#67a85b;color:#fff}.scorex-group-row.great td{background:#eca329;color:#3c2a07}.scorex-group-row.fair td{background:#d7a0a0;color:#572f2f}.scorex-group-row.poor td{background:#e62922;color:#fff}
+      .scorex-trid{font-size:7px;color:#566777}.scorex-rank{display:inline-flex;min-width:72px;justify-content:center;padding:4px 6px;border-radius:5px;font-size:7px;font-weight:900}.scorex-rank.fantastic-plus{background:#87ef3d;color:#183d10}.scorex-rank.fantastic{background:#68a75b;color:#fff}.scorex-rank.great{background:#eca329;color:#3c2a07}.scorex-rank.fair{background:#ddb0b0;color:#633838}.scorex-rank.poor{background:#e62922;color:#fff}.scorex-rank.unrated{background:#edf1f4;color:#7b8793}
+      .scorex-total{display:inline-flex;min-width:38px;justify-content:center;padding:4px 5px;border-radius:5px;font-weight:900}.scorex-total.fantastic-plus{background:#8bd036;color:#1f4815}.scorex-total.fantastic{background:#a9be2a;color:#344408}.scorex-total.great{background:#dd8a21;color:#4d2c05}.scorex-total.fair{background:#e2621b;color:#fff}.scorex-total.poor{background:#d7221b;color:#fff}.scorex-total.unrated{background:#edf1f4;color:#7b8793}
+      .scorex-metric{display:inline-flex;min-width:45px;justify-content:center;padding:4px 5px;border-radius:5px;font-size:7px;font-weight:850}.scorex-metric.good{background:#88ef3f;color:#183b12}.scorex-metric.warn{background:#f2c644;color:#62460b}.scorex-metric.bad{background:#df291d;color:#fff}.scorex-metric.neutral{background:#eef2f4;color:#657483}.scorex-delivered{display:inline-flex;min-width:45px;justify-content:center;padding:4px 5px;border-radius:5px;background:#e8efea;color:#4a5d50;font-weight:800}
+      @media(max-width:1250px){.scorex-archive-grid{grid-template-columns:repeat(4,1fr)}.scorex-summary{grid-template-columns:repeat(2,1fr)}}
+      @media(max-width:800px){.scorex-actions{width:100%;flex-wrap:wrap}.scorex-actions select{flex:1}.scorex-hero{align-items:flex-start}.scorex-archive-grid{grid-template-columns:repeat(2,1fr)}.scorex-rank-strip{grid-template-columns:repeat(2,1fr)}.scorex-table-tools{align-items:flex-start;flex-direction:column}.scorex-table-tools>div:last-child{width:100%}.scorex-table-tools input{flex:1;min-width:0}}
+    `}</style>
+  </div>;
 }
+
+
 
 export function IadcView({ organizationId, onOpenDriver, onImport }) {
   const load = useLoad(async () => {
