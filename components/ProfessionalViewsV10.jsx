@@ -27,7 +27,7 @@ function useDbRows(organizationId, kind){
           .order("period_end",{ascending:true})
           .limit(10000);
         if(kind==="iadc") query=query.not("iadc","is",null);
-        if(kind==="concessions") query=query.not("concessions","is",null);
+        
         const {data,error}=await query;
         if(error)throw error;
         const rows=(data||[]).filter((row)=>{
@@ -163,12 +163,13 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
   if(load.loading)return <Loading text="Loading concessions directly from saved driver metrics…"/>;
   if(load.error)return <ErrorBox error={load.error}/>;
 
+  const concessionRows=load.rows.filter(r=>n(r.concessions)!=null);
   const weeks=contiguousWeeks(load.rows,range);
   const weekSet=new Set(weeks);
-  const weekTotals=weeks.map(w=>load.rows.filter(r=>r.week_label===w).reduce((s,r)=>s+(n(r.concessions)||0),0));
-  const presentSet=new Set(load.rows.map(r=>r.week_label));
+  const weekTotals=weeks.map(w=>concessionRows.filter(r=>r.week_label===w).reduce((s,r)=>s+(n(r.concessions)||0),0));
+  const presentSet=new Set(concessionRows.map(r=>r.week_label));
   const m=new Map();
-  for(const row of load.rows){
+  for(const row of concessionRows){
     if(!weekSet.has(row.week_label))continue;
     const d=row.drivers||{},id=row.driver_id||trid(d);
     const cur=m.get(id)||{id,driver:d,byWeek:{},row};
