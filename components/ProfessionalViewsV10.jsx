@@ -199,42 +199,388 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
   const load=useDbRows(organizationId,"concessions");
   const [range,setRange]=useState(8);
   const [query,setQuery]=useState("");
-  if(load.loading)return <Loading text="Loading concessions directly from saved driver metrics…"/>;
+  const [view,setView]=useState("overview");
+
+  if(load.loading)return <Loading text="Loading concessions intelligence…"/>;
   if(load.error)return <ErrorBox error={load.error}/>;
+
+  const siteLabel=(driver)=>{
+    const value=String(driver?.site||"").trim();
+    return /^[A-Z]{2,5}\d+$/i.test(value)?value.toUpperCase():"DLS2";
+  };
 
   const concessionRows=load.rows.filter(r=>n(r.concessions)!=null);
   const weeks=contiguousWeeks(load.rows,range);
   const weekSet=new Set(weeks);
-  const weekTotals=weeks.map(w=>concessionRows.filter(r=>r.week_label===w).reduce((s,r)=>s+(n(r.concessions)||0),0));
   const presentSet=new Set(concessionRows.map(r=>r.week_label));
+
+  const weekTotals=weeks.map(w=>
+    concessionRows
+      .filter(r=>r.week_label===w)
+      .reduce((sum,r)=>sum+(n(r.concessions)||0),0)
+  );
+
   const m=new Map();
+
   for(const row of concessionRows){
     if(!weekSet.has(row.week_label))continue;
-    const d=row.drivers||{},id=row.driver_id||trid(d);
-    const cur=m.get(id)||{id,driver:d,byWeek:{},row};
-    cur.byWeek[row.week_label]=n(row.concessions);
-    cur.row=row;
-    m.set(id,cur);
+
+    const driver=row.drivers||{};
+    const id=row.driver_id||trid(driver);
+    const current=m.get(id)||{
+      id,
+      driver,
+      byWeek:{},
+      row
+    };
+
+    current.byWeek[row.week_label]=n(row.concessions);
+    current.row=row;
+    m.set(id,current);
   }
-  const ranking=[...m.values()].map(x=>{
-    const values=weeks.map(w=>Object.prototype.hasOwnProperty.call(x.byWeek,w)?x.byWeek[w]:null);
-    const reported=values.filter(v=>v!=null);
-    const total=reported.reduce((a,b)=>a+b,0);
-    const affected=reported.filter(v=>v>0).length;
-    return {...x,values,total,reported:reported.length,affected,avg:reported.length?total/reported.length:0};
-  }).sort((a,b)=>b.total-a.total||b.affected-a.affected);
-  const filtered=ranking.filter(x=>`${dname(x.driver)} ${trid(x.driver)}`.toLowerCase().includes(query.toLowerCase()));
-  const total=weekTotals.reduce((a,b)=>a+b,0);
+
+  const ranking=[...m.values()]
+    .map(x=>{
+      const values=weeks.map(w=>
+        Object.prototype.hasOwnProperty.call(x.byWeek,w)
+          ? x.byWeek[w]
+          : null
+      );
+
+      const reported=values.filter(v=>v!=null);
+      const total=reported.reduce((a,b)=>a+b,0);
+      const affected=reported.filter(v=>v>0).length;
+
+      return {
+        ...x,
+        values,
+        total,
+        reported:reported.length,
+        affected,
+        avg:reported.length?total/reported.length:0
+      };
+    })
+    .sort((a,b)=>b.total-a.total||b.affected-a.affected);
+
+  const importedWeeks=weeks.filter(w=>presentSet.has(w));
+  const latestWeek=importedWeeks[importedWeeks.length-1]||"";
+  const previousWeek=importedWeeks[importedWeeks.length-2]||"";
+
+  const latestIndex=weeks.indexOf(latestWeek);
+  const previousIndex=weeks.indexOf(previousWeek);
+
+  const latestTotal=latestIndex>=0?weekTotals[latestIndex]:null;
+  const previousTotal=previousIndex>=0?weekTotals[previousIndex]:null;
+
+  const wow=
+    latestTotal!=null&&previousTotal!=null
+      ? latestTotal-previousTotal
+      : null;
+
+  const latestValue=(item)=>
+    latestWeek&&Object.prototype.hasOwnProperty.call(item.byWeek,latestWeek)
+      ? item.byWeek[latestWeek]
+      : null;
+
+  const affectedDrivers=ranking.filter(x=>(latestValue(x)||0)>0).length;
+  const repeatDrivers=ranking.filter(x=>x.affected>=2).length;
   const missingWeeks=weeks.filter(w=>!presentSet.has(w));
+  const selectedTotal=weekTotals.reduce((a,b)=>a+b,0);
+  const maxWeekly=Math.max(1,...weekTotals);
+
+  const priority=[...ranking]
+    .sort((a,b)=>
+      (latestValue(b)||0)-(latestValue(a)||0) ||
+      b.total-a.total
+    )
+    .slice(0,5);
+
+  const filtered=ranking.filter(x=>
+    `${dname(x.driver)} ${trid(x.driver)}`
+      .toLowerCase()
+      .includes(query.toLowerCase())
+  );
 
   return <>
-    <div className="page-heading v10-heading"><div><span className="page-kicker">QUALITY</span><h1>Concessions intelligence</h1><p>Professional weekly matrix with explicit missing-report weeks and cumulative totals.</p></div><RangeTabs value={range} onChange={setRange}/></div>
-    {missingWeeks.length>0&&<div className="v10-info-banner"><b>Missing report:</b> {missingWeeks.join(", ")} {missingWeeks.length===1?"has":"have"} no concessions data stored yet. It is shown as “Not imported”, never as zero.</div>}
-    <section className="v10-week-cards">{weeks.map((w,i)=><article key={w} className={!presentSet.has(w)?"missing":""}><span>{w}</span><strong>{presentSet.has(w)?weekTotals[i]:"—"}</strong><small>{presentSet.has(w)?"Total concessions":"Not imported"}</small></article>)}</section>
-    <section className="v10-kpi-grid"><article><span>Total concessions</span><strong>{total}</strong><small>Selected period</small></article><article><span>Drivers tracked</span><strong>{ranking.length}</strong><small>With reported evidence</small></article><article><span>Repeat drivers</span><strong>{ranking.filter(x=>x.affected>=2).length}</strong><small>2+ affected weeks</small></article><article className={missingWeeks.length?"warn":""}><span>Missing weeks</span><strong>{missingWeeks.length}</strong><small>{missingWeeks.join(", ")||"Complete reporting"}</small></article></section>
-    <section className="panel v10-table-panel"><div className="panel-head"><div><h2>Driver concession matrix</h2><p>Each reporting week remains visible. Total is the cumulative selected-period count.</p></div><input className="v10-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search driver or TRID…"/></div><div className="table-wrap"><table className="data-table v10-concessions"><thead><tr><th>#</th><th>Driver</th><th>TRID</th>{weeks.map(w=><th key={w}>{w}</th>)}<th>Total</th><th>Weeks affected</th><th>Avg/week</th><th /></tr></thead><tbody>
-    {filtered.map((x,i)=><tr key={x.id}><td><span className="rank-badge">{i+1}</span></td><td><b>{dname(x.driver)}</b><small className="history-date">{x.driver?.site||"DLS2"}</small></td><td><code className="v10-trid">{trid(x.driver)}</code></td>{x.values.map((v,j)=><td key={weeks[j]}>{!presentSet.has(weeks[j])?<span className="v10-missing">Not imported</span>:v==null?<span className="missing-cell">—</span>:<span className={`concession-cell ${v>=3?"high":v>=2?"med":v>=1?"low":""}`}>{v}</span>}</td>)}<td><b className={x.total>=5?"v10-total bad":x.total>=2?"v10-total warn":"v10-total good"}>{x.total}</b></td><td>{x.affected}/{x.reported}</td><td>{x.avg.toFixed(2)}</td><td><button className="profile-link" onClick={()=>onOpenDriver?.(openShape(x.row,{concessions:x.total}))}>Open →</button></td></tr>)}
-    {!filtered.length&&<tr><td colSpan={7+weeks.length}><div className="v10-empty">No concessions data matches this selection.</div></td></tr>}
-    </tbody><tfoot><tr><td colSpan="3"><b>Weekly total</b></td>{weeks.map((w,i)=><td key={w}><b>{presentSet.has(w)?weekTotals[i]:"—"}</b></td>)}<td><b>{total}</b></td><td colSpan="3">Selected period</td></tr></tfoot></table></div></section>
+    <div className="page-heading conx-heading">
+      <div>
+        <span className="page-kicker">QUALITY INTELLIGENCE</span>
+        <h1>Concessions</h1>
+        <p>DNR performance, weekly movement and driver-level risk in one operational view.</p>
+      </div>
+
+      <div className="conx-actions">
+        <div className="conx-view-tabs">
+          <button
+            type="button"
+            className={view==="overview"?"active":""}
+            onClick={()=>setView("overview")}
+          >
+            Overview
+          </button>
+          <button
+            type="button"
+            className={view==="matrix"?"active":""}
+            onClick={()=>setView("matrix")}
+          >
+            Driver matrix
+          </button>
+        </div>
+
+        <RangeTabs value={range} onChange={setRange}/>
+      </div>
+    </div>
+
+    <section className="conx-kpis">
+      <article>
+        <span>Latest report</span>
+        <strong>{latestTotal??"—"}</strong>
+        <small>{latestWeek||"No imported week"}</small>
+      </article>
+
+      <article className={wow>0?"negative":wow<0?"positive":""}>
+        <span>WoW movement</span>
+        <strong>
+          {wow==null?"—":wow===0?"0":`${wow>0?"↑":"↓"} ${Math.abs(wow)}`}
+        </strong>
+        <small>
+          {wow==null
+            ?"Previous report unavailable"
+            :wow<0
+              ?`Fewer DNR vs ${previousWeek}`
+              :wow>0
+                ?`More DNR vs ${previousWeek}`
+                :`No change vs ${previousWeek}`}
+        </small>
+      </article>
+
+      <article>
+        <span>Affected drivers</span>
+        <strong>{affectedDrivers}</strong>
+        <small>{latestWeek||"Latest report"}</small>
+      </article>
+
+      <article>
+        <span>Repeat drivers</span>
+        <strong>{repeatDrivers}</strong>
+        <small>2+ affected weeks</small>
+      </article>
+    </section>
+
+    {view==="overview"&&<>
+      <section className="conx-main-grid">
+        <article className="panel conx-trend-card">
+          <div className="conx-panel-head">
+            <div>
+              <span>WEEKLY TREND</span>
+              <h2>Concessions movement</h2>
+              <p>Lower is better. Missing reports are excluded from the trend.</p>
+            </div>
+            <strong>{selectedTotal}</strong>
+          </div>
+
+          <div className="conx-bars">
+            {weeks.map((week,index)=>{
+              const imported=presentSet.has(week);
+              const value=weekTotals[index];
+              const height=imported
+                ?Math.max(8,Math.round((value/maxWeekly)*100))
+                :0;
+
+              return <div className={`conx-bar-item ${!imported?"missing":""}`} key={week}>
+                <span>{imported?value:"—"}</span>
+                <div className="conx-bar-track">
+                  {imported&&<i style={{height:`${height}%`}}/>}
+                </div>
+                <small>{week}</small>
+              </div>;
+            })}
+          </div>
+        </article>
+
+        <article className="panel conx-health-card">
+          <div className="conx-panel-head">
+            <div>
+              <span>DATA HEALTH</span>
+              <h2>Reporting status</h2>
+              <p>Import coverage for the selected period.</p>
+            </div>
+          </div>
+
+          <div className="conx-health-list">
+            {[...weeks].reverse().map((week)=>{
+              const imported=presentSet.has(week);
+              const index=weeks.indexOf(week);
+
+              return <div key={week}>
+                <span className={`conx-dot ${imported?"ok":"missing"}`}/>
+                <div>
+                  <b>{week}</b>
+                  <small>{imported?`${weekTotals[index]} concessions stored`:"Report not imported"}</small>
+                </div>
+                <em className={imported?"ok":"missing"}>
+                  {imported?"Imported":"Missing"}
+                </em>
+              </div>;
+            })}
+          </div>
+        </article>
+      </section>
+
+      <section className="panel conx-priority-card">
+        <div className="conx-panel-head">
+          <div>
+            <span>DRIVER RISK</span>
+            <h2>Priority drivers</h2>
+            <p>Drivers with the highest current and recurring DNR exposure.</p>
+          </div>
+        </div>
+
+        <div className="conx-priority-list">
+          {priority.map((item,index)=>{
+            const current=latestValue(item);
+
+            return <button
+              type="button"
+              key={item.id}
+              onClick={()=>onOpenDriver?.(
+                openShape(item.row,{concessions:item.total})
+              )}
+            >
+              <span className="conx-rank">{index+1}</span>
+
+              <div className="conx-driver">
+                <b>{dname(item.driver)}</b>
+                <small>{trid(item.driver)} · {siteLabel(item.driver)}</small>
+              </div>
+
+              <div className="conx-current">
+                <span>Latest</span>
+                <strong>{current??"—"}</strong>
+              </div>
+
+              <div className="conx-current">
+                <span>{range==="all"?"All-time":"Period"}</span>
+                <strong>{item.total}</strong>
+              </div>
+
+              <div className="conx-current">
+                <span>Weeks</span>
+                <strong>{item.affected}</strong>
+              </div>
+
+              <span className="profile-link">Open →</span>
+            </button>;
+          })}
+        </div>
+      </section>
+
+      {missingWeeks.length>0&&
+        <div className="conx-report-note">
+          <span>!</span>
+          <div>
+            <b>{missingWeeks.length} report{missingWeeks.length>1?"s":""} missing</b>
+            <small>{missingWeeks.join(", ")} · no value is treated as zero.</small>
+          </div>
+        </div>
+      }
+    </>}
+
+    {view==="matrix"&&
+      <section className="panel conx-matrix-card">
+        <div className="conx-matrix-head">
+          <div>
+            <span>DRIVER DETAIL</span>
+            <h2>Weekly concession matrix</h2>
+            <p>Driver-level DNR history across the selected reporting period.</p>
+          </div>
+
+          <input
+            className="v10-search"
+            value={query}
+            onChange={e=>setQuery(e.target.value)}
+            placeholder="Search driver or TRID…"
+          />
+        </div>
+
+        <div className="table-wrap">
+          <table className="data-table conx-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Driver</th>
+                <th>TRID</th>
+                {weeks.map(w=>
+                  <th
+                    key={w}
+                    className={`${w===latestWeek?"latest":""} ${!presentSet.has(w)?"missing":""}`}
+                  >
+                    {w}
+                  </th>
+                )}
+                <th>Total</th>
+                <th>Affected</th>
+                <th />
+              </tr>
+            </thead>
+
+            <tbody>
+              {filtered.map((item,index)=>
+                <tr key={item.id}>
+                  <td><span className="conx-rank">{index+1}</span></td>
+
+                  <td>
+                    <b>{dname(item.driver)}</b>
+                    <small className="history-date">{siteLabel(item.driver)}</small>
+                  </td>
+
+                  <td><code className="v10-trid">{trid(item.driver)}</code></td>
+
+                  {item.values.map((value,j)=>{
+                    const week=weeks[j];
+
+                    if(!presentSet.has(week)){
+                      return <td key={week} className="conx-missing-cell">—</td>;
+                    }
+
+                    if(value==null){
+                      return <td key={week}><span className="conx-zero">—</span></td>;
+                    }
+
+                    const cls=value>=3?"high":value===2?"medium":value===1?"low":"zero";
+
+                    return <td key={week} className={week===latestWeek?"latest":""}>
+                      <span className={`conx-value ${cls}`}>{value}</span>
+                    </td>;
+                  })}
+
+                  <td><strong className="conx-total">{item.total}</strong></td>
+                  <td>{item.affected}/{item.reported}</td>
+
+                  <td>
+                    <button
+                      className="profile-link"
+                      onClick={()=>onOpenDriver?.(
+                        openShape(item.row,{concessions:item.total})
+                      )}
+                    >
+                      Open →
+                    </button>
+                  </td>
+                </tr>
+              )}
+
+              {!filtered.length&&
+                <tr>
+                  <td colSpan={6+weeks.length}>
+                    <div className="v10-empty">No concessions match this search.</div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
   </>;
 }
