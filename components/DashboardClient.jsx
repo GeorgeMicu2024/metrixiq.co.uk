@@ -204,15 +204,55 @@ function BillingView() { return <><div className="page-heading"><div><span class
 function SettingsView({ session, onLogout }) { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Workspace settings</h1><p>Identity, organisation and data controls.</p></div></div><div className="settings-grid"><section className="panel"><h2>Account identity</h2><div className="setting-row"><span>Name</span><b>{session.name}</b></div><div className="setting-row"><span>Email</span><b>{session.email}</b></div><div className="setting-row"><span>Organisation</span><b>{session.organisation || "My Fleet"}</b></div><div className="setting-row"><span>Access</span><b>{session.role || "Member"}</b></div></section><section className="panel"><h2>Data & security</h2><p className="settings-copy">Authentication and fleet data access are protected by Supabase Auth and row-level security. Smart Import history is persisted in Supabase and protected by workspace row-level security.</p><button className="btn danger" onClick={onLogout}>Sign out</button></section></div></>; }
 
 async function resolveWorkspace(supabase, user) {
-  const { data: membership, error: membershipError } = await supabase.from("organization_members").select("organization_id, role, organizations(id,name,plan)").eq("user_id", user.id).limit(1).maybeSingle();
-  if (membershipError) throw membershipError;
-  if (membership?.organizations) return { organization: membership.organizations, role: membership.role };
+  const { data: membership, error: membershipError } = await supabase
+    .from("organization_members")
+    .select("organization_id, role, organizations(id,name,plan)")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
 
-  const name = user.user_metadata?.organization_name?.trim() || `${user.user_metadata?.full_name || user.email?.split("@")[0] || "My"} Fleet`;
-  const { data: organization, error: createError } = await supabase.from("organizations").insert({ name, created_by: user.id }).select("id,name,plan").single();
+  if (membershipError) throw membershipError;
+
+  if (membership?.organizations) {
+    return {
+      organization: membership.organizations,
+      role: membership.role || "manager",
+    };
+  }
+
+  const name =
+    user.user_metadata?.organization_name?.trim() ||
+    `${user.user_metadata?.full_name || user.email?.split("@")[0] || "My"} Fleet`;
+
+  const { data: organization, error: createError } = await supabase
+    .from("organizations")
+    .insert({ name, created_by: user.id })
+    .select("id,name,plan")
+    .single();
+
   if (createError) throw createError;
-  return { organization, role: "owner" };
+
+  // The database trigger is the authority for access roles.
+  // Never assume "owner" in the browser after creating a workspace.
+  const { data: createdMembership, error: createdMembershipError } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", organization.id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (createdMembershipError) throw createdMembershipError;
+
+  if (!createdMembership) {
+    throw new Error("Workspace membership was not created. Please sign out and try again.");
+  }
+
+  return {
+    organization,
+    role: createdMembership.role || "manager",
+  };
 }
+
 function mapScorecard(row) {
   const mentor = numberOrNull(row.mentor_score ?? row.ementor ?? row.fico);
   const name = isUsablePersonName(row.full_name) ? row.full_name : "Unresolved identity";
