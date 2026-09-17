@@ -503,25 +503,6 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
           />
         </div>
 
-        <div className="conx-filter-summary">
-          <div>
-            <span>Ranking</span>
-            <strong>{effectiveRankWeek==="total"?"Selected period":effectiveRankWeek}</strong>
-          </div>
-          <div>
-            <span>Concessions</span>
-            <strong>{selectedWeekTotal}</strong>
-          </div>
-          <div>
-            <span>Affected drivers</span>
-            <strong>{selectedWeekAffected}</strong>
-          </div>
-          <div>
-            <span>Showing</span>
-            <strong>{filtered.length}</strong>
-          </div>
-        </div>
-
         <div className="table-wrap">
           <table className="data-table conx-table">
             <thead>
