@@ -1059,7 +1059,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
                 <td><span className={`pfp-data-pill ${n(driver.pod)!=null&&driver.pod>=TARGETS.pod?"good":n(driver.pod)==null?"neutral":"bad"}`}>{formatMetric("pod",driver.pod)}</span></td>
                 <td><span className={`pfp-data-pill ${n(driver.iadc)!=null&&driver.iadc>=TARGETS.iadc?"good":n(driver.iadc)==null?"neutral":"bad"}`}>{formatMetric("iadc",driver.iadc)}</span></td>
                 <td><span className={`pfp-data-pill ${n(driver.mentor)!=null&&driver.mentor>=TARGETS.mentor?"good":n(driver.mentor)==null?"neutral":"bad"}`}>{formatMetric("mentor",driver.mentor)}</span></td>
-                <td><span className={`pfp-data-pill ${n(driver.cc)!=null&&driver.cc>=98?"good":n(driver.cc)==null?"neutral":"bad"}`}>{formatMetric("cc",driver.cc)}</span></td>
+                <td><span className={`pfp-data-pill ${n(driver.cc)!=null&&driver.cc>=TARGETS.cc?"good":n(driver.cc)==null?"neutral":"bad"}`}>{formatMetric("cc",driver.cc)}</span></td>
                 <td><span className={`pfp-concession ${driver.concessionsTotal>=3?"bad":driver.concessionsTotal>0?"warn":"good"}`}>{Number(driver.concessionsTotal||0).toFixed(0)}</span></td>
                 <td><span className={`pfp-coverage ${driver.coverage>=4?"good":driver.coverage>=2?"warn":"bad"}`}>{driver.coverage}/5</span></td>
                 <td><span className={`pfp-status ${status}`}>{status==="strong"?"Strong":status==="stable"?"Stable":status==="watch"?"Watch":status==="priority"?"Priority":"No data"}</span></td>
