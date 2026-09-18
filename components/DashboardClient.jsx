@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "./Brand";
-import {BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspaceView, TeamManagementView } from "./SaasFoundation";
+import { BillingProView } from "./billing/BillingProView";
+import { TeamManagementView } from "./team/TeamManagementView";
+import { PlatformAdminView } from "./admin/PlatformAdminView";
+import { PlanOnboardingView } from "./saas/PlanOnboardingView";
+import SuspendedWorkspaceView from "./saas/SuspendedWorkspaceView";
 import { canAccessNav } from "../lib/permissions/navigation";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { aggregateFleetHistory } from "./HistoricalAnalytics";
