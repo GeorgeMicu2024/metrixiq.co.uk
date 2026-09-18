@@ -4,13 +4,29 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "../../../lib/supabase/client";
 
+function safeInternalPath(value) {
+  const candidate = String(value || "").trim();
+  if (!candidate.startsWith("/") || candidate.startsWith("//") || candidate.includes("\\")) {
+    return "/app";
+  }
+
+  try {
+    const parsed = new URL(candidate, window.location.origin);
+    if (parsed.origin !== window.location.origin) return "/app";
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return "/app";
+  }
+}
+
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [message, setMessage] = useState("Completing secure sign in…");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    const next = new URLSearchParams(window.location.search).get("next") || "/app";
+    const requestedNext = new URLSearchParams(window.location.search).get("next");
+    const next = safeInternalPath(requestedNext);
     let active = true;
 
     async function complete() {
