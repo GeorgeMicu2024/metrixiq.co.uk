@@ -947,3 +947,11 @@
       .scorex-metric{display:inline-flex;min-width:45px;justify-content:center;padding:4px 5px;border-radius:5px;font-size:7px;font-weight:850}.scorex-metric.good{background:#88ef3f;color:#183b12}.scorex-metric.warn{background:#f2c644;color:#62460b}.scorex-metric.bad{background:#df291d;color:#fff}.scorex-metric.neutral{background:#eef2f4;color:#657483}.scorex-delivered{display:inline-flex;min-width:45px;justify-content:center;padding:4px 5px;border-radius:5px;background:#e8efea;color:#4a5d50;font-weight:800}
       @media(max-width:1250px){.scorex-archive-grid{grid-template-columns:repeat(4,1fr)}.scorex-summary{grid-template-columns:repeat(2,1fr)}}
       @media(max-width:800px){.scorex-actions{width:100%;flex-wrap:wrap}.scorex-actions select{flex:1}.scorex-hero{align-items:flex-start}.scorex-archive-grid{grid-template-columns:repeat(2,1fr)}.scorex-rank-strip{grid-template-columns:repeat(2,1fr)}.scorex-table-tools{align-items:flex-start;flex-direction:column}.scorex-table-tools>div:last-child{width:100%}.scorex-table-tools input{flex:1;min-width:0}.scorex-info{align-items:flex-start;flex-direction:column}.scorex-origin{flex-wrap:wrap}}
+
+.auth-forgot{
+  display:inline-flex;align-self:flex-end;margin:-3px 0 11px;padding:0;
+  border:0;background:none;color:#0b8e7b;font-size:9px;font-weight:800;cursor:pointer;
+}
+.auth-forgot:hover{text-decoration:underline}
+.auth-forgot:disabled{opacity:.55;cursor:not-allowed}
+.reset-auth-page .auth-form{max-width:470px}
