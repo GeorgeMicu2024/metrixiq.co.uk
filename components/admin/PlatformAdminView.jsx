@@ -131,6 +131,7 @@ export function PlatformAdminView() {
 
           <div className="saas-admin-filters">
             <input
+              aria-label="Search platform accounts"
               placeholder="Search name, email or workspace…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -216,6 +217,7 @@ export function PlatformAdminView() {
                       {account.organization_id ? (
                         <div className="saas-admin-actions">
                           <select
+                            aria-label={`Plan for ${account.organization_name || account.email || "workspace"}`}
                             defaultValue={account.plan || "free"}
                             onChange={(e) => updatePlan(
                               account,
