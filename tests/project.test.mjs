@@ -445,6 +445,17 @@ test("dashboard delegates Smart Import persistence workflow", () => {
   assert.ok(workflow.includes("refreshWorkspacePerformance"));
 });
 
+test("workspace search keyboard hint is functional", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.ok(dashboard.includes("useRef"));
+  assert.ok(dashboard.includes('key === "k"'));
+  assert.ok(dashboard.includes("event.ctrlKey || event.metaKey"));
+  assert.ok(dashboard.includes("searchRef.current?.focus()"));
+  assert.ok(dashboard.includes('key === "escape"'));
+  assert.ok(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"));
+});
+
 test("DashboardClient is orchestration-focused", () => {
   const dashboard = read("components/DashboardClient.jsx");
   assert.ok(dashboard.includes('./dashboard/DashboardViews'));
