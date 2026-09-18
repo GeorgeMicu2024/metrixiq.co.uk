@@ -53,3 +53,11 @@ test("CI workflow is present", () => {
 test("accidental local Downloads folder is not tracked", () => {
   assert.equal(fs.existsSync("Downloads/metrixiq-v7-professional-ops/components/ProfessionalViewsV7.jsx"), false);
 });
+
+test("versioned professional view files are removed", () => {
+  assert.equal(fs.existsSync("components/ProfessionalViewsV7.jsx"), false);
+  assert.equal(fs.existsSync("components/ProfessionalViewsV9.jsx"), false);
+  assert.equal(fs.existsSync("components/ProfessionalViewsV10.jsx"), false);
+  assert.ok(fs.existsSync("components/ProfessionalViews.jsx"));
+  assert.ok(fs.existsSync("components/DirectOperationalViews.jsx"));
+});
