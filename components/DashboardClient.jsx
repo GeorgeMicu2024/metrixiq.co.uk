@@ -193,14 +193,14 @@ export default function DashboardClient() {
 
   let view;
   switch (active) {
-    case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
-    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
+    case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
+    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "drivers": view = <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <ProPerformanceView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
-    case "iadc": view = <DirectIadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} />; break;
-    case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
-    case "mentor": view = <DirectMentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} />; break;
-    case "concessions": view = <DirectConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} />; break;
+    case "iadc": view = <DirectIadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
+    case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
+    case "mentor": view = <DirectMentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
+    case "concessions": view = <DirectConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "coaching": view = <CoachingView drivers={drivers} onOpen={openDriver} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
     case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
