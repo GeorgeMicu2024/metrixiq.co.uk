@@ -78,6 +78,36 @@ export default function LoginClient() {
     }
   }
 
+
+  async function forgotPassword() {
+    setError("");
+    setNotice("");
+
+    const clean = email.trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(clean)) {
+      setError("Enter your email address first.");
+      return;
+    }
+
+    setBusy(true);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const redirectTo = `${window.location.origin}/auth/reset-password`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(clean, {
+        redirectTo,
+      });
+
+      if (resetError) throw resetError;
+
+      setNotice("Password reset email sent. Check your inbox and follow the secure link.");
+    } catch (e) {
+      setError(e?.message || "Could not send the password reset email.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function social(provider) {
     setError("");
     setNotice("");
@@ -140,7 +170,7 @@ export default function LoginClient() {
               <label>Organisation<input autoComplete="organization" value={org} onChange={(e) => setOrg(e.target.value)} /></label>
             </>}
             <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-            <label>Password<input type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+            <label>Password<input type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>{!register && <button type="button" className="auth-forgot" disabled={busy} onClick={forgotPassword}>Forgot password?</button>}
             {error && <div className="form-error">{error}</div>}
             {notice && <div className="form-notice">{notice}</div>}
             <button className="submit-btn" disabled={busy}>{busy ? "Please wait…" : register ? "Create workspace" : "Sign in"}<span>→</span></button>
