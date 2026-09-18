@@ -379,7 +379,9 @@ test("site-scoped data quality hardening is tracked in code", () => {
   const migration = read("supabase/migrations/202609181948_harden_site_scope_and_sensitive_rpcs.sql");
 
   assert.ok(persistence.includes("site: driver.site"));
-  assert.ok(dataQuality.includes("normalized_name,site,payload"));
+  assert.ok(dataQuality.includes('from("unmatched_driver_records")'));
+  assert.ok(dataQuality.includes('.select("*")'));
+  assert.ok(migration.includes("add column if not exists site text"));
   assert.ok(migration.includes("private.can_access_driver(organization_id, driver_id)"));
   assert.ok(migration.includes("private.can_access_site(organization_id, site)"));
   assert.ok(migration.includes("create or replace function public.choose_free_plan"));
