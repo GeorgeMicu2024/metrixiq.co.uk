@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "./Brand";
 import {BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspaceView, canAccessNav, TeamManagementView } from "./SaasFoundation";
@@ -12,7 +12,7 @@ import { ProDriversView, ProPerformanceView } from "./ProfessionalViews";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
 import CoachingAlertsView from "./CoachingAlertsView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
-import { initials, numberOrNull } from "./dashboard/utils";
+import { avg, initials, numberOrNull } from "./dashboard/utils";
 import { fetchAllDriverMetricRows } from "../lib/data/driverMetrics";
 import { isUsablePersonName } from "../lib/identity";
 import { DashboardView, DriverScorecardView, ImportsView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
@@ -151,6 +151,16 @@ export default function DashboardClient() {
 
   const sites = [...new Set(dbDrivers.map((d) => String(d.site || "").trim().toUpperCase()).filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site)))].sort();
   const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
+  const visibleMetricHistoryRows = useMemo(
+    () => siteFilter === "all"
+      ? metricHistoryRows
+      : metricHistoryRows.filter((row) => String(row?.drivers?.site || "").trim().toUpperCase() === siteFilter),
+    [metricHistoryRows, siteFilter]
+  );
+  const visibleFleetHistory = useMemo(
+    () => aggregateFleetHistory(visibleMetricHistoryRows),
+    [visibleMetricHistoryRows]
+  );
   const liveKpis = dbDrivers.length ? {
     dcr: avg(drivers, "dcr"), pod: avg(drivers, "pod"), iadc: avg(drivers, "iadc"), cc: avg(drivers, "cc"),
     fico: avg(drivers, "mentor_score") ?? avg(drivers, "ementor") ?? avg(drivers, "fico"), ementor: avg(drivers, "mentor_score") ?? avg(drivers, "ementor") ?? avg(drivers, "fico"), mentor: avg(drivers, "mentor_score") ?? avg(drivers, "ementor") ?? avg(drivers, "fico"), psb: avg(drivers, "psb"), reattempts: avg(drivers, "reattempts"),
@@ -198,7 +208,7 @@ export default function DashboardClient() {
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "drivers": view = <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    case "performance": view = <ProPerformanceView kpis={kpis} history={fleetHistory} rows={metricHistoryRows} onOpenDriver={openDriver} />; break;
+    case "performance": view = <ProPerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
     case "iadc": view = <DirectIadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "mentor": view = <DirectMentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
@@ -213,7 +223,7 @@ export default function DashboardClient() {
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
     case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    default: view = <DashboardView drivers={drivers} kpis={kpis} history={fleetHistory} onImport={() => setActive("imports")} onOpenDriver={openDriver} onDrivers={() => setActive("drivers")} onPerformance={() => setActive("performance")} onCoaching={() => setActive("coaching")} />;
+    default: view = <DashboardView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => setActive("imports")} onOpenDriver={openDriver} onDrivers={() => setActive("drivers")} onPerformance={() => setActive("performance")} onCoaching={() => setActive("coaching")} />;
   }
 
   if (authLoading) return <main className="app-loading"><div className="auth-spinner" /><h1>MetrixIQ</h1><p>Loading secure workspace…</p></main>;
