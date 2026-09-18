@@ -6,6 +6,7 @@ import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../l
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 import { inferPeriod, normalizeSiteCode, riskFor } from "../lib/analyzer/core.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
+import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -78,6 +79,42 @@ test("analyzer delegates spreadsheet parsing to a dedicated engine", () => {
   assert.ok(spreadsheet.includes("function parseScorecardMatrix"));
   assert.ok(core.includes("export function inferPeriod"));
   assert.ok(analyzer.length < 40000);
+});
+
+test("persistence metrics use central KPI targets", () => {
+  assert.equal(
+    persistenceIssue({ cc: 98.5 }),
+    "No active concern"
+  );
+  assert.equal(
+    persistenceIssue({ cc: 97.5 }),
+    "Contact Compliance below 98.00% target"
+  );
+  assert.equal(
+    persistenceRisk({ dcr: 98, pod: 99, iadc: 70, mentor_score: 800 }),
+    "High"
+  );
+
+  const metrics = read("lib/persistence/metrics.js");
+  assert.ok(metrics.includes('from "../config/performance.js"'));
+  assert.equal(metrics.includes("Number(row.cc) < 99"), false);
+});
+
+test("persistence orchestration delegates identity and evidence storage", () => {
+  const persistence = read("lib/persistence.js");
+  const identity = read("lib/persistence/identity.js");
+  const evidence = read("lib/persistence/evidence.js");
+
+  assert.ok(persistence.includes("persistImportAudit"));
+  assert.ok(persistence.includes("persistSiteScorecards"));
+  assert.ok(persistence.includes("persistFeedbackEvents"));
+  assert.ok(persistence.includes("persistResolvedNameAliases"));
+  assert.equal(persistence.includes('.from("imports")'), false);
+  assert.equal(persistence.includes('.from("site_scorecards")'), false);
+  assert.equal(persistence.includes('.from("feedback_events")'), false);
+  assert.ok(identity.includes("export async function seedIdentityRecords"));
+  assert.ok(evidence.includes("export async function persistImportAudit"));
+  assert.ok(persistence.length < 8000);
 });
 
 test("fleet intelligence prioritises operational risk and next actions", () => {
