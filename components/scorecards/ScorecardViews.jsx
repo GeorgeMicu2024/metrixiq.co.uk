@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchDriverScorecardData, fetchSiteScorecardData } from "../../lib/data/scorecardData";
-import { isUsablePersonName, nameSignature, normalizeName } from "../../lib/identity";
+import { displayDriverName, isUsablePersonName, nameSignature, normalizeName } from "../../lib/identity";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import {
+  driverShape,
   num,
   pct,
   plain,
