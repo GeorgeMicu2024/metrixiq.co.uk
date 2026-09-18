@@ -732,3 +732,29 @@
   .smart-import-status-grid{grid-template-columns:1fr}
   .smart-result-grid{grid-template-columns:1fr 1fr}
 }
+
+
+/* ===== MetrixIQ Operational Intelligence ===== */
+.intel-confidence-card{
+  min-width:170px;padding:13px 15px;border:1px solid #dce6ea;border-radius:13px;
+  background:linear-gradient(135deg,#fff 0%,#f5faf8 100%);text-align:right;
+}
+.intel-confidence-card span{
+  display:block;color:#81909c;font-size:8px;font-weight:900;
+  letter-spacing:.08em;text-transform:uppercase;
+}
+.intel-confidence-card strong{
+  display:block;margin-top:5px;color:#1a3449;font-size:28px;line-height:1;
+}
+.intel-confidence-card small{
+  display:block;margin-top:5px;color:#4b8d7d;font-size:8px;font-weight:800;
+}
+.intel-hero-actions{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:17px;
+}
+.intel-hero-actions small{color:rgba(255,255,255,.68);font-size:8px}
+.intel-detail-grid{margin-top:14px}
+.intel-detail-grid .data-table td{vertical-align:middle}
+@media(max-width:760px){
+  .intel-confidence-card{text-align:left}
+}
