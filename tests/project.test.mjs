@@ -753,6 +753,20 @@ test("Concessions keeps React hook order stable across loading states", () => {
   );
 });
 
+test("site-scoped operational views recover from stale week selections", () => {
+  const iadc = read("components/operations/IadcView.jsx");
+  const cdf = read("components/customer-feedback/CdfView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.ok(iadc.includes("week&&weeks.includes(week)?week"));
+  assert.ok(cdf.includes("!weeks.includes(week)"));
+  assert.equal(
+    (dashboard.match(/aria-label="Filter workspace by site"/g) || []).length,
+    1
+  );
+});
+
+
 
 test("legacy compatibility files stay thin and cannot regrow into monoliths", () => {
   const directLegacy = read("components/DirectOperationalViews.jsx");
