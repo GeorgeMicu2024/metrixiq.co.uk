@@ -514,3 +514,16 @@
 .coaching-notes{border-top:1px solid #e8edf0;padding-top:14px}.coaching-notes h3{margin:0 0 10px;color:#273f54}.coaching-note-entry{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.coaching-note-entry textarea{min-height:78px;resize:vertical;border:1px solid #dce4e9;border-radius:9px;padding:10px;font:inherit}.coaching-note-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}.coaching-note-list>div{border:1px solid #e6ebee;border-radius:9px;padding:10px 11px;background:#fbfcfd}.coaching-note-list span{color:#8b97a2;font-size:9px;font-weight:800}.coaching-note-list p{margin:4px 0 0;color:#43596d;font-size:11px;line-height:1.5}
 @media(max-width:1050px){.coaching-hub-kpis{grid-template-columns:repeat(2,1fr)}.coaching-case-layout{grid-template-columns:1fr}.coaching-case-meta{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:650px){.coaching-hub-kpis{grid-template-columns:1fr}.coaching-case-form{grid-template-columns:1fr}.coaching-note-entry{grid-template-columns:1fr}.coaching-case-meta{grid-template-columns:1fr}}
+
+
+/* Smart Import diagnostics */
+.import-diagnostics{margin-top:18px;padding-top:16px;border-top:1px solid #e8edf0}
+.import-diagnostics>.panel-head>span{color:#768797;font-size:11px;font-weight:800}
+.import-diagnostics-table td{vertical-align:middle}
+.import-diagnostics-table td:first-child{max-width:320px}
+.import-diagnostics-table td:first-child b{display:block;overflow-wrap:anywhere}
+.import-status{display:inline-flex;align-items:center;justify-content:center;min-width:66px;padding:4px 8px;border-radius:999px;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
+.import-status.parsed{background:#e2f4ec;color:#26735f}
+.import-status.read{background:#eef2f5;color:#5f6e7c}
+.import-status.error{background:#f8d6d9;color:#a42631}
+.import-status.unsupported{background:#fff0d8;color:#966109}
