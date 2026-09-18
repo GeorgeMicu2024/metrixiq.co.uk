@@ -218,6 +218,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
 
                     <td>
                       <select
+                        aria-label={`Role for ${member.full_name || member.email || "team member"}`}
                         value={member.edit_role}
                         disabled={!canManage || protectedMember}
                         onChange={(e) => editMember(member.user_id, { edit_role: e.target.value })}
@@ -233,6 +234,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
 
                     <td>
                       <input
+                        aria-label={`Site scope for ${member.full_name || member.email || "team member"}`}
                         value={member.edit_sites}
                         disabled={!canManage || protectedMember}
                         onChange={(e) => editMember(member.user_id, { edit_sites: e.target.value })}
