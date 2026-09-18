@@ -122,6 +122,7 @@ export default function DriverDirectoryView({ drivers = [], onOpen, query = "" }
       <section className="panel pro-table-panel">
         <div className="pro-filterbar">
           <input
+            aria-label="Search driver directory"
             value={localQuery}
             onChange={(event) => setLocalQuery(event.target.value)}
             placeholder="Search driver name, TRID or site…"
