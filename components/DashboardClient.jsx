@@ -13,80 +13,9 @@ import { ProDriversView, ProPerformanceView } from "./ProfessionalViews";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
 import { isUsablePersonName } from "../lib/identity";
 import { TARGETS, targetLabel } from "../lib/config/performance";
-
-const nav = [
-  ["dashboard", "Dashboard"],
-  ["site-scorecards", "Site Scorecards"],
-  ["driver-scorecards", "Driver Scorecards"],
-  ["drivers", "Drivers"],
-  ["performance", "Performance"],
-  ["iadc", "IADC"],
-  ["cdf", "CDF Feedback"],
-  ["mentor", "Mentor"],
-  ["concessions", "Concessions"],
-  ["coaching", "Coaching"],
-  ["intelligence", "AI Insights"],
-  ["imports", "Smart Import"],
-  ["data-quality", "Data Quality"],
-  ["reports", "Reports"],
-  ["billing", "Plans & Billing"],
-  ["team", "Team Management"],
-  ["settings", "Settings"],
-  ["admin", "Super Admin"],
-];
-const icon = { dashboard:"▦", "site-scorecards":"▤", "driver-scorecards":"◫", drivers:"◎", performance:"↗", iadc:"✓", cdf:"◈", mentor:"◇", concessions:"◆", coaching:"✓", intelligence:"✦", imports:"⇧", "data-quality":"⌁", reports:"▤", billing:"£", settings:"⚙", team:"◉", admin:"♛" };
-function navSection(index){
-  if(index===1) return "SCORECARDS";
-  if(index===3) return "OPERATIONS";
-  if(index===10) return "INTELLIGENCE";
-  if(index===11) return "DATA";
-  if(index===13) return "REPORTING";
-  if(index===14) return "ACCOUNT";
-  if(index===17) return "PLATFORM";
-  return "";
-}
-
-const numberOrNull = (value) => value == null || value === "" || Number.isNaN(Number(value)) ? null : Number(value);
-function fmt(value, key) {
-  const v = numberOrNull(value);
-  if (v == null) return "—";
-  if (["dcr", "pod", "iadc", "cc", "psb", "reattempts"].includes(key)) return `${v.toFixed(1)}%`;
-  if (["concessions", "lor"].includes(key)) return v.toFixed(2);
-  return Math.round(v).toString();
-}
-function tone(risk) { return risk === "High" ? "risk-high" : risk === "Medium" ? "risk-medium" : "risk-low"; }
-function initials(name = "") { return name.split(/\s+/).filter(Boolean).map((x) => x[0]).join("").slice(0, 2).toUpperCase() || "DA"; }
-function avg(rows, key) {
-  const values = rows.map((r) => numberOrNull(r[key])).filter((v) => v != null);
-  return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-}
-
-const DRIVER_METRIC_SELECT = "driver_id,week_label,period_start,period_end,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,psb,reattempts,concessions,lor,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,scorecard_score,tier,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)";
-
-async function fetchAllDriverMetricRows(supabase, organizationId) {
-  const pageSize = 1000;
-  const rows = [];
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from("driver_metrics")
-      .select(DRIVER_METRIC_SELECT)
-      .eq("organization_id", organizationId)
-      .order("period_end", { ascending: true })
-      .range(from, from + pageSize - 1);
-
-    if (error) throw error;
-
-    const page = data || [];
-    rows.push(...page);
-
-    if (page.length < pageSize) break;
-    from += pageSize;
-  }
-
-  return rows;
-}
+import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
+import { avg, fmt, initials, numberOrNull, tone } from "./dashboard/utils";
+import { fetchAllDriverMetricRows } from "../lib/data/driverMetrics";
 
 function MetricCard({ label, value, target, note, accent = "good" }) {
   return <article className="metric-card"><div className="metric-top"><span>{label}</span><i className={`metric-dot ${accent}`} /></div><strong>{value}</strong><div className="metric-bottom"><span>{target}</span><em>{note}</em></div></article>;
