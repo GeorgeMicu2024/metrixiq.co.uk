@@ -82,10 +82,14 @@ test("DashboardClient is orchestration-focused", () => {
   assert.ok(dashboard.includes('./dashboard/navigation'));
   assert.ok(dashboard.includes('../lib/data/workspace'));
   assert.ok(dashboard.includes('../lib/data/scorecards'));
+  assert.ok(dashboard.includes('../lib/data/driverMetrics'));
+  assert.equal(dashboard.includes('.from("driver_metrics")'), false);
+  assert.equal(dashboard.includes('setFleetHistory'), false);
   assert.equal(dashboard.includes('async function resolveWorkspace'), false);
   assert.equal(dashboard.includes('function mapScorecard'), false);
   assert.ok(read("lib/data/workspace.js").includes("export async function loadWorkspaceContext"));
   assert.ok(read("lib/data/workspace.js").includes("export async function refreshWorkspacePerformance"));
+  assert.ok(read("lib/data/driverMetrics.js").includes("export async function fetchDriverHistory"));
   assert.ok(read("components/dashboard/DashboardViews.jsx").includes("export function DashboardView"));
 });
 
