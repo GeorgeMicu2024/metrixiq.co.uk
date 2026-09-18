@@ -107,6 +107,19 @@ test("navigation permissions live outside UI components", () => {
   assert.ok(dashboard.includes('../lib/permissions/navigation'));
 });
 
+test("dashboard delegates Smart Import persistence workflow", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+  const workflow = read("lib/data/importWorkflow.js");
+
+  assert.ok(dashboard.includes("../lib/data/importWorkflow"));
+  assert.equal(dashboard.includes("persistAnalysis("), false);
+  assert.equal(dashboard.includes("sync_driver_directory"), false);
+  assert.ok(workflow.includes("persistAnalysis"));
+  assert.ok(workflow.includes("sync_driver_directory"));
+  assert.ok(workflow.includes("if (syncError) throw syncError"));
+  assert.ok(workflow.includes("refreshWorkspacePerformance"));
+});
+
 test("DashboardClient is orchestration-focused", () => {
   const dashboard = read("components/DashboardClient.jsx");
   assert.ok(dashboard.includes('./dashboard/DashboardViews'));
