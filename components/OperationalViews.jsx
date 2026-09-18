@@ -520,7 +520,7 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport }) {
 
 
 
-export function DriverScorecardsView({ organizationId, onOpenDriver, onImport }) {
+export function DriverScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
 
@@ -692,7 +692,13 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
     return match ? Number(match[1]) : null;
   };
 
-  const periodKeyForRow = (row) => `${yearForRow(row) || "unknown"}-${row.week_label || "Unknown"}`;
+  const siteForRow = (row) => {
+    const value = String(row?.drivers?.site || "").trim().toUpperCase();
+    return value || "UNASSIGNED";
+  };
+
+  const periodKeyForRow = (row) =>
+    `${yearForRow(row) || "unknown"}-${row.week_label || "Unknown"}-${siteForRow(row)}`;
 
   const periodMap = useMemo(() => {
     const map = new Map();
@@ -714,11 +720,14 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
 
     for (const card of cards) {
       const weekLabel = card.week_label || `W${String(card.week || "").padStart(2, "0")}`;
-      const key = `${card.year || "unknown"}-${weekLabel}`;
+      const cardSite = String(card.site || "").trim().toUpperCase() || "UNASSIGNED";
+      if (siteFilter !== "all" && cardSite !== siteFilter) continue;
+      const key = `${card.year || "unknown"}-${weekLabel}-${cardSite}`;
       const current = map.get(key) || {
         key,
         year: card.year || null,
         weekLabel,
+        site: cardSite,
         periodEnd: "",
         rows: [],
       };
@@ -730,10 +739,12 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
       const ay = Number(a.year || 0);
       const by = Number(b.year || 0);
       if (ay !== by) return by - ay;
-      return (Number(String(b.weekLabel || "").replace(/\D/g, "")) || 0) -
+      const weekDelta = (Number(String(b.weekLabel || "").replace(/\D/g, "")) || 0) -
         (Number(String(a.weekLabel || "").replace(/\D/g, "")) || 0);
+      if (weekDelta !== 0) return weekDelta;
+      return String(a.site || "").localeCompare(String(b.site || ""));
     });
-  }, [rows, cards]);
+  }, [rows, cards, siteFilter]);
 
   const [periodKey, setPeriodKey] = useState("");
   const [query, setQuery] = useState("");
@@ -748,7 +759,8 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
   const period = periodMap.find((item) => item.key === periodKey) || periodMap[0] || null;
   const card = period?.card || cards.find((item) =>
     item.week_label === period?.weekLabel &&
-    (!period?.year || Number(item.year) === Number(period.year))
+    (!period?.year || Number(item.year) === Number(period.year)) &&
+    (String(item.site || "").trim().toUpperCase() || "UNASSIGNED") === period?.site
   ) || null;
 
   const enrichedRows = useMemo(() => {
@@ -865,7 +877,7 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
         <select value={periodKey} onChange={(event) => setPeriodKey(event.target.value)}>
           {periodMap.map((item) =>
             <option key={item.key} value={item.key}>
-              {item.year || "—"} · {item.weekLabel} · {item.card?.standing || "Scorecard"}
+              {item.year || "—"} · {item.weekLabel} · {item.site || "UNASSIGNED"} · {item.card?.standing || "Scorecard"}
             </option>
           )}
         </select>
@@ -875,9 +887,9 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
 
     <section className="scorex-hero">
       <div>
-        <span>{period?.year || ""} · {period?.weekLabel || "WEEK"}</span>
+        <span>{period?.year || ""} · {period?.weekLabel || "WEEK"} · {period?.site || "UNASSIGNED"}</span>
         <h2>{period?.weekLabel || "WEEK"} — {String(overallStanding).toUpperCase()}</h2>
-        <p>Amazon source scorecard · {totalDrivers} driver records linked by Transporter ID</p>
+        <p>{card ? "Amazon source scorecard" : "MetrixIQ consolidated evidence"} · {totalDrivers} driver records linked by Transporter ID</p>
       </div>
       <strong>{overallScore != null ? `${overallScore.toFixed(2)}%` : averageDriverScore != null ? averageDriverScore.toFixed(2) : "—"}</strong>
     </section>
@@ -923,7 +935,7 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
           >
             <span>{item.year || "—"}</span>
             <b>{item.weekLabel}</b>
-            <em>{standing}</em>
+            <em>{item.site || "UNASSIGNED"} · {standing}</em>
             <strong>{num(item.card?.overall_score) != null ? `${Number(item.card.overall_score).toFixed(2)}%` : avg != null ? avg.toFixed(1) : "—"}</strong>
             <small>{item.rows.length} drivers</small>
           </button>;
