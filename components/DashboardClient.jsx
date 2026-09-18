@@ -7,7 +7,7 @@ import { BillingProView } from "./billing/BillingProView";
 import { TeamManagementView } from "./team/TeamManagementView";
 import { PlatformAdminView } from "./admin/PlatformAdminView";
 import { PlanOnboardingView } from "./saas/PlanOnboardingView";
-import SuspendedWorkspaceView from "./saas/SuspendedWorkspaceView";
+import { SuspendedWorkspaceView } from "./saas/SuspendedWorkspaceView";
 import { canAccessNav } from "../lib/permissions/navigation";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { aggregateFleetHistory } from "./HistoricalAnalytics";
