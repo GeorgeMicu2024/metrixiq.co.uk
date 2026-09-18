@@ -76,6 +76,19 @@ test("central KPI target configuration is used", () => {
   assert.equal(dashboard.includes('"98.0%"'), false);
 });
 
+test("navigation permissions live outside UI components", () => {
+  const saas = read("components/SaasFoundation.jsx");
+  const permissions = read("lib/permissions/navigation.js");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.equal(saas.includes("const NAV_MIN_PLAN"), false);
+  assert.equal(saas.includes("export function canAccessNav"), false);
+  assert.ok(saas.includes('from "../lib/permissions/navigation"'));
+  assert.ok(permissions.includes("export const NAV_MIN_PLAN"));
+  assert.ok(permissions.includes("export function canAccessNav"));
+  assert.ok(dashboard.includes('../lib/permissions/navigation'));
+});
+
 test("DashboardClient is orchestration-focused", () => {
   const dashboard = read("components/DashboardClient.jsx");
   assert.ok(dashboard.includes('./dashboard/DashboardViews'));
