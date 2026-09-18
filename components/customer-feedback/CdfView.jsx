@@ -48,7 +48,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const [week,setWeek]=useState("");
   const [category,setCategory]=useState("all");
   const [query,setQuery]=useState("");
-  useEffect(()=>{if(weeks.length&&!week)setWeek(weeks[0]);},[weeks,week]);
+  useEffect(()=>{if(weeks.length&&!weeks.includes(week))setWeek(weeks[0]);},[weeks,week]);
 
   const selected = events.filter((e)=>e.week_label===week);
   const filtered = selected.filter((e)=>category==="all"||e.feedback_l1===category).filter((e)=>`${e.drivers?.full_name||""} ${e.trid_raw||""} ${e.tracking_id||""}`.toLowerCase().includes(query.toLowerCase()));
