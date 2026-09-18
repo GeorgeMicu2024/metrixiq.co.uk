@@ -38,7 +38,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   return <>
     <div className="page-heading v10-heading">
       <div><span className="page-kicker">WORKFLOW COMPLIANCE</span><h1>IADC intelligence</h1><p>Direct database view: driver name, Transporter ID and exact weekly IADC percentage.</p></div>
-      <div className="scorecard-filter-row"><select value={selectedWeek} onChange={e=>setWeek(e.target.value)}>{weeks.map(w=><option key={w}>{w}</option>)}</select><button className="btn primary" onClick={onImport}>Import IADC</button></div>
+      <div className="scorecard-filter-row"><select aria-label="Select IADC week" value={selectedWeek} onChange={e=>setWeek(e.target.value)}>{weeks.map(w=><option key={w}>{w}</option>)}</select><button className="btn primary" onClick={onImport}>Import IADC</button></div>
     </div>
 
     <section className="v10-kpi-grid six">
@@ -56,7 +56,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
     </section>
 
     <section className="panel v10-table-panel">
-      <div className="panel-head"><div><h2>Driver IADC register</h2><p>Driver workflow register: Name + Transporter ID + IADC %.</p></div><input className="v10-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search driver or Transporter ID…"/></div>
+      <div className="panel-head"><div><h2>Driver IADC register</h2><p>Driver workflow register: Name + Transporter ID + IADC %.</p></div><input className="v10-search" aria-label="Search IADC drivers" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search driver or Transporter ID…"/></div>
       <div className="table-wrap"><table className="data-table v10-iadc-table"><thead><tr><th>#</th><th>Driver</th><th>Transporter ID</th><th>IADC %</th><th>Visual score</th><th>Gap to 80%</th><th>DWC</th><th>Band</th><th /></tr></thead><tbody>
       {filtered.map((r,i)=>{const value=Number(r.iadc),gap=value-TARGETS.iadc,t=toneIadc(value);return <tr key={`${r.driver_id}-${selectedWeek}-${i}`}><td><span className="rank-badge">{i+1}</span></td><td><b>{dname(r.drivers)}</b><small className="history-date">{r.drivers?.site||"Unassigned"}</small></td><td><code className="v10-trid">{trid(r.drivers)}</code></td><td><b className={`v10-score ${t}`}>{pct(value)}</b></td><td><div className="v10-progress"><i className={t} style={{width:`${Math.max(0,Math.min(100,value))}%`}}/></div></td><td><span className={gap>=0?"v10-positive":"v10-negative"}>{gap>=0?"+":""}{gap.toFixed(2)} pp</span></td><td>{pct(r.raw_data?.dwc)}</td><td><span className={`v10-band ${t}`}>{value>=90?"Excellent":value>=TARGETS.iadc?"On target":value>=70?"Watch":"Priority"}</span></td><td><button className="profile-link" onClick={()=>onOpenDriver?.(openShape(r,{iadc:value,risk:value<TARGETS.iadc?"Medium":"Low",issue:value<TARGETS.iadc?`IADC below ${TARGETS.iadc}% target`:"No active concern"}))}>Open →</button></td></tr>})}
       {!filtered.length&&<tr><td colSpan="9"><div className="v10-empty">No IADC rows returned for this week.</div></td></tr>}
