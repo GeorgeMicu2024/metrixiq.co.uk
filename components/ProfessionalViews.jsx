@@ -70,7 +70,7 @@ function EmptyRow({ columns, text }) {
   return <tr><td colSpan={columns}><div className="pro-empty-row">{text}</div></td></tr>;
 }
 
-export function ProDriversView({ drivers = [], onOpen, query = "" }) {
+) {
   const [localQuery,setLocalQuery] = useState(query);
   const [risk,setRisk] = useState("all");
   const [coverage,setCoverage] = useState("all");
