@@ -9,7 +9,7 @@ import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
 function MetricCard({ label, value, target, note, accent = "good" }) {
   return <article className="metric-card"><div className="metric-top"><span>{label}</span><i className={`metric-dot ${accent}`} /></div><strong>{value}</strong><div className="metric-bottom"><span>{target}</span><em>{note}</em></div></article>;
 }
-function Action({ n, title, text, onClick }) { return <div className="action-item"><span>{n}</span><div><b>{title}</b><p>{text}</p></div><button type="button" onClick={onClick}>→</button></div>; }
+function Action({ n, title, text, onClick }) { return <div className="action-item"><span>{n}</span><div><b>{title}</b><p>{text}</p></div><button type="button" aria-label={title} onClick={onClick}>→</button></div>; }
 
 function DriverTable({
   drivers,
