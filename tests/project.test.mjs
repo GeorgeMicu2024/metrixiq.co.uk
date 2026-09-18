@@ -254,6 +254,17 @@ test("dashboard consumes explainable fleet intelligence", () => {
   assert.equal(navigation.includes("AI Insights"), false);
 });
 
+test("priority driver tables expose intentional empty states", () => {
+  const views = read("components/dashboard/DashboardViews.jsx");
+  const css = read("app/globals.css");
+
+  assert.ok(views.includes("No drivers currently require priority management attention."));
+  assert.ok(views.includes("No driver currently triggers a priority intelligence signal."));
+  assert.ok(views.includes('className="table-empty-state"'));
+  assert.ok(css.includes(".table-empty-state"));
+});
+
+
 test("Smart Import exposes professional preflight and readiness UI", () => {
   const view = read("components/imports/SmartImportView.jsx");
   const css = read("app/globals.css");
