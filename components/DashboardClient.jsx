@@ -8,7 +8,8 @@ import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
 import { aggregateFleetHistory } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView, DriverScorecardsView, SiteScorecardsView } from "./OperationalViews";
-import { ProDriversView, ProPerformanceView } from "./ProfessionalViews";
+import { ProPerformanceView } from "./ProfessionalViews";
+import DriverDirectoryView from "./drivers/DriverDirectoryView";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
 import CoachingAlertsView from "./CoachingAlertsView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
@@ -132,7 +133,7 @@ export default function DashboardClient() {
   switch (active) {
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
-    case "drivers": view = <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
+    case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <ProPerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
     case "iadc": view = <DirectIadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
@@ -147,7 +148,7 @@ export default function DashboardClient() {
     case "team": view = <TeamManagementView organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
-    case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
+    case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     default: view = <DashboardView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => setActive("imports")} onOpenDriver={openDriver} onDrivers={() => setActive("drivers")} onPerformance={() => setActive("performance")} onCoaching={() => setActive("coaching")} />;
   }
 
