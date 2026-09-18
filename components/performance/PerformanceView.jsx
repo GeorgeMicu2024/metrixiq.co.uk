@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TARGETS } from "../../lib/config/performance";
 import {
   average,
@@ -32,6 +32,10 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
     [...new Set(rows.map((row)=>row.drivers?.site).filter(Boolean))]
       .sort((a,b)=>String(a).localeCompare(String(b)))
   ,[rows]);
+
+  useEffect(() => {
+    if (site !== "all" && !sites.includes(site)) setSite("all");
+  }, [site, sites]);
 
   const scopedRows=useMemo(()=>
     site==="all"
@@ -139,6 +143,15 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
     range==="all"
       ?allWeeks
       :allWeeks.slice(-Number(range));
+
+  useEffect(() => {
+    if (
+      focusWeek !== "latest" &&
+      !selectedWeeks.some((week) => week.label === focusWeek)
+    ) {
+      setFocusWeek("latest");
+    }
+  }, [focusWeek, selectedWeeks]);
 
   const defaultFocused=selectedWeeks.at(-1)||allWeeks.at(-1)||null;
   const focused=
