@@ -21,7 +21,8 @@ test("global CSS contains application shell styles", () => {
 });
 
 test("dashboard exposes Smart Import", () => {
-  assert.ok(read("components/DashboardClient.jsx").includes("Smart Import"));
+  assert.ok(read("components/dashboard/navigation.js").includes("Smart Import"));
+  assert.ok(read("components/dashboard/DashboardViews.jsx").includes("Smart Import"));
 });
 
 test("analyzer validates station codes", () => {
