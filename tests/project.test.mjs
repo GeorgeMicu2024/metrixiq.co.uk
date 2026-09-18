@@ -5,6 +5,7 @@ import { findIadcHeader } from "../lib/parsers/iadc.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 import { inferPeriod, normalizeSiteCode, riskFor } from "../lib/analyzer/core.js";
+import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -77,6 +78,61 @@ test("analyzer delegates spreadsheet parsing to a dedicated engine", () => {
   assert.ok(spreadsheet.includes("function parseScorecardMatrix"));
   assert.ok(core.includes("export function inferPeriod"));
   assert.ok(analyzer.length < 40000);
+});
+
+test("fleet intelligence prioritises operational risk and next actions", () => {
+  const intelligence = buildFleetIntelligence(
+    [
+      {
+        id: "A1",
+        name: "Driver One",
+        risk: "High",
+        dcr: 98,
+        pod: 99,
+        iadc: 70,
+        ementor: 800,
+        cc: 96,
+        concessions: 4,
+        dataConfidence: 90,
+      },
+      {
+        id: "A2",
+        name: "Unresolved identity",
+        risk: "Medium",
+        dcr: 99.5,
+        pod: 99.8,
+        iadc: 90,
+        ementor: 830,
+        cc: 99,
+        concessions: 0,
+        dataConfidence: 60,
+      },
+    ],
+    {},
+    [
+      { week_label: "W35", performance: 90 },
+      { week_label: "W36", performance: 84 },
+    ]
+  );
+
+  assert.equal(intelligence.highRisk, 1);
+  assert.ok(intelligence.priorityDrivers[0].score > 0);
+  assert.ok(intelligence.actions.some((action) => action.destination === "coaching"));
+  assert.ok(intelligence.actions.some((action) => action.destination === "performance"));
+  assert.equal(intelligence.trend.direction, "down");
+});
+
+test("dashboard consumes explainable fleet intelligence", () => {
+  const dashboardViews = read("components/dashboard/DashboardViews.jsx");
+  const dashboardClient = read("components/DashboardClient.jsx");
+  const navigation = read("components/dashboard/navigation.js");
+
+  assert.ok(dashboardViews.includes("buildFleetIntelligence"));
+  assert.ok(dashboardViews.includes("Operational intelligence"));
+  assert.ok(dashboardViews.includes("Decision confidence"));
+  assert.ok(dashboardClient.includes('onDataQuality={() => setActive("data-quality")}'));
+  assert.ok(navigation.includes('["intelligence", "Intelligence"]'));
+  assert.equal(navigation.includes("AI Insights"), false);
 });
 
 test("Smart Import exposes professional preflight and readiness UI", () => {
