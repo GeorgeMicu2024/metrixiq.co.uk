@@ -1,83 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
-
-const RANGE_OPTIONS = [1, 2, 4, 8, 12, 26, 52, "all"];
-
-const n = (value) => value == null || value === "" || Number.isNaN(Number(value)) ? null : Number(value);
-const fmtPct = (value, digits = 2) => n(value) == null ? "—" : `${Number(value).toFixed(digits)}%`;
-const fmtNum = (value, digits = 0) => n(value) == null ? "—" : Number(value).toFixed(digits);
-const weekNumber = (label) => Number(String(label || "").replace(/\D/g, "")) || 0;
-const periodKey = (row) => row.week_label || row.period_end || row.period_start || "Unknown";
-
-function resolvedName(driver) {
-  const name = displayDriverName(driver);
-  return name === "Unresolved identity" ? "Unresolved driver" : name;
-}
-function mentorScore(row) {
-  return n(row?.mentor_score) ?? n(row?.ementor) ?? n(row?.fico);
-}
-function targetFor(metric) {
-  return metric === "dcr" ? TARGETS.dcr :
-    metric === "pod" ? TARGETS.pod :
-    metric === "iadc" ? TARGETS.iadc :
-    metric === "mentor" ? TARGETS.mentor : null;
-}
-function average(values) {
-  const clean = values.map(n).filter((v) => v != null);
-  return clean.length ? clean.reduce((a,b)=>a+b,0)/clean.length : null;
-}
-function driverIndex(row) {
-  const values = [];
-  if (n(row.dcr) != null) values.push(Math.min(105, Number(row.dcr) / TARGETS.dcr * 100));
-  if (n(row.pod) != null) values.push(Math.min(105, Number(row.pod) / TARGETS.pod * 100));
-  if (n(row.iadc) != null) values.push(Math.min(105, Number(row.iadc) / TARGETS.iadc * 100));
-  const mentor = mentorScore(row);
-  if (mentor != null) values.push(Math.min(105, mentor / TARGETS.mentor * 100));
-  return values.length >= 2 ? values.reduce((a,b)=>a+b,0)/values.length : n(row.performance);
-}
-function metricStatus(metric, value) {
-  const valueN = n(value);
-  if (valueN == null) return "neutral";
-  const target = targetFor(metric);
-  if (target == null) return "neutral";
-  return valueN >= target ? "good" : valueN >= target * 0.97 ? "warn" : "bad";
-}
-function RangeTabs({ value, onChange }) {
-  return <div className="pro-range-tabs">
-    {RANGE_OPTIONS.map((option)=><button type="button" key={String(option)} className={value===option?"active":""} onClick={()=>onChange(option)}>
-      {option==="all"?"All":`${option}W`}
-    </button>)}
-  </div>;
-}
-function EmptyRow({ columns, text }) {
-  return <tr><td colSpan={columns}><div className="pro-empty-row">{text}</div></td></tr>;
-}
-
-function ProTrendChart({ points, metric }) {
-  const clean = points.filter((p)=>n(p.value)!=null);
-  if (!clean.length) return <div className="pro-chart-empty">No stored values for this metric in the selected period.</div>;
-  const width=900,height=280,left=54,right=28,top=26,bottom=52;
-  const target = targetFor(metric);
-  const vals = clean.map((p)=>Number(p.value));
-  if (target != null) vals.push(target);
-  const rawMin=Math.min(...vals),rawMax=Math.max(...vals);
-  const pad=Math.max(metric==="mentor"?8:0.5,(rawMax-rawMin)*0.2);
-  const min=Math.max(0,rawMin-pad),max=Math.max(min+1,rawMax+pad);
-  const x=(i)=>clean.length===1?width/2:left+i*((width-left-right)/(clean.length-1));
-  const y=(v)=>top+(max-v)/(max-min)*(height-top-bottom);
-  const path=clean.map((p,i)=>`${i?"L":"M"} ${x(i)} ${y(Number(p.value))}`).join(" ");
-  const targetY=target!=null?y(target):null;
-  const lineTone = target!=null && Number(clean.at(-1)?.value)<target ? "#d99128" : "#168b78";
-  return <div className="pro-chart-wrap"><svg className="pro-trend-chart" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-    {[0,1,2,3].map((i)=>{const yy=top+i*((height-top-bottom)/3);return <line key={i} x1={left} y1={yy} x2={width-right} y2={yy} stroke="#e7edf2" strokeWidth="1"/>})}
-    {targetY!=null&&<><line x1={left} y1={targetY} x2={width-right} y2={targetY} stroke="#8e9baa" strokeWidth="2" strokeDasharray="8 8"/><text x={width-right} y={targetY-8} textAnchor="end" fontSize="11" fill="#6c7b8c">Target {metric==="mentor"?target:target.toFixed(2)}</text></>}
-    <path d={path} fill="none" stroke={lineTone} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
-    {clean.map((p,i)=><g key={p.label}><circle cx={x(i)} cy={y(Number(p.value))} r="6" fill="#fff" stroke={lineTone} strokeWidth="4"/><text x={x(i)} y={height-18} textAnchor="middle" fontSize="13" fill="#718093">{p.label}</text></g>)}
-  </svg></div>;
-}
+import {
+  average,
+  driverIndex,
+  fmtNum,
+  fmtPct,
+  mentorScore,
+  metricStatus,
+  n,
+  periodKey,
+  resolvedName,
+  targetFor,
+  weekNumber,
+} from "../../lib/performance/metrics";
+import { EmptyRow, ProTrendChart, RangeTabs } from "./PerformancePrimitives";
 
 export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) {
   const [range,setRange]=useState(8);
