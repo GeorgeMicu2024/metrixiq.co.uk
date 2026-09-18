@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { acknowledgePerformanceAlert, addCoachingCaseNote, fetchCoachingCaseNotes, fetchCoachingOverview, openCoachingCaseFromAlert, refreshPerformanceAlerts, resolvePerformanceAlert, updateCoachingCase } from "../../lib/data/coaching";
 
 const severityRank = { critical: 0, high: 1, medium: 2, low: 3 };
 const statusLabel = (value) => String(value || "open").replaceAll("_", " ");
@@ -55,25 +56,13 @@ export default function CoachingAlertsView({
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const [alertsResult, casesResult] = await Promise.all([
-        supabase.rpc("list_performance_alerts", {
-          p_organization_id: organizationId,
-          p_status: null,
-          p_limit: 500,
-        }),
-        supabase.rpc("list_coaching_cases", {
-          p_organization_id: organizationId,
-          p_status: null,
-          p_limit: 500,
-        }),
-      ]);
+      const { alerts: nextAlerts, cases: nextCases } = await fetchCoachingOverview(
+        getSupabaseBrowserClient(),
+        organizationId
+      );
 
-      if (alertsResult.error) throw alertsResult.error;
-      if (casesResult.error) throw casesResult.error;
-
-      setAlerts(alertsResult.data || []);
-      setCases(casesResult.data || []);
+      setAlerts(nextAlerts);
+      setCases(nextCases);
     } catch (e) {
       setError(e?.message || "Could not load coaching intelligence.");
     } finally {
@@ -115,11 +104,11 @@ export default function CoachingAlertsView({
 
     (async () => {
       try {
-        const { data, error: rpcError } = await getSupabaseBrowserClient().rpc("list_coaching_case_notes", {
-          p_case_id: selectedCaseId,
-        });
-        if (rpcError) throw rpcError;
-        if (alive) setNotes(data || []);
+        const nextNotes = await fetchCoachingCaseNotes(
+          getSupabaseBrowserClient(),
+          selectedCaseId
+        );
+        if (alive) setNotes(nextNotes);
       } catch (e) {
         if (alive) setError(e?.message || "Could not load coaching notes.");
       }
@@ -145,19 +134,13 @@ export default function CoachingAlertsView({
 
   async function acknowledge(alert) {
     await run(`ack-${alert.id}`, async () => {
-      const { error: rpcError } = await getSupabaseBrowserClient().rpc("acknowledge_performance_alert", {
-        p_alert_id: alert.id,
-      });
-      if (rpcError) throw rpcError;
+      await acknowledgePerformanceAlert(getSupabaseBrowserClient(), alert.id);
     }, "Alert acknowledged.");
   }
 
   async function resolveAlert(alert) {
     await run(`resolve-${alert.id}`, async () => {
-      const { error: rpcError } = await getSupabaseBrowserClient().rpc("resolve_performance_alert", {
-        p_alert_id: alert.id,
-      });
-      if (rpcError) throw rpcError;
+      await resolvePerformanceAlert(getSupabaseBrowserClient(), alert.id);
     }, "Alert resolved.");
   }
 
@@ -166,13 +149,10 @@ export default function CoachingAlertsView({
     setError("");
     setNotice("");
     try {
-      const { data, error: rpcError } = await getSupabaseBrowserClient().rpc("open_coaching_case_from_alert", {
-        p_alert_id: alert.id,
-      });
-      if (rpcError) throw rpcError;
+      const caseId = await openCoachingCaseFromAlert(getSupabaseBrowserClient(), alert.id);
       await load();
       setTab("cases");
-      setSelectedCaseId(data || "");
+      setSelectedCaseId(caseId);
       setNotice("Coaching case opened from the alert.");
     } catch (e) {
       setError(e?.message || "Could not open coaching case.");
@@ -183,26 +163,19 @@ export default function CoachingAlertsView({
 
   async function refreshAlerts() {
     await run("refresh", async () => {
-      const { error: rpcError } = await getSupabaseBrowserClient().rpc("refresh_performance_alerts", {
-        p_organization_id: organizationId,
-      });
-      if (rpcError) throw rpcError;
+      await refreshPerformanceAlerts(getSupabaseBrowserClient(), organizationId);
     }, "Alert engine refreshed against the latest driver periods.");
   }
 
   async function saveCase() {
     if (!selectedCase) return;
     await run(`save-${selectedCase.id}`, async () => {
-      const { error: rpcError } = await getSupabaseBrowserClient().rpc("update_coaching_case", {
-        p_case_id: selectedCase.id,
-        p_status: status || null,
-        p_priority: selectedCase.priority || null,
-        p_assigned_to: selectedCase.assigned_to || null,
-        p_due_at: selectedCase.due_at || null,
-        p_follow_up_at: selectedCase.follow_up_at || null,
-        p_outcome: outcome.trim() || null,
-      });
-      if (rpcError) throw rpcError;
+      await updateCoachingCase(
+        getSupabaseBrowserClient(),
+        selectedCase,
+        status,
+        outcome
+      );
     }, "Coaching case updated.");
   }
 
@@ -211,18 +184,13 @@ export default function CoachingAlertsView({
     setBusy(`note-${selectedCase.id}`);
     setError("");
     try {
-      const { error: rpcError } = await getSupabaseBrowserClient().rpc("add_coaching_case_note", {
-        p_case_id: selectedCase.id,
-        p_note: note.trim(),
-        p_note_type: "note",
-      });
-      if (rpcError) throw rpcError;
+      await addCoachingCaseNote(getSupabaseBrowserClient(), selectedCase.id, note);
       setNote("");
-      const { data, error: notesError } = await getSupabaseBrowserClient().rpc("list_coaching_case_notes", {
-        p_case_id: selectedCase.id,
-      });
-      if (notesError) throw notesError;
-      setNotes(data || []);
+      const nextNotes = await fetchCoachingCaseNotes(
+        getSupabaseBrowserClient(),
+        selectedCase.id
+      );
+      setNotes(nextNotes);
       setNotice("Coaching note added.");
       await load();
     } catch (e) {
