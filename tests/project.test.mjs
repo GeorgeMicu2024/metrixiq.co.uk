@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { findIadcHeader } from "../lib/parsers/iadc.js";
+import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
+import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -19,6 +21,56 @@ test("Tailwind is not a dependency", () => {
 
 test("global CSS contains application shell styles", () => {
   assert.ok(read("app/globals.css").includes(".app-shell"));
+});
+
+test("Smart Import preflight rejects unsupported and deduplicates files", () => {
+  const good = { name: "iadc-week36.xlsx", size: 1024, lastModified: 1 };
+  const duplicate = { name: "iadc-week36.xlsx", size: 1024, lastModified: 1 };
+  const unsupported = { name: "photo.png", size: 2048, lastModified: 2 };
+
+  assert.equal(classifyImportFile(good).status, "ready");
+  assert.equal(classifyImportFile(unsupported).status, "blocked");
+
+  const prepared = prepareImportFiles([good], [duplicate, unsupported]);
+  assert.equal(prepared.duplicates, 1);
+  assert.equal(prepared.files.length, 2);
+
+  const summary = summarizePreflight(prepared.files);
+  assert.equal(summary.ready, 1);
+  assert.equal(summary.blocked, 1);
+});
+
+test("Smart Import readiness explains incomplete evidence", () => {
+  const intelligence = buildImportIntelligence({
+    fileResults: [
+      { name: "iadc.xlsx", recognized: true, status: "parsed", reportType: "iadc" },
+      { name: "mentor.xlsx", recognized: false, status: "error", reportType: null },
+    ],
+    recognizedFiles: 1,
+    errorFiles: 1,
+    unsupportedFiles: 0,
+    driverCount: 10,
+    unmatchedDrivers: 2,
+    periods: [{ key: "2026-W36" }],
+  });
+
+  assert.ok(intelligence.readiness > 0 && intelligence.readiness < 100);
+  assert.ok(intelligence.reportTypes.includes("iadc"));
+  assert.ok(intelligence.actions.some((item) => item.includes("failed to parse")));
+  assert.ok(intelligence.actions.some((item) => item.includes("unmatched driver")));
+});
+
+test("Smart Import exposes professional preflight and readiness UI", () => {
+  const view = read("components/imports/SmartImportView.jsx");
+  const css = read("app/globals.css");
+
+  assert.ok(view.includes("summarizePreflight"));
+  assert.ok(view.includes("buildImportIntelligence"));
+  assert.ok(view.includes("onDrop={onDrop}"));
+  assert.ok(view.includes("Smart next actions"));
+  assert.ok(view.includes("Data readiness"));
+  assert.ok(css.includes(".smart-import-drop"));
+  assert.ok(css.includes(".smart-readiness"));
 });
 
 test("dashboard exposes Smart Import", () => {
