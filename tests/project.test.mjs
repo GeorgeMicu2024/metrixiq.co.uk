@@ -103,6 +103,20 @@ test("coaching view lives in the coaching product module", () => {
   assert.ok(dashboard.includes('./coaching/CoachingAlertsView'));
 });
 
+test("coaching UI delegates mutations and reads to the data layer", () => {
+  const coaching = read("components/coaching/CoachingAlertsView.jsx");
+  const data = read("lib/data/coaching.js");
+
+  assert.equal(coaching.includes(".rpc("), false);
+  assert.ok(coaching.includes("fetchCoachingOverview"));
+  assert.ok(coaching.includes("fetchCoachingCaseNotes"));
+  assert.ok(coaching.includes("acknowledgePerformanceAlert"));
+  assert.ok(coaching.includes("updateCoachingCase"));
+  assert.ok(data.includes("export async function fetchCoachingOverview"));
+  assert.ok(data.includes("export async function addCoachingCaseNote"));
+});
+
+
 test("scorecard views live in the scorecards product module", () => {
   const operational = read("components/OperationalViews.jsx");
   const scorecards = read("components/scorecards/ScorecardViews.jsx");
