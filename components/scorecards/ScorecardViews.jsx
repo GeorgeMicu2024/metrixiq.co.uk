@@ -3,117 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchDriverScorecardData, fetchSiteScorecardData } from "../../lib/data/scorecardData";
-import { displayDriverName, isUsablePersonName, nameSignature, normalizeName } from "../../lib/identity";
+import { isUsablePersonName, nameSignature, normalizeName } from "../../lib/identity";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
-
-const num = (value) => value == null || value === "" || Number.isNaN(Number(value)) ? null : Number(value);
-const pct = (value, digits = 2) => num(value) == null ? "—" : `${Number(value).toFixed(digits)}%`;
-const plain = (value, digits = 0) => num(value) == null ? "—" : Number(value).toFixed(digits);
-const weekSort = (a, b) => (Number(b.year || 0) * 100 + Number(b.week || 0)) - (Number(a.year || 0) * 100 + Number(a.week || 0));
-
-function useLoad(loader, deps = []) {
-  const [state, setState] = useState({ loading: true, error: "", data: null });
-  useEffect(() => {
-    let alive = true;
-    setState((s) => ({ ...s, loading: true, error: "" }));
-    loader()
-      .then((data) => alive && setState({ loading: false, error: "", data }))
-      .catch((error) => alive && setState({ loading: false, error: error?.message || "Could not load data.", data: null }));
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  return state;
-}
-
-function LoadingPanel({ text = "Loading operational data…" }) {
-  return <section className="panel ops-empty"><div className="auth-spinner" /><b>{text}</b></section>;
-}
-function ErrorPanel({ error }) {
-  return <section className="panel ops-empty error"><b>Unable to load this view</b><span>{error}</span></section>;
-}
-function EmptyPanel({ title, text, action, onAction }) {
-  return <section className="panel ops-empty"><div className="ops-empty-icon">◇</div><b>{title}</b><span>{text}</span>{action && <button className="btn primary" onClick={onAction}>{action}</button>}</section>;
-}
-
-function MetricValue({ item, format = "plain" }) {
-  if (!item) return <span className="muted-value">—</span>;
-  const value = typeof item === "object" ? item.value : item;
-  const standing = typeof item === "object" ? item.standing : null;
-  const shown = format === "pct" && num(value) != null ? `${Number(value).toFixed(2)}%` : String(value ?? "—");
-  return <span className="scorecard-source-value"><b>{shown}</b>{standing && <em>{standing}</em>}</span>;
-}
-
-function ScorecardMetricRow({ label, item, format }) {
-  return <div className="source-metric-row"><span>{label}</span><MetricValue item={item} format={format} /></div>;
-}
-
-function indexFor(row) {
-  const parts = [];
-  if (num(row.dcr) != null) parts.push(Math.min(105, Number(row.dcr) / TARGETS.dcr * 100));
-  if (num(row.pod) != null) parts.push(Math.min(105, Number(row.pod) / TARGETS.pod * 100));
-  if (num(row.iadc) != null) parts.push(Math.min(105, Number(row.iadc) / TARGETS.iadc * 100));
-  const mentor = num(row.mentor_score ?? row.ementor ?? row.fico);
-  if (mentor != null) parts.push(Math.min(105, mentor / TARGETS.mentor * 100));
-  return parts.length >= 2 ? parts.reduce((a, b) => a + b, 0) / parts.length : num(row.performance);
-}
-
-function tierForIndex(value) {
-  const n = num(value);
-  if (n == null) return { label: "Insufficient data", cls: "neutral" };
-  if (n >= 100) return { label: "Strong", cls: "good" };
-  if (n >= 96) return { label: "Stable", cls: "good" };
-  if (n >= 90) return { label: "Watch", cls: "warn" };
-  return { label: "Priority", cls: "bad" };
-}
-
-function driverShape(row) {
-  const driver = row.drivers || {};
-  return {
-    id: driver.trid,
-    dbId: row.driver_id,
-    name: displayDriverName(driver),
-    site: driver.site,
-    status: driver.status || "active",
-    performance: num(row.performance),
-    dcr: num(row.dcr),
-    pod: num(row.pod),
-    iadc: num(row.iadc),
-    cc: num(row.cc),
-    fico: num(row.mentor_score ?? row.ementor ?? row.fico),
-    ementor: num(row.mentor_score ?? row.ementor ?? row.fico),
-    mentor_score: num(row.mentor_score ?? row.ementor ?? row.fico),
-    concessions: num(row.concessions),
-    lor: num(row.lor),
-    psb: num(row.psb),
-    risk: row.risk || "Low",
-    issue: row.issue || "No active concern",
-    weekLabel: row.week_label,
-    dataConfidence: num(row.data_confidence),
-  };
-}
-
-function LeaderList({ rows, title, inverse = false, onOpenDriver }) {
-  const sorted = rows
-    .map((row) => ({ ...row, index: indexFor(row) }))
-    .filter((row) => row.index != null)
-    .sort((a, b) => inverse ? a.index - b.index : b.index - a.index)
-    .slice(0, 5);
-  return <article className="panel ops-leader-card">
-    <div className="panel-head"><div><h2>{title}</h2><p>{inverse ? "Lowest combined index — prioritise review." : "Highest combined index in the selected week."}</p></div></div>
-    <div className="leader-stack">
-      {sorted.length ? sorted.map((row, i) => {
-        const driver = row.drivers || {};
-        const tier = tierForIndex(row.index);
-        return <button key={row.driver_id} className="leader-row" onClick={() => onOpenDriver?.(driverShape(row))}>
-          <span className="rank-badge">{i + 1}</span>
-          <span className="leader-name"><b>{displayDriverName(driver)}</b><small>{driver.trid}</small></span>
-          <span className={`tier-chip ${tier.cls}`}>{tier.label}</span>
-          <strong>{row.index.toFixed(1)}</strong>
-        </button>;
-      }) : <div className="ops-mini-empty">Not enough combined metrics yet.</div>}
-    </div>
-  </article>;
-}
+import {
+  num,
+  pct,
+  plain,
+  weekSort,
+} from "../../lib/scorecards/metrics";
+import {
+  EmptyPanel,
+  ErrorPanel,
+  LeaderList,
+  LoadingPanel,
+  ScorecardMetricRow,
+  useLoad,
+} from "./ScorecardPrimitives";
 
 export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
