@@ -94,6 +94,26 @@ test("team management delegates data and permission logic", () => {
   assert.ok(roles.includes("export function parseSiteScope"));
 });
 
+test("SaaS product views delegate Supabase and billing operations", () => {
+  const onboarding = read("components/saas/PlanOnboardingView.jsx");
+  const billing = read("components/billing/BillingProView.jsx");
+  const admin = read("components/admin/PlatformAdminView.jsx");
+  const billingData = read("lib/data/billing.js");
+  const adminData = read("lib/data/admin.js");
+
+  assert.equal(onboarding.includes(".rpc("), false);
+  assert.equal(billing.includes(".rpc("), false);
+  assert.equal(billing.includes('fetch("/api/billing'), false);
+  assert.equal(admin.includes(".rpc("), false);
+  assert.ok(onboarding.includes("activateWorkspaceMode"));
+  assert.ok(billing.includes("createBillingCheckout"));
+  assert.ok(billing.includes("createBillingPortal"));
+  assert.ok(admin.includes("fetchAdminAccounts"));
+  assert.ok(billingData.includes("export async function fetchWorkspaceAccess"));
+  assert.ok(billingData.includes("export async function createBillingCheckout"));
+  assert.ok(adminData.includes("export async function setAdminWorkspacePlan"));
+});
+
 test("SaaS foundation is split into canonical product modules", () => {
   const legacy = read("components/SaasFoundation.jsx");
   const shared = read("components/saas/SaasShared.jsx");
