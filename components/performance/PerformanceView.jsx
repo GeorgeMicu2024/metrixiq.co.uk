@@ -922,6 +922,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
 
         <div className="pfp-filterbar">
           <input
+            aria-label="Search performance drivers"
             value={query}
             onChange={(event)=>setQuery(event.target.value)}
             placeholder="Search driver or TRID…"
