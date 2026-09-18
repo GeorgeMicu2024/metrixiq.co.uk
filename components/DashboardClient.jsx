@@ -10,10 +10,12 @@ import { aggregateFleetHistory } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView, DriverScorecardsView, SiteScorecardsView } from "./OperationalViews";
 import { ProDriversView, ProPerformanceView } from "./ProfessionalViews";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
+import CoachingAlertsView from "./CoachingAlertsView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
 import { initials, numberOrNull } from "./dashboard/utils";
 import { fetchAllDriverMetricRows } from "../lib/data/driverMetrics";
-import { CoachingView, DashboardView, DriverScorecardView, ImportsView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
+import { isUsablePersonName } from "../lib/identity";
+import { DashboardView, DriverScorecardView, ImportsView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
 
 async function resolveWorkspace(supabase, user) {
   const { data: membership, error: membershipError } = await supabase
@@ -201,7 +203,7 @@ export default function DashboardClient() {
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "mentor": view = <DirectMentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "concessions": view = <DirectConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
-    case "coaching": view = <CoachingView drivers={drivers} onOpen={openDriver} />; break;
+    case "coaching": view = <CoachingAlertsView organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} canManage={platformAdmin || ["owner","admin","manager","dispatcher"].includes(session?.role)} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
     case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
     case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
