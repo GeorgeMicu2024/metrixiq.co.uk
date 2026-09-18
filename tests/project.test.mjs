@@ -766,6 +766,15 @@ test("site-scoped operational views recover from stale week selections", () => {
   );
 });
 
+test("Performance recovers stale site and week filters", () => {
+  const performance = read("components/performance/PerformanceView.jsx");
+
+  assert.ok(performance.includes('if (site !== "all" && !sites.includes(site)) setSite("all")'));
+  assert.ok(performance.includes('focusWeek !== "latest"'));
+  assert.ok(performance.includes('setFocusWeek("latest")'));
+});
+
+
 
 
 test("legacy compatibility files stay thin and cannot regrow into monoliths", () => {
