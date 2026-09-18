@@ -76,6 +76,24 @@ test("central KPI target configuration is used", () => {
   assert.equal(dashboard.includes('"98.0%"'), false);
 });
 
+test("team management delegates data and permission logic", () => {
+  const saas = read("components/SaasFoundation.jsx");
+  const teamData = read("lib/data/team.js");
+  const roles = read("lib/permissions/roles.js");
+  const teamStart = saas.indexOf("export function TeamManagementView");
+  const teamEnd = saas.indexOf("export function PlatformAdminView");
+  const teamView = saas.slice(teamStart, teamEnd);
+
+  assert.equal(teamView.includes(".rpc("), false);
+  assert.equal(teamView.includes("supabase.auth.getUser"), false);
+  assert.ok(teamView.includes("fetchTeamWorkspace"));
+  assert.ok(teamView.includes("parseSiteScope"));
+  assert.ok(teamData.includes("export async function createTeamInvite"));
+  assert.ok(teamData.includes("export async function updateTeamMember"));
+  assert.ok(roles.includes("export function canManageTeam"));
+  assert.ok(roles.includes("export function parseSiteScope"));
+});
+
 test("navigation permissions live outside UI components", () => {
   const saas = read("components/SaasFoundation.jsx");
   const permissions = read("lib/permissions/navigation.js");
