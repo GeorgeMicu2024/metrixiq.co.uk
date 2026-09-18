@@ -1,0 +1,34 @@
+name: Update SheetJS Lockfile
+
+on:
+  push:
+    branches:
+      - feature/driver-scorecard-auth
+    paths:
+      - .github/workflows/update-sheetjs-lock.yml
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Generate patched SheetJS lockfile
+        run: npm install --save --package-lock-only https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+      - name: Emit package files
+        run: |
+          echo "PACKAGE_JSON_BEGIN"
+          base64 -w0 package.json
+          echo
+          echo "PACKAGE_JSON_END"
+          echo "PACKAGE_LOCK_BEGIN"
+          base64 -w0 package-lock.json
+          echo
+          echo "PACKAGE_LOCK_END"
