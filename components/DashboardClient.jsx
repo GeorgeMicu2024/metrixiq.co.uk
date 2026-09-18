@@ -7,12 +7,12 @@ import {BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspac
 import { analyseFiles } from "../lib/analyzer";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
-import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView, TARGETS } from "./HistoricalAnalytics";
+import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView, DriverScorecardsView, IadcView, SiteScorecardsView } from "./OperationalViews";
 import { ProConcessionsView, ProDriversView, ProMentorView, ProPerformanceView } from "./ProfessionalViewsV7";
-import { ProConcessionsViewV9, ProIadcView, ProMentorViewV9 } from "./ProfessionalViewsV9";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./ProfessionalViewsV10";
 import { isUsablePersonName } from "../lib/identity";
+import { TARGETS, targetLabel } from "../lib/config/performance";
 
 const nav = [
   ["dashboard", "Dashboard"],
@@ -125,8 +125,8 @@ function DriversView({ drivers, onOpen, query = "" }) {
   return <><div className="page-heading"><div><span className="page-kicker">OPERATIONS</span><h1>Drivers</h1><p>Search every driver profile, metric and current risk status.</p></div></div><section className="panel"><div className="table-tools"><input placeholder="Search name, TRID or site…" value={q} onChange={(e) => setQ(e.target.value)} /><span>{filtered.length} drivers</span></div><DriverTable drivers={filtered} onOpen={onOpen} /></section></>;
 }
 function PerformanceView({ kpis }) {
-  const cards = [["DCR", kpis.dcr, "98.8%"], ["POD", kpis.pod, "98.0%"], ["IADC", kpis.iadc, "80%"], ["CC", kpis.cc, "98.0%"], ["PSB", kpis.psb, "98.0%"], ["Reattempts", kpis.reattempts, "95%"]];
-  return <><div className="page-heading"><div><span className="page-kicker">OPERATIONS</span><h1>Performance analysis</h1><p>Inspect fleet metrics against operational thresholds.</p></div></div><div className="performance-cards">{cards.map(([label, value, target]) => <article key={label}><span>{label}</span><strong>{fmt(value, label.toLowerCase())}</strong><small>Target {target}</small><div className="progress"><i style={{ width: `${Math.min(100, Number(value) || 0)}%` }} /></div></article>)}</div><section className="panel tall"><div className="panel-head"><div><h2>Four-week movement</h2><p>Performance trend across reporting periods</p></div></div><TrendChart /></section></>;
+  const cards = [["DCR", kpis.dcr, targetLabel("dcr")], ["POD", kpis.pod, targetLabel("pod")], ["IADC", kpis.iadc, targetLabel("iadc")], ["CC", kpis.cc, targetLabel("cc")], ["PSB", kpis.psb, targetLabel("psb")], ["Reattempts", kpis.reattempts, targetLabel("reattempts")]];
+  return <><div className="page-heading"><div><span className="page-kicker">OPERATIONS</span><h1>Performance analysis</h1><p>Inspect fleet metrics against operational thresholds.</p></div></div><div className="performance-cards">{cards.map(([label, value, target]) => <article key={label}><span>{label}</span><strong>{fmt(value, label.toLowerCase())}</strong><small>{target}</small><div className="progress"><i style={{ width: `${Math.min(100, Number(value) || 0)}%` }} /></div></article>)}</div><section className="panel tall"><div className="panel-head"><div><h2>Four-week movement</h2><p>Performance trend across reporting periods</p></div></div><TrendChart /></section></>;
 }
 function CoachingView({ drivers, onOpen }) {
   const list = drivers.filter((d) => d.risk !== "Low");
@@ -134,16 +134,16 @@ function CoachingView({ drivers, onOpen }) {
 }
 function IntelligenceView({ drivers, onCoaching }) {
   const high = drivers.filter((d) => d.risk === "High");
-  return <><div className="page-heading"><div><span className="page-kicker">INTELLIGENCE</span><h1>AI Insights</h1><p>Evidence-led signals based on imported driver performance data.</p></div></div><div className="intel-app-grid"><article className="insight-hero"><span>PRIORITY SIGNAL</span><h2>{high.length} drivers need intervention before the next reporting cycle.</h2><p>The strongest pattern is repeated POD / IADC deterioration combined with lower performance consistency. Prioritise coaching rather than reviewing every driver equally.</p><button className="btn light" onClick={onCoaching}>Open coaching queue</button></article><article className="panel"><div className="panel-head"><div><h2>Evidence summary</h2><p>What is driving the signal</p></div></div><div className="evidence-list"><div><b>DCR</b><span>{drivers.filter((d) => d.dcr != null && d.dcr < TARGETS.dcr).length} below 99.20%</span></div><div><b>POD</b><span>{drivers.filter((d) => d.pod != null && d.pod < TARGETS.pod).length} below 99.60%</span></div><div><b>IADC</b><span>{drivers.filter((d) => d.iadc != null && d.iadc < TARGETS.iadc).length} below 80%</span></div><div><b>Mentor Score</b><span>{drivers.filter((d) => (d.ementor ?? d.fico) != null && (d.ementor ?? d.fico) < TARGETS.mentor).length} below 815</span></div></div></article></div></>;
+  return <><div className="page-heading"><div><span className="page-kicker">INTELLIGENCE</span><h1>AI Insights</h1><p>Evidence-led signals based on imported driver performance data.</p></div></div><div className="intel-app-grid"><article className="insight-hero"><span>PRIORITY SIGNAL</span><h2>{high.length} drivers need intervention before the next reporting cycle.</h2><p>The strongest pattern is repeated POD / IADC deterioration combined with lower performance consistency. Prioritise coaching rather than reviewing every driver equally.</p><button className="btn light" onClick={onCoaching}>Open coaching queue</button></article><article className="panel"><div className="panel-head"><div><h2>Evidence summary</h2><p>What is driving the signal</p></div></div><div className="evidence-list"><div><b>DCR</b><span>{drivers.filter((d) => d.dcr != null && d.dcr < TARGETS.dcr).length} below ${TARGETS.dcr.toFixed(2)}%</span></div><div><b>POD</b><span>{drivers.filter((d) => d.pod != null && d.pod < TARGETS.pod).length} below ${TARGETS.pod.toFixed(2)}%</span></div><div><b>IADC</b><span>{drivers.filter((d) => d.iadc != null && d.iadc < TARGETS.iadc).length} below ${TARGETS.iadc}%</span></div><div><b>Mentor Score</b><span>{drivers.filter((d) => (d.ementor ?? d.fico) != null && (d.ementor ?? d.fico) < TARGETS.mentor).length} below ${TARGETS.mentor}</span></div></div></article></div></>;
 }
 
 function coachingRecommendations(d) {
   const items = [];
-  if (numberOrNull(d.dcr) != null && Number(d.dcr) < TARGETS.dcr) items.push("DCR is below 99.20%. Review unsuccessful deliveries and complete every possible reattempt.");
-  if (numberOrNull(d.pod) != null && Number(d.pod) < TARGETS.pod) items.push("POD is below 99.60%. Coach clear, customer-presentable delivery photos.");
-  if (numberOrNull(d.iadc) != null && Number(d.iadc) < TARGETS.iadc) items.push("IADC is below 80%. Reinforce Notify of Arrival, first app option, clear POD and swipe at location.");
+  if (numberOrNull(d.dcr) != null && Number(d.dcr) < TARGETS.dcr) items.push(`DCR is below ${TARGETS.dcr.toFixed(2)}%. Review unsuccessful deliveries and complete every possible reattempt.`);
+  if (numberOrNull(d.pod) != null && Number(d.pod) < TARGETS.pod) items.push(`POD is below ${TARGETS.pod.toFixed(2)}%. Coach clear, customer-presentable delivery photos.`);
+  if (numberOrNull(d.iadc) != null && Number(d.iadc) < TARGETS.iadc) items.push(`IADC is below ${TARGETS.iadc}%. Reinforce Notify of Arrival, first app option, clear POD and swipe at location.`);
   const mentor = numberOrNull(d.ementor) ?? numberOrNull(d.fico);
-  if (mentor != null && mentor < TARGETS.mentor) items.push("Mentor driving score is below 815. Review acceleration, braking, cornering, distraction and speeding.");
+  if (mentor != null && mentor < TARGETS.mentor) items.push(`Mentor driving score is below ${TARGETS.mentor}. Review acceleration, braking, cornering, distraction and speeding.`);
   if (numberOrNull(d.concessions) != null && Number(d.concessions) > 2) items.push("Review weekly concessions and identify repeat delivery, POD or customer-contact patterns.");
   if (!items.length) items.push("No urgent coaching intervention detected. Maintain current workflow and monitor the next reporting cycle.");
   return items;
@@ -154,7 +154,7 @@ function DriverScorecardView({ driver, history, historyLoading, onBack }) {
     ["DCR", driver.dcr, "dcr", `Target ≥ ${TARGETS.dcr.toFixed(2)}%`], ["POD", driver.pod, "pod", `Target ≥ ${TARGETS.pod.toFixed(2)}%`],
     ["IADC", driver.iadc, "iadc", `Target ≥ ${TARGETS.iadc}%`], ["CC", driver.cc, "cc", "Operational quality"],
     ["Mentor Score", driver.ementor ?? driver.fico, "mentor", `Target ≥ ${TARGETS.mentor}`],
-    ["PSB", driver.psb, "psb", "Target ≥ 98.0%"], ["Reattempts", driver.reattempts, "reattempts", "Target ≥ 95%"],
+    ["PSB", driver.psb, "psb", targetLabel("psb")], ["Reattempts", driver.reattempts, "reattempts", targetLabel("reattempts")],
     ["Concessions", driver.concessions, "concessions", "Lower is better"], ["LoR", driver.lor, "lor", "Lower is better"],
   ];
   const historicalPerformance = history.map((h) => numberOrNull(h.performance)).filter((v) => v != null);
