@@ -100,7 +100,7 @@ export function ProDriversView({ drivers = [], onOpen, query = "" }) {
     </div>
 
     <section className="pro-kpi-grid">
-      <article><span>Total drivers</span><strong>{drivers.length}</strong><small>DLS2 workspace</small></article>
+      <article><span>Total drivers</span><strong>{drivers.length}</strong><small>Current workspace</small></article>
       <article><span>Measured</span><strong>{measured}</strong><small>At least one current metric</small></article>
       <article className={coaching?"warn":""}><span>Needs attention</span><strong>{coaching}</strong><small>Medium or high risk</small></article>
       <article className={unresolved?"bad":""}><span>Unresolved identity</span><strong>{unresolved}</strong><small>Requires trusted mapping</small></article>
@@ -125,7 +125,7 @@ export function ProDriversView({ drivers = [], onOpen, query = "" }) {
             const unresolvedName = !isUsablePersonName(driver.name);
             return <tr key={`${driver.dbId||""}-${driver.id}`} className={unresolvedName?"pro-unresolved-row":""}>
               <td><div className="pro-driver-cell"><span>{unresolvedName?"?":String(driver.name||"D").split(/\s+/).slice(0,2).map((x)=>x[0]).join("").toUpperCase()}</span><div><b>{unresolvedName?"Unresolved driver":driver.name}</b><small>{driver.id}</small></div></div></td>
-              <td><span className="site-chip">{driver.site||"DLS2"}</span></td>
+              <td><span className="site-chip">{driver.site||"Unassigned"}</span></td>
               <td><div className="pro-index-cell"><b>{n(driver.performance)==null?"—":Math.round(driver.performance)}</b>{n(driver.performance)!=null&&<i style={{width:`${Math.min(100,Math.max(0,Number(driver.performance)))}%`}} />}</div></td>
               <td><MetricPill metric="dcr" value={driver.dcr}/></td>
               <td><MetricPill metric="pod" value={driver.pod}/></td>
@@ -575,7 +575,7 @@ export function ProPerformanceView({ rows = [], kpis = {}, onOpenDriver }) {
       id:driver.driver?.trid,
       dbId:driver.id,
       name:resolvedName(driver.driver),
-      site:driver.driver?.site||"DLS2",
+      site:driver.driver?.site||"",
       performance:driver.index,
       dcr:driver.dcr,
       pod:driver.pod,
@@ -1175,7 +1175,7 @@ export function ProPerformanceView({ rows = [], kpis = {}, onOpenDriver }) {
                     </div>
                   </div>
                 </td>
-                <td><span className="site-chip">{driver.driver?.site||"DLS2"}</span></td>
+                <td><span className="site-chip">{driver.driver?.site||"Unassigned"}</span></td>
                 <td><span className={`pfp-index ${status}`}>{n(driver.index)==null?"—":Number(driver.index).toFixed(1)}</span></td>
                 <td><span className={`pfp-data-pill ${n(driver.dcr)!=null&&driver.dcr>=TARGETS.dcr?"good":n(driver.dcr)==null?"neutral":"bad"}`}>{formatMetric("dcr",driver.dcr)}</span></td>
                 <td><span className={`pfp-data-pill ${n(driver.pod)!=null&&driver.pod>=TARGETS.pod?"good":n(driver.pod)==null?"neutral":"bad"}`}>{formatMetric("pod",driver.pod)}</span></td>
