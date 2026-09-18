@@ -588,6 +588,14 @@ test("real DWC/IADC report headers are detected", () => {
 
 test("IADC parser does not invent a DLS2 site fallback", () => {
   const analyzer = read("lib/analyzer.js");
+  const html = read("lib/analyzer/html.js");
+  const pdf = read("lib/analyzer/pdf.js");
+  const core = read("lib/analyzer/core.js");
+
   assert.equal(analyzer.includes('|| "DLS2"'), false);
-  assert.ok(analyzer.includes("inferSiteCode(fileName"));
+  assert.equal(html.includes('|| "DLS2"'), false);
+  assert.equal(pdf.includes('|| "DLS2"'), false);
+  assert.ok(core.includes("export function inferSiteCode"));
+  assert.ok(html.includes("inferSiteCode(fileName"));
+  assert.ok(pdf.includes("inferSiteCode(fileName"));
 });
