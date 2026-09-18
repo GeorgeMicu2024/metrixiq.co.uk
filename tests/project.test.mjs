@@ -535,6 +535,22 @@ test("coaching UI delegates mutations and reads to the data layer", () => {
 });
 
 
+test("ScorecardViews delegates shared metrics and primitives", () => {
+  const view = read("components/scorecards/ScorecardViews.jsx");
+  const metrics = read("lib/scorecards/metrics.js");
+  const primitives = read("components/scorecards/ScorecardPrimitives.jsx");
+
+  assert.equal(view.includes("function indexFor("), false);
+  assert.equal(view.includes("function LeaderList("), false);
+  assert.equal(view.includes("function LoadingPanel("), false);
+  assert.ok(view.includes("../../lib/scorecards/metrics"));
+  assert.ok(view.includes("./ScorecardPrimitives"));
+  assert.ok(metrics.includes("export function driverShape"));
+  assert.ok(metrics.includes("export function indexFor"));
+  assert.ok(primitives.includes("export function LeaderList"));
+  assert.ok(primitives.includes("export function useLoad"));
+});
+
 test("scorecard views live in the scorecards product module", () => {
   const operational = read("components/OperationalViews.jsx");
   const scorecards = read("components/scorecards/ScorecardViews.jsx");
