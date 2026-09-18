@@ -10,6 +10,10 @@ const pct = (v,d=2) => n(v)==null ? "—" : `${Number(v).toFixed(d)}%`;
 const weekNo = (label) => Number(String(label||"").replace(/\D/g,"")) || 0;
 const dname = (d) => d?.full_name || d?.name || "Unresolved driver";
 const trid = (d) => d?.trid || d?.id || "—";
+function filterRowsBySite(rows, siteFilter = "all") {
+  if (siteFilter === "all") return rows;
+  return rows.filter((row) => String(row?.drivers?.site || "").trim().toUpperCase() === siteFilter);
+}
 
 function useDbRows(organizationId, kind){
   const [state,setState]=useState({loading:true,error:"",rows:[]});
@@ -92,9 +96,9 @@ function openShape(row,extra={}){
   return {id:trid(d),dbId:row?.driver_id,name:dname(d),site:d.site||"",...extra};
 }
 
-export function DirectIadcView({organizationId,onOpenDriver,onImport}){
+export function DirectIadcView({organizationId,onOpenDriver,onImport,siteFilter="all"}){
   const load=useDbRows(organizationId,"iadc");
-  const rows=load.rows;
+  const rows=filterRowsBySite(load.rows,siteFilter);
   const weeks=useMemo(()=>[...new Set(rows.map(r=>r.week_label).filter(Boolean))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
   const [week,setWeek]=useState("");
   const [query,setQuery]=useState("");
@@ -141,16 +145,17 @@ export function DirectIadcView({organizationId,onOpenDriver,onImport}){
   </>;
 }
 
-export function DirectMentorView({organizationId,onOpenDriver}){
+export function DirectMentorView({organizationId,onOpenDriver,siteFilter="all"}){
   const load=useDbRows(organizationId,"mentor");
   const [range,setRange]=useState(4);
   const [query,setQuery]=useState("");
-  const presentWeeks=useMemo(()=>[...new Set(load.rows.map(r=>r.week_label).filter(Boolean))].sort((a,b)=>weekNo(a)-weekNo(b)),[load.rows]);
+  const rows=useMemo(()=>filterRowsBySite(load.rows,siteFilter),[load.rows,siteFilter]);
+  const presentWeeks=useMemo(()=>[...new Set(rows.map(r=>r.week_label).filter(Boolean))].sort((a,b)=>weekNo(a)-weekNo(b)),[rows]);
   const weeks=range==="all"?presentWeeks:presentWeeks.slice(-Number(range));
   const set=new Set(weeks);
   const map=useMemo(()=>{
     const m=new Map();
-    for(const row of load.rows){
+    for(const row of rows){
       if(!set.has(row.week_label))continue;
       const d=row.drivers||{};
       const id=row.driver_id||trid(d);
@@ -162,7 +167,7 @@ export function DirectMentorView({organizationId,onOpenDriver}){
       m.set(id,cur);
     }
     return [...m.values()].map(x=>({...x,score:x.scores.length?x.scores.reduce((a,b)=>a+b,0)/x.scores.length:null})).filter(x=>x.score!=null||x.details).sort((a,b)=>(b.score??-1)-(a.score??-1));
-  },[load.rows,weeks.join("|")]);
+  },[rows,weeks.join("|")]);
 
   if(load.loading)return <Loading text="Loading Mentor directly from saved driver metrics…"/>;
   if(load.error)return <ErrorBox error={load.error}/>;
@@ -194,7 +199,7 @@ function contiguousWeeks(rows,range){
   const start=range==="all"?min:Math.max(min,max-Number(range)+1);
   return Array.from({length:max-start+1},(_,i)=>`W${String(start+i).padStart(2,"0")}`);
 }
-export function DirectConcessionsView({organizationId,onOpenDriver}){
+export function DirectConcessionsView({organizationId,onOpenDriver,siteFilter="all"}){
   const load=useDbRows(organizationId,"concessions");
   const [range,setRange]=useState(8);
   const [query,setQuery]=useState("");
@@ -211,8 +216,9 @@ export function DirectConcessionsView({organizationId,onOpenDriver}){
     return /^[A-Z]{2,5}\d+$/i.test(value)?value.toUpperCase():"Unassigned";
   };
 
-  const concessionRows=load.rows.filter(r=>n(r.concessions)!=null);
-  const weeks=contiguousWeeks(load.rows,range);
+  const rows=useMemo(()=>filterRowsBySite(load.rows,siteFilter),[load.rows,siteFilter]);
+  const concessionRows=rows.filter(r=>n(r.concessions)!=null);
+  const weeks=contiguousWeeks(rows,range);
   const weekSet=new Set(weeks);
   const presentSet=new Set(concessionRows.map(r=>r.week_label));
 
