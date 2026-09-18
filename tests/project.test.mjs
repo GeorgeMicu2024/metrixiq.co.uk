@@ -186,6 +186,18 @@ test("persistence orchestration delegates identity and evidence storage", () => 
   assert.ok(persistence.length < 8000);
 });
 
+test("persistence delegates driver metric repository access", () => {
+  const persistence = read("lib/persistence.js");
+  const repository = read("lib/persistence/driverMetrics.js");
+
+  assert.equal(persistence.includes('.from("driver_metrics")'), false);
+  assert.ok(persistence.includes("fetchExistingMetricRows"));
+  assert.ok(persistence.includes("upsertDriverMetricRows"));
+  assert.ok(repository.includes("export async function fetchExistingMetricRows"));
+  assert.ok(repository.includes("export async function upsertDriverMetricRows"));
+});
+
+
 test("fleet intelligence prioritises operational risk and next actions", () => {
   const intelligence = buildFleetIntelligence(
     [
