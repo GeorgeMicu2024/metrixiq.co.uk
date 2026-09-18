@@ -307,6 +307,20 @@ test("billing catalogue matches the live MetrixIQ Stripe pricing", () => {
   assert.equal(billing.includes('"AI Insights"'), false);
 });
 
+test("public landing page consumes the same canonical plan catalogue", () => {
+  const landing = read("components/Landing.jsx");
+
+  assert.ok(landing.includes("PLAN_CATALOG"));
+  assert.ok(landing.includes("formatPlanPrice"));
+  assert.equal(landing.includes('"£39"'), false);
+  assert.equal(landing.includes('"£89"'), false);
+  assert.equal(landing.includes('"£169"'), false);
+  assert.equal(landing.includes("AI Insights"), false);
+  assert.equal(landing.includes('href="/app">Open product demo'), false);
+  assert.ok(landing.includes("See how it works"));
+});
+
+
 test("billing API routes are present", () => {
   for (const path of [
     "app/api/billing/checkout/route.js",
