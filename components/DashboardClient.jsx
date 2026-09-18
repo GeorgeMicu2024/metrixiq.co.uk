@@ -15,6 +15,7 @@ import CoachingAlertsView from "./CoachingAlertsView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
 import { loadWorkspaceContext, refreshWorkspacePerformance } from "../lib/data/workspace";
+import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
 import { DashboardView, DriverScorecardView, ImportsView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
 
@@ -33,7 +34,6 @@ export default function DashboardClient() {
   const [driverHistory, setDriverHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [metricHistoryRows, setMetricHistoryRows] = useState([]);
-  const [fleetHistory, setFleetHistory] = useState([]);
   const [globalSearch, setGlobalSearch] = useState("");
   const [siteFilter, setSiteFilter] = useState("all");
   const [platformAdmin, setPlatformAdmin] = useState(false);
@@ -66,7 +66,6 @@ export default function DashboardClient() {
         });
         setDbDrivers(scorecards.map(mapScorecardRow));
         setMetricHistoryRows(metricRows);
-        setFleetHistory(aggregateFleetHistory(metricRows));
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
       } finally {
@@ -111,7 +110,6 @@ export default function DashboardClient() {
 
     setDbDrivers(scorecards.map(mapScorecardRow));
     setMetricHistoryRows(metricRows);
-    setFleetHistory(aggregateFleetHistory(metricRows));
     return saved;
   }
   async function logout() { try { await getSupabaseBrowserClient().auth.signOut(); } finally { localStorage.removeItem("metrixiq.analysis"); router.replace("/login"); } }
@@ -123,9 +121,15 @@ export default function DashboardClient() {
     if (!driver.dbId || !workspace?.organization?.id) return;
     setHistoryLoading(true);
     try {
-      const { data } = await getSupabaseBrowserClient().from("driver_metrics").select("period_start,period_end,week_label,performance,dcr,pod,iadc,cc,fico,ementor,mentor_score,concessions,cdf_dpmo,risk,issue,raw_data").eq("organization_id", workspace.organization.id).eq("driver_id", driver.dbId).order("period_end", { ascending: true }).limit(12);
-      setDriverHistory(data || []);
-    } finally { setHistoryLoading(false); }
+      const history = await fetchDriverHistory(
+        getSupabaseBrowserClient(),
+        workspace.organization.id,
+        driver.dbId
+      );
+      setDriverHistory(history);
+    } finally {
+      setHistoryLoading(false);
+    }
   }
   function backFromDriver() { setSelectedDriver(null); setDriverHistory([]); setActive(previousActive || "drivers"); }
 
