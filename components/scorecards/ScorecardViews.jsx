@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { fetchDriverScorecardData, fetchSiteScorecardData } from "../../lib/data/scorecardData";
 import { displayDriverName, isUsablePersonName, nameSignature, normalizeName } from "../../lib/identity";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 
@@ -117,38 +118,7 @@ function LeaderList({ rows, title, inverse = false, onOpenDriver }) {
 export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-
-    const { data: cards, error: cardError } = await supabase
-      .from("site_scorecards")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .order("year", { ascending: false })
-      .order("week", { ascending: false });
-
-    if (cardError) throw cardError;
-
-    const rows = [];
-    const pageSize = 1000;
-    let from = 0;
-
-    while (true) {
-      const { data, error } = await supabase
-        .from("driver_metrics")
-        .select("driver_id,week_label,period_end,performance,dcr,pod,iadc,cc,mentor_score,ementor,fico,concessions,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,psb,lor,risk,issue,data_confidence,drivers(id,trid,full_name,site,status)")
-        .eq("organization_id", organizationId)
-        .order("period_end", { ascending: false })
-        .range(from, from + pageSize - 1);
-
-      if (error) throw error;
-
-      const page = data || [];
-      rows.push(...page);
-
-      if (page.length < pageSize) break;
-      from += pageSize;
-    }
-
-    return { cards: cards || [], rows };
+    return fetchSiteScorecardData(supabase, organizationId);
   }, [organizationId]);
 
   const cards = useMemo(() => {
@@ -531,39 +501,7 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
 export function DriverScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-
-    const { data: cards, error: cardsError } = await supabase
-      .from("site_scorecards")
-      .select("*")
-      .eq("organization_id", organizationId)
-      .order("year", { ascending: false })
-      .order("week", { ascending: false });
-
-    if (cardsError) throw cardsError;
-
-    const select = "driver_id,week_label,period_start,period_end,performance,scorecard_score,tier,dcr,pod,iadc,cc,mentor_score,ementor,fico,concessions,delivered,dnr_dpmo,dsc_dpmo,ce_dpmo,cdf_dpmo,psb,lor,risk,issue,data_confidence,raw_data,drivers(id,trid,full_name,site,status)";
-    const rows = [];
-    const pageSize = 1000;
-    let from = 0;
-
-    while (true) {
-      const { data, error } = await supabase
-        .from("driver_metrics")
-        .select(select)
-        .eq("organization_id", organizationId)
-        .order("period_end", { ascending: false })
-        .range(from, from + pageSize - 1);
-
-      if (error) throw error;
-
-      const page = data || [];
-      rows.push(...page);
-
-      if (page.length < pageSize) break;
-      from += pageSize;
-    }
-
-    return { cards: cards || [], rows };
+    return fetchDriverScorecardData(supabase, organizationId);
   }, [organizationId]);
 
   const rows = load.data?.rows || [];
