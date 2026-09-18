@@ -61,3 +61,31 @@ test("versioned professional view files are removed", () => {
   assert.ok(fs.existsSync("components/ProfessionalViews.jsx"));
   assert.ok(fs.existsSync("components/DirectOperationalViews.jsx"));
 });
+
+test("central KPI target configuration is used", () => {
+  const config = read("lib/config/performance.js");
+  assert.ok(config.includes("dcr: 99.2"));
+  assert.ok(config.includes("pod: 99.6"));
+  assert.ok(config.includes("iadc: 80"));
+  assert.ok(config.includes("mentor: 815"));
+
+  const dashboard = read("components/DashboardClient.jsx");
+  assert.equal(dashboard.includes('"98.8%"'), false);
+  assert.equal(dashboard.includes('"98.0%"'), false);
+});
+
+test("DashboardClient is orchestration-focused", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+  assert.ok(dashboard.includes('./dashboard/DashboardViews'));
+  assert.ok(dashboard.includes('./dashboard/navigation'));
+  assert.ok(dashboard.includes('../lib/data/driverMetrics'));
+  assert.ok(read("components/dashboard/DashboardViews.jsx").includes("export function DashboardView"));
+});
+
+test("canonical professional views expose only active professional modules", () => {
+  const professional = read("components/ProfessionalViews.jsx");
+  assert.ok(professional.includes("export function ProDriversView"));
+  assert.ok(professional.includes("export function ProPerformanceView"));
+  assert.equal(professional.includes("export function ProConcessionsView"), false);
+  assert.equal(professional.includes("export function ProMentorView"), false);
+});
