@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { dateLabel, dateTimeLabel, planLabel, SaasStyles } from "../saas/SaasShared";
+import { fetchAdminAccounts, setAdminWorkspacePlan, setAdminWorkspaceSuspension } from "../../lib/data/admin";
 
 export function PlatformAdminView() {
   const [accounts, setAccounts] = useState([]);
@@ -17,10 +18,8 @@ export function PlatformAdminView() {
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { data, error: rpcError } = await supabase.rpc("admin_list_accounts");
-      if (rpcError) throw rpcError;
-      setAccounts(data || []);
+      const nextAccounts = await fetchAdminAccounts(getSupabaseBrowserClient());
+      setAccounts(nextAccounts);
     } catch (e) {
       setError(e?.message || "Could not load registered accounts.");
     } finally {
@@ -66,13 +65,11 @@ export function PlatformAdminView() {
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: updateError } = await supabase.rpc("admin_set_workspace_plan", {
-        p_organization_id: account.organization_id,
-        p_plan: plan,
-        p_status: status,
+      await setAdminWorkspacePlan(getSupabaseBrowserClient(), {
+        organizationId: account.organization_id,
+        plan,
+        status,
       });
-      if (updateError) throw updateError;
       await load();
     } catch (e) {
       setError(e?.message || "Could not update the workspace plan.");
@@ -89,13 +86,11 @@ export function PlatformAdminView() {
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: suspendError } = await supabase.rpc("admin_set_workspace_suspension", {
-        p_organization_id: account.organization_id,
-        p_suspended: suspended,
-        p_reason: suspended ? "Suspended by platform owner" : null,
+      await setAdminWorkspaceSuspension(getSupabaseBrowserClient(), {
+        organizationId: account.organization_id,
+        suspended,
+        reason: suspended ? "Suspended by platform owner" : null,
       });
-      if (suspendError) throw suspendError;
       await load();
     } catch (e) {
       setError(e?.message || "Could not update workspace access.");
