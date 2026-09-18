@@ -160,6 +160,16 @@ test("analyzer delegates spreadsheet parsing to a dedicated engine", () => {
   assert.ok(analyzer.length < 40000);
 });
 
+test("Concessions spreadsheet parsers preserve site from source filenames", () => {
+  const spreadsheet = read("lib/analyzer/spreadsheet.js");
+
+  assert.ok(spreadsheet.includes("const site = inferSiteCode(fileName, sheetName);"));
+  assert.ok(spreadsheet.includes("trid,\n        site,\n        metrics: { concessions: count }"));
+  assert.ok(spreadsheet.includes("name,\n        site,\n        source: fileName"));
+  assert.ok(spreadsheet.includes("name: x.name,\n        site,\n        metrics: {"));
+});
+
+
 test("persistence metrics use central KPI targets", () => {
   assert.equal(
     persistenceIssue({ cc: 98.5 }),
