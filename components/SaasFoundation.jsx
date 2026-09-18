@@ -823,7 +823,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
         <b>Role model</b>
         <p>
           Managers can manage the workspace and team. Dispatchers and viewers receive reduced management navigation.
-          Site scope is stored now and will be enforced across every operational dataset in the dedicated security-hardening step.
+          Site scope is enforced server-side across driver, scorecard, alert and coaching data. Blank scope means access to all sites.
         </p>
       </div>
 
