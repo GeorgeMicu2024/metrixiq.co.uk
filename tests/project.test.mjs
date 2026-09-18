@@ -35,6 +35,20 @@ test("performance and scorecards use the central Contact Compliance target", () 
   assert.equal(scorecards.includes('key === "cc") return v >= 99'), false);
 });
 
+test("performance and scorecard views keep large styling out of component files", () => {
+  const performance = read("components/performance/PerformanceView.jsx");
+  const scorecards = read("components/scorecards/ScorecardViews.jsx");
+  const css = read("app/globals.css");
+
+  assert.equal(performance.includes("<style jsx global>"), false);
+  assert.equal(scorecards.includes("<style jsx global>"), false);
+  assert.ok(performance.length < 45000);
+  assert.ok(scorecards.length < 45000);
+  assert.ok(css.includes(".pfp-root"));
+  assert.ok(css.includes(".sitepro-root"));
+});
+
+
 test("PerformanceView delegates metric logic and chart primitives", () => {
   const view = read("components/performance/PerformanceView.jsx");
   const metrics = read("lib/performance/metrics.js");
