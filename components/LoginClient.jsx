@@ -9,6 +9,7 @@ import { getSupabaseBrowserClient } from "../lib/supabase/client";
 export default function LoginClient() {
   const router = useRouter();
   const [register, setRegister] = useState(false);
+  const [inviteMode, setInviteMode] = useState(false);
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
   const [email, setEmail] = useState("");
@@ -19,7 +20,10 @@ export default function LoginClient() {
 
   useEffect(() => {
     try {
-      setRegister(new URLSearchParams(window.location.search).get("mode") === "register");
+      const params = new URLSearchParams(window.location.search);
+      const invited = params.get("invite") === "1";
+      setInviteMode(invited);
+      setRegister(params.get("mode") === "register" || invited);
       const supabase = getSupabaseBrowserClient();
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) router.replace("/app");
@@ -38,7 +42,7 @@ export default function LoginClient() {
     if (!/^\S+@\S+\.\S+$/.test(clean)) return setError("Enter a valid email address.");
     if (password.length < 8) return setError("Password must contain at least 8 characters.");
     if (register && !name.trim()) return setError("Enter your full name.");
-    if (register && !org.trim()) return setError("Enter your organisation name.");
+    if (register && !inviteMode && !org.trim()) return setError("Enter your organisation name.");
 
     setBusy(true);
     try {
@@ -52,7 +56,7 @@ export default function LoginClient() {
             emailRedirectTo: redirectTo,
             data: {
               full_name: name.trim(),
-              organization_name: org.trim(),
+              ...(inviteMode ? {} : { organization_name: org.trim() }),
             },
           },
         });
@@ -154,9 +158,9 @@ export default function LoginClient() {
       <section className="auth-form-wrap">
         <div className="auth-form">
           <Link href="/" className="mobile-brand"><Brand /></Link>
-          <span className="section-kicker">{register ? "CREATE WORKSPACE" : "WELCOME BACK"}</span>
-          <h2>{register ? "Start your MetrixIQ workspace" : "Sign in to MetrixIQ"}</h2>
-          <p className="auth-sub">{register ? "Create your secure fleet workspace." : "Use your MetrixIQ account to continue."}</p>
+          <span className="section-kicker">{register ? (inviteMode ? "JOIN WORKSPACE" : "CREATE WORKSPACE") : "WELCOME BACK"}</span>
+          <h2>{register ? (inviteMode ? "Create your invited account" : "Start your MetrixIQ workspace") : "Sign in to MetrixIQ"}</h2>
+          <p className="auth-sub">{register ? (inviteMode ? "Register with the invited email. MetrixIQ will attach you to the existing workspace automatically." : "Create your secure fleet workspace.") : "Use your MetrixIQ account to continue."}</p>
 
           <div className="provider-row">
             <button type="button" disabled={busy} onClick={() => social("google")}>Continue with Google</button>
@@ -167,7 +171,7 @@ export default function LoginClient() {
           <form onSubmit={submit}>
             {register && <>
               <label>Full name<input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></label>
-              <label>Organisation<input autoComplete="organization" value={org} onChange={(e) => setOrg(e.target.value)} /></label>
+              {!inviteMode && <label>Organisation<input autoComplete="organization" value={org} onChange={(e) => setOrg(e.target.value)} /></label>}
             </>}
             <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
             <label>Password<input type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>{!register && <button type="button" className="auth-forgot" disabled={busy} onClick={forgotPassword}>Forgot password?</button>}
