@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { findIadcHeader } from "../lib/parsers/iadc.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -89,4 +90,27 @@ test("canonical professional views expose only active professional modules", () 
   assert.ok(professional.includes("export function ProPerformanceView"));
   assert.equal(professional.includes("export function ProConcessionsView"), false);
   assert.equal(professional.includes("export function ProMentorView"), false);
+});
+
+
+test("real DWC/IADC report headers are detected", () => {
+  const matrix = [
+    ["", "Delivery Misses - DNR Risk", "In-app Delivery Workflow (IADC)"],
+    ["Contact Miss", "Not Compliant with Unattended"],
+    ["Transporter ID", "DWC %", "IADC %", "Total"],
+    ["A123456789", "98.67%", "73.64%", "4"],
+  ];
+
+  assert.deepEqual(findIadcHeader(matrix), {
+    rowIndex: 2,
+    idIndex: 0,
+    dwcIndex: 1,
+    iadcIndex: 2,
+  });
+});
+
+test("IADC parser does not invent a DLS2 site fallback", () => {
+  const analyzer = read("lib/analyzer.js");
+  assert.equal(analyzer.includes('|| "DLS2"'), false);
+  assert.ok(analyzer.includes("inferSiteCode(fileName"));
 });
