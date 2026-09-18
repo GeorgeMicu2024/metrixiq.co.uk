@@ -22,7 +22,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const weeks=useMemo(()=>[...new Set(rows.map(r=>r.week_label).filter(Boolean))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
   const [week,setWeek]=useState("");
   const [query,setQuery]=useState("");
-  const selectedWeek=week||weeks[0]||"";
+  const selectedWeek=week&&weeks.includes(week)?week:(weeks[0]||"");
   const selected=useMemo(()=>rows.filter(r=>r.week_label===selectedWeek).sort((a,b)=>Number(b.iadc)-Number(a.iadc)),[rows,selectedWeek]);
   const filtered=selected.filter(r=>`${dname(r.drivers)} ${trid(r.drivers)} ${r.drivers?.site||""}`.toLowerCase().includes(query.toLowerCase()));
   const avg=selected.length?selected.reduce((s,r)=>s+Number(r.iadc),0)/selected.length:null;
