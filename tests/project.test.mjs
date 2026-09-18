@@ -93,6 +93,19 @@ test("DashboardClient is orchestration-focused", () => {
   assert.ok(read("components/dashboard/DashboardViews.jsx").includes("export function DashboardView"));
 });
 
+test("scorecard views live in the scorecards product module", () => {
+  const operational = read("components/OperationalViews.jsx");
+  const scorecards = read("components/scorecards/ScorecardViews.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.ok(scorecards.includes("export function SiteScorecardsView"));
+  assert.ok(scorecards.includes("export function DriverScorecardsView"));
+  assert.equal(operational.includes("export function SiteScorecardsView"), false);
+  assert.equal(operational.includes("export function DriverScorecardsView"), false);
+  assert.ok(operational.includes('from "./scorecards/ScorecardViews"'));
+  assert.ok(dashboard.includes('./scorecards/ScorecardViews'));
+});
+
 test("product views are split by responsibility", () => {
   const professional = read("components/ProfessionalViews.jsx");
   const performance = read("components/performance/PerformanceView.jsx");
