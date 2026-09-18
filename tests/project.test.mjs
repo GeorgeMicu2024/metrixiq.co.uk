@@ -116,6 +116,19 @@ test("scorecard views live in the scorecards product module", () => {
   assert.ok(dashboard.includes('./scorecards/ScorecardViews'));
 });
 
+test("scorecard UI delegates data access to the data layer", () => {
+  const scorecards = read("components/scorecards/ScorecardViews.jsx");
+  const data = read("lib/data/scorecardData.js");
+
+  assert.equal(scorecards.includes('.from("site_scorecards")'), false);
+  assert.equal(scorecards.includes('.from("driver_metrics")'), false);
+  assert.ok(scorecards.includes("fetchSiteScorecardData"));
+  assert.ok(scorecards.includes("fetchDriverScorecardData"));
+  assert.ok(data.includes("export async function fetchSiteScorecardData"));
+  assert.ok(data.includes("export async function fetchDriverScorecardData"));
+});
+
+
 test("product views are split by responsibility", () => {
   const professional = read("components/ProfessionalViews.jsx");
   const performance = read("components/performance/PerformanceView.jsx");
