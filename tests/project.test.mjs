@@ -471,6 +471,17 @@ test("SaaS foundation is split into canonical product modules", () => {
   assert.equal(dashboard.includes('./SaasFoundation'), false);
 });
 
+test("internal workspace navigation cannot bypass plan or role permissions", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.ok(dashboard.includes("function navigate(id)"));
+  assert.ok(dashboard.includes("canAccessNav(id, access, platformAdmin, session?.role)"));
+  assert.ok(dashboard.includes("const routedActive"));
+  assert.ok(dashboard.includes('onImport={() => navigate("imports")}'));
+  assert.ok(dashboard.includes('onDataQuality={() => navigate("data-quality")}'));
+  assert.equal(dashboard.includes('onImport={() => setActive("imports")}'), false);
+});
+
 test("navigation permissions live outside UI components", () => {
   const saas = read("components/SaasFoundation.jsx");
   const permissions = read("lib/permissions/navigation.js");
