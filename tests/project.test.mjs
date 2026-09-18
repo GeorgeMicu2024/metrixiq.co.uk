@@ -373,6 +373,18 @@ test("public landing page consumes the same canonical plan catalogue", () => {
 });
 
 
+test("password recovery is complete from login to password update", () => {
+  const login = read("components/LoginClient.jsx");
+  const reset = read("app/auth/reset-password/page.jsx");
+
+  assert.ok(login.includes("resetPasswordForEmail"));
+  assert.ok(login.includes("/auth/reset-password"));
+  assert.ok(login.includes("Forgot password?"));
+  assert.ok(reset.includes('event === "PASSWORD_RECOVERY"'));
+  assert.ok(reset.includes("updateUser({ password })"));
+  assert.ok(reset.includes('router.replace("/app")'));
+});
+
 test("billing API routes are present", () => {
   for (const path of [
     "app/api/billing/checkout/route.js",
