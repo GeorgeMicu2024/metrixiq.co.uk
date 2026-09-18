@@ -473,3 +473,44 @@
   }
 }
 
+
+
+/* Coaching & alerts hub */
+.coaching-hub-heading{align-items:flex-end}
+.coaching-hub-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.coaching-hub-kpis article{background:#fff;border:1px solid #e5eaee;border-radius:14px;padding:16px 18px;box-shadow:0 4px 14px rgba(24,42,58,.04)}
+.coaching-hub-kpis article span{display:block;color:#7b8997;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.coaching-hub-kpis article strong{display:block;margin-top:6px;color:#20364a;font-size:28px;line-height:1}
+.coaching-hub-kpis article small{display:block;margin-top:7px;color:#8b97a2;font-size:11px}
+.coaching-hub-kpis article.warn{border-color:#efd7a9;background:#fffaf0}
+.coaching-hub-kpis article.bad{border-color:#efc2c5;background:#fff7f7}
+.coaching-hub-tabs{display:flex;gap:8px;margin:0 0 14px}
+.coaching-hub-tabs button{border:1px solid #dde5ea;background:#fff;color:#566a7d;border-radius:10px;padding:9px 13px;font-weight:800;cursor:pointer}
+.coaching-hub-tabs button.active{background:#21364b;border-color:#21364b;color:#fff}
+.coaching-hub-tabs button span{display:inline-flex;min-width:20px;justify-content:center;margin-left:6px;padding:2px 5px;border-radius:10px;background:rgba(125,145,163,.15);font-size:10px}
+.ops-notice{margin:0 0 14px;padding:10px 13px;border-radius:10px;border:1px solid #dce8e4;background:#f2faf7;color:#2f7565;font-size:12px;font-weight:700}
+.ops-notice.error{border-color:#f0cbce;background:#fff5f5;color:#a63a43}
+.coaching-alert-panel{overflow:hidden}
+.coaching-alert-table td{vertical-align:middle}
+.alert-severity,.case-status{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.alert-severity.critical{background:#f8d6d9;color:#a42631}.alert-severity.high{background:#ffe8c5;color:#9a5b00}.alert-severity.medium{background:#fff3cd;color:#7c6500}.alert-severity.low{background:#e2f4ec;color:#26735f}
+.case-status{background:#eef2f5;color:#5d6c7a}.case-status.open{background:#fff3cd;color:#7c6500}.case-status.acknowledged,.case-status.assigned,.case-status.follow_up{background:#e8f1fb;color:#33658f}.case-status.closed,.case-status.improved{background:#e2f4ec;color:#26735f}
+.driver-text-button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:0;background:transparent;padding:0;color:inherit;text-align:left;cursor:pointer}
+.driver-text-button small{color:#84919d;font-size:10px}
+.coaching-row-actions{display:flex;gap:5px;flex-wrap:wrap}
+.coaching-row-actions button{border:1px solid #dbe3e8;background:#fff;color:#54697b;border-radius:7px;padding:5px 8px;font-size:9px;font-weight:800;cursor:pointer}
+.coaching-row-actions button.primary{background:#21364b;border-color:#21364b;color:#fff}
+.coaching-row-actions button:disabled{opacity:.45;cursor:not-allowed}
+.coaching-case-layout{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(420px,1.4fr);gap:16px}
+.coaching-case-list,.coaching-case-detail{min-width:0}
+.coaching-case-stack{display:flex;flex-direction:column;gap:8px}
+.coaching-case-stack>button{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;width:100%;border:1px solid #e2e8ec;background:#fff;border-radius:11px;padding:11px;text-align:left;cursor:pointer}
+.coaching-case-stack>button.active{border-color:#6aa99a;background:#f5fbf9;box-shadow:0 0 0 2px rgba(76,145,128,.08)}
+.coaching-case-stack>button div b{display:block;color:#22394e}.coaching-case-stack>button div small{display:block;margin-top:2px;color:#8995a1;font-size:10px}.coaching-case-stack>button div p{margin:5px 0 0;color:#627486;font-size:11px}.coaching-case-stack>button em{font-style:normal;color:#80909e;font-size:10px;text-transform:capitalize}
+.coaching-case-meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 14px}
+.coaching-case-meta div{padding:10px;border:1px solid #e5eaee;border-radius:9px;background:#fafcfd}.coaching-case-meta span{display:block;color:#8b97a2;font-size:9px;text-transform:uppercase;font-weight:900}.coaching-case-meta b{display:block;margin-top:3px;color:#2a4156;font-size:11px}
+.coaching-case-reason{padding:12px;border-left:3px solid #7eb5a8;background:#f6faf9;margin-bottom:14px}.coaching-case-reason span{font-size:9px;color:#718395;font-weight:900;text-transform:uppercase}.coaching-case-reason p{margin:5px 0 0;color:#43596d;font-size:12px;line-height:1.5}
+.coaching-case-form{display:grid;grid-template-columns:150px 1fr auto;gap:9px;align-items:end;margin-bottom:16px}.coaching-case-form label span{display:block;margin-bottom:4px;color:#7f8d99;font-size:9px;font-weight:900;text-transform:uppercase}.coaching-case-form select,.coaching-case-form input{width:100%;border:1px solid #dce4e9;border-radius:8px;padding:9px;background:#fff}.coaching-case-form .wide{min-width:0}
+.coaching-notes{border-top:1px solid #e8edf0;padding-top:14px}.coaching-notes h3{margin:0 0 10px;color:#273f54}.coaching-note-entry{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.coaching-note-entry textarea{min-height:78px;resize:vertical;border:1px solid #dce4e9;border-radius:9px;padding:10px;font:inherit}.coaching-note-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}.coaching-note-list>div{border:1px solid #e6ebee;border-radius:9px;padding:10px 11px;background:#fbfcfd}.coaching-note-list span{color:#8b97a2;font-size:9px;font-weight:800}.coaching-note-list p{margin:4px 0 0;color:#43596d;font-size:11px;line-height:1.5}
+@media(max-width:1050px){.coaching-hub-kpis{grid-template-columns:repeat(2,1fr)}.coaching-case-layout{grid-template-columns:1fr}.coaching-case-meta{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.coaching-hub-kpis{grid-template-columns:1fr}.coaching-case-form{grid-template-columns:1fr}.coaching-note-entry{grid-template-columns:1fr}.coaching-case-meta{grid-template-columns:1fr}}
