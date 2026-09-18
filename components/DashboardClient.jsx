@@ -7,7 +7,8 @@ import {BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspac
 import { canAccessNav } from "../lib/permissions/navigation";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { aggregateFleetHistory } from "./HistoricalAnalytics";
-import { CdfView, DataQualityView } from "./OperationalViews";
+import CdfView from "./customer-feedback/CdfView";
+import DataQualityView from "./data-quality/DataQualityView";
 import { DriverScorecardsView, SiteScorecardsView } from "./scorecards/ScorecardViews";
 import PerformanceView from "./performance/PerformanceView";
 import DriverDirectoryView from "./drivers/DriverDirectoryView";
