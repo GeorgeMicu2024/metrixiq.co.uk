@@ -12,75 +12,10 @@ import { ProDriversView, ProPerformanceView } from "./ProfessionalViews";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
 import CoachingAlertsView from "./CoachingAlertsView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
-import { avg, initials, numberOrNull } from "./dashboard/utils";
-import { fetchAllDriverMetricRows } from "../lib/data/driverMetrics";
-import { isUsablePersonName } from "../lib/identity";
+import { avg, initials } from "./dashboard/utils";
+import { loadWorkspaceContext, refreshWorkspacePerformance } from "../lib/data/workspace";
+import { mapScorecardRow } from "../lib/data/scorecards";
 import { DashboardView, DriverScorecardView, ImportsView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
-
-async function resolveWorkspace(supabase, user) {
-  const { data: membership, error: membershipError } = await supabase
-    .from("organization_members")
-    .select("organization_id, role, organizations(id,name,plan)")
-    .eq("user_id", user.id)
-    .limit(1)
-    .maybeSingle();
-
-  if (membershipError) throw membershipError;
-
-  if (membership?.organizations) {
-    return {
-      organization: membership.organizations,
-      role: membership.role || "manager",
-    };
-  }
-
-  const name =
-    user.user_metadata?.organization_name?.trim() ||
-    `${user.user_metadata?.full_name || user.email?.split("@")[0] || "My"} Fleet`;
-
-  const { data: organization, error: createError } = await supabase
-    .from("organizations")
-    .insert({ name, created_by: user.id })
-    .select("id,name,plan")
-    .single();
-
-  if (createError) throw createError;
-
-  // The database trigger is the authority for access roles.
-  // Never assume "owner" in the browser after creating a workspace.
-  const { data: createdMembership, error: createdMembershipError } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", organization.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (createdMembershipError) throw createdMembershipError;
-
-  if (!createdMembership) {
-    throw new Error("Workspace membership was not created. Please sign out and try again.");
-  }
-
-  return {
-    organization,
-    role: createdMembership.role || "manager",
-  };
-}
-
-function mapScorecard(row) {
-  const mentor = numberOrNull(row.mentor_score ?? row.ementor ?? row.fico);
-  const name = isUsablePersonName(row.full_name) ? row.full_name : "Unresolved identity";
-  return {
-    id: row.trid, dbId: row.driver_id, name, initials: initials(name), site: row.site, status: row.status,
-    performance: numberOrNull(row.performance), dcr: numberOrNull(row.dcr), pod: numberOrNull(row.pod), iadc: numberOrNull(row.iadc),
-    cc: numberOrNull(row.cc), fico: mentor, ementor: mentor, mentor_score: mentor, psb: numberOrNull(row.psb),
-    reattempts: numberOrNull(row.reattempts), concessions: numberOrNull(row.concessions), lor: numberOrNull(row.lor),
-    delivered: numberOrNull(row.delivered), dnr_dpmo: numberOrNull(row.dnr_dpmo), dsc_dpmo: numberOrNull(row.dsc_dpmo),
-    ce_dpmo: numberOrNull(row.ce_dpmo), cdf_dpmo: numberOrNull(row.cdf_dpmo), scorecard_score: numberOrNull(row.scorecard_score),
-    tier: row.tier, risk: row.risk || "Low", issue: row.issue || "No active concern",
-    dataConfidence: numberOrNull(row.data_confidence), weekLabel: row.week_label, rawData: row.raw_data || {},
-  };
-}
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -109,35 +44,28 @@ export default function DashboardClient() {
     async function initialise() {
       try {
         const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) { router.replace("/login"); return; }
-        const user = userData.user;
-        await supabase.rpc("redeem_my_pending_invites");
-        const { data: profile } = await supabase.from("profiles").select("full_name,email").eq("id", user.id).maybeSingle();
-        const resolved = await resolveWorkspace(supabase, user);
-        const { data: adminFlag, error: adminFlagError } = await supabase.rpc("is_platform_admin");
-        if (adminFlagError) throw adminFlagError;
-        await supabase.rpc("touch_last_login");
-        const { data: accessRows, error: accessError } = await supabase.rpc("get_workspace_access", { p_organization_id: resolved.organization.id });
-        if (accessError) throw accessError;
-        const accessState = Array.isArray(accessRows) ? (accessRows[0] || null) : accessRows;
+        if (userError || !userData.user) {
+          router.replace("/login");
+          return;
+        }
+
+        const context = await loadWorkspaceContext(supabase, userData.user);
         if (!alive) return;
-        setPlatformAdmin(Boolean(adminFlag));
+
+        const { resolved, profile, platformAdmin: adminFlag, access: accessState, scorecards, metricRows } = context;
+
+        setPlatformAdmin(adminFlag);
         setAccess(accessState);
         setWorkspace(resolved);
         setSession({
-          name: profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "MetrixIQ User",
-          email: profile?.email || user.email || "",
+          name: profile?.full_name || userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "MetrixIQ User",
+          email: profile?.email || userData.user.email || "",
           organisation: resolved.organization.name,
           role: resolved.role,
         });
-        const { data: scorecards, error: scorecardError } = await supabase.from("driver_scorecards").select("*").eq("organization_id", resolved.organization.id).order("full_name");
-        if (scorecardError) throw scorecardError;
-        const metricRows = await fetchAllDriverMetricRows(supabase, resolved.organization.id);
-        if (alive) {
-          setDbDrivers((scorecards || []).map(mapScorecard));
-          setMetricHistoryRows(metricRows || []);
-          setFleetHistory(aggregateFleetHistory(metricRows || []));
-        }
+        setDbDrivers(scorecards.map(mapScorecardRow));
+        setMetricHistoryRows(metricRows);
+        setFleetHistory(aggregateFleetHistory(metricRows));
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
       } finally {
@@ -175,17 +103,14 @@ export default function DashboardClient() {
     await supabase.rpc("sync_driver_directory", { p_organization_id: workspace.organization.id });
     setAnalysis(result);
 
-    const { data: scorecards, error: scorecardError } = await supabase
-      .from("driver_scorecards").select("*")
-      .eq("organization_id", workspace.organization.id)
-      .order("full_name");
-    if (scorecardError) throw scorecardError;
+    const { scorecards, metricRows } = await refreshWorkspacePerformance(
+      supabase,
+      workspace.organization.id
+    );
 
-    const metricRows = await fetchAllDriverMetricRows(supabase, workspace.organization.id);
-
-    setDbDrivers((scorecards || []).map(mapScorecard));
-    setMetricHistoryRows(metricRows || []);
-    setFleetHistory(aggregateFleetHistory(metricRows || []));
+    setDbDrivers(scorecards.map(mapScorecardRow));
+    setMetricHistoryRows(metricRows);
+    setFleetHistory(aggregateFleetHistory(metricRows));
     return saved;
   }
   async function logout() { try { await getSupabaseBrowserClient().auth.signOut(); } finally { localStorage.removeItem("metrixiq.analysis"); router.replace("/login"); } }
