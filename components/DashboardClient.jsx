@@ -18,7 +18,8 @@ import { avg, initials } from "./dashboard/utils";
 import { loadWorkspaceContext, refreshWorkspacePerformance } from "../lib/data/workspace";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
-import { DashboardView, DriverScorecardView, ImportsView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
+import { DashboardView, DriverScorecardView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
+import SmartImportView from "./imports/SmartImportView";
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -146,7 +147,7 @@ export default function DashboardClient() {
     case "concessions": view = <DirectConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "coaching": view = <CoachingAlertsView organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} canManage={platformAdmin || ["owner","admin","manager","dispatcher"].includes(session?.role)} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} onCoaching={() => setActive("coaching")} />; break;
-    case "imports": view = <ImportsView onImported={imported} analysis={analysis} />; break;
+    case "imports": view = <SmartImportView onImported={imported} analysis={analysis} />; break;
     case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
     case "reports": view = <ReportsView />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
