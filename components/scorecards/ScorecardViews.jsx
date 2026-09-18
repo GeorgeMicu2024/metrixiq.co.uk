@@ -778,7 +778,7 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport, s
     if (key === "fico") return v >= TARGETS.mentor ? "good" : v >= 800 ? "warn" : "bad";
     if (key === "dcr") return v >= TARGETS.dcr ? "good" : v >= 98 ? "warn" : "bad";
     if (key === "pod") return v >= TARGETS.pod ? "good" : v >= 99 ? "warn" : "bad";
-    if (key === "cc") return v >= 99 ? "good" : v >= 95 ? "warn" : "bad";
+    if (key === "cc") return v >= TARGETS.cc ? "good" : v >= Math.max(0, TARGETS.cc - 3) ? "warn" : "bad";
     if (key === "dsc_dpmo") return v === 0 ? "good" : v < 1000 ? "warn" : "bad";
     if (key === "lor") return v === 0 ? "good" : "bad";
     if (key === "ce_dpmo") return v === 0 ? "good" : "bad";
