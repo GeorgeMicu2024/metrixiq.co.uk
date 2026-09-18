@@ -1113,7 +1113,7 @@ export function IadcView({ organizationId, onOpenDriver, onImport }) {
   </>;
 }
 
-export function CdfView({ organizationId, onImport }) {
+export function CdfView({ organizationId, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
     const [{ data: events, error: eventError }, { data: cards, error: cardError }] = await Promise.all([
@@ -1125,7 +1125,13 @@ export function CdfView({ organizationId, onImport }) {
     return { events: events || [], cards: cards || [] };
   }, [organizationId]);
 
-  const events = load.data?.events || [];
+  const events = useMemo(() => {
+    const allEvents = load.data?.events || [];
+    if (siteFilter === "all") return allEvents;
+    return allEvents.filter((event) =>
+      String(event?.drivers?.site || "").trim().toUpperCase() === siteFilter
+    );
+  }, [load.data, siteFilter]);
   const weeks = useMemo(() => [...new Set(events.map((e)=>e.week_label).filter(Boolean))].sort((a,b)=>Number(b.replace(/\D/g,""))-Number(a.replace(/\D/g,""))), [events]);
   const [week,setWeek]=useState("");
   const [category,setCategory]=useState("all");
@@ -1138,7 +1144,11 @@ export function CdfView({ organizationId, onImport }) {
   const affected = new Set(selected.map((e)=>e.driver_id||e.trid_raw).filter(Boolean)).size;
   const dnr = selected.filter((e)=>e.dnr_concession).length;
   const over25 = selected.filter((e)=>e.scanned_over_25m).length;
-  const siteMetric = load.data?.cards.find((c)=>c.week_label===week)?.metrics?.cdf_dpmo;
+  const matchingCards = (load.data?.cards || []).filter((card) =>
+    card.week_label === week &&
+    (siteFilter === "all" || String(card.site || "").trim().toUpperCase() === siteFilter)
+  );
+  const siteMetric = matchingCards.length === 1 ? matchingCards[0]?.metrics?.cdf_dpmo : null;
 
   if(load.loading)return <LoadingPanel text="Loading customer feedback…"/>;
   if(load.error)return <ErrorPanel error={load.error}/>;
