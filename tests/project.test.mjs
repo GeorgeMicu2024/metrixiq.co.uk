@@ -520,6 +520,21 @@ test("team management delegates data and permission logic", () => {
   assert.ok(roles.includes("export function parseSiteScope"));
 });
 
+test("team invite signup flow joins an existing workspace instead of asking for a new organisation", () => {
+  const team = read("components/team/TeamManagementView.jsx");
+  const login = read("components/LoginClient.jsx");
+  const workspace = read("lib/data/workspace.js");
+
+  assert.ok(team.includes('/login?mode=register&invite=1'));
+  assert.ok(team.includes("window.location.origin"));
+  assert.ok(login.includes('params.get("invite") === "1"'));
+  assert.ok(login.includes("inviteMode ?"));
+  assert.ok(login.includes("JOIN WORKSPACE"));
+  assert.ok(login.includes("!inviteMode &&"));
+  assert.ok(workspace.indexOf('redeem_my_pending_invites') < workspace.indexOf('resolveWorkspace'));
+});
+
+
 test("team invite RPC migration qualifies status references", () => {
   const migration = read("supabase/migrations/202609182055_fix_team_invite_rpc_ambiguity.sql");
 
