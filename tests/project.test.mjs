@@ -93,6 +93,16 @@ test("DashboardClient is orchestration-focused", () => {
   assert.ok(read("components/dashboard/DashboardViews.jsx").includes("export function DashboardView"));
 });
 
+test("coaching view lives in the coaching product module", () => {
+  const legacy = read("components/CoachingAlertsView.jsx");
+  const coaching = read("components/coaching/CoachingAlertsView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.ok(legacy.includes('from "./coaching/CoachingAlertsView"'));
+  assert.ok(coaching.includes("export default function CoachingAlertsView"));
+  assert.ok(dashboard.includes('./coaching/CoachingAlertsView'));
+});
+
 test("scorecard views live in the scorecards product module", () => {
   const operational = read("components/OperationalViews.jsx");
   const scorecards = read("components/scorecards/ScorecardViews.jsx");
