@@ -80,14 +80,24 @@ test("DashboardClient is orchestration-focused", () => {
   const dashboard = read("components/DashboardClient.jsx");
   assert.ok(dashboard.includes('./dashboard/DashboardViews'));
   assert.ok(dashboard.includes('./dashboard/navigation'));
-  assert.ok(dashboard.includes('../lib/data/driverMetrics'));
+  assert.ok(dashboard.includes('../lib/data/workspace'));
+  assert.ok(dashboard.includes('../lib/data/scorecards'));
+  assert.equal(dashboard.includes('async function resolveWorkspace'), false);
+  assert.equal(dashboard.includes('function mapScorecard'), false);
+  assert.ok(read("lib/data/workspace.js").includes("export async function loadWorkspaceContext"));
+  assert.ok(read("lib/data/workspace.js").includes("export async function refreshWorkspacePerformance"));
   assert.ok(read("components/dashboard/DashboardViews.jsx").includes("export function DashboardView"));
 });
 
-test("canonical professional views expose only active professional modules", () => {
+test("professional views are split by product responsibility", () => {
   const professional = read("components/ProfessionalViews.jsx");
-  assert.ok(professional.includes("export function ProDriversView"));
+  const drivers = read("components/drivers/DriverDirectoryView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
   assert.ok(professional.includes("export function ProPerformanceView"));
+  assert.equal(professional.includes("export function ProDriversView"), false);
+  assert.ok(drivers.includes("export default function DriverDirectoryView"));
+  assert.ok(dashboard.includes('./drivers/DriverDirectoryView'));
   assert.equal(professional.includes("export function ProConcessionsView"), false);
   assert.equal(professional.includes("export function ProMentorView"), false);
 });
