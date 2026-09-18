@@ -217,6 +217,18 @@ test("reports builders export real fleet evidence", () => {
   assert.equal(executive.fleet.highRisk, 1);
 });
 
+test("Reports CSV export is Excel-friendly and formula-safe", () => {
+  const csv = toCsv([
+    { name: "=2+2", note: "@SUM(A1:A2)", normal: "Driver" },
+  ]);
+
+  assert.ok(csv.startsWith("\uFEFF"));
+  assert.ok(csv.includes("'=2+2"));
+  assert.ok(csv.includes("'@SUM(A1:A2)"));
+  assert.ok(csv.includes("\r\n"));
+});
+
+
 test("Reports Center is a canonical functional module", () => {
   const dashboardViews = read("components/dashboard/DashboardViews.jsx");
   const reports = read("components/reports/ReportsView.jsx");
@@ -527,6 +539,21 @@ test("SaaS product views delegate Supabase and billing operations", () => {
   assert.ok(billingData.includes("export async function createBillingCheckout"));
   assert.ok(adminData.includes("export async function setAdminWorkspacePlan"));
 });
+
+test("Billing distinguishes Stripe-managed subscriptions from manual admin access", () => {
+  const billingView = read("components/billing/BillingProView.jsx");
+  const billingData = read("lib/data/billing.js");
+
+  assert.ok(billingData.includes("has_stripe_subscription"));
+  assert.ok(billingData.includes('from("organizations")'));
+  assert.ok(billingView.includes("manualActiveAccess"));
+  assert.ok(billingView.includes("Plan access enabled by administrator"));
+  assert.equal(
+    billingView.includes('const hasStripeSubscription = ["active", "past_due", "cancelled"].includes(status)'),
+    false
+  );
+});
+
 
 test("SaaS foundation is split into canonical product modules", () => {
   const legacy = read("components/SaasFoundation.jsx");
