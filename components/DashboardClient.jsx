@@ -6,7 +6,6 @@ import Brand from "./Brand";
 import {BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspaceView, TeamManagementView } from "./SaasFoundation";
 import { canAccessNav } from "../lib/permissions/navigation";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
-import { persistAnalysis } from "../lib/persistence";
 import { aggregateFleetHistory } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView } from "./OperationalViews";
 import { DriverScorecardsView, SiteScorecardsView } from "./scorecards/ScorecardViews";
@@ -16,9 +15,10 @@ import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./Direc
 import CoachingAlertsView from "./coaching/CoachingAlertsView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
-import { loadWorkspaceContext, refreshWorkspacePerformance } from "../lib/data/workspace";
+import { loadWorkspaceContext } from "../lib/data/workspace";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
+import { persistWorkspaceImport } from "../lib/data/importWorkflow";
 import { DashboardView, DriverScorecardView, IntelligenceView, ReportsView, SettingsView } from "./dashboard/DashboardViews";
 import SmartImportView from "./imports/SmartImportView";
 
@@ -100,17 +100,17 @@ export default function DashboardClient() {
   const kpis = { ...liveKpis };
 
   async function imported(result, files) {
-    if (!workspace?.organization?.id) throw new Error("Workspace is not ready yet.");
-    const supabase = getSupabaseBrowserClient();
-    const saved = await persistAnalysis({ organizationId: workspace.organization.id, analysis: result, files });
-    await supabase.rpc("sync_driver_directory", { p_organization_id: workspace.organization.id });
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) throw new Error("Workspace is not ready yet.");
+
+    const { saved, scorecards, metricRows } = await persistWorkspaceImport({
+      supabase: getSupabaseBrowserClient(),
+      organizationId,
+      analysis: result,
+      files,
+    });
+
     setAnalysis(result);
-
-    const { scorecards, metricRows } = await refreshWorkspacePerformance(
-      supabase,
-      workspace.organization.id
-    );
-
     setDbDrivers(scorecards.map(mapScorecardRow));
     setMetricHistoryRows(metricRows);
     return saved;
