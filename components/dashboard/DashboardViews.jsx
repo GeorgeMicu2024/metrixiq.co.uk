@@ -4,6 +4,7 @@ import { isUsablePersonName } from "../../lib/identity";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { HistoryTrendChart } from "../HistoricalAnalytics";
 import { avg, fmt, initials, numberOrNull, tone } from "./utils";
+import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
 
 function MetricCard({ label, value, target, note, accent = "good" }) {
   return <article className="metric-card"><div className="metric-top"><span>{label}</span><i className={`metric-dot ${accent}`} /></div><strong>{value}</strong><div className="metric-bottom"><span>{target}</span><em>{note}</em></div></article>;
@@ -21,23 +22,126 @@ function DriverTable({ drivers, compact = false, onOpen }) {
   })}</tbody></table></div>;
 }
 
-export function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching }) {
-  const high = drivers.filter((d) => d.risk === "High").length;
-  const med = drivers.filter((d) => d.risk === "Medium").length;
+export function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching, onDataQuality }) {
+  const intelligence = buildFleetIntelligence(drivers, kpis, history);
+  const high = intelligence.highRisk;
+  const med = intelligence.mediumRisk;
   const low = Math.max(0, drivers.length - high - med);
   const health = Math.round(avg(drivers, "performance") || 0);
   const total = Math.max(1, drivers.length);
+  const attentionDrivers = intelligence.priorityDrivers.slice(0, 6).map((item) => item.driver);
+  const openAction = (destination) => {
+    if (destination === "coaching") return onCoaching?.();
+    if (destination === "data-quality") return onDataQuality?.();
+    if (destination === "imports") return onImport?.();
+    return onPerformance?.();
+  };
   return <><div className="page-heading"><div><span className="page-kicker">OVERVIEW</span><h1>Fleet performance</h1><p>One operating view across driver performance, risk, data quality and coaching.</p></div><div className="page-actions"><button className="btn ghost" onClick={onPerformance}>Performance history</button><button className="btn primary" onClick={onImport}>Import reports</button></div></div>
-    <section className="summary-strip"><div><span>Fleet health</span><strong>{health}<small>/100</small></strong><em>Current fleet score</em></div><div><span>Active drivers</span><strong>{drivers.length}</strong><em>Current workspace</em></div><div><span>High risk</span><strong>{high}</strong><em>Needs attention</em></div><div><span>Data confidence</span><strong>{kpis.data_confidence != null ? `${Number(kpis.data_confidence).toFixed(0)}%` : "—"}</strong><em>Trusted records</em></div></section>
+    <section className="summary-strip"><div><span>Fleet health</span><strong>{health}<small>/100</small></strong><em>Current fleet score</em></div><div><span>Active drivers</span><strong>{drivers.length}</strong><em>Current workspace</em></div><div><span>High risk</span><strong>{high}</strong><em>Needs attention</em></div><div><span>Data confidence</span><strong>{kpis.data_confidence != null ? `${Number(kpis.data_confidence).toFixed(0)}%` : `${intelligence.confidence}%`}</strong><em>{intelligence.completeness}% KPI coverage</em></div></section>
     <section className="metric-grid"><MetricCard label="DCR" value={fmt(kpis.dcr, "dcr")} target={`Target ≥ ${TARGETS.dcr.toFixed(2)}%`} note="Fleet average" accent={kpis.dcr != null && kpis.dcr < TARGETS.dcr ? "warn" : "good"} /><MetricCard label="POD" value={fmt(kpis.pod, "pod")} target={`Target ≥ ${TARGETS.pod.toFixed(2)}%`} note={kpis.pod != null && kpis.pod < TARGETS.pod ? "Watch" : "Healthy"} accent={kpis.pod != null && kpis.pod < TARGETS.pod ? "warn" : "good"} /><MetricCard label="IADC" value={fmt(kpis.iadc, "iadc")} target={`Target ≥ ${TARGETS.iadc}%`} note="Fleet average" accent={kpis.iadc != null && kpis.iadc < TARGETS.iadc ? "warn" : "good"} /><MetricCard label="Mentor Score" value={fmt(kpis.mentor, "mentor")} target={`Target ≥ ${TARGETS.mentor}`} note="Unified driving score" accent={kpis.mentor != null && kpis.mentor < TARGETS.mentor ? "warn" : "good"} /><MetricCard label="Contact Compliance" value={fmt(kpis.cc, "cc")} target={targetLabel("cc")} note="Fleet average" /><MetricCard label="Concessions" value={fmt(kpis.concessions, "concessions")} target="Lower is better" note="Weekly quality signal" accent="warn" /></section>
     <section className="dashboard-grid"><article className="panel"><div className="panel-head"><div><h2>Performance trend</h2><p>Combined fleet score versus weekly target</p></div><span className="panel-badge good">Stored history</span></div><HistoryTrendChart history={history} /><div className="chart-legend"><span><i className="legend-line teal" />Fleet performance</span><span><i className="legend-line target" />Target 85</span></div></article>
       <article className="panel"><div className="panel-head"><div><h2>Driver risk</h2><p>Current prioritisation model</p></div><span className="panel-badge">{drivers.length} drivers</span></div><div className="risk-content"><div className="risk-donut" style={{ background: `conic-gradient(#18aa86 0 ${low / total * 100}%, #f0b84b ${low / total * 100}% ${(low + med) / total * 100}%, #ef626b ${(low + med) / total * 100}% 100%)` }}><div><strong>{high}</strong><span>high risk</span></div></div><div className="risk-list"><div><span><i className="risk-dot low" />Low risk</span><b>{low}</b></div><div><span><i className="risk-dot med" />Medium risk</span><b>{med}</b></div><div><span><i className="risk-dot high" />High risk</span><b>{high}</b></div></div></div></article></section>
-    <section className="dashboard-grid lower"><article className="panel"><div className="panel-head"><div><h2>Drivers requiring attention</h2><p>Prioritised by repeated failures and score deterioration</p></div><button className="link-btn" onClick={onDrivers}>View all</button></div><DriverTable drivers={drivers.filter((d) => d.risk !== "Low").slice(0, 6)} compact onOpen={onOpenDriver} /></article><article className="panel"><div className="panel-head"><div><h2>Management actions</h2><p>Recommended next steps from current evidence</p></div></div><div className="action-list"><Action n="01" title="Coach high-risk drivers" text={`${high} drivers have repeated quality or compliance deterioration.`} onClick={onCoaching} /><Action n="02" title="Review performance history" text="Use the selected reporting window to identify repeated deterioration." onClick={onPerformance} /><Action n="03" title="Import missing evidence" text="Add scorecards, POD, concessions, IADC and Mentor files to complete the weekly picture." onClick={onImport} /></div></article></section></>;
+    <section className="dashboard-grid lower"><article className="panel"><div className="panel-head"><div><h2>Drivers requiring attention</h2><p>Prioritised by KPI gaps, risk, concessions and data confidence</p></div><button className="link-btn" onClick={onDrivers}>View all</button></div><DriverTable drivers={attentionDrivers} compact onOpen={onOpenDriver} /></article><article className="panel"><div className="panel-head"><div><h2>Management actions</h2><p>Generated from the current fleet evidence</p></div><span className="panel-badge">{intelligence.confidence}% confidence</span></div><div className="action-list">{intelligence.actions.slice(0,3).map((action,index)=><Action key={action.id} n={String(index+1).padStart(2,"0")} title={action.title} text={action.text} onClick={()=>openAction(action.destination)} />)}</div></article></section></>;
 }
 
-export function IntelligenceView({ drivers, onCoaching }) {
-  const high = drivers.filter((d) => d.risk === "High");
-  return <><div className="page-heading"><div><span className="page-kicker">INTELLIGENCE</span><h1>AI Insights</h1><p>Evidence-led signals based on imported driver performance data.</p></div></div><div className="intel-app-grid"><article className="insight-hero"><span>PRIORITY SIGNAL</span><h2>{high.length} drivers need intervention before the next reporting cycle.</h2><p>The strongest pattern is repeated POD / IADC deterioration combined with lower performance consistency. Prioritise coaching rather than reviewing every driver equally.</p><button className="btn light" onClick={onCoaching}>Open coaching queue</button></article><article className="panel"><div className="panel-head"><div><h2>Evidence summary</h2><p>What is driving the signal</p></div></div><div className="evidence-list"><div><b>DCR</b><span>{drivers.filter((d) => d.dcr != null && d.dcr < TARGETS.dcr).length} {`below ${TARGETS.dcr.toFixed(2)}%`}</span></div><div><b>POD</b><span>{drivers.filter((d) => d.pod != null && d.pod < TARGETS.pod).length} {`below ${TARGETS.pod.toFixed(2)}%`}</span></div><div><b>IADC</b><span>{drivers.filter((d) => d.iadc != null && d.iadc < TARGETS.iadc).length} {`below ${TARGETS.iadc}%`}</span></div><div><b>Mentor Score</b><span>{drivers.filter((d) => (d.ementor ?? d.fico) != null && (d.ementor ?? d.fico) < TARGETS.mentor).length} {`below ${TARGETS.mentor}`}</span></div></div></article></div></>;
+export function IntelligenceView({
+  drivers,
+  kpis,
+  history,
+  onCoaching,
+  onImport,
+  onPerformance,
+  onDataQuality,
+  onOpenDriver,
+}) {
+  const intelligence = buildFleetIntelligence(drivers, kpis, history);
+  const priorityDrivers = intelligence.priorityDrivers.slice(0, 6).map((item) => item.driver);
+
+  const openAction = (destination) => {
+    if (destination === "coaching") return onCoaching?.();
+    if (destination === "data-quality") return onDataQuality?.();
+    if (destination === "imports") return onImport?.();
+    return onPerformance?.();
+  };
+
+  return <>
+    <div className="page-heading">
+      <div>
+        <span className="page-kicker">INTELLIGENCE ENGINE</span>
+        <h1>Operational intelligence</h1>
+        <p>Explainable signals generated from imported fleet evidence, KPI targets and historical movement.</p>
+      </div>
+      <div className="intel-confidence-card">
+        <span>Decision confidence</span>
+        <strong>{intelligence.confidence}%</strong>
+        <small>{intelligence.completeness}% core KPI coverage</small>
+      </div>
+    </div>
+
+    <div className="intel-app-grid">
+      <article className="insight-hero">
+        <span>PRIORITY SIGNAL</span>
+        <h2>{intelligence.headline}</h2>
+        <p>{intelligence.summary}</p>
+        <div className="intel-hero-actions">
+          <button className="btn light" onClick={() => openAction(intelligence.actions[0]?.destination)}>
+            Open recommended action
+          </button>
+          <small>Evidence-led · explainable · refreshed from workspace data</small>
+        </div>
+      </article>
+
+      <article className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Evidence summary</h2>
+            <p>Measured pressure and data coverage by KPI</p>
+          </div>
+        </div>
+        <div className="evidence-list">
+          {intelligence.evidence.map((metric) => (
+            <div key={metric.key}>
+              <b>{metric.label}</b>
+              <span>{metric.below} below target · {metric.coverage}% measured</span>
+            </div>
+          ))}
+        </div>
+      </article>
+    </div>
+
+    <section className="dashboard-grid lower intel-detail-grid">
+      <article className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Priority drivers</h2>
+            <p>Ranked by risk, KPI failures, concessions and identity confidence</p>
+          </div>
+          <span className="panel-badge">{priorityDrivers.length} shown</span>
+        </div>
+        <DriverTable drivers={priorityDrivers} compact onOpen={onOpenDriver} />
+      </article>
+
+      <article className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Recommended actions</h2>
+            <p>Highest-value management interventions right now</p>
+          </div>
+        </div>
+        <div className="action-list">
+          {intelligence.actions.map((action,index) => (
+            <Action
+              key={action.id}
+              n={String(index + 1).padStart(2, "0")}
+              title={action.title}
+              text={action.text}
+              onClick={() => openAction(action.destination)}
+            />
+          ))}
+        </div>
+      </article>
+    </section>
+  </>;
 }
 
 function coachingRecommendations(d) {
