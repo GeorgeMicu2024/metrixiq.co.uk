@@ -437,7 +437,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
         {sites.length>1&&
           <label>
             <span>Site</span>
-            <select value={site} onChange={(event)=>setSite(event.target.value)}>
+            <select aria-label="Filter performance by site" value={site} onChange={(event)=>setSite(event.target.value)}>
               <option value="all">All sites</option>
               {sites.map((item)=><option key={item} value={item}>{item}</option>)}
             </select>
@@ -446,7 +446,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
 
         <label>
           <span>Focus week</span>
-          <select value={focusWeek} onChange={(event)=>setFocusWeek(event.target.value)}>
+          <select aria-label="Select performance week" value={focusWeek} onChange={(event)=>setFocusWeek(event.target.value)}>
             <option value="latest">Latest · {defaultFocused?.label||"—"}</option>
             {[...selectedWeeks].reverse().map((week)=>
               <option key={week.label} value={week.label}>{week.label}</option>
@@ -582,7 +582,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
           </div>
 
           <div className="pfp-trend-tools">
-            <select value={metric} onChange={(event)=>setMetric(event.target.value)}>
+            <select aria-label="Select performance metric" value={metric} onChange={(event)=>setMetric(event.target.value)}>
               <option value="performance">Performance index</option>
               {metricDefs.map((definition)=>
                 <option key={definition.key} value={definition.key}>{definition.label}</option>
@@ -927,7 +927,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
             placeholder="Search driver or TRID…"
           />
 
-          <select value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
+          <select aria-label="Filter performance status" value={statusFilter} onChange={(event)=>setStatusFilter(event.target.value)}>
             <option value="all">All drivers</option>
             <option value="healthy">Strong / stable</option>
             <option value="attention">Needs attention</option>
@@ -935,7 +935,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
             <option value="partial">Partial data</option>
           </select>
 
-          <select value={sortBy} onChange={(event)=>setSortBy(event.target.value)}>
+          <select aria-label="Sort performance table" value={sortBy} onChange={(event)=>setSortBy(event.target.value)}>
             <option value="index">Sort: Performance index</option>
             <option value="dcr">Sort: DCR</option>
             <option value="pod">Sort: POD</option>
