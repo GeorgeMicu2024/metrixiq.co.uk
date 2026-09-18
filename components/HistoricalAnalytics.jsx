@@ -1,13 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
-export const TARGETS = {
-  dcr: 99.2,
-  pod: 99.6,
-  iadc: 80,
-  mentor: 815,
-};
+import { TARGETS } from "../lib/config/performance";
 
 const RANGE_OPTIONS = [1, 2, 4, 8, 12, 26, 52, "all"];
 const METRICS = ["performance", "dcr", "pod", "iadc", "cc", "mentor", "psb", "reattempts", "concessions", "lor"];
