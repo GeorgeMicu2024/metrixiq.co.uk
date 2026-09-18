@@ -198,6 +198,31 @@ test("smart import lives in its own product module", () => {
   assert.ok(dashboard.includes('./imports/SmartImportView'));
 });
 
+test("IADC Mentor and Concessions use canonical operational modules", () => {
+  const legacy = read("components/DirectOperationalViews.jsx");
+  const shared = read("components/operations/OperationalShared.jsx");
+  const iadc = read("components/operations/IadcView.jsx");
+  const mentor = read("components/operations/MentorView.jsx");
+  const concessions = read("components/operations/ConcessionsView.jsx");
+  const data = read("lib/data/directOperational.js");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.equal(legacy.includes("export function DirectIadcView"), false);
+  assert.equal(legacy.includes("export function DirectMentorView"), false);
+  assert.equal(legacy.includes("export function DirectConcessionsView"), false);
+  assert.ok(iadc.includes("export default function IadcView"));
+  assert.ok(mentor.includes("export default function MentorView"));
+  assert.ok(concessions.includes("export default function ConcessionsView"));
+  assert.ok(shared.includes("useOperationalRows"));
+  assert.equal(iadc.includes('.from("driver_metrics")'), false);
+  assert.equal(mentor.includes('.from("driver_metrics")'), false);
+  assert.equal(concessions.includes('.from("driver_metrics")'), false);
+  assert.ok(data.includes("export async function fetchDirectOperationalRows"));
+  assert.ok(dashboard.includes('./operations/IadcView'));
+  assert.ok(dashboard.includes('./operations/MentorView'));
+  assert.ok(dashboard.includes('./operations/ConcessionsView'));
+});
+
 test("product views are split by responsibility", () => {
   const professional = read("components/ProfessionalViews.jsx");
   const performance = read("components/performance/PerformanceView.jsx");
