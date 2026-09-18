@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { rowFromRpc, SaasStyles } from "./SaasShared";
+import { SaasStyles } from "./SaasShared";
+import { activateWorkspaceMode } from "../../lib/data/billing";
 
 export function PlanOnboardingView({ organizationId, organizationName, onComplete, onLogout }) {
   const [busy, setBusy] = useState("");
@@ -15,22 +16,13 @@ export function PlanOnboardingView({ organizationId, organizationName, onComplet
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const rpc = mode === "trial" ? "start_workspace_trial" : "choose_free_plan";
+      const access = await activateWorkspaceMode(
+        getSupabaseBrowserClient(),
+        organizationId,
+        mode
+      );
 
-      const { error: chooseError } = await supabase.rpc(rpc, {
-        p_organization_id: organizationId,
-      });
-
-      if (chooseError) throw chooseError;
-
-      const { data, error: accessError } = await supabase.rpc("get_workspace_access", {
-        p_organization_id: organizationId,
-      });
-
-      if (accessError) throw accessError;
-
-      onComplete?.(rowFromRpc(data));
+      onComplete?.(access);
     } catch (e) {
       setError(e?.message || "We could not activate this plan.");
     } finally {
