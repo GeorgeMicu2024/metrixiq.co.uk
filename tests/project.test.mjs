@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { findIadcHeader } from "../lib/parsers/iadc.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
+import { inferPeriod, normalizeSiteCode, riskFor } from "../lib/analyzer/core.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -78,10 +79,15 @@ test("dashboard exposes Smart Import", () => {
   assert.ok(read("components/dashboard/DashboardViews.jsx").includes("Smart Import"));
 });
 
-test("analyzer validates station codes", () => {
+test("analyzer core validates station codes and reporting periods", () => {
+  assert.equal(normalizeSiteCode("dls2"), "DLS2");
+  assert.equal(normalizeSiteCode("unknown"), "");
+  assert.equal(inferPeriod("DLS2_week36_2026.xlsx").key, "2026-W36");
+  assert.equal(riskFor({ dcr: 98, pod: 98, iadc: 70, mentor_score: 800 }), "High");
+
   const analyzer = read("lib/analyzer.js");
-  assert.ok(analyzer.includes("function normalizeSiteCode"));
-  assert.ok(analyzer.includes("site: normalizeSiteCode(site)"));
+  assert.ok(analyzer.includes('from "./analyzer/core"'));
+  assert.equal(analyzer.includes("function normalizeSiteCode"), false);
 });
 
 test("auth callback restricts redirects to internal paths", () => {
