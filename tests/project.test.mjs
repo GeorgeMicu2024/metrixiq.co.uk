@@ -520,6 +520,15 @@ test("team management delegates data and permission logic", () => {
   assert.ok(roles.includes("export function parseSiteScope"));
 });
 
+test("team invite RPC migration qualifies status references", () => {
+  const migration = read("supabase/migrations/202609182055_fix_team_invite_rpc_ambiguity.sql");
+
+  assert.ok(migration.includes("wi.status='pending'"));
+  assert.ok(migration.includes("wi.status = 'pending'"));
+  assert.ok(migration.includes("update public.workspace_invites wi"));
+});
+
+
 test("SaaS product views delegate Supabase and billing operations", () => {
   const onboarding = read("components/saas/PlanOnboardingView.jsx");
   const billing = read("components/billing/BillingProView.jsx");
