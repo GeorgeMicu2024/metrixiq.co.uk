@@ -410,6 +410,24 @@ test("billing API routes are present", () => {
   }
 });
 
+test("release routes expose hardened production defaults", () => {
+  const nextConfig = read("next.config.mjs");
+  const appLayout = read("app/app/layout.jsx");
+  const loginLayout = read("app/login/layout.jsx");
+  const authLayout = read("app/auth/layout.jsx");
+  const health = read("app/api/health/route.js");
+
+  assert.ok(nextConfig.includes("X-Content-Type-Options"));
+  assert.ok(nextConfig.includes("X-Frame-Options"));
+  assert.ok(nextConfig.includes("Strict-Transport-Security"));
+  assert.ok(nextConfig.includes("Permissions-Policy"));
+  assert.ok(appLayout.includes("index: false"));
+  assert.ok(loginLayout.includes("index: false"));
+  assert.ok(authLayout.includes("index: false"));
+  assert.ok(health.includes('status: "ok"'));
+  assert.ok(health.includes('"cache-control": "no-store"'));
+});
+
 test("CI workflow is present", () => {
   assert.ok(fs.existsSync(".github/workflows/ci.yml"));
 });
