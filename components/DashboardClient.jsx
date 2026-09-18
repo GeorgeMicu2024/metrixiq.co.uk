@@ -51,6 +51,18 @@ export default function DashboardClient() {
   const [access, setAccess] = useState(null);
   const searchRef = useRef(null);
 
+  function navigate(id) {
+    if (
+      id === "dashboard" ||
+      id === "driver-profile" ||
+      canAccessNav(id, access, platformAdmin, session?.role)
+    ) {
+      setActive(id);
+      return true;
+    }
+    return false;
+  }
+
   useEffect(() => {
     let alive = true;
     const supabase = getSupabaseBrowserClient();
@@ -152,7 +164,7 @@ export default function DashboardClient() {
     setPreviousActive(active === "driver-profile" ? "drivers" : active);
     setSelectedDriver(driver);
     setDriverHistory([]);
-    setActive("driver-profile");
+    navigate("driver-profile");
     if (!driver.dbId || !workspace?.organization?.id) return;
     setHistoryLoading(true);
     try {
@@ -166,29 +178,40 @@ export default function DashboardClient() {
       setHistoryLoading(false);
     }
   }
-  function backFromDriver() { setSelectedDriver(null); setDriverHistory([]); setActive(previousActive || "drivers"); }
+  function backFromDriver() {
+    setSelectedDriver(null);
+    setDriverHistory([]);
+    if (!navigate(previousActive || "drivers")) navigate("dashboard");
+  }
+
+  const routedActive =
+    active === "driver-profile" ||
+    active === "dashboard" ||
+    canAccessNav(active, access, platformAdmin, session?.role)
+      ? active
+      : "dashboard";
 
   let view;
-  switch (active) {
-    case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
-    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
+  switch (routedActive) {
+    case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
+    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
-    case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
-    case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
+    case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
+    case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "coaching": view = <CoachingAlertsView organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} canManage={platformAdmin || ["owner","admin","manager","dispatcher"].includes(session?.role)} />; break;
-    case "intelligence": view = <IntelligenceView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onCoaching={() => setActive("coaching")} onImport={() => setActive("imports")} onPerformance={() => setActive("performance")} onDataQuality={() => setActive("data-quality")} onOpenDriver={openDriver} />; break;
+    case "intelligence": view = <IntelligenceView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onCoaching={() => navigate("coaching")} onImport={() => navigate("imports")} onPerformance={() => navigate("performance")} onDataQuality={() => navigate("data-quality")} onOpenDriver={openDriver} />; break;
     case "imports": view = <SmartImportView onImported={imported} analysis={analysis} />; break;
-    case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} />; break;
+    case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} />; break;
     case "reports": view = <ReportsView drivers={drivers} kpis={kpis} history={visibleFleetHistory} />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
     case "team": view = <TeamManagementView organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
     case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    default: view = <DashboardView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => setActive("imports")} onOpenDriver={openDriver} onDrivers={() => setActive("drivers")} onPerformance={() => setActive("performance")} onCoaching={() => setActive("coaching")} onDataQuality={() => setActive("data-quality")} />;
+    default: view = <DashboardView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onDataQuality={() => navigate("data-quality")} />;
   }
 
   if (authLoading) return <main className="app-loading"><div className="auth-spinner" /><h1>MetrixIQ</h1><p>Loading secure workspace…</p></main>;
@@ -197,5 +220,5 @@ export default function DashboardClient() {
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
   if (!platformAdmin && access && !access.onboarding_completed) return <PlanOnboardingView organizationId={workspace?.organization?.id} organizationName={workspace?.organization?.name} onComplete={setAccess} onLogout={logout} />;
 
-  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.filter(([id]) => canAccessNav(id, access, platformAdmin, session?.role)).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { setActive(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>SMART</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) setActive("drivers");}} /><kbd>⌘ / Ctrl K</kbd></div></div><div className="topbar-right"><select className="site-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter workspace by site"><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
+  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.filter(([id]) => canAccessNav(id, access, platformAdmin, session?.role)).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { navigate(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>SMART</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) navigate("drivers");}} /><kbd>⌘ / Ctrl K</kbd></div></div><div className="topbar-right"><select className="site-select" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)} aria-label="Filter workspace by site"><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
 }
