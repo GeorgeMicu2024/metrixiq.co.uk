@@ -100,7 +100,8 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
 
 
 
-  const hasStripeSubscription = ["active", "past_due", "cancelled"].includes(status);
+  const hasStripeSubscription = Boolean(access?.has_stripe_subscription);
+  const manualActiveAccess = status === "active" && !hasStripeSubscription;
 
   return (
     <>
@@ -128,7 +129,7 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
             {status === "trialing"
               ? `Premium trial · ${trialDays} day${trialDays === 1 ? "" : "s"} remaining`
               : status === "active"
-                ? "Stripe subscription active"
+                ? (manualActiveAccess ? "Plan access enabled by administrator" : "Stripe subscription active")
                 : status === "past_due"
                   ? "Payment requires attention"
                   : "Free workspace"}
