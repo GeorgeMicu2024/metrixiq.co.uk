@@ -12,7 +12,7 @@ import { DriverScorecardsView, SiteScorecardsView } from "./scorecards/Scorecard
 import PerformanceView from "./performance/PerformanceView";
 import DriverDirectoryView from "./drivers/DriverDirectoryView";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
-import CoachingAlertsView from "./CoachingAlertsView";
+import CoachingAlertsView from "./coaching/CoachingAlertsView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
 import { loadWorkspaceContext, refreshWorkspacePerformance } from "../lib/data/workspace";
