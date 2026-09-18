@@ -373,6 +373,19 @@ test("public landing page consumes the same canonical plan catalogue", () => {
 });
 
 
+test("site-scoped data quality hardening is tracked in code", () => {
+  const persistence = read("lib/persistence.js");
+  const dataQuality = read("lib/data/dataQuality.js");
+  const migration = read("supabase/migrations/202609181948_harden_site_scope_and_sensitive_rpcs.sql");
+
+  assert.ok(persistence.includes("site: driver.site"));
+  assert.ok(dataQuality.includes("normalized_name,site,payload"));
+  assert.ok(migration.includes("private.can_access_driver(organization_id, driver_id)"));
+  assert.ok(migration.includes("private.can_access_site(organization_id, site)"));
+  assert.ok(migration.includes("create or replace function public.choose_free_plan"));
+  assert.ok(migration.includes("create or replace function public.get_command_center_summary"));
+});
+
 test("password recovery is complete from login to password update", () => {
   const login = read("components/LoginClient.jsx");
   const reset = read("app/auth/reset-password/page.jsx");
