@@ -198,6 +198,29 @@ test("smart import lives in its own product module", () => {
   assert.ok(dashboard.includes('./imports/SmartImportView'));
 });
 
+test("CDF and Data Quality use canonical product modules", () => {
+  const legacy = read("components/OperationalViews.jsx");
+  const cdf = read("components/customer-feedback/CdfView.jsx");
+  const dataQuality = read("components/data-quality/DataQualityView.jsx");
+  const cdfData = read("lib/data/cdf.js");
+  const dataQualityData = read("lib/data/dataQuality.js");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.equal(legacy.includes("export function CdfView"), false);
+  assert.equal(legacy.includes("export function DataQualityView"), false);
+  assert.equal(legacy.includes("export function IadcView"), false);
+  assert.ok(cdf.includes("export default function CdfView"));
+  assert.ok(dataQuality.includes("export default function DataQualityView"));
+  assert.equal(cdf.includes('.from("feedback_events")'), false);
+  assert.equal(dataQuality.includes(".rpc("), false);
+  assert.equal(dataQuality.includes("driver_aliases"), false);
+  assert.ok(cdfData.includes("export async function fetchCdfWorkspaceData"));
+  assert.ok(dataQualityData.includes("export async function fetchDataQualityState"));
+  assert.ok(dataQualityData.includes("export async function resolveDriverIdentity"));
+  assert.ok(dashboard.includes('./customer-feedback/CdfView'));
+  assert.ok(dashboard.includes('./data-quality/DataQualityView'));
+});
+
 test("IADC Mentor and Concessions use canonical operational modules", () => {
   const legacy = read("components/DirectOperationalViews.jsx");
   const shared = read("components/operations/OperationalShared.jsx");
