@@ -7,9 +7,9 @@ import {BillingProView, PlanOnboardingView, PlatformAdminView, SuspendedWorkspac
 import { analyseFiles } from "../lib/analyzer";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
-import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView } from "./HistoricalAnalytics";
-import { CdfView, DataQualityView, DriverScorecardsView, IadcView, SiteScorecardsView } from "./OperationalViews";
-import { ProConcessionsView, ProDriversView, ProMentorView, ProPerformanceView } from "./ProfessionalViews";
+import { aggregateFleetHistory, HistoryTrendChart } from "./HistoricalAnalytics";
+import { CdfView, DataQualityView, DriverScorecardsView, SiteScorecardsView } from "./OperationalViews";
+import { ProDriversView, ProPerformanceView } from "./ProfessionalViews";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
 import { isUsablePersonName } from "../lib/identity";
 import { TARGETS, targetLabel } from "../lib/config/performance";
@@ -118,16 +118,6 @@ function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrive
     <section className="dashboard-grid lower"><article className="panel"><div className="panel-head"><div><h2>Drivers requiring attention</h2><p>Prioritised by repeated failures and score deterioration</p></div><button className="link-btn" onClick={onDrivers}>View all</button></div><DriverTable drivers={drivers.filter((d) => d.risk !== "Low").slice(0, 6)} compact onOpen={onOpenDriver} /></article><article className="panel"><div className="panel-head"><div><h2>Management actions</h2><p>Recommended next steps from current evidence</p></div></div><div className="action-list"><Action n="01" title="Coach high-risk drivers" text={`${high} drivers have repeated quality or compliance deterioration.`} onClick={onCoaching} /><Action n="02" title="Review performance history" text="Use the selected reporting window to identify repeated deterioration." onClick={onPerformance} /><Action n="03" title="Import missing evidence" text="Add scorecards, POD, concessions, IADC and Mentor files to complete the weekly picture." onClick={onImport} /></div></article></section></>;
 }
 
-function DriversView({ drivers, onOpen, query = "" }) {
-  const [q, setQ] = useState(query);
-  useEffect(() => setQ(query), [query]);
-  const filtered = drivers.filter((d) => `${d.name} ${d.id} ${d.site || ""}`.toLowerCase().includes(q.toLowerCase()));
-  return <><div className="page-heading"><div><span className="page-kicker">OPERATIONS</span><h1>Drivers</h1><p>Search every driver profile, metric and current risk status.</p></div></div><section className="panel"><div className="table-tools"><input placeholder="Search name, TRID or site…" value={q} onChange={(e) => setQ(e.target.value)} /><span>{filtered.length} drivers</span></div><DriverTable drivers={filtered} onOpen={onOpen} /></section></>;
-}
-function PerformanceView({ kpis }) {
-  const cards = [["DCR", kpis.dcr, targetLabel("dcr")], ["POD", kpis.pod, targetLabel("pod")], ["IADC", kpis.iadc, targetLabel("iadc")], ["CC", kpis.cc, targetLabel("cc")], ["PSB", kpis.psb, targetLabel("psb")], ["Reattempts", kpis.reattempts, targetLabel("reattempts")]];
-  return <><div className="page-heading"><div><span className="page-kicker">OPERATIONS</span><h1>Performance analysis</h1><p>Inspect fleet metrics against operational thresholds.</p></div></div><div className="performance-cards">{cards.map(([label, value, target]) => <article key={label}><span>{label}</span><strong>{fmt(value, label.toLowerCase())}</strong><small>{target}</small><div className="progress"><i style={{ width: `${Math.min(100, Number(value) || 0)}%` }} /></div></article>)}</div><section className="panel tall"><div className="panel-head"><div><h2>Four-week movement</h2><p>Performance trend across reporting periods</p></div></div><TrendChart /></section></>;
-}
 function CoachingView({ drivers, onOpen }) {
   const list = drivers.filter((d) => d.risk !== "Low");
   return <><div className="page-heading"><div><span className="page-kicker">OPERATIONS</span><h1>Coaching queue</h1><p>Turn risk signals into specific management action.</p></div></div><div className="coaching-list">{list.slice(0, 10).map((d, i) => <article key={d.id}><div className="coach-index">{String(i + 1).padStart(2, "0")}</div><div className="coach-main"><div className="driver-cell"><span className="driver-avatar">{d.initials || initials(d.name)}</span><div><b>{d.name}</b><small>{d.site} · {d.id}</small></div></div><p>{d.issue}</p></div><span className={`risk-pill ${tone(d.risk)}`}>{d.risk}</span><button className="btn ghost" onClick={() => onOpen(d)}>Open profile</button></article>)}</div></>;
@@ -204,7 +194,6 @@ function ImportsView({ onImported, analysis }) {
   </>;
 }
 function ReportsView() { return <><div className="page-heading"><div><span className="page-kicker">REPORTING</span><h1>Report centre</h1><p>Generate management-ready views from current fleet data.</p></div><button className="btn primary" onClick={() => window.print()}>Export current view</button></div><div className="report-grid">{[["Executive Fleet Brief", "Health, KPI, risk and recommended actions"], ["Weekly Fleet Report", "Site performance and driver improvement"], ["Driver Performance", "Individual trend, incidents and coaching"], ["Risk Report", "Prioritised drivers and evidence"], ["Coaching Report", "Queue status and action"], ["Site Comparison", "Cross-site KPI analysis"]].map(([t, d]) => <article key={t}><span>▤</span><h3>{t}</h3><p>{d}</p><button type="button" onClick={() => window.print()}>Open / print →</button></article>)}</div></>; }
-function BillingView() { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Plans & billing</h1><p>Choose the MetrixIQ capability level for your operation.</p></div></div><div className="billing-grid">{[["Free", "£0", ["1 site", "10 drivers", "Core dashboard"]], ["Pro", "£39", ["3 sites", "150 drivers", "Risk & coaching"]], ["Business", "£89", ["10 sites", "500 drivers", "Advanced intelligence"]], ["Full", "£169", ["Unlimited sites", "Owner controls", "Priority support"]]].map(([n, p, fs], i) => <article className={i === 3 ? "current" : ""} key={n}>{i === 3 && <span className="current-tag">Current workspace</span>}<h3>{n}</h3><strong>{p}<small>/month</small></strong><ul>{fs.map((f) => <li key={f}>✓ {f}</li>)}</ul><button className={i === 3 ? "btn ghost" : "btn primary"} disabled title={i === 3 ? "Current workspace plan" : "Stripe billing will be enabled in the billing phase"}>{i === 3 ? "Active" : "Billing setup pending"}</button></article>)}</div></>; }
 function SettingsView({ session, onLogout }) { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Workspace settings</h1><p>Identity, organisation and data controls.</p></div></div><div className="settings-grid"><section className="panel"><h2>Account identity</h2><div className="setting-row"><span>Name</span><b>{session.name}</b></div><div className="setting-row"><span>Email</span><b>{session.email}</b></div><div className="setting-row"><span>Organisation</span><b>{session.organisation || "My Fleet"}</b></div><div className="setting-row"><span>Access</span><b>{session.role || "Member"}</b></div></section><section className="panel"><h2>Data & security</h2><p className="settings-copy">Authentication and fleet data access are protected by Supabase Auth and row-level security. Smart Import history is persisted in Supabase and protected by workspace row-level security.</p><button className="btn danger" onClick={onLogout}>Sign out</button></section></div></>; }
 
 async function resolveWorkspace(supabase, user) {
@@ -402,7 +391,7 @@ export default function DashboardClient() {
     case "team": view = <TeamManagementView organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
-    case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriversView drivers={drivers} onOpen={openDriver} />; break;
+    case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <ProDriversView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     default: view = <DashboardView drivers={drivers} kpis={kpis} history={fleetHistory} onImport={() => setActive("imports")} onOpenDriver={openDriver} onDrivers={() => setActive("drivers")} onPerformance={() => setActive("performance")} onCoaching={() => setActive("coaching")} />;
   }
 
