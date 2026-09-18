@@ -8,7 +8,7 @@ import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
 import { aggregateFleetHistory } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView, DriverScorecardsView, SiteScorecardsView } from "./OperationalViews";
-import { ProPerformanceView } from "./ProfessionalViews";
+import PerformanceView from "./performance/PerformanceView";
 import DriverDirectoryView from "./drivers/DriverDirectoryView";
 import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
 import CoachingAlertsView from "./CoachingAlertsView";
@@ -134,7 +134,7 @@ export default function DashboardClient() {
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    case "performance": view = <ProPerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
+    case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
     case "iadc": view = <DirectIadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => setActive("imports")} siteFilter={siteFilter} />; break;
     case "mentor": view = <DirectMentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
