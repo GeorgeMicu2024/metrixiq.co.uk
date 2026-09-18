@@ -4,7 +4,8 @@ import fs from "node:fs";
 import { findIadcHeader } from "../lib/parsers/iadc.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
-import { inferPeriod, normalizeSiteCode, riskFor } from "../lib/analyzer/core.js";
+import { inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
+import { parseGenericMatrix } from "../lib/analyzer/spreadsheet.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
 import { buildDriverPerformanceRows, buildExecutiveSummary, buildRiskRows, toCsv } from "../lib/reports/fleetReports.js";
@@ -62,6 +63,41 @@ test("Smart Import readiness explains incomplete evidence", () => {
   assert.ok(intelligence.reportTypes.includes("iadc"));
   assert.ok(intelligence.actions.some((item) => item.includes("failed to parse")));
   assert.ok(intelligence.actions.some((item) => item.includes("unmatched driver")));
+});
+
+test("shared analyzer parsers remain runtime-safe across formats", () => {
+  assert.equal(scorecardTierFromTotal(49), "Poor");
+  assert.equal(scorecardTierFromTotal(94), "Fantastic Plus");
+
+  const generic = parseGenericMatrix(
+    [
+      ["TRID", "Driver Name", "DCR"],
+      ["A123456789", "John Driver", "99.5%"],
+    ],
+    "generic.csv",
+    "Sheet1"
+  );
+
+  assert.equal(generic?.records?.length, 1);
+  assert.equal(generic.records[0].metrics.dcr, 99.5);
+});
+
+test("analyzer delegates HTML and PDF parsing to dedicated engines", () => {
+  const analyzer = read("lib/analyzer.js");
+  const html = read("lib/analyzer/html.js");
+  const pdf = read("lib/analyzer/pdf.js");
+  const spreadsheet = read("lib/analyzer/spreadsheet.js");
+
+  assert.ok(analyzer.includes('from "./analyzer/html"'));
+  assert.ok(analyzer.includes('from "./analyzer/pdf"'));
+  assert.equal(analyzer.includes("function parseIadcHtml"), false);
+  assert.equal(analyzer.includes("async function extractPdf"), false);
+  assert.ok(html.includes("export async function parseHtml"));
+  assert.ok(html.includes("parseGenericMatrix"));
+  assert.ok(pdf.includes("export async function parsePdf"));
+  assert.ok(pdf.includes("scorecardTierFromTotal"));
+  assert.ok(spreadsheet.includes("export function parseGenericMatrix"));
+  assert.ok(analyzer.length < 18000);
 });
 
 test("analyzer delegates spreadsheet parsing to a dedicated engine", () => {
