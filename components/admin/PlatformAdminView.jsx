@@ -135,7 +135,7 @@ export function PlatformAdminView() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <select aria-label="Filter platform accounts" value={filter} onChange={(e) => setFilter(e.target.value)}>
               <option value="all">All accounts</option>
               <option value="free">Free</option>
               <option value="trialing">Trial</option>
