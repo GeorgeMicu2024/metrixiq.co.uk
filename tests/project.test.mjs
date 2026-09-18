@@ -290,7 +290,7 @@ test("dashboard consumes explainable fleet intelligence", () => {
   assert.ok(dashboardViews.includes("buildFleetIntelligence"));
   assert.ok(dashboardViews.includes("Operational intelligence"));
   assert.ok(dashboardViews.includes("Decision confidence"));
-  assert.ok(dashboardClient.includes('onDataQuality={() => setActive("data-quality")}'));
+  assert.ok(dashboardClient.includes('onDataQuality={() => navigate("data-quality")}'));
   assert.ok(navigation.includes('["intelligence", "Intelligence"]'));
   assert.equal(navigation.includes("AI Insights"), false);
 });
