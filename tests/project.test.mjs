@@ -7,6 +7,7 @@ import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 import { inferPeriod, normalizeSiteCode, riskFor } from "../lib/analyzer/core.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
+import { buildDriverPerformanceRows, buildExecutiveSummary, buildRiskRows, toCsv } from "../lib/reports/fleetReports.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -98,6 +99,38 @@ test("persistence metrics use central KPI targets", () => {
   const metrics = read("lib/persistence/metrics.js");
   assert.ok(metrics.includes('from "../config/performance.js"'));
   assert.equal(metrics.includes("Number(row.cc) < 99"), false);
+});
+
+test("reports builders export real fleet evidence", () => {
+  const drivers = [
+    { id: "TRID1", name: "Driver One", site: "DLS2", risk: "High", dcr: 98, pod: 99, iadc: 70, ementor: 800, cc: 96, concessions: 4 },
+    { id: "TRID2", name: "Driver Two", site: "DLS2", risk: "Low", dcr: 100, pod: 100, iadc: 90, ementor: 830, cc: 99, concessions: 0 },
+  ];
+
+  const driverRows = buildDriverPerformanceRows(drivers);
+  const riskRows = buildRiskRows(drivers);
+  const csv = toCsv(driverRows);
+  const executive = buildExecutiveSummary(drivers, {}, []);
+
+  assert.equal(driverRows.length, 2);
+  assert.equal(riskRows.length, 1);
+  assert.ok(csv.includes("trid,name,site"));
+  assert.ok(csv.includes("TRID1"));
+  assert.equal(executive.fleet.drivers, 2);
+  assert.equal(executive.fleet.highRisk, 1);
+});
+
+test("Reports Center is a canonical functional module", () => {
+  const dashboardViews = read("components/dashboard/DashboardViews.jsx");
+  const reports = read("components/reports/ReportsView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.equal(dashboardViews.includes("export function ReportsView"), false);
+  assert.ok(reports.includes("buildExecutiveSummary"));
+  assert.ok(reports.includes("Download CSV"));
+  assert.ok(reports.includes("Print / Save PDF"));
+  assert.ok(dashboard.includes('./reports/ReportsView'));
+  assert.ok(dashboard.includes("visibleFleetHistory"));
 });
 
 test("persistence orchestration delegates identity and evidence storage", () => {
