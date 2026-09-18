@@ -742,6 +742,18 @@ test("IADC Mentor and Concessions use canonical operational modules", () => {
   assert.ok(dashboard.includes('./operations/ConcessionsView'));
 });
 
+test("Concessions keeps React hook order stable across loading states", () => {
+  const concessions = read("components/operations/ConcessionsView.jsx");
+
+  assert.equal(concessions.includes("useMemo("), false);
+  assert.ok(concessions.includes("const rows=filterRowsBySite(load.rows,siteFilter);"));
+  assert.ok(
+    concessions.indexOf("const rows=filterRowsBySite(load.rows,siteFilter);") <
+    concessions.indexOf("if(load.loading)")
+  );
+});
+
+
 test("legacy compatibility files stay thin and cannot regrow into monoliths", () => {
   const directLegacy = read("components/DirectOperationalViews.jsx");
   const operationalLegacy = read("components/OperationalViews.jsx");
