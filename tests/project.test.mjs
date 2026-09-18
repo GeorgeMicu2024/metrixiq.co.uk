@@ -428,6 +428,24 @@ test("release routes expose hardened production defaults", () => {
   assert.ok(health.includes('"cache-control": "no-store"'));
 });
 
+test("active product controls keep accessible names", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+  const performance = read("components/performance/PerformanceView.jsx");
+  const scorecards = read("components/scorecards/ScorecardViews.jsx");
+  const iadc = read("components/operations/IadcView.jsx");
+  const mentor = read("components/operations/MentorView.jsx");
+  const cdf = read("components/customer-feedback/CdfView.jsx");
+
+  assert.ok(dashboard.includes('aria-label="Sign out"'));
+  assert.ok(dashboard.includes('aria-label="Filter by site"'));
+  assert.ok(performance.includes('aria-label="Search performance drivers"'));
+  assert.ok(scorecards.includes('aria-label="Search scorecards"'));
+  assert.ok(iadc.includes('aria-label="Search IADC drivers"'));
+  assert.ok(mentor.includes('aria-label="Search Mentor drivers"'));
+  assert.ok(cdf.includes('aria-label="Search CDF records"'));
+});
+
+
 test("CI workflow is present", () => {
   assert.ok(fs.existsSync(".github/workflows/ci.yml"));
 });
