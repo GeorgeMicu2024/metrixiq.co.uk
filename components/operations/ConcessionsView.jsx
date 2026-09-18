@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ConcessionsHeader, ConcessionsKpis, ConcessionsMatrix, ConcessionsOverview } from "./ConcessionsSections";
 import {
   ErrorBox,
@@ -26,6 +26,8 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
   const [sortMode,setSortMode]=useState("desc");
   const [showMode,setShowMode]=useState("all");
 
+  const rows=filterRowsBySite(load.rows,siteFilter);
+
   if(load.loading)return <Loading text="Loading concessions intelligence…"/>;
   if(load.error)return <ErrorBox error={load.error}/>;
 
@@ -34,7 +36,6 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
     return /^[A-Z]{2,5}\d+$/i.test(value)?value.toUpperCase():"Unassigned";
   };
 
-  const rows=useMemo(()=>filterRowsBySite(load.rows,siteFilter),[load.rows,siteFilter]);
   const concessionRows=rows.filter(r=>n(r.concessions)!=null);
   const weeks=contiguousWeeks(rows,range);
   const weekSet=new Set(weeks);
