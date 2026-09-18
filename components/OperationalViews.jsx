@@ -114,7 +114,7 @@ function LeaderList({ rows, title, inverse = false, onOpenDriver }) {
   </article>;
 }
 
-export function SiteScorecardsView({ organizationId, onOpenDriver, onImport }) {
+export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
 
@@ -151,11 +151,17 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport }) {
     return { cards: cards || [], rows };
   }, [organizationId]);
 
-  const cards = load.data?.cards || [];
+  const cards = useMemo(() => {
+    const allCards = load.data?.cards || [];
+    if (siteFilter === "all") return allCards;
+    return allCards.filter((item) => String(item.site || "").trim().toUpperCase() === siteFilter);
+  }, [load.data, siteFilter]);
   const [selectedId, setSelectedId] = useState("");
 
   useEffect(() => {
-    if (cards.length && !selectedId) setSelectedId(cards[0].id);
+    if (cards.length && !cards.some((item) => item.id === selectedId)) {
+      setSelectedId(cards[0].id);
+    }
   }, [cards, selectedId]);
 
   const sortedCards = useMemo(() => cards.slice().sort(weekSort), [cards]);
