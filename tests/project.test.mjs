@@ -169,6 +169,15 @@ test("Concessions spreadsheet parsers preserve site from source filenames", () =
   assert.ok(spreadsheet.includes("name: x.name,\n        site,\n        metrics: {"));
 });
 
+test("Concessions historical site backfill remains conflict-safe", () => {
+  const migration = read("supabase/migrations/202609182039_backfill_driver_site_from_metric_sources.sql");
+
+  assert.ok(migration.includes("having count(distinct site)=1"));
+  assert.ok(migration.includes("d.site is null or btrim(d.site)=''"));
+  assert.ok(migration.includes("raw_data->'source_files'"));
+});
+
+
 
 test("persistence metrics use central KPI targets", () => {
   assert.equal(
