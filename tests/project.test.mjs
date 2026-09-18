@@ -25,6 +25,16 @@ test("Tailwind is not a dependency", () => {
   assert.equal(pkg.devDependencies?.tailwindcss, undefined);
 });
 
+test("performance and scorecards use the central Contact Compliance target", () => {
+  const performance = read("components/performance/PerformanceView.jsx");
+  const scorecards = read("components/scorecards/ScorecardViews.jsx");
+
+  assert.ok(performance.includes("driver.cc>=TARGETS.cc"));
+  assert.equal(performance.includes("driver.cc>=98"), false);
+  assert.ok(scorecards.includes('key === "cc") return v >= TARGETS.cc'));
+  assert.equal(scorecards.includes('key === "cc") return v >= 99'), false);
+});
+
 test("global CSS contains application shell styles", () => {
   assert.ok(read("app/globals.css").includes(".app-shell"));
 });
