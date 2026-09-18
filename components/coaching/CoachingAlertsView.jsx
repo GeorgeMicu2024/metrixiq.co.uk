@@ -294,17 +294,17 @@ export default function CoachingAlertsView({
           <div className="coaching-case-reason"><span>Reason</span><p>{selectedCase.reason || "No reason recorded."}</p></div>
 
           <div className="coaching-case-form">
-            <label><span>Status</span><select value={status} disabled={!canManage} onChange={(e) => setStatus(e.target.value)}>
+            <label><span>Status</span><select aria-label="Coaching case status" value={status} disabled={!canManage} onChange={(e) => setStatus(e.target.value)}>
               {["open","assigned","acknowledged","follow_up","improved","not_improved","closed"].map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}
             </select></label>
-            <label className="wide"><span>Outcome</span><input value={outcome} disabled={!canManage} onChange={(e) => setOutcome(e.target.value)} placeholder="Outcome / next action…" /></label>
+            <label className="wide"><span>Outcome</span><input aria-label="Coaching outcome" value={outcome} disabled={!canManage} onChange={(e) => setOutcome(e.target.value)} placeholder="Outcome / next action…" /></label>
             <button className="btn primary" disabled={!canManage || busy === `save-${selectedCase.id}`} onClick={saveCase}>Save case</button>
           </div>
 
           <div className="coaching-notes">
             <h3>Coaching notes</h3>
             <div className="coaching-note-entry">
-              <textarea value={note} disabled={!canManage} onChange={(e) => setNote(e.target.value)} placeholder="Add evidence, conversation notes or follow-up action…" />
+              <textarea aria-label="Coaching note" value={note} disabled={!canManage} onChange={(e) => setNote(e.target.value)} placeholder="Add evidence, conversation notes or follow-up action…" />
               <button className="btn primary" disabled={!canManage || !note.trim() || busy === `note-${selectedCase.id}`} onClick={addNote}>Add note</button>
             </div>
             <div className="coaching-note-list">
