@@ -143,6 +143,17 @@ test("scorecard UI delegates data access to the data layer", () => {
 });
 
 
+test("smart import lives in its own product module", () => {
+  const dashboardViews = read("components/dashboard/DashboardViews.jsx");
+  const smartImport = read("components/imports/SmartImportView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.equal(dashboardViews.includes("export function ImportsView"), false);
+  assert.ok(smartImport.includes("export default function SmartImportView"));
+  assert.ok(smartImport.includes("analyseFiles"));
+  assert.ok(dashboard.includes('./imports/SmartImportView'));
+});
+
 test("product views are split by responsibility", () => {
   const professional = read("components/ProfessionalViews.jsx");
   const performance = read("components/performance/PerformanceView.jsx");
