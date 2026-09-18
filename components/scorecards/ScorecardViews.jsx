@@ -372,31 +372,7 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
       <LeaderList rows={weekRows} title="Bottom 5 — attention" inverse onOpenDriver={onOpenDriver} />
     </section>
 
-    <style jsx global>{`
-      .sitepro-root{width:100%;padding-bottom:30px;color:#26384c}
-      .sitepro-page-heading{align-items:flex-start;margin-bottom:16px}
-      .sitepro-controls{display:flex;gap:8px;align-items:center}
-      .sitepro-controls select{height:39px;min-width:185px;padding:0 11px;border:1px solid #dce4ea;border-radius:9px;background:#fff;color:#26394c;font-size:10px;font-weight:800;outline:none}
-      .sitepro-report{background:#fff;border:1px solid #dce4e9;border-radius:16px;box-shadow:0 7px 25px rgba(26,44,62,.055);overflow:hidden}
-      .sitepro-report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:22px 28px 18px;border-bottom:1px solid #e3e8ec;background:linear-gradient(180deg,#fff 0%,#fbfcfd 100%)}
-      .sitepro-eyebrow{display:block;font-size:11px;font-weight:950;letter-spacing:.12em;color:#273a4e}.sitepro-report-head h2{margin:5px 0 0;font-size:20px;letter-spacing:-.015em;color:#1f3042}
-      .sitepro-rank{text-align:right}.sitepro-rank span{display:block;font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8592a0}.sitepro-rank strong{display:block;margin-top:3px;font-size:28px;color:#21364a}.sitepro-rank small{display:block;margin-top:1px;color:#83919f;font-size:8px}
-      .sitepro-overall{display:grid;grid-template-columns:260px 1fr;gap:30px;align-items:center;padding:18px 28px 20px;border-bottom:1px solid #e0e6ea}
-      .sitepro-overall-copy>span{display:block;font-size:10px;font-weight:900;color:#33485d}.sitepro-overall-copy>div{display:flex;align-items:baseline;gap:12px;margin-top:4px}.sitepro-overall-copy strong{font-size:34px;letter-spacing:-.025em;color:#1f3247}.sitepro-overall-copy em{font-size:18px;font-style:normal;font-weight:900}.sitepro-overall-copy small{display:block;margin-top:3px;font-size:8px;font-weight:800}.sitepro-overall-copy small.positive{color:#3c8869}.sitepro-overall-copy small.negative{color:#b44e58}
-      .sitepro-overall-track{padding-top:8px}.sitepro-segments{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.sitepro-segments>span{position:relative;display:block;height:12px;border-radius:3px;background:#e5e7e9;overflow:hidden}.sitepro-segments>span>i{display:block;height:100%;background:#477bc9;border-radius:3px}
-      .sitepro-scale{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:7px}.sitepro-scale span{text-align:center;color:#9aa4ae;font-size:7px;font-weight:800}
-      .sitepro-section{padding:20px 28px 21px;border-bottom:1px solid #dfe5e9}.sitepro-section.compact{padding-bottom:18px}
-      .sitepro-section-title{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:start;margin-bottom:8px}.sitepro-section-title>div>span{display:block;margin-bottom:8px;font-size:15px;font-weight:900;color:#2c3b4c}.sitepro-section-title .sitepro-segments{max-width:760px}.sitepro-section-title strong{align-self:start;padding-top:1px;font-size:17px}.sitepro-note{margin:1px 0 18px;color:#5e6c7a;font-size:8px}
-      .sitepro-two-col{display:grid;grid-template-columns:1fr 1fr;gap:46px;padding:0 12px}.sitepro-two-col.quality{align-items:start}.sitepro-metric-group h3{margin:0 0 9px;color:#1f3042;font-size:13px}.sitepro-subgroup{margin-top:17px}
-      .sitepro-metric{display:grid;grid-template-columns:minmax(180px,1fr) auto;align-items:center;gap:14px;min-height:26px;border-bottom:1px dotted #edf0f2}.sitepro-metric:last-child{border-bottom:0}.sitepro-metric>span{color:#29394a;font-size:9px}.sitepro-metric>div{display:flex;align-items:center;justify-content:flex-end;gap:4px;text-align:right}.sitepro-metric b{font-size:9px}.sitepro-metric em{font-size:8px;font-style:normal;font-weight:850}.sitepro-metric.accent>span{color:#be2f34}
-      .sitepro-single-metric{max-width:520px;padding:0 12px}.sitepro-quality-note{margin:9px 0 0;color:#c33a3a;font-size:7px;font-style:italic;text-align:right}
-      .sitepro-focus{padding:19px 28px 22px;background:#fbfcfd}.sitepro-focus>span{display:block;font-size:15px;font-weight:900;color:#2a3b4c}.sitepro-focus ol{margin:7px 0 0;padding-left:22px}.sitepro-focus li{margin:4px 0;color:#263748;font-size:10px}
-      .sitepro-context{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:11px}.sitepro-context article{padding:13px 14px;border:1px solid #dfe6eb;border-radius:11px;background:#fff}.sitepro-context span{display:block;font-size:8px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#8794a1}.sitepro-context strong{display:block;margin-top:4px;font-size:20px;color:#21364b}.sitepro-context small{display:block;margin-top:3px;color:#9aa4ae;font-size:8px}.sitepro-leaders{margin-top:11px}
-      .sitepro-root .fantastic-plus{color:#3d8c45}.sitepro-root .fantastic{color:#467ecb}.sitepro-root .great{color:#84a936}.sitepro-root .fair{color:#dd8d12}.sitepro-root .poor{color:#cf3238}.sitepro-root .neutral{color:#97a0aa}
-      @media(max-width:1100px){.sitepro-overall{grid-template-columns:1fr}.sitepro-two-col{gap:24px}.sitepro-context{grid-template-columns:repeat(2,1fr)}}
-      @media(max-width:760px){.sitepro-controls{width:100%;flex-wrap:wrap}.sitepro-controls select{flex:1}.sitepro-report-head,.sitepro-overall,.sitepro-section,.sitepro-focus{padding-left:18px;padding-right:18px}.sitepro-two-col{grid-template-columns:1fr;padding:0}.sitepro-section-title{grid-template-columns:1fr}.sitepro-rank{text-align:left}.sitepro-context{grid-template-columns:1fr}.sitepro-segments{gap:5px}.sitepro-scale{gap:5px}}
-      @media print{.sitepro-page-heading,.sitepro-context,.sitepro-leaders,.sidebar,.app-topbar{display:none!important}.sitepro-report{box-shadow:none;border:0}.sitepro-root{padding:0}.sitepro-section{break-inside:avoid}}
-    `}</style>
+    
   </div>;
 }
 
