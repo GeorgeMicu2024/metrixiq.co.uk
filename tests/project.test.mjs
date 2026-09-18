@@ -89,17 +89,19 @@ test("DashboardClient is orchestration-focused", () => {
   assert.ok(read("components/dashboard/DashboardViews.jsx").includes("export function DashboardView"));
 });
 
-test("professional views are split by product responsibility", () => {
+test("product views are split by responsibility", () => {
   const professional = read("components/ProfessionalViews.jsx");
+  const performance = read("components/performance/PerformanceView.jsx");
   const drivers = read("components/drivers/DriverDirectoryView.jsx");
   const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(professional.includes("export function ProPerformanceView"));
-  assert.equal(professional.includes("export function ProDriversView"), false);
+  assert.ok(professional.includes('from "./performance/PerformanceView"'));
+  assert.ok(performance.includes("export default function PerformanceView"));
   assert.ok(drivers.includes("export default function DriverDirectoryView"));
+  assert.ok(dashboard.includes('./performance/PerformanceView'));
   assert.ok(dashboard.includes('./drivers/DriverDirectoryView'));
-  assert.equal(professional.includes("export function ProConcessionsView"), false);
-  assert.equal(professional.includes("export function ProMentorView"), false);
+  assert.equal(performance.includes("export function ProConcessionsView"), false);
+  assert.equal(performance.includes("export function ProMentorView"), false);
 });
 
 
