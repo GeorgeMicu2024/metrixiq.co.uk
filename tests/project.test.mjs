@@ -35,6 +35,23 @@ test("performance and scorecards use the central Contact Compliance target", () 
   assert.equal(scorecards.includes('key === "cc") return v >= 99'), false);
 });
 
+test("PerformanceView delegates metric logic and chart primitives", () => {
+  const view = read("components/performance/PerformanceView.jsx");
+  const metrics = read("lib/performance/metrics.js");
+  const primitives = read("components/performance/PerformancePrimitives.jsx");
+
+  assert.equal(view.includes("function driverIndex("), false);
+  assert.equal(view.includes("function ProTrendChart("), false);
+  assert.equal(view.includes("function RangeTabs("), false);
+  assert.ok(view.includes("../../lib/performance/metrics"));
+  assert.ok(view.includes("./PerformancePrimitives"));
+  assert.ok(metrics.includes("export function driverIndex"));
+  assert.ok(metrics.includes("export function metricStatus"));
+  assert.ok(primitives.includes("export function ProTrendChart"));
+  assert.ok(primitives.includes("export function RangeTabs"));
+});
+
+
 test("global CSS contains application shell styles", () => {
   assert.ok(read("app/globals.css").includes(".app-shell"));
 });
