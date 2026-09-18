@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
+import { cancelTeamInvite, createTeamInvite, fetchTeamWorkspace, removeTeamMember as removeWorkspaceMember, updateTeamMember } from "../lib/data/team";
+import { canManageTeam, parseSiteScope } from "../lib/permissions/roles";
 
 const PLAN_LABELS = {
   free: "Free",
@@ -458,30 +460,17 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const canManage = platformAdmin || ["owner", "admin", "manager"].includes(String(workspaceRole || "").toLowerCase());
+  const canManage = canManageTeam(workspaceRole, platformAdmin);
 
   async function load() {
     if (!organizationId) return;
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const [{ data: userData }, membersResult, invitesResult] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase.rpc("list_team_members", { p_organization_id: organizationId }),
-        supabase.rpc("list_team_invites", { p_organization_id: organizationId }),
-      ]);
-
-      if (membersResult.error) throw membersResult.error;
-      if (invitesResult.error) throw invitesResult.error;
-
-      setCurrentUserId(userData?.user?.id || "");
-      setMembers((membersResult.data || []).map((member) => ({
-        ...member,
-        edit_role: member.role,
-        edit_sites: (member.site_scope || []).join(", "),
-      })));
-      setInvites(invitesResult.data || []);
+      const workspace = await fetchTeamWorkspace(getSupabaseBrowserClient(), organizationId);
+      setCurrentUserId(workspace.currentUserId);
+      setMembers(workspace.members);
+      setInvites(workspace.invites);
     } catch (e) {
       setError(e?.message || "Could not load team members.");
     }
@@ -499,19 +488,12 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     setMessage("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const siteScope = sites.split(",").map((value) => value.trim()).filter(Boolean);
-
-      const { data, error: inviteError } = await supabase.rpc("create_team_invite", {
-        p_organization_id: organizationId,
-        p_email: email.trim(),
-        p_role: role,
-        p_site_scope: siteScope,
+      const result = await createTeamInvite(getSupabaseBrowserClient(), {
+        organizationId,
+        email: email.trim(),
+        role,
+        siteScope: parseSiteScope(sites),
       });
-
-      if (inviteError) throw inviteError;
-
-      const result = Array.isArray(data) ? data[0] : data;
       setMessage(
         result?.status === "accepted"
           ? "The registered user was added to this workspace."
@@ -540,20 +522,12 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const siteScope = String(member.edit_sites || "")
-        .split(",")
-        .map((value) => value.trim())
-        .filter(Boolean);
-
-      const { error: updateError } = await supabase.rpc("update_team_member", {
-        p_organization_id: organizationId,
-        p_user_id: member.user_id,
-        p_role: member.edit_role,
-        p_site_scope: siteScope,
+      await updateTeamMember(getSupabaseBrowserClient(), {
+        organizationId,
+        userId: member.user_id,
+        role: member.edit_role,
+        siteScope: parseSiteScope(member.edit_sites),
       });
-
-      if (updateError) throw updateError;
       await load();
     } catch (e) {
       setError(e?.message || "Could not update the team member.");
@@ -569,13 +543,10 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: removeError } = await supabase.rpc("remove_team_member", {
-        p_organization_id: organizationId,
-        p_user_id: member.user_id,
+      await removeWorkspaceMember(getSupabaseBrowserClient(), {
+        organizationId,
+        userId: member.user_id,
       });
-
-      if (removeError) throw removeError;
       await load();
     } catch (e) {
       setError(e?.message || "Could not remove the team member.");
@@ -589,13 +560,10 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: cancelError } = await supabase.rpc("cancel_team_invite", {
-        p_organization_id: organizationId,
-        p_token: invite.token,
+      await cancelTeamInvite(getSupabaseBrowserClient(), {
+        organizationId,
+        token: invite.token,
       });
-
-      if (cancelError) throw cancelError;
       await load();
     } catch (e) {
       setError(e?.message || "Could not cancel the invite.");
