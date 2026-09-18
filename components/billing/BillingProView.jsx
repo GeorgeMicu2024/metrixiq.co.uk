@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { authToken, daysLeft, planLabel, rowFromRpc, SaasStyles } from "../saas/SaasShared";
+import { daysLeft, planLabel, SaasStyles } from "../saas/SaasShared";
+import { createBillingCheckout, createBillingPortal, fetchWorkspaceAccess, startWorkspaceTrial } from "../../lib/data/billing";
 
 export function BillingProView({ access, organizationId, onAccessChanged, platformAdmin = false }) {
   const [busy, setBusy] = useState("");
@@ -15,12 +16,11 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
 
   async function refreshAccess() {
     if (!organizationId) return;
-    const supabase = getSupabaseBrowserClient();
-    const { data, error: accessError } = await supabase.rpc("get_workspace_access", {
-      p_organization_id: organizationId,
-    });
-    if (accessError) throw accessError;
-    onAccessChanged?.(rowFromRpc(data));
+    const access = await fetchWorkspaceAccess(
+      getSupabaseBrowserClient(),
+      organizationId
+    );
+    onAccessChanged?.(access);
   }
 
   useEffect(() => {
@@ -43,12 +43,11 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
     setError("");
 
     try {
-      const supabase = getSupabaseBrowserClient();
-      const { error: trialError } = await supabase.rpc("start_workspace_trial", {
-        p_organization_id: organizationId,
-      });
-      if (trialError) throw trialError;
-      await refreshAccess();
+      const access = await startWorkspaceTrial(
+        getSupabaseBrowserClient(),
+        organizationId
+      );
+      onAccessChanged?.(access);
     } catch (e) {
       setError(e?.message || "Could not start the trial.");
     } finally {
@@ -63,25 +62,16 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
     setError("");
 
     try {
-      const token = await authToken();
-      const response = await fetch("/api/billing/checkout", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
+      const url = await createBillingCheckout(
+        getSupabaseBrowserClient(),
+        {
           organizationId,
           plan,
           interval: cycle,
-        }),
-      });
+        }
+      );
 
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || "Could not start Stripe Checkout.");
-      if (!payload?.url) throw new Error("Stripe Checkout URL was not returned.");
-
-      window.location.assign(payload.url);
+      window.location.assign(url);
     } catch (e) {
       setError(e?.message || "Could not start Stripe Checkout.");
       setBusy("");
@@ -95,21 +85,12 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
     setError("");
 
     try {
-      const token = await authToken();
-      const response = await fetch("/api/billing/portal", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ organizationId }),
-      });
+      const url = await createBillingPortal(
+        getSupabaseBrowserClient(),
+        organizationId
+      );
 
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || "Could not open the billing portal.");
-      if (!payload?.url) throw new Error("Billing portal URL was not returned.");
-
-      window.location.assign(payload.url);
+      window.location.assign(url);
     } catch (e) {
       setError(e?.message || "Could not open the billing portal.");
       setBusy("");
