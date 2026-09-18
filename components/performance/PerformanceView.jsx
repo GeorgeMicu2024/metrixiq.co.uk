@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { displayDriverName, isUsablePersonName } from "../../lib/identity";
+import { useMemo, useState } from "react";
+import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
 
 const RANGE_OPTIONS = [1, 2, 4, 8, 12, 26, 52, "all"];
@@ -18,9 +18,6 @@ function resolvedName(driver) {
 }
 function mentorScore(row) {
   return n(row?.mentor_score) ?? n(row?.ementor) ?? n(row?.fico);
-}
-function riskClass(risk) {
-  return String(risk || "Low").toLowerCase() === "high" ? "bad" : String(risk || "Low").toLowerCase() === "medium" ? "warn" : "good";
 }
 function targetFor(metric) {
   return metric === "dcr" ? TARGETS.dcr :
@@ -48,23 +45,12 @@ function metricStatus(metric, value) {
   if (target == null) return "neutral";
   return valueN >= target ? "good" : valueN >= target * 0.97 ? "warn" : "bad";
 }
-function selectWeeks(rows, range) {
-  const weeks = [...new Set(rows.map((r)=>r.week_label).filter(Boolean))]
-    .sort((a,b)=>weekNumber(a)-weekNumber(b));
-  if (range === "all") return weeks;
-  return weeks.slice(-Number(range));
-}
 function RangeTabs({ value, onChange }) {
   return <div className="pro-range-tabs">
     {RANGE_OPTIONS.map((option)=><button type="button" key={String(option)} className={value===option?"active":""} onClick={()=>onChange(option)}>
       {option==="all"?"All":`${option}W`}
     </button>)}
   </div>;
-}
-function MetricPill({ metric, value }) {
-  const tone = metricStatus(metric, value);
-  const shown = metric === "mentor" ? fmtNum(value) : fmtPct(value);
-  return <span className={`pro-metric-pill ${tone}`}>{shown}</span>;
 }
 function EmptyRow({ columns, text }) {
   return <tr><td colSpan={columns}><div className="pro-empty-row">{text}</div></td></tr>;
@@ -91,41 +77,6 @@ function ProTrendChart({ points, metric }) {
     <path d={path} fill="none" stroke={lineTone} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
     {clean.map((p,i)=><g key={p.label}><circle cx={x(i)} cy={y(Number(p.value))} r="6" fill="#fff" stroke={lineTone} strokeWidth="4"/><text x={x(i)} y={height-18} textAnchor="middle" fontSize="13" fill="#718093">{p.label}</text></g>)}
   </svg></div>;
-}
-
-function aggregateWeeks(rows) {
-  const groups = new Map();
-  for (const row of rows) {
-    const key=periodKey(row);
-    const current=groups.get(key)||{label:key,rows:[],periodEnd:row.period_end||""};
-    current.rows.push(row); if(row.period_end) current.periodEnd=row.period_end;
-    groups.set(key,current);
-  }
-  return [...groups.values()].sort((a,b)=>weekNumber(a.label)-weekNumber(b.label)).map((g)=>({
-    label:g.label,periodEnd:g.periodEnd,drivers:g.rows.length,
-    dcr:average(g.rows.map((r)=>r.dcr)),pod:average(g.rows.map((r)=>r.pod)),iadc:average(g.rows.map((r)=>r.iadc)),
-    cc:average(g.rows.map((r)=>r.cc)),mentor:average(g.rows.map(mentorScore)),
-    concessions:average(g.rows.map((r)=>r.concessions)),performance:average(g.rows.map((r)=>driverIndex(r))),
-  }));
-}
-function buildPerformanceLeaderboard(rows,weeks) {
-  const weekSet=new Set(weeks);
-  const map=new Map();
-  for(const row of rows) {
-    if(!weekSet.has(row.week_label)) continue;
-    const driver=row.drivers||{};
-    const id=row.driver_id||driver.trid;
-    if(!id) continue;
-    const current=map.get(id)||{id,driver,dcr:[],pod:[],iadc:[],mentor:[],scores:[]};
-    if(n(row.dcr)!=null)current.dcr.push(Number(row.dcr));
-    if(n(row.pod)!=null)current.pod.push(Number(row.pod));
-    if(n(row.iadc)!=null)current.iadc.push(Number(row.iadc));
-    if(mentorScore(row)!=null)current.mentor.push(mentorScore(row));
-    if(driverIndex(row)!=null)current.scores.push(driverIndex(row));
-    map.set(id,current);
-  }
-  return [...map.values()].map((x)=>({...x,dcr:average(x.dcr),pod:average(x.pod),iadc:average(x.iadc),mentor:average(x.mentor),index:average(x.scores)}))
-    .filter((x)=>x.index!=null).sort((a,b)=>b.index-a.index);
 }
 
 export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) {
