@@ -4,7 +4,7 @@ import Brand from "./Brand";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans";
 
 const metrics=[
-  {k:"DCR",v:"99.1%",s:"Healthy"},{k:"POD",v:"97.8%",s:"Watch"},{k:"IADC",v:"87.1%",s:"Healthy"},{k:"FICO",v:"812",s:"Healthy"}
+  {k:"DCR",v:"99.1%",s:"Watch"},{k:"POD",v:"97.8%",s:"Watch"},{k:"IADC",v:"87.1%",s:"Healthy"},{k:"FICO",v:"812",s:"Watch"}
 ];
 const features=[
   ["01","Smart ingestion","Import Excel, CSV and digital PDFs in one batch. MetrixIQ detects report structure, reporting periods and operational metrics before analysis."],
