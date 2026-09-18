@@ -456,7 +456,7 @@ test("active product controls keep accessible names", () => {
   const cdf = read("components/customer-feedback/CdfView.jsx");
 
   assert.ok(dashboard.includes('aria-label="Sign out"'));
-  assert.ok(dashboard.includes('aria-label="Filter by site"'));
+  assert.ok(dashboard.includes('aria-label="Filter workspace by site"'));
   assert.ok(performance.includes('aria-label="Search performance drivers"'));
   assert.ok(scorecards.includes('aria-label="Search scorecards"'));
   assert.ok(iadc.includes('aria-label="Search IADC drivers"'));
