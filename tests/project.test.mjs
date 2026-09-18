@@ -94,6 +94,31 @@ test("team management delegates data and permission logic", () => {
   assert.ok(roles.includes("export function parseSiteScope"));
 });
 
+test("SaaS foundation is split into canonical product modules", () => {
+  const legacy = read("components/SaasFoundation.jsx");
+  const shared = read("components/saas/SaasShared.jsx");
+  const onboarding = read("components/saas/PlanOnboardingView.jsx");
+  const suspended = read("components/saas/SuspendedWorkspaceView.jsx");
+  const billing = read("components/billing/BillingProView.jsx");
+  const team = read("components/team/TeamManagementView.jsx");
+  const admin = read("components/admin/PlatformAdminView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.equal(legacy.includes("export function BillingProView"), false);
+  assert.equal(legacy.includes("export function TeamManagementView"), false);
+  assert.equal(legacy.includes("export function PlatformAdminView"), false);
+  assert.ok(shared.includes("export function SaasStyles"));
+  assert.ok(onboarding.includes("export function PlanOnboardingView"));
+  assert.ok(suspended.includes("export function SuspendedWorkspaceView"));
+  assert.ok(billing.includes("export function BillingProView"));
+  assert.ok(team.includes("export function TeamManagementView"));
+  assert.ok(admin.includes("export function PlatformAdminView"));
+  assert.ok(dashboard.includes('./billing/BillingProView'));
+  assert.ok(dashboard.includes('./team/TeamManagementView'));
+  assert.ok(dashboard.includes('./admin/PlatformAdminView'));
+  assert.equal(dashboard.includes('./SaasFoundation'), false);
+});
+
 test("navigation permissions live outside UI components", () => {
   const saas = read("components/SaasFoundation.jsx");
   const permissions = read("lib/permissions/navigation.js");
