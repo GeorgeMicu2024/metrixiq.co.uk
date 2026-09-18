@@ -309,6 +309,16 @@ test("IADC Mentor and Concessions use canonical operational modules", () => {
   assert.ok(dashboard.includes('./operations/ConcessionsView'));
 });
 
+test("legacy compatibility files stay thin and cannot regrow into monoliths", () => {
+  const directLegacy = read("components/DirectOperationalViews.jsx");
+  const operationalLegacy = read("components/OperationalViews.jsx");
+  const saasLegacy = read("components/SaasFoundation.jsx");
+
+  assert.ok(directLegacy.length < 1000);
+  assert.ok(operationalLegacy.length < 1000);
+  assert.ok(saasLegacy.length < 1000);
+});
+
 test("product views are split by responsibility", () => {
   const professional = read("components/ProfessionalViews.jsx");
   const performance = read("components/performance/PerformanceView.jsx");
