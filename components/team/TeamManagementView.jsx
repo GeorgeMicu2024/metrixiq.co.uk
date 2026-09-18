@@ -162,12 +162,12 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
         <div className="team-invite-grid">
           <label>
             <span>Email</span>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="manager@company.co.uk" />
+            <input aria-label="Invite email address" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="manager@company.co.uk" />
           </label>
 
           <label>
             <span>Role</span>
-            <select value={role} onChange={(e) => setRole(e.target.value)}>
+            <select aria-label="Invite role" value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="manager">Manager</option>
               <option value="dispatcher">Dispatcher</option>
               <option value="viewer">Viewer</option>
@@ -176,7 +176,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
 
           <label>
             <span>Site scope</span>
-            <input value={sites} onChange={(e) => setSites(e.target.value)} placeholder="DLS2, DXM3 · blank = all sites" />
+            <input aria-label="Invite site scope" value={sites} onChange={(e) => setSites(e.target.value)} placeholder="DLS2, DXM3 · blank = all sites" />
           </label>
 
           <button className="saas-primary" disabled={!canManage || busy === "invite"} onClick={invite}>
