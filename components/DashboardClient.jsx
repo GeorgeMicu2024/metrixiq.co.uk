@@ -9,8 +9,8 @@ import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { persistAnalysis } from "../lib/persistence";
 import { aggregateFleetHistory, ConcessionsHistoryView, HistoryTrendChart, MentorHistoryView, PerformanceHistoryView } from "./HistoricalAnalytics";
 import { CdfView, DataQualityView, DriverScorecardsView, IadcView, SiteScorecardsView } from "./OperationalViews";
-import { ProConcessionsView, ProDriversView, ProMentorView, ProPerformanceView } from "./ProfessionalViewsV7";
-import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./ProfessionalViewsV10";
+import { ProConcessionsView, ProDriversView, ProMentorView, ProPerformanceView } from "./ProfessionalViews";
+import { DirectConcessionsView, DirectIadcView, DirectMentorView } from "./DirectOperationalViews";
 import { isUsablePersonName } from "../lib/identity";
 import { TARGETS, targetLabel } from "../lib/config/performance";
 
