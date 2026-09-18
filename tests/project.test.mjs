@@ -219,12 +219,20 @@ test("reports builders export real fleet evidence", () => {
 
 test("Reports CSV export is Excel-friendly and formula-safe", () => {
   const csv = toCsv([
-    { name: "=2+2", note: "@SUM(A1:A2)", normal: "Driver" },
+    {
+      name: "=2+2",
+      note: "@SUM(A1:A2)",
+      negative_text: "-5+2",
+      negative_number: -5,
+      normal: "Driver",
+    },
   ]);
 
   assert.ok(csv.startsWith("\uFEFF"));
   assert.ok(csv.includes("'=2+2"));
   assert.ok(csv.includes("'@SUM(A1:A2)"));
+  assert.ok(csv.includes("'-5+2"));
+  assert.ok(csv.includes(",-5,"));
   assert.ok(csv.includes("\r\n"));
 });
 
