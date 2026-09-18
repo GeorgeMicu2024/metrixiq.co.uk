@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { displayDriverName, isUsablePersonName } from "../lib/identity";
-import { TARGETS } from "./HistoricalAnalytics";
+import { TARGETS } from "../lib/config/performance";
 
 const RANGE_OPTIONS = [1, 2, 4, 8, 12, 26, 52, "all"];
 
@@ -362,9 +362,9 @@ export function ProPerformanceView({ rows = [], kpis = {}, onOpenDriver }) {
     {label:"POD",key:"pod",target:TARGETS.pod,digits:2,suffix:"%",description:"Photo on delivery"},
     {label:"IADC",key:"iadc",target:TARGETS.iadc,digits:1,suffix:"%",description:"Workflow compliance"},
     {label:"Mentor",key:"mentor",target:TARGETS.mentor,digits:0,suffix:"",description:"Driving behaviour"},
-    {label:"Contact Compliance",key:"cc",target:98,digits:2,suffix:"%",description:"Customer contact"},
-    {label:"PSB",key:"psb",target:98,digits:2,suffix:"%",description:"Pickup success behaviour"},
-    {label:"Reattempts",key:"reattempts",target:95,digits:2,suffix:"%",description:"Reattempt compliance"},
+    {label:"Contact Compliance",key:"cc",target:TARGETS.cc,digits:2,suffix:"%",description:"Customer contact"},
+    {label:"PSB",key:"psb",target:TARGETS.psb,digits:2,suffix:"%",description:"Pickup success behaviour"},
+    {label:"Reattempts",key:"reattempts",target:TARGETS.reattempts,digits:2,suffix:"%",description:"Reattempt compliance"},
     {label:"Avg concessions",key:"concessions",target:null,digits:2,suffix:"",description:"Average per measured driver",lowerBetter:true}
   ];
 
@@ -1420,7 +1420,7 @@ export function ProMentorView({ rows = [], onOpenDriver }) {
           const d=item.details||{};
           return <tr key={item.id}><td><b>{resolvedName(item.driver)}</b><small className="history-date">{item.driver?.site||"DLS2"}</small></td><td>{item.driver?.trid||"—"}</td><td><MetricPill metric="mentor" value={item.score}/></td>
             {["acceleration","braking","cornering","distraction","speedingRisk"].map((key)=><td key={key}><span className={`mentor-risk ${String(d[key]||"").toLowerCase().includes("high")?"high":String(d[key]||"").toLowerCase().includes("medium")?"med":"low"}`}>{d[key]||"—"}</span></td>)}
-            <td>{d.speedingEvents??"—"}</td><td>{d.training??"—"}</td><td>{d.completed??"—"}</td><td><button type="button" className="profile-link" onClick={()=>onOpenDriver?.({id:item.driver?.trid,dbId:item.id,name:resolvedName(item.driver),site:item.driver?.site||"DLS2",mentor_score:item.score,fico:item.score,ementor:item.score,risk:item.score!=null&&item.score<TARGETS.mentor?"Medium":"Low",issue:item.score!=null&&item.score<TARGETS.mentor?"Mentor score below 815":"No active concern"})}>Open →</button></td></tr>;
+            <td>{d.speedingEvents??"—"}</td><td>{d.training??"—"}</td><td>{d.completed??"—"}</td><td><button type="button" className="profile-link" onClick={()=>onOpenDriver?.({id:item.driver?.trid,dbId:item.id,name:resolvedName(item.driver),site:item.driver?.site||"DLS2",mentor_score:item.score,fico:item.score,ementor:item.score,risk:item.score!=null&&item.score<TARGETS.mentor?"Medium":"Low",issue:item.score!=null&&item.score<TARGETS.mentor?`Mentor score below ${TARGETS.mentor}`:"No active concern"})}>Open →</button></td></tr>;
         })}
         {!filtered.length&&<EmptyRow columns={12} text="No Mentor evidence matches this selection."/>}
       </tbody></table></div>
