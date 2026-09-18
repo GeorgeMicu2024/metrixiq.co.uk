@@ -126,13 +126,13 @@ export default function DriverDirectoryView({ drivers = [], onOpen, query = "" }
             onChange={(event) => setLocalQuery(event.target.value)}
             placeholder="Search driver name, TRID or site…"
           />
-          <select value={risk} onChange={(event) => setRisk(event.target.value)}>
+          <select aria-label="Filter by risk" value={risk} onChange={(event) => setRisk(event.target.value)}>
             <option value="all">All risk levels</option>
             <option value="low">Low risk</option>
             <option value="medium">Medium risk</option>
             <option value="high">High risk</option>
           </select>
-          <select value={coverage} onChange={(event) => setCoverage(event.target.value)}>
+          <select aria-label="Filter by data coverage" value={coverage} onChange={(event) => setCoverage(event.target.value)}>
             <option value="all">All data coverage</option>
             <option value="complete">3+ core metrics</option>
             <option value="partial">Partial evidence</option>
