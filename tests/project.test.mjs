@@ -77,12 +77,9 @@ test("central KPI target configuration is used", () => {
 });
 
 test("team management delegates data and permission logic", () => {
-  const saas = read("components/SaasFoundation.jsx");
+  const teamView = read("components/team/TeamManagementView.jsx");
   const teamData = read("lib/data/team.js");
   const roles = read("lib/permissions/roles.js");
-  const teamStart = saas.indexOf("export function TeamManagementView");
-  const teamEnd = saas.indexOf("export function PlatformAdminView");
-  const teamView = saas.slice(teamStart, teamEnd);
 
   assert.equal(teamView.includes(".rpc("), false);
   assert.equal(teamView.includes("supabase.auth.getUser"), false);
