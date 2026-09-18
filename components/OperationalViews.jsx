@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { displayDriverName, isUsablePersonName, nameSignature, normalizeName } from "../lib/identity";
-import { TARGETS } from "./HistoricalAnalytics";
+import { TARGETS, targetLabel } from "../lib/config/performance";
 
 const num = (value) => value == null || value === "" || Number.isNaN(Number(value)) ? null : Number(value);
 const pct = (value, digits = 2) => num(value) == null ? "—" : `${Number(value).toFixed(digits)}%`;
@@ -817,9 +817,9 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport })
     const v = num(value);
     if (v == null) return "neutral";
     if (key === "concessions") return v === 0 ? "good" : v < 3 ? "warn" : "bad";
-    if (key === "fico") return v >= 815 ? "good" : v >= 800 ? "warn" : "bad";
-    if (key === "dcr") return v >= 99.2 ? "good" : v >= 98 ? "warn" : "bad";
-    if (key === "pod") return v >= 99.6 ? "good" : v >= 99 ? "warn" : "bad";
+    if (key === "fico") return v >= TARGETS.mentor ? "good" : v >= 800 ? "warn" : "bad";
+    if (key === "dcr") return v >= TARGETS.dcr ? "good" : v >= 98 ? "warn" : "bad";
+    if (key === "pod") return v >= TARGETS.pod ? "good" : v >= 99 ? "warn" : "bad";
     if (key === "cc") return v >= 99 ? "good" : v >= 95 ? "warn" : "bad";
     if (key === "dsc_dpmo") return v === 0 ? "good" : v < 1000 ? "warn" : "bad";
     if (key === "lor") return v === 0 ? "good" : "bad";
@@ -1087,9 +1087,9 @@ export function IadcView({ organizationId, onOpenDriver, onImport }) {
 
   return <>
     <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">WORKFLOW COMPLIANCE</span><h1>IADC intelligence</h1><p>Current-week delivery workflow compliance with exact driver evidence.</p></div><div className="scorecard-filter-row"><select value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select><button className="btn primary" onClick={onImport}>Import IADC</button></div></div>
-    <section className="ops-kpi-strip"><div><span>Fleet IADC</span><strong>{average == null ? "—" : `${average.toFixed(1)}%`}</strong><small>Target ≥ 80%</small></div><div><span>Below target</span><strong>{below}</strong><small>Needs coaching</small></div><div><span>Drivers measured</span><strong>{selected.length}</strong><small>{week || "No week"}</small></div><div><span>Best result</span><strong>{best ? `${Number(best.iadc).toFixed(1)}%` : "—"}</strong><small>{best ? displayDriverName(best.drivers) : "No evidence"}</small></div></section>
+    <section className="ops-kpi-strip"><div><span>Fleet IADC</span><strong>{average == null ? "—" : `${average.toFixed(1)}%`}</strong><small>{targetLabel("iadc")}</small></div><div><span>Below target</span><strong>{below}</strong><small>Needs coaching</small></div><div><span>Drivers measured</span><strong>{selected.length}</strong><small>{week || "No week"}</small></div><div><span>Best result</span><strong>{best ? `${Number(best.iadc).toFixed(1)}%` : "—"}</strong><small>{best ? displayDriverName(best.drivers) : "No evidence"}</small></div></section>
     <section className="panel"><div className="panel-head"><div><h2>Driver IADC ranking</h2><p>DWC is shown when available from the same workflow report.</p></div><span className="panel-badge">{selected.length} drivers</span></div><div className="table-wrap"><table className="data-table"><thead><tr><th>Rank</th><th>Driver</th><th>TRID</th><th>IADC</th><th>DWC</th><th>Status</th><th /></tr></thead><tbody>
-      {selected.map((row,index)=><tr key={row.driver_id}><td><span className="rank-badge">{index+1}</span></td><td><b>{displayDriverName(row.drivers)}</b></td><td>{row.drivers?.trid}</td><td><b>{pct(row.iadc)}</b></td><td>{pct(row.raw_data?.dwc)}</td><td><span className={`target-status ${Number(row.iadc)>=TARGETS.iadc?"good":"bad"}`}>{Number(row.iadc)>=TARGETS.iadc?"On target":"Below 80%"}</span></td><td><button className="profile-link" onClick={()=>onOpenDriver?.(driverShape({...row,performance:null,dcr:null,pod:null,cc:null,mentor_score:null,concessions:null,lor:null,psb:null,data_confidence:null}))}>Open →</button></td></tr>)}
+      {selected.map((row,index)=><tr key={row.driver_id}><td><span className="rank-badge">{index+1}</span></td><td><b>{displayDriverName(row.drivers)}</b></td><td>{row.drivers?.trid}</td><td><b>{pct(row.iadc)}</b></td><td>{pct(row.raw_data?.dwc)}</td><td><span className={`target-status ${Number(row.iadc)>=TARGETS.iadc?"good":"bad"}`}>{Number(row.iadc)>=TARGETS.iadc?"On target":`Below ${TARGETS.iadc}%`}</span></td><td><button className="profile-link" onClick={()=>onOpenDriver?.(driverShape({...row,performance:null,dcr:null,pod:null,cc:null,mentor_score:null,concessions:null,lor:null,psb:null,data_confidence:null}))}>Open →</button></td></tr>)}
       {!selected.length && <tr><td colSpan="7"><div className="ops-mini-empty">Import a DWC/IADC report to populate this view.</div></td></tr>}
     </tbody></table></div></section>
   </>;
