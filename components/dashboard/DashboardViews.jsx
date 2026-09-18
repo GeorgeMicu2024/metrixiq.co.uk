@@ -11,15 +11,85 @@ function MetricCard({ label, value, target, note, accent = "good" }) {
 }
 function Action({ n, title, text, onClick }) { return <div className="action-item"><span>{n}</span><div><b>{title}</b><p>{text}</p></div><button type="button" onClick={onClick}>→</button></div>; }
 
-function DriverTable({ drivers, compact = false, onOpen }) {
-  return <div className="table-wrap"><table className="data-table"><thead><tr><th>Driver</th><th>Site</th><th>Performance</th><th>POD</th><th>IADC</th><th>Risk</th>{!compact && <th>Issue</th>}<th /></tr></thead><tbody>{drivers.map((d) => {
-    const unresolved = !isUsablePersonName(d.name);
-    const label = unresolved ? "Unresolved identity" : d.name;
-    return <tr key={`${d.id}-${d.dbId || "driver"}`} className={onOpen ? "driver-row-clickable" : ""} onClick={() => onOpen?.(d)}>
-      <td><div className="driver-cell"><span className={`driver-avatar ${unresolved ? "unresolved" : ""}`}>{unresolved ? "?" : (d.initials || initials(label))}</span><div><b>{label}</b><small>{d.id}</small></div></div></td>
-      <td>{d.site || "—"}</td><td><b>{fmt(d.performance, "performance")}</b></td><td>{fmt(d.pod, "pod")}</td><td>{fmt(d.iadc, "iadc")}</td><td><span className={`risk-pill ${tone(d.risk)}`}>{d.risk || "Low"}</span></td>{!compact && <td className="issue-cell">{unresolved ? "Identity mapping required" : (d.issue || "No active concern")}</td>}<td><button type="button" className="profile-link" onClick={(e) => { e.stopPropagation(); onOpen?.(d); }}>Open →</button></td>
-    </tr>;
-  })}</tbody></table></div>;
+function DriverTable({
+  drivers,
+  compact = false,
+  onOpen,
+  emptyText = "No drivers match the current evidence and filters.",
+}) {
+  const columns = compact ? 7 : 8;
+
+  return (
+    <div className="table-wrap">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>Driver</th>
+            <th>Site</th>
+            <th>Performance</th>
+            <th>POD</th>
+            <th>IADC</th>
+            <th>Risk</th>
+            {!compact && <th>Issue</th>}
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {drivers.length === 0 ? (
+            <tr>
+              <td colSpan={columns}>
+                <div className="table-empty-state">
+                  <b>No action required</b>
+                  <span>{emptyText}</span>
+                </div>
+              </td>
+            </tr>
+          ) : drivers.map((d) => {
+            const unresolved = !isUsablePersonName(d.name);
+            const label = unresolved ? "Unresolved identity" : d.name;
+
+            return (
+              <tr
+                key={`${d.id}-${d.dbId || "driver"}`}
+                className={onOpen ? "driver-row-clickable" : ""}
+                onClick={() => onOpen?.(d)}
+              >
+                <td>
+                  <div className="driver-cell">
+                    <span className={`driver-avatar ${unresolved ? "unresolved" : ""}`}>
+                      {unresolved ? "?" : (d.initials || initials(label))}
+                    </span>
+                    <div>
+                      <b>{label}</b>
+                      <small>{d.id}</small>
+                    </div>
+                  </div>
+                </td>
+                <td>{d.site || "—"}</td>
+                <td><b>{fmt(d.performance, "performance")}</b></td>
+                <td>{fmt(d.pod, "pod")}</td>
+                <td>{fmt(d.iadc, "iadc")}</td>
+                <td><span className={`risk-pill ${tone(d.risk)}`}>{d.risk || "Low"}</span></td>
+                {!compact && <td className="issue-cell">{unresolved ? "Identity mapping required" : (d.issue || "No active concern")}</td>}
+                <td>
+                  <button
+                    type="button"
+                    className="profile-link"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpen?.(d);
+                    }}
+                  >
+                    Open →
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching, onDataQuality }) {
@@ -41,7 +111,7 @@ export function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, 
     <section className="metric-grid"><MetricCard label="DCR" value={fmt(kpis.dcr, "dcr")} target={`Target ≥ ${TARGETS.dcr.toFixed(2)}%`} note="Fleet average" accent={kpis.dcr != null && kpis.dcr < TARGETS.dcr ? "warn" : "good"} /><MetricCard label="POD" value={fmt(kpis.pod, "pod")} target={`Target ≥ ${TARGETS.pod.toFixed(2)}%`} note={kpis.pod != null && kpis.pod < TARGETS.pod ? "Watch" : "Healthy"} accent={kpis.pod != null && kpis.pod < TARGETS.pod ? "warn" : "good"} /><MetricCard label="IADC" value={fmt(kpis.iadc, "iadc")} target={`Target ≥ ${TARGETS.iadc}%`} note="Fleet average" accent={kpis.iadc != null && kpis.iadc < TARGETS.iadc ? "warn" : "good"} /><MetricCard label="Mentor Score" value={fmt(kpis.mentor, "mentor")} target={`Target ≥ ${TARGETS.mentor}`} note="Unified driving score" accent={kpis.mentor != null && kpis.mentor < TARGETS.mentor ? "warn" : "good"} /><MetricCard label="Contact Compliance" value={fmt(kpis.cc, "cc")} target={targetLabel("cc")} note="Fleet average" /><MetricCard label="Concessions" value={fmt(kpis.concessions, "concessions")} target="Lower is better" note="Weekly quality signal" accent="warn" /></section>
     <section className="dashboard-grid"><article className="panel"><div className="panel-head"><div><h2>Performance trend</h2><p>Combined fleet score versus weekly target</p></div><span className="panel-badge good">Stored history</span></div><HistoryTrendChart history={history} /><div className="chart-legend"><span><i className="legend-line teal" />Fleet performance</span><span><i className="legend-line target" />Target 85</span></div></article>
       <article className="panel"><div className="panel-head"><div><h2>Driver risk</h2><p>Current prioritisation model</p></div><span className="panel-badge">{drivers.length} drivers</span></div><div className="risk-content"><div className="risk-donut" style={{ background: `conic-gradient(#18aa86 0 ${low / total * 100}%, #f0b84b ${low / total * 100}% ${(low + med) / total * 100}%, #ef626b ${(low + med) / total * 100}% 100%)` }}><div><strong>{high}</strong><span>high risk</span></div></div><div className="risk-list"><div><span><i className="risk-dot low" />Low risk</span><b>{low}</b></div><div><span><i className="risk-dot med" />Medium risk</span><b>{med}</b></div><div><span><i className="risk-dot high" />High risk</span><b>{high}</b></div></div></div></article></section>
-    <section className="dashboard-grid lower"><article className="panel"><div className="panel-head"><div><h2>Drivers requiring attention</h2><p>Prioritised by KPI gaps, risk, concessions and data confidence</p></div><button className="link-btn" onClick={onDrivers}>View all</button></div><DriverTable drivers={attentionDrivers} compact onOpen={onOpenDriver} /></article><article className="panel"><div className="panel-head"><div><h2>Management actions</h2><p>Generated from the current fleet evidence</p></div><span className="panel-badge">{intelligence.confidence}% confidence</span></div><div className="action-list">{intelligence.actions.slice(0,3).map((action,index)=><Action key={action.id} n={String(index+1).padStart(2,"0")} title={action.title} text={action.text} onClick={()=>openAction(action.destination)} />)}</div></article></section></>;
+    <section className="dashboard-grid lower"><article className="panel"><div className="panel-head"><div><h2>Drivers requiring attention</h2><p>Prioritised by KPI gaps, risk, concessions and data confidence</p></div><button className="link-btn" onClick={onDrivers}>View all</button></div><DriverTable drivers={attentionDrivers} compact onOpen={onOpenDriver} emptyText="No drivers currently require priority management attention." /></article><article className="panel"><div className="panel-head"><div><h2>Management actions</h2><p>Generated from the current fleet evidence</p></div><span className="panel-badge">{intelligence.confidence}% confidence</span></div><div className="action-list">{intelligence.actions.slice(0,3).map((action,index)=><Action key={action.id} n={String(index+1).padStart(2,"0")} title={action.title} text={action.text} onClick={()=>openAction(action.destination)} />)}</div></article></section></>;
 }
 
 export function IntelligenceView({
@@ -118,7 +188,7 @@ export function IntelligenceView({
           </div>
           <span className="panel-badge">{priorityDrivers.length} shown</span>
         </div>
-        <DriverTable drivers={priorityDrivers} compact onOpen={onOpenDriver} />
+        <DriverTable drivers={priorityDrivers} compact onOpen={onOpenDriver} emptyText="No driver currently triggers a priority intelligence signal." />
       </article>
 
       <article className="panel">
