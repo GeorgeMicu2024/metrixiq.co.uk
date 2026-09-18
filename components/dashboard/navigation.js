@@ -9,7 +9,7 @@ export const NAV_ITEMS = [
   ["mentor", "Mentor"],
   ["concessions", "Concessions"],
   ["coaching", "Coaching"],
-  ["intelligence", "AI Insights"],
+  ["intelligence", "Intelligence"],
   ["imports", "Smart Import"],
   ["data-quality", "Data Quality"],
   ["reports", "Reports"],
