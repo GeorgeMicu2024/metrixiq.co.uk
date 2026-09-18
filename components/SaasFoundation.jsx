@@ -1,4 +1,4 @@
-export { default as SuspendedWorkspaceView } from "./saas/SuspendedWorkspaceView";
+export { SuspendedWorkspaceView } from "./saas/SuspendedWorkspaceView";
 export { PlanOnboardingView } from "./saas/PlanOnboardingView";
 export { BillingProView } from "./billing/BillingProView";
 export { TeamManagementView } from "./team/TeamManagementView";
