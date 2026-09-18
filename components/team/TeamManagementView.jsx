@@ -130,11 +130,13 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
   }
 
   async function copySignupLink() {
+    const signupUrl = `${window.location.origin}/login?mode=register&invite=1`;
+
     try {
-      await navigator.clipboard.writeText("https://www.metrixiq.co.uk/login");
-      setMessage("Signup link copied. The invite is matched automatically by email.");
+      await navigator.clipboard.writeText(signupUrl);
+      setMessage("Invite signup link copied. The workspace is matched automatically by email.");
     } catch {
-      setMessage("Signup URL: https://www.metrixiq.co.uk/login");
+      setMessage(`Signup URL: ${signupUrl}`);
     }
   }
 
