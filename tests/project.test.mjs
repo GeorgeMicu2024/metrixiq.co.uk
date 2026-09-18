@@ -221,6 +221,24 @@ test("CDF and Data Quality use canonical product modules", () => {
   assert.ok(dashboard.includes('./data-quality/DataQualityView'));
 });
 
+test("Concessions separates orchestration from presentation sections", () => {
+  const view = read("components/operations/ConcessionsView.jsx");
+  const sections = read("components/operations/ConcessionsSections.jsx");
+
+  assert.ok(view.includes("ConcessionsHeader"));
+  assert.ok(view.includes("ConcessionsKpis"));
+  assert.ok(view.includes("ConcessionsMatrix"));
+  assert.ok(view.includes("ConcessionsOverview"));
+  assert.ok(view.includes("<style jsx global>"));
+  assert.equal(view.includes('<section className="cx2-kpis">'), false);
+  assert.equal(view.includes('<section className="cx2-card cx2-matrix-card">'), false);
+  assert.equal(view.includes('<section className="cx2-overview-grid">'), false);
+  assert.ok(sections.includes("export function ConcessionsHeader"));
+  assert.ok(sections.includes("export function ConcessionsKpis"));
+  assert.ok(sections.includes("export function ConcessionsMatrix"));
+  assert.ok(sections.includes("export function ConcessionsOverview"));
+});
+
 test("IADC Mentor and Concessions use canonical operational modules", () => {
   const legacy = read("components/DirectOperationalViews.jsx");
   const shared = read("components/operations/OperationalShared.jsx");
