@@ -188,7 +188,7 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
       </div>
 
       <div className="sitepro-controls">
-        <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+        <select aria-label="Select scorecard driver" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
           {sortedCards.map((item) =>
             <option key={item.id} value={item.id}>
               {item.site} · {item.year} · {item.week_label}
@@ -702,7 +702,7 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport, s
       </div>
 
       <div className="scorex-actions">
-        <select value={periodKey} onChange={(event) => setPeriodKey(event.target.value)}>
+        <select aria-label="Select scorecard period" value={periodKey} onChange={(event) => setPeriodKey(event.target.value)}>
           {periodMap.map((item) =>
             <option key={item.key} value={item.key}>
               {item.year || "—"} · {item.weekLabel} · {item.site || "UNASSIGNED"} · {item.card?.standing || "Scorecard"}
