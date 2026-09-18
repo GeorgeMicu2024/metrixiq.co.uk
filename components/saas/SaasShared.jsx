@@ -1,7 +1,5 @@
 "use client";
 
-import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-
 const PLAN_LABELS = {
   free: "Free",
   pro: "Starter",
@@ -44,15 +42,6 @@ export function daysLeft(value) {
   const end = new Date(value).getTime();
   if (!Number.isFinite(end)) return 0;
   return Math.max(0, Math.ceil((end - Date.now()) / 86400000));
-}
-
-export async function authToken() {
-  const supabase = getSupabaseBrowserClient();
-  const { data, error } = await supabase.auth.getSession();
-  if (error) throw error;
-  const token = data?.session?.access_token;
-  if (!token) throw new Error("Your secure session has expired. Please sign in again.");
-  return token;
 }
 
 export function SaasStyles() {
