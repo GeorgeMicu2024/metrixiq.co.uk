@@ -61,6 +61,24 @@ test("Smart Import readiness explains incomplete evidence", () => {
   assert.ok(intelligence.actions.some((item) => item.includes("unmatched driver")));
 });
 
+test("analyzer delegates spreadsheet parsing to a dedicated engine", () => {
+  const analyzer = read("lib/analyzer.js");
+  const spreadsheet = read("lib/analyzer/spreadsheet.js");
+  const core = read("lib/analyzer/core.js");
+
+  assert.ok(analyzer.includes('from "./analyzer/spreadsheet"'));
+  assert.ok(analyzer.includes("parseSpreadsheet(file)"));
+  assert.equal(analyzer.includes("function parseMentorMatrix"), false);
+  assert.equal(analyzer.includes("function parseConcessionMatrix"), false);
+  assert.equal(analyzer.includes("function parseScorecardMatrix"), false);
+  assert.ok(spreadsheet.includes("export async function parseSpreadsheet"));
+  assert.ok(spreadsheet.includes("function parseMentorMatrix"));
+  assert.ok(spreadsheet.includes("function parseConcessionMatrix"));
+  assert.ok(spreadsheet.includes("function parseScorecardMatrix"));
+  assert.ok(core.includes("export function inferPeriod"));
+  assert.ok(analyzer.length < 40000);
+});
+
 test("Smart Import exposes professional preflight and readiness UI", () => {
   const view = read("components/imports/SmartImportView.jsx");
   const css = read("app/globals.css");
