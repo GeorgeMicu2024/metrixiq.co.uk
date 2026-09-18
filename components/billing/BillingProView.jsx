@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { daysLeft, planLabel, SaasStyles } from "../saas/SaasShared";
+import { dateLabel, daysLeft, planLabel, SaasStyles } from "../saas/SaasShared";
 import { createBillingCheckout, createBillingPortal, fetchWorkspaceAccess, startWorkspaceTrial } from "../../lib/data/billing";
+import { PLAN_CATALOG, formatPlanPrice } from "../../lib/config/plans";
 
 export function BillingProView({ access, organizationId, onAccessChanged, platformAdmin = false }) {
   const [busy, setBusy] = useState("");
@@ -97,40 +98,7 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
     }
   }
 
-  const plans = [
-    {
-      name: "Free",
-      key: "free",
-      month: "£0",
-      year: "£0",
-      description: "Core fleet visibility for small teams",
-      features: ["Dashboard", "Drivers", "Core performance"],
-    },
-    {
-      name: "Starter",
-      key: "pro",
-      month: "£29",
-      year: "£290",
-      description: "Weekly operational scorecards and quality tools",
-      features: ["Scorecards", "IADC / Mentor / CDF", "Coaching & reports"],
-    },
-    {
-      name: "Professional",
-      key: "business",
-      month: "£69",
-      year: "£690",
-      description: "Advanced fleet intelligence for growing operations",
-      features: ["Everything in Starter", "AI Insights", "Team Management"],
-    },
-    {
-      name: "Business",
-      key: "full",
-      month: "£149",
-      year: "£1,490",
-      description: "Maximum MetrixIQ capability for larger operations",
-      features: ["Everything in Professional", "Full platform access", "Premium capability"],
-    },
-  ];
+
 
   const hasStripeSubscription = ["active", "past_due", "cancelled"].includes(status);
 
@@ -188,9 +156,9 @@ export function BillingProView({ access, organizationId, onAccessChanged, platfo
       {error && <div className="saas-error">{error}</div>}
 
       <div className="saas-billing-grid">
-        {plans.map((plan) => {
+        {PLAN_CATALOG.map((plan) => {
           const active = effectivePlan === plan.key && (status === "active" || status === "free");
-          const amount = cycle === "year" ? plan.year : plan.month;
+          const amount = formatPlanPrice(plan, cycle);
           const period = cycle === "year" ? "/year" : "/month";
 
           return (
