@@ -7,6 +7,7 @@ import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 import { inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
 import { parseGenericMatrix } from "../lib/analyzer/spreadsheet.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
+import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
 import { buildDriverPerformanceRows, buildExecutiveSummary, buildRiskRows, toCsv } from "../lib/reports/fleetReports.js";
 
@@ -286,6 +287,24 @@ test("auth callback restricts redirects to internal paths", () => {
   const callback = read("app/auth/callback/page.jsx");
   assert.ok(callback.includes("function safeInternalPath"));
   assert.ok(callback.includes('candidate.startsWith("//")'));
+});
+
+test("billing catalogue matches the live MetrixIQ Stripe pricing", () => {
+  const starter = PLAN_CATALOG.find((plan) => plan.key === "pro");
+  const professional = PLAN_CATALOG.find((plan) => plan.key === "business");
+  const business = PLAN_CATALOG.find((plan) => plan.key === "full");
+
+  assert.equal(formatPlanPrice(starter, "month"), "£29");
+  assert.equal(formatPlanPrice(starter, "year"), "£290");
+  assert.equal(formatPlanPrice(professional, "month"), "£69");
+  assert.equal(formatPlanPrice(professional, "year"), "£690");
+  assert.equal(formatPlanPrice(business, "month"), "£149");
+  assert.equal(formatPlanPrice(business, "year"), "£1,490");
+
+  const billing = read("components/billing/BillingProView.jsx");
+  assert.ok(billing.includes("PLAN_CATALOG"));
+  assert.ok(billing.includes("dateLabel"));
+  assert.equal(billing.includes('"AI Insights"'), false);
 });
 
 test("billing API routes are present", () => {
