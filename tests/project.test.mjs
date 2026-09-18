@@ -578,6 +578,15 @@ test("Billing distinguishes Stripe-managed subscriptions from manual admin acces
   );
 });
 
+test("workspace context loads canonical billing state on first render", () => {
+  const workspace = read("lib/data/workspace.js");
+
+  assert.ok(workspace.includes('import { fetchWorkspaceAccess } from "./billing";'));
+  assert.ok(workspace.includes("fetchWorkspaceAccess(supabase, resolved.organization.id)"));
+  assert.equal(workspace.includes('supabase.rpc("get_workspace_access"'), false);
+});
+
+
 
 test("SaaS foundation is split into canonical product modules", () => {
   const legacy = read("components/SaasFoundation.jsx");
