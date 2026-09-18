@@ -794,6 +794,7 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport, s
         </div>
         <div>
           <input
+            aria-label="Search scorecards"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search name or Transporter ID…"
