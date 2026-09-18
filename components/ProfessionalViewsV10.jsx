@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
-
-const TARGETS = { iadc: 80, mentor: 815 };
+import { TARGETS, targetLabel } from "../lib/config/performance";
 const RANGE_OPTIONS = [1,2,4,8,12,26,52,"all"];
 
 const n = (v) => v == null || v === "" || Number.isNaN(Number(v)) ? null : Number(v);
@@ -86,7 +85,7 @@ function Loading({text}){return <section className="panel ops-empty"><div classN
 function ErrorBox({error}){return <section className="panel ops-empty error"><b>Unable to load this view</b><span>{error}</span></section>;}
 function RangeTabs({value,onChange}){return <div className="v10-range-tabs">{RANGE_OPTIONS.map((x)=><button type="button" key={String(x)} className={value===x?"active":""} onClick={()=>onChange(x)}>{x==="all"?"All":`${x}W`}</button>)}</div>;}
 function toneIadc(v){const x=n(v);return x==null?"neutral":x>=90?"excellent":x>=80?"good":x>=70?"warn":"bad";}
-function toneMentor(v){const x=n(v);return x==null?"neutral":x>=830?"excellent":x>=815?"good":x>=790?"warn":"bad";}
+function toneMentor(v){const x=n(v);return x==null?"neutral":x>=830?"excellent":x>=TARGETS.mentor?"good":x>=790?"warn":"bad";}
 function riskTone(v){const s=String(v||"").toLowerCase();return s.includes("high")?"high":s.includes("medium")?"med":s.includes("low")?"low":"neutral";}
 function openShape(row,extra={}){
   const d=row?.drivers||{};
@@ -104,7 +103,7 @@ export function DirectIadcView({organizationId,onOpenDriver,onImport}){
   const filtered=selected.filter(r=>`${dname(r.drivers)} ${trid(r.drivers)} ${r.drivers?.site||""}`.toLowerCase().includes(query.toLowerCase()));
   const avg=selected.length?selected.reduce((s,r)=>s+Number(r.iadc),0)/selected.length:null;
   const below=selected.filter(r=>Number(r.iadc)<80).length;
-  const onTarget=selected.filter(r=>Number(r.iadc)>=80).length;
+  const onTarget=selected.filter(r=>Number(r.iadc)>=TARGETS.iadc).length;
   const excellent=selected.filter(r=>Number(r.iadc)>=90).length;
   const top=selected.slice(0,5);
   const bottom=[...selected].sort((a,b)=>Number(a.iadc)-Number(b.iadc)).slice(0,5);
@@ -119,10 +118,10 @@ export function DirectIadcView({organizationId,onOpenDriver,onImport}){
     </div>
 
     <section className="v10-kpi-grid six">
-      <article><span>Fleet IADC</span><strong>{pct(avg,1)}</strong><small>Target ≥ 80%</small></article>
+      <article><span>Fleet IADC</span><strong>{pct(avg,1)}</strong><small>{targetLabel("iadc")}</small></article>
       <article><span>Measured drivers</span><strong>{selected.length}</strong><small>{selectedWeek||"No period"}</small></article>
       <article className={below?"warn":""}><span>Below target</span><strong>{below}</strong><small>Coaching priority</small></article>
-      <article><span>On target</span><strong>{onTarget}</strong><small>80%+</small></article>
+      <article><span>On target</span><strong>{onTarget}</strong><small>{`${TARGETS.iadc}%+`}</small></article>
       <article><span>Excellent</span><strong>{excellent}</strong><small>90%+</small></article>
       <article><span>Best result</span><strong>{top[0]?pct(top[0].iadc,1):"—"}</strong><small>{top[0]?dname(top[0].drivers):"No evidence"}</small></article>
     </section>
@@ -135,7 +134,7 @@ export function DirectIadcView({organizationId,onOpenDriver,onImport}){
     <section className="panel v10-table-panel">
       <div className="panel-head"><div><h2>Driver IADC register</h2><p>Modelled after your George DLS2 spreadsheet: Name + Transporter ID + IADC %.</p></div><input className="v10-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search driver or Transporter ID…"/></div>
       <div className="table-wrap"><table className="data-table v10-iadc-table"><thead><tr><th>#</th><th>Driver</th><th>Transporter ID</th><th>IADC %</th><th>Visual score</th><th>Gap to 80%</th><th>DWC</th><th>Band</th><th /></tr></thead><tbody>
-      {filtered.map((r,i)=>{const value=Number(r.iadc),gap=value-80,t=toneIadc(value);return <tr key={`${r.driver_id}-${selectedWeek}-${i}`}><td><span className="rank-badge">{i+1}</span></td><td><b>{dname(r.drivers)}</b><small className="history-date">{r.drivers?.site||"DLS2"}</small></td><td><code className="v10-trid">{trid(r.drivers)}</code></td><td><b className={`v10-score ${t}`}>{pct(value)}</b></td><td><div className="v10-progress"><i className={t} style={{width:`${Math.max(0,Math.min(100,value))}%`}}/></div></td><td><span className={gap>=0?"v10-positive":"v10-negative"}>{gap>=0?"+":""}{gap.toFixed(2)} pp</span></td><td>{pct(r.raw_data?.dwc)}</td><td><span className={`v10-band ${t}`}>{value>=90?"Excellent":value>=80?"On target":value>=70?"Watch":"Priority"}</span></td><td><button className="profile-link" onClick={()=>onOpenDriver?.(openShape(r,{iadc:value,risk:value<80?"Medium":"Low",issue:value<80?"IADC below 80% target":"No active concern"}))}>Open →</button></td></tr>})}
+      {filtered.map((r,i)=>{const value=Number(r.iadc),gap=value-TARGETS.iadc,t=toneIadc(value);return <tr key={`${r.driver_id}-${selectedWeek}-${i}`}><td><span className="rank-badge">{i+1}</span></td><td><b>{dname(r.drivers)}</b><small className="history-date">{r.drivers?.site||"DLS2"}</small></td><td><code className="v10-trid">{trid(r.drivers)}</code></td><td><b className={`v10-score ${t}`}>{pct(value)}</b></td><td><div className="v10-progress"><i className={t} style={{width:`${Math.max(0,Math.min(100,value))}%`}}/></div></td><td><span className={gap>=0?"v10-positive":"v10-negative"}>{gap>=0?"+":""}{gap.toFixed(2)} pp</span></td><td>{pct(r.raw_data?.dwc)}</td><td><span className={`v10-band ${t}`}>{value>=90?"Excellent":value>=TARGETS.iadc?"On target":value>=70?"Watch":"Priority"}</span></td><td><button className="profile-link" onClick={()=>onOpenDriver?.(openShape(r,{iadc:value,risk:value<TARGETS.iadc?"Medium":"Low",issue:value<TARGETS.iadc?`IADC below ${TARGETS.iadc}% target`:"No active concern"}))}>Open →</button></td></tr>})}
       {!filtered.length&&<tr><td colSpan="9"><div className="v10-empty">No IADC rows returned for this week.</div></td></tr>}
       </tbody></table></div>
     </section>
@@ -171,7 +170,7 @@ export function DirectMentorView({organizationId,onOpenDriver}){
   const filtered=map.filter(x=>`${dname(x.driver)} ${trid(x.driver)}`.toLowerCase().includes(query.toLowerCase()));
   const scored=map.filter(x=>x.score!=null);
   const avg=scored.length?scored.reduce((s,x)=>s+x.score,0)/scored.length:null;
-  const below=scored.filter(x=>x.score<815).length;
+  const below=scored.filter(x=>x.score<TARGETS.mentor).length;
   const highRisk=map.filter(x=>Object.values(x.details||{}).some(v=>String(v).toLowerCase().includes("high risk"))).length;
   const training=map.filter(x=>n(x.details?.training)!=null&&n(x.details?.completed)!=null&&Number(x.details.completed)<Number(x.details.training)).length;
   const top=scored.slice(0,5);
@@ -179,7 +178,7 @@ export function DirectMentorView({organizationId,onOpenDriver}){
 
   return <>
     <div className="page-heading v10-heading"><div><span className="page-kicker">SAFETY</span><h1>Mentor intelligence</h1><p>Direct database view using the saved Mentor score and behaviour evidence.</p></div><RangeTabs value={range} onChange={setRange}/></div>
-    <section className="v10-kpi-grid"><article><span>Average score</span><strong>{avg==null?"—":Math.round(avg)}</strong><small>Target ≥ 815</small></article><article className={below?"warn":""}><span>Below target</span><strong>{below}</strong><small>Needs attention</small></article><article className={highRisk?"bad":""}><span>High-risk behaviour</span><strong>{highRisk}</strong><small>Any high-risk category</small></article><article><span>Training outstanding</span><strong>{training}</strong><small>Completed below assigned</small></article></section>
+    <section className="v10-kpi-grid"><article><span>Average score</span><strong>{avg==null?"—":Math.round(avg)}</strong><small>{targetLabel("mentor")}</small></article><article className={below?"warn":""}><span>Below target</span><strong>{below}</strong><small>Needs attention</small></article><article className={highRisk?"bad":""}><span>High-risk behaviour</span><strong>{highRisk}</strong><small>Any high-risk category</small></article><article><span>Training outstanding</span><strong>{training}</strong><small>Completed below assigned</small></article></section>
     <section className="dashboard-grid lower"><article className="panel v10-rank-card"><div className="panel-head"><div><h2>Top 5 Mentor</h2><p>Highest driving scores.</p></div></div>{top.map((x,i)=><button key={x.id} onClick={()=>onOpenDriver?.(openShape(x.row,{mentor_score:x.score,fico:x.score,ementor:x.score}))}><span className="rank-badge">{i+1}</span><div><b>{dname(x.driver)}</b><small>{trid(x.driver)}</small></div><strong>{Math.round(x.score)}</strong></button>)}</article><article className="panel v10-rank-card attention"><div className="panel-head"><div><h2>Bottom 5 — attention</h2><p>Lowest Mentor scores first.</p></div></div>{bottom.map((x,i)=><button key={x.id} onClick={()=>onOpenDriver?.(openShape(x.row,{mentor_score:x.score,fico:x.score,ementor:x.score,risk:"Medium",issue:"Mentor score below target"}))}><span className="rank-badge">{i+1}</span><div><b>{dname(x.driver)}</b><small>{trid(x.driver)}</small></div><strong>{Math.round(x.score)}</strong></button>)}</article></section>
     <section className="panel v10-table-panel"><div className="panel-head"><div><h2>Mentor driver register</h2><p>Score, risk categories and training evidence.</p></div><input className="v10-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search driver or TRID…"/></div><div className="table-wrap"><table className="data-table"><thead><tr><th>Driver</th><th>TRID</th><th>Score</th><th>Acceleration</th><th>Braking</th><th>Cornering</th><th>Distraction</th><th>Speeding</th><th>Events</th><th>Training</th><th>Completed</th><th /></tr></thead><tbody>
     {filtered.map(x=>{const d=x.details||{},t=toneMentor(x.score);return <tr key={x.id}><td><b>{dname(x.driver)}</b><small className="history-date">{x.driver?.site||"DLS2"}</small></td><td><code className="v10-trid">{trid(x.driver)}</code></td><td><span className={`v10-score ${t}`}>{x.score==null?"—":Math.round(x.score)}</span></td>{["acceleration","braking","cornering","distraction","speedingRisk"].map(k=><td key={k}><span className={`v10-risk ${riskTone(d[k])}`}>{d[k]||"—"}</span></td>)}<td>{d.speedingEvents??"—"}</td><td>{d.training??"—"}</td><td>{d.completed??"—"}</td><td><button className="profile-link" onClick={()=>onOpenDriver?.(openShape(x.row,{mentor_score:x.score,fico:x.score,ementor:x.score}))}>Open →</button></td></tr>})}
