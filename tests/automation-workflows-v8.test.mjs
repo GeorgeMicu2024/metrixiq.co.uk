@@ -132,7 +132,7 @@ test("V8 scheduler endpoint is protected and hourly cron is code-configured", ()
   assert.ok(route.includes("SUPABASE_SERVICE_ROLE_KEY"));
   assert.ok(route.includes('authorization !== "Bearer " + cronSecret'));
   assert.ok(route.includes('supabase.rpc("run_due_automations_system"'));
-  assert.ok(vercel.crons.some((item) => item.path === "/api/cron/automation" && item.schedule === "0 * * * *"));
+  assert.ok(vercel.crons.some((item) => item.path === "/api/cron/automation" && item.schedule === "0 6 * * *"));
   assert.ok(env.includes("CRON_SECRET=YOUR_RANDOM_CRON_SECRET"));
 });
 

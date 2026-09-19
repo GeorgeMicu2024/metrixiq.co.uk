@@ -147,7 +147,7 @@ test("V9 cron worker processes webhook and delivery queues behind CRON_SECRET", 
   assert.ok(route.includes('admin.rpc("claim_delivery_messages"'));
   assert.ok(route.includes('admin.rpc("complete_webhook_delivery"'));
   assert.ok(route.includes('admin.rpc("complete_delivery_message"'));
-  assert.ok(vercel.crons.some((item) => item.path === "/api/cron/integrations" && item.schedule === "5 * * * *"));
+  assert.ok(vercel.crons.some((item) => item.path === "/api/cron/integrations" && item.schedule === "15 6 * * *"));
   assert.ok(env.includes("INTEGRATION_ENCRYPTION_KEY=GENERATE_A_LONG_RANDOM_SECRET"));
 });
 
