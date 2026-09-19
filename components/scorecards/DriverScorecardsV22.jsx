@@ -6,6 +6,7 @@ import { fetchDriverScorecardData } from "../../lib/data/scorecardData";
 import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
+import { calculateDriverScorecard } from "../../lib/scorecards/driverScoreFormula";
 import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimitives";
 
 export default function DriverScorecardsV22({
@@ -37,65 +38,6 @@ export default function DriverScorecardsV22({
     return valueNumber == null ? "—" : `${valueNumber.toFixed(2)}%`;
   };
 
-  const formulaClamp = (value) => Math.max(0, Math.min(1, Number(value)));
-
-  const formulaPct = (value) => {
-    const raw = num(value);
-    if (raw == null) return { normalized: 1, defaulted: true };
-    return {
-      normalized: formulaClamp(raw > 1 ? raw / 100 : raw),
-      defaulted: false,
-    };
-  };
-
-  const formulaDpmo = (value, cap) => {
-    const raw = num(value);
-    if (raw == null) return { normalized: 1, defaulted: true };
-    return {
-      normalized: formulaClamp((cap - raw) / cap),
-      defaulted: false,
-    };
-  };
-
-  const formulaFico = (value) => {
-    const raw = num(value);
-    if (raw == null) return { normalized: 1, defaulted: true };
-    if (raw < 750) return { normalized: 0, defaulted: false };
-    if (raw >= 810) return { normalized: 1, defaulted: false };
-    return {
-      normalized: formulaClamp((raw - 750) / 70),
-      defaulted: false,
-    };
-  };
-
-  const formulaDsc = (value) => {
-    const raw = num(value);
-    if (raw == null) return { normalized: 1, defaulted: true };
-    return {
-      normalized: formulaClamp((1180 - raw) / (1200 - 800)),
-      defaulted: false,
-    };
-  };
-
-  const formulaCe = (value) => {
-    const raw = num(value);
-    if (raw == null) return { normalized: 1, defaulted: true };
-    return {
-      normalized: raw >= 2 ? 0 : raw === 1 ? 0.5 : 1,
-      defaulted: false,
-    };
-  };
-
-  const formulaPsb = (value) => {
-    const raw = num(value);
-    if (raw == null) return { normalized: 1, defaulted: true };
-    const normalized = raw <= 1 ? raw : raw <= 10 ? raw / 10 : raw / 100;
-    return {
-      normalized: formulaClamp(normalized),
-      defaulted: false,
-    };
-  };
-
   const manualOverrideKey = (row) =>
     `${row?.driver_id || row?.drivers?.id || row?.drivers?.trid || "unknown"}::${row?.week_label || "unknown"}`;
 
@@ -115,100 +57,36 @@ export default function DriverScorecardsV22({
   };
 
   const scoreInputsForRow = (row) => {
-    const ficoValue = num(row.mentor_score ?? row.ementor ?? row.fico);
-    const definitions = [
-      {
-        key: "fico",
-        label: "FICO",
-        value: ficoValue,
-        weight: 17,
-        format: (value) => plain(value),
-        normalized: formulaFico(ficoValue),
-      },
-      {
-        key: "dcr",
-        label: "DCR",
-        value: row.dcr,
-        weight: 17,
-        format: (value) => fmtPercentFlexible(value),
-        normalized: formulaPct(row.dcr),
-      },
-      {
-        key: "dsc_dpmo",
-        label: "DSC DPMO",
-        value: num(row.dsc_dpmo),
-        weight: 17,
-        format: (value) => plain(value),
-        normalized: formulaDsc(row.dsc_dpmo),
-      },
-      {
-        key: "lor",
-        label: "LoR DPMO",
-        value: num(row.lor),
-        weight: 6,
-        format: (value) => plain(value),
-        normalized: formulaDpmo(row.lor, 220),
-      },
-      {
-        key: "pod",
-        label: "POD",
-        value: row.pod,
-        weight: 8,
-        format: (value) => fmtPercentFlexible(value),
-        normalized: formulaPct(row.pod),
-      },
-      {
-        key: "cc",
-        label: "CC",
-        value: row.cc,
-        weight: 8,
-        format: (value) => fmtPercentFlexible(value),
-        normalized: formulaPct(row.cc),
-      },
-      {
-        key: "ce_dpmo",
-        label: "CE",
-        value: num(row.ce_dpmo),
-        weight: 10,
-        format: (value) => plain(value),
-        normalized: formulaCe(row.ce_dpmo),
-      },
-      {
-        key: "cdf_dpmo",
-        label: "CDF DPMO",
-        value: num(row.cdf_dpmo),
-        weight: 10,
-        format: (value) => plain(value),
-        normalized: formulaDpmo(row.cdf_dpmo, 4000),
-      },
-      {
-        key: "psb",
-        label: "PSB",
-        value: num(row.psb),
-        weight: 7,
-        format: (value) => plain(value),
-        normalized: formulaPsb(row.psb),
-      },
-    ];
+    const scored = calculateDriverScorecard(row);
+    const formatters = {
+      fico: (value) => plain(value),
+      dcr: (value) => fmtPercentFlexible(value),
+      dsc_dpmo: (value) => plain(value),
+      lor: (value) => plain(value),
+      pod: (value) => fmtPercentFlexible(value),
+      cc: (value) => fmtPercentFlexible(value),
+      ce_dpmo: (value) => plain(value),
+      cdf_dpmo: (value) => plain(value),
+      psb: (value) => plain(value),
+    };
 
-    return definitions.map((item) => ({
-      ...item,
-      component: item.normalized.normalized * 100,
-      defaulted: item.normalized.defaulted,
-      contribution: item.normalized.normalized * item.weight,
+    return scored.components.map((component) => ({
+      ...component,
+      weight: component.maxPoints,
+      defaulted: component.missing,
+      format: formatters[component.key] || ((value) => plain(value)),
     }));
   };
 
   const calculatedDriverScore = (row) => {
+    const scored = calculateDriverScorecard(row);
     const inputs = scoreInputsForRow(row);
-    const value = inputs.reduce((sum, item) => sum + item.contribution, 0);
-    const coverage = inputs.filter((item) => !item.defaulted).length;
     const sourceReference = num(row.scorecard_score ?? row.raw_data?.scorecard_score);
 
     return {
-      value: clamp(value),
+      value: scored.value,
       origin: "formula",
-      coverage,
+      coverage: scored.coverage,
       components: inputs,
       sourceReference,
     };
