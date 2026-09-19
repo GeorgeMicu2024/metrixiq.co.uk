@@ -34,6 +34,11 @@ begin
 end;
 $function$;
 
+revoke all on function public.get_team_invite_signup_context(uuid,text) from public;
+revoke all on function public.get_team_invite_signup_context(uuid,text) from anon;
+revoke all on function public.get_team_invite_signup_context(uuid,text) from authenticated;
+grant execute on function public.get_team_invite_signup_context(uuid,text) to service_role;
+
 create or replace function public.complete_team_invite_signup(
   p_token uuid,
   p_user_id uuid,
