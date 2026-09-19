@@ -321,6 +321,26 @@ test("fleet intelligence prioritises operational risk and next actions", () => {
   assert.equal(intelligence.trend.direction, "down");
 });
 
+test("Command Center V2 uses the server-side workspace summary", () => {
+  const panel = read("components/dashboard/CommandCenterPanel.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+  const workspace = read("lib/data/workspace.js");
+  const importFlow = read("lib/data/importWorkflow.js");
+  const data = read("lib/data/commandCenter.js");
+
+  assert.ok(panel.includes("TODAY · COMMAND CENTER"));
+  assert.ok(panel.includes("Priority alerts"));
+  assert.ok(panel.includes("Overdue coaching"));
+  assert.ok(panel.includes("Repeat concessions"));
+  assert.ok(panel.includes("Deterioration signals"));
+  assert.ok(data.includes('supabase.rpc("get_command_center_summary"'));
+  assert.ok(importFlow.includes("refreshCommandCenterSummary"));
+  assert.ok(importFlow.includes("refreshAlerts: true"));
+  assert.ok(workspace.includes("fetchCommandCenterSummary"));
+  assert.ok(dashboard.includes("setCommandCenter"));
+  assert.ok(dashboard.includes('onConcessions={() => navigate("concessions")}'));
+});
+
 test("dashboard consumes explainable fleet intelligence", () => {
   const dashboardViews = read("components/dashboard/DashboardViews.jsx");
   const dashboardClient = read("components/DashboardClient.jsx");
