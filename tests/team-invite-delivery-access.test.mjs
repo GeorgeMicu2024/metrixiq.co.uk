@@ -47,3 +47,30 @@ test("invite registration UX pre-fills the exact invited email and no longer say
   assert.ok(teamView.includes("Personal invite signup link copied."));
   assert.ok(teamView.includes("Invitation email sent."));
 });
+
+
+test("personal invite links carry the secure token and registration cannot spin forever", () => {
+  const teamView = fs.readFileSync("components/team/TeamManagementView.jsx", "utf8");
+  const login = fs.readFileSync("components/LoginClient.jsx", "utf8");
+  const route = fs.readFileSync("app/api/auth/register-invite/route.js", "utf8");
+  const sql = fs.readFileSync("supabase/migrations/20260919_team_invite_token_signup.sql", "utf8").toLowerCase();
+
+  assert.ok(teamView.includes('params.set("token", invite.token)'));
+  assert.ok(login.includes('params.get("token")'));
+  assert.ok(login.includes('fetch("/api/auth/register-invite"'));
+  assert.ok(login.includes("AbortController"));
+  assert.ok(login.includes("Registration timed out."));
+  assert.ok(login.includes("withTimeout("));
+  assert.ok(login.includes('readOnly={invitedEmailLocked}'));
+
+  assert.ok(route.includes("admin.auth.admin.createUser"));
+  assert.ok(route.includes("email_confirm: true"));
+  assert.ok(route.includes('admin.rpc("complete_team_invite_signup"'));
+  assert.ok(route.includes("deleteUser(createdUserId)"));
+
+  assert.ok(sql.includes("create or replace function public.get_team_invite_signup_context"));
+  assert.ok(sql.includes("create or replace function public.complete_team_invite_signup"));
+  assert.ok(sql.includes("grant execute on function public.get_team_invite_signup_context(uuid,text) to service_role"));
+  assert.ok(sql.includes("grant execute on function public.complete_team_invite_signup(uuid,uuid,text) to service_role"));
+  assert.ok(sql.includes("revoke all on function public.get_team_invite_signup_context(uuid,text) from authenticated"));
+});
