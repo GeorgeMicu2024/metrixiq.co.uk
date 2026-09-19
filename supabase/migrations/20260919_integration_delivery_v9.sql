@@ -483,7 +483,7 @@ begin
   if p_url !~ '^https://[^[:space:]]+$' then raise exception 'Webhook URL must use HTTPS'; end if;
   if coalesce(array_length(p_event_types,1),0)=0 then raise exception 'Select at least one webhook event'; end if;
   if not p_event_types <@ array[
-    '*','scorecard.updated','workflow.created','workflow.completed','coaching.closed',
+    '*','webhook.test','scorecard.updated','workflow.created','workflow.completed','coaching.closed',
     'incident.created','incident.closed','sla.breached','import.completed'
   ]::text[] then raise exception 'Unsupported webhook event type'; end if;
 
