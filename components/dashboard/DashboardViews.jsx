@@ -6,6 +6,13 @@ import { HistoryTrendChart } from "../HistoricalAnalytics";
 import { avg, fmt, initials, numberOrNull, tone } from "./utils";
 import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
 import CommandCenterPanel from "./CommandCenterPanel";
+import { buildDriver360Snapshot } from "../../lib/drivers/driver360";
+import {
+  Driver360DeltaGrid,
+  Driver360Overview,
+  DriverEvidenceTimeline,
+  DriverTrajectoryChart,
+} from "../drivers/Driver360Sections";
 
 function MetricCard({ label, value, target, note, accent = "good" }) {
   return <article className="metric-card"><div className="metric-top"><span>{label}</span><i className={`metric-dot ${accent}`} /></div><strong>{value}</strong><div className="metric-bottom"><span>{target}</span><em>{note}</em></div></article>;
@@ -237,25 +244,128 @@ function coachingRecommendations(d) {
 }
 
 export function DriverScorecardView({ driver, history, historyLoading, onBack }) {
+  const snapshot = buildDriver360Snapshot(driver, history);
+  const current = snapshot.current;
   const metrics = [
-    ["DCR", driver.dcr, "dcr", `Target ≥ ${TARGETS.dcr.toFixed(2)}%`], ["POD", driver.pod, "pod", `Target ≥ ${TARGETS.pod.toFixed(2)}%`],
-    ["IADC", driver.iadc, "iadc", targetLabel("iadc")], ["CC", driver.cc, "cc", targetLabel("cc")],
-    ["Mentor Score", driver.ementor ?? driver.fico, "mentor", `Target ≥ ${TARGETS.mentor}`],
-    ["PSB", driver.psb, "psb", targetLabel("psb")], ["Reattempts", driver.reattempts, "reattempts", targetLabel("reattempts")],
-    ["Concessions", driver.concessions, "concessions", "Lower is better"], ["LoR", driver.lor, "lor", "Lower is better"],
+    ["DCR", current.dcr ?? driver.dcr, "dcr", `Target ≥ ${TARGETS.dcr.toFixed(2)}%`],
+    ["POD", current.pod ?? driver.pod, "pod", `Target ≥ ${TARGETS.pod.toFixed(2)}%`],
+    ["IADC", current.iadc ?? driver.iadc, "iadc", targetLabel("iadc")],
+    ["CC", current.cc ?? driver.cc, "cc", targetLabel("cc")],
+    ["Mentor Score", current.mentor_score ?? current.ementor ?? current.fico ?? driver.ementor ?? driver.fico, "mentor", `Target ≥ ${TARGETS.mentor}`],
+    ["PSB", current.psb ?? driver.psb, "psb", targetLabel("psb")],
+    ["Reattempts", current.reattempts ?? driver.reattempts, "reattempts", targetLabel("reattempts")],
+    ["Concessions", current.concessions ?? driver.concessions, "concessions", "Lower is better"],
+    ["LoR", current.lor ?? driver.lor, "lor", "Lower is better"],
   ];
-  const historicalPerformance = history.map((h) => numberOrNull(h.performance)).filter((v) => v != null);
-  const recommendations = coachingRecommendations(driver);
+  const recommendations = coachingRecommendations({
+    ...driver,
+    ...current,
+    dataConfidence: snapshot.confidence ?? driver.dataConfidence,
+  });
+
   return <>
     <button type="button" className="scorecard-back" onClick={onBack}>← Back</button>
-    <section className="scorecard-hero">
-      <div className="scorecard-person"><span className="scorecard-avatar">{driver.initials || initials(driver.name)}</span><div><span className="page-kicker">INDIVIDUAL DRIVER SCORECARD</span><h1>{driver.name}</h1><p>{driver.site || "No site"} · {driver.id} · {driver.status || "Active"}</p></div></div>
-      <div className="scorecard-status"><span className={`risk-pill ${tone(driver.risk)}`}>{driver.risk || "Low"} risk</span><strong>{fmt(driver.performance, "performance")}<small>/100</small></strong><em>Performance score</em></div>
+
+    <section className="scorecard-hero driver360-hero">
+      <div className="scorecard-person">
+        <span className="scorecard-avatar">{driver.initials || initials(driver.name)}</span>
+        <div>
+          <span className="page-kicker">DRIVER 360</span>
+          <h1>{driver.name}</h1>
+          <p>{driver.site || "No site"} · {driver.id} · {driver.status || "Active"} · {snapshot.latestLabel}</p>
+        </div>
+      </div>
+      <div className="scorecard-status">
+        <span className={`risk-pill ${tone(snapshot.latestRisk)}`}>{snapshot.latestRisk} risk</span>
+        <strong>{fmt(snapshot.currentPerformance, "performance")}<small>/100</small></strong>
+        <em>Current performance</em>
+      </div>
     </section>
-    <section className="scorecard-metrics">{metrics.map(([label, value, key, target]) => <MetricCard key={label} label={label} value={fmt(value, key)} target={target} note="Latest result" accent={(key === "dcr" && Number(value) < TARGETS.dcr) || (key === "pod" && Number(value) < TARGETS.pod) || (key === "iadc" && Number(value) < TARGETS.iadc) || (key === "mentor" && Number(value) < TARGETS.mentor) ? "warn" : "good"} />)}</section>
-    <section className="scorecard-layout"><article className="panel"><div className="panel-head"><div><h2>Performance history</h2><p>{driver.weekLabel ? `Latest period: ${driver.weekLabel}` : "Reporting periods available for this driver"}</p></div><span className="panel-badge">{history.length || 1} period{history.length === 1 ? "" : "s"}</span></div>{historyLoading ? <div className="scorecard-loading">Loading history…</div> : historicalPerformance.length > 1 ? <div className="mini-history-list">{history.slice(-8).map((h)=><div key={h.week_label||h.period_end}><span>{h.week_label||h.period_end}</span><b>{h.performance ?? "—"}</b></div>)}</div> : <div className="empty-history"><b>Current score: {fmt(driver.performance, "performance")}</b><p>More trend data will appear as weekly scorecards are imported.</p></div>}</article>
-      <article className="panel"><div className="panel-head"><div><h2>Current risk evidence</h2><p>Latest operational signal</p></div></div><div className="scorecard-issue"><span>Primary issue</span><strong>{driver.issue || "No active concern"}</strong><p>Data confidence: {driver.dataConfidence != null ? `${Number(driver.dataConfidence).toFixed(0)}%` : "Not provided"}</p></div><div className="scorecard-source">Source: {driver.dbId ? "Supabase driver metrics" : "Demo / locally imported analysis"}</div></article></section>
-    <section className="panel coaching-recommendations"><div className="panel-head"><div><h2>Coaching action</h2><p>Evidence-led next steps for the manager</p></div></div><div className="recommendation-list">{recommendations.map((text, i) => <div key={text}><span>{String(i + 1).padStart(2, "0")}</span><p>{text}</p></div>)}</div></section>
+
+    <Driver360Overview snapshot={snapshot} />
+
+    <section className="scorecard-metrics">
+      {metrics.map(([label, value, key, target]) => (
+        <MetricCard
+          key={label}
+          label={label}
+          value={fmt(value, key)}
+          target={target}
+          note="Latest result"
+          accent={
+            (key === "dcr" && Number(value) < TARGETS.dcr) ||
+            (key === "pod" && Number(value) < TARGETS.pod) ||
+            (key === "iadc" && Number(value) < TARGETS.iadc) ||
+            (key === "mentor" && Number(value) < TARGETS.mentor)
+              ? "warn"
+              : "good"
+          }
+        />
+      ))}
+    </section>
+
+    <Driver360DeltaGrid snapshot={snapshot} />
+
+    <section className="scorecard-layout driver360-layout">
+      <article className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Performance trajectory</h2>
+            <p>Recent performance score movement across imported periods.</p>
+          </div>
+          <span className="panel-badge">{snapshot.periods.length} periods</span>
+        </div>
+        {historyLoading
+          ? <div className="scorecard-loading">Loading trajectory…</div>
+          : <DriverTrajectoryChart snapshot={snapshot} />}
+      </article>
+
+      <article className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>Current risk evidence</h2>
+            <p>Latest operational signal and data quality context.</p>
+          </div>
+        </div>
+        <div className="scorecard-issue">
+          <span>Primary issue</span>
+          <strong>{current.issue || driver.issue || "No active concern"}</strong>
+          <p>
+            Data confidence: {snapshot.confidence != null ? `${Number(snapshot.confidence).toFixed(0)}%` : "Not provided"}
+            {" · "}
+            Coverage: {snapshot.coverage}%
+          </p>
+        </div>
+        <div className="driver360-risk-context">
+          <div><span>Current risk</span><b>{snapshot.latestRisk}</b></div>
+          <div><span>Previous risk</span><b>{snapshot.previousRisk || "—"}</b></div>
+          <div><span>4-week concessions</span><b>{snapshot.fourWeekConcessions}</b></div>
+        </div>
+        <div className="scorecard-source">
+          Source: {driver.dbId ? "Supabase driver metrics" : "Demo / locally imported analysis"}
+        </div>
+      </article>
+    </section>
+
+    <DriverEvidenceTimeline snapshot={snapshot} />
+
+    <section className="panel coaching-recommendations driver360-coaching">
+      <div className="panel-head">
+        <div>
+          <h2>Coaching action</h2>
+          <p>Evidence-led next steps for the manager.</p>
+        </div>
+        <span className="panel-badge">{recommendations.length} actions</span>
+      </div>
+      <div className="recommendation-list">
+        {recommendations.map((text, i) => (
+          <div key={text}>
+            <span>{String(i + 1).padStart(2, "0")}</span>
+            <p>{text}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   </>;
 }
 
