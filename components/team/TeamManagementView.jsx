@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { cancelTeamInvite, createTeamInvite, fetchTeamWorkspace, removeTeamMember as removeWorkspaceMember, updateTeamMember } from "../../lib/data/team";
+import { cancelTeamInvite, createTeamInvite, fetchTeamWorkspace, removeTeamMember as removeWorkspaceMember, resendTeamInvite, updateTeamMember } from "../../lib/data/team";
 import { canManageTeam, parseSiteScope } from "../../lib/permissions/roles";
 import { dateLabel, SaasStyles } from "../saas/SaasShared";
 
@@ -129,15 +129,16 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     }
   }
 
-  async function copyInviteLink(invite) {\n    const signupUrl = `${window.location.origin}/login?mode=register&invite=1&token=${encodeURIComponent(invite.token)}&email=${encodeURIComponent(invite.email)}`;\n    try { await navigator.clipboard.writeText(signupUrl); setMessage(`Secure invite link copied for ${invite.email}.`); }\n    catch { setMessage(`Signup URL: ${signupUrl}`); }\n  }\n\n  async function copySignupLink() {
-    const signupUrl = invites.length === 1\n      ? `${window.location.origin}/login?mode=register&invite=1&token=${encodeURIComponent(invites[0].token)}&email=${encodeURIComponent(invites[0].email)}`\n      : `${window.location.origin}/login?mode=register&invite=1`;
+  async function copyInviteLink(invite) {
+    const signupUrl = `${window.location.origin}/login?mode=register&invite=1&token=${encodeURIComponent(invite.token)}&email=${encodeURIComponent(invite.email)}`;
+    try { await navigator.clipboard.writeText(signupUrl); setMessage(`Secure invite link copied for ${invite.email}.`); }
+    catch { setMessage(`Signup URL: ${signupUrl}`); }
+  }
 
-    try {
-      await navigator.clipboard.writeText(signupUrl);
-      setMessage("Invite signup link copied. The workspace is matched automatically by email.");
-    } catch {
-      setMessage(`Signup URL: ${signupUrl}`);
-    }
+  async function resendInvite(invite) {
+    setBusy(`resend-${invite.token}`); setError(""); setMessage("");
+    try { await resendTeamInvite(getSupabaseBrowserClient(), { organizationId, token: invite.token }); await load(); setMessage(`Invitation refreshed for ${invite.email}. Copy the new secure link.`); }
+    catch (e) { setError(e?.message || "Could not resend the invite."); } finally { setBusy(""); }
   }
 
   return (
@@ -294,12 +295,11 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                   {invite.role} · {(invite.site_scope || []).length ? invite.site_scope.join(", ") : "All sites"} · expires {dateLabel(invite.expires_at)}
                 </small>
               </div>
-              <button
-                disabled={busy === `invite-${invite.token}`}
-                onClick={() => cancelInvite(invite)}
-              >
-                Cancel
-              </button>
+              <div className="team-actions">
+                <button disabled={busy === `resend-${invite.token}`} onClick={() => copyInviteLink(invite)}>Copy link</button>
+                <button disabled={busy === `resend-${invite.token}`} onClick={() => resendInvite(invite)}>Resend</button>
+                <button disabled={busy === `invite-${invite.token}`} onClick={() => cancelInvite(invite)}>Cancel</button>
+              </div>
             </div>
           ))}
 
