@@ -195,6 +195,29 @@ begin
 end;
 $$;
 
+create or replace function public.list_incident_assignees(p_organization_id uuid)
+returns table(user_id uuid,email text,full_name text,role text,site_scope text[])
+language plpgsql
+security definer
+set search_path to ''
+as $
+begin
+  if not private.has_workspace_permission(p_organization_id,'view_incidents')
+     and not private.is_platform_privileged() then
+    raise exception 'Not authorised' using errcode='42501';
+  end if;
+
+  return query
+  select m.user_id,p.email,p.full_name,m.role,coalesce(m.site_scope,'{}'::text[])
+  from public.organization_members m
+  left join public.profiles p on p.id=m.user_id
+  where m.organization_id=p_organization_id
+    and m.role in ('owner','admin','manager','dispatcher')
+  order by case m.role when 'owner' then 0 when 'admin' then 1 when 'manager' then 2 else 3 end,
+           coalesce(p.full_name,p.email,'');
+end;
+$;
+
 create or replace function public.create_operational_incident(
   p_organization_id uuid,
   p_driver_id uuid default null,
@@ -547,6 +570,7 @@ end;
 $$;
 
 grant execute on function public.list_operational_incidents(uuid,text,integer) to authenticated;
+grant execute on function public.list_incident_assignees(uuid) to authenticated;
 grant execute on function public.create_operational_incident(uuid,uuid,text,text,text,text,text,text,text,text,text,timestamptz,jsonb) to authenticated;
 grant execute on function public.update_operational_incident(uuid,text,text,uuid,timestamptz,text,text,text) to authenticated;
 grant execute on function public.add_incident_note(uuid,text) to authenticated;
