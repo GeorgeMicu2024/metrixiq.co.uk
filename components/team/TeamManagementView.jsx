@@ -129,7 +129,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     }
   }
 
-  async function copySignupLink() {
+  async function copyInviteLink(invite) {\n    const signupUrl = `${window.location.origin}/login?mode=register&invite=1&token=${encodeURIComponent(invite.token)}&email=${encodeURIComponent(invite.email)}`;\n    try { await navigator.clipboard.writeText(signupUrl); setMessage(`Secure invite link copied for ${invite.email}.`); }\n    catch { setMessage(`Signup URL: ${signupUrl}`); }\n  }\n\n  async function copySignupLink() {
     const signupUrl = invites.length === 1\n      ? `${window.location.origin}/login?mode=register&invite=1&token=${encodeURIComponent(invites[0].token)}&email=${encodeURIComponent(invites[0].email)}`\n      : `${window.location.origin}/login?mode=register&invite=1`;
 
     try {
@@ -282,7 +282,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
             <h2>Pending invites</h2>
             <p>Invites expire after 14 days.</p>
           </div>
-          <button className="btn ghost" onClick={copySignupLink}>Copy secure invite link</button>
+          
         </div>
 
         <div className="team-pending-list">
