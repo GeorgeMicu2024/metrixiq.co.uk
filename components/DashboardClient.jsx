@@ -47,6 +47,7 @@ import MobileManagerMode from "./mobile/MobileManagerMode";
 import MobileCommandDock from "./mobile/MobileCommandDock";
 import PortfolioDashboard from "./enterprise/PortfolioDashboard";
 import EnterpriseSettings from "./enterprise/EnterpriseSettings";
+import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 
 export default function DashboardClient() {
