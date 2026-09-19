@@ -273,14 +273,14 @@ export default function AutomationCenter({
 
     {tab==="routing"&&<div className="autov8-sla-layout">
       <section className="panel">
-        <div className="panel-head"><div><h2>Notification Routing</h2><p>In-app routing is live. Email/WhatsApp channels queue prepared summaries for an external delivery worker.</p></div></div>
+        <div className="panel-head"><div><h2>Notification Routing</h2><p>Route operational events to in-app, Email, WhatsApp Cloud, Slack, Teams or a generic webhook through V9.</p></div></div>
         <div className="table-wrap"><table className="data-table"><thead><tr><th>Category</th><th>Minimum Severity</th><th>Channel</th><th>Recipient Role</th><th>Enabled</th></tr></thead><tbody>{(data?.routes||[]).map((r)=><tr key={r.id}><td>{r.category}</td><td>{r.minimum_severity}</td><td>{human(r.channel)}</td><td>{r.recipient_role}</td><td>{r.enabled?"Yes":"No"}</td></tr>)}</tbody></table></div>
       </section>
       <section className="panel autov8-sla-editor">
         <div className="panel-head"><div><h2>Add / update route</h2><p>Routes are severity-aware and auditable.</p></div></div>
         <label><span>Category</span><input disabled={!canManage} value={routeDraft.category} onChange={(e)=>setRouteDraft((x)=>({...x,category:e.target.value.toLowerCase()}))}/></label>
         <label><span>Minimum severity</span><select disabled={!canManage} value={routeDraft.minimumSeverity} onChange={(e)=>setRouteDraft((x)=>({...x,minimumSeverity:e.target.value}))}>{["info","low","medium","high","critical"].map((x)=><option key={x}>{x}</option>)}</select></label>
-        <label><span>Channel</span><select disabled={!canManage} value={routeDraft.channel} onChange={(e)=>setRouteDraft((x)=>({...x,channel:e.target.value}))}><option value="in_app">In-app</option><option value="email_digest">Email digest queue</option><option value="whatsapp_summary">WhatsApp-ready queue</option></select></label>
+        <label><span>Channel</span><select disabled={!canManage} value={routeDraft.channel} onChange={(e)=>setRouteDraft((x)=>({...x,channel:e.target.value}))}><option value="in_app">In-app</option><option value="email_digest">Email</option><option value="whatsapp_summary">WhatsApp Cloud</option><option value="slack">Slack</option><option value="teams">Microsoft Teams</option><option value="webhook">Generic webhook</option></select></label>
         <label><span>Recipient role</span><select disabled={!canManage} value={routeDraft.recipientRole} onChange={(e)=>setRouteDraft((x)=>({...x,recipientRole:e.target.value}))}>{["owner","admin","manager","dispatcher"].map((x)=><option key={x}>{x}</option>)}</select></label>
         <button className="btn primary" disabled={!canManage||!!busy||!routeDraft.category.trim()} onClick={()=>run("route-save",()=>saveNotificationRoute(getSupabaseBrowserClient(),{organizationId,...routeDraft,enabled:true}),"Notification route saved.")}>Save route</button>
       </section>
@@ -292,7 +292,7 @@ export default function AutomationCenter({
     </section>}
 
     {tab==="delivery"&&<section className="panel">
-      <div className="panel-head"><div><h2>External Delivery Queue</h2><p>Prepared email/WhatsApp summaries awaiting an external transport worker or connector.</p></div><span className="panel-badge">{data?.deliveryQueue?.length||0}</span></div>
+      <div className="panel-head"><div><h2>External Delivery Queue</h2><p>Prepared Email, WhatsApp, Slack, Teams and webhook messages processed by the V9 delivery worker.</p></div><span className="panel-badge">{data?.deliveryQueue?.length||0}</span></div>
       <div className="table-wrap"><table className="data-table"><thead><tr><th>Created</th><th>Channel</th><th>Severity</th><th>Title</th><th>Site</th><th>Status</th></tr></thead><tbody>{(data?.deliveryQueue||[]).map((q)=><tr key={q.id}><td>{dateTime(q.created_at)}</td><td>{human(q.channel)}</td><td><span className={"mgrv2-severity "+q.severity}>{q.severity}</span></td><td><b>{q.title}</b><small className="history-date">{q.message||""}</small></td><td>{q.site||"Workspace"}</td><td>{human(q.status)}</td></tr>)}</tbody></table></div>
     </section>}
 
