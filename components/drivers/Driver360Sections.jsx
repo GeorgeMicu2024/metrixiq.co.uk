@@ -204,7 +204,7 @@ export function DriverEvidenceTimeline({ snapshot }) {
                 <td>{fmt(row.iadc, "iadc")}</td>
                 <td>{fmt(mentor(row), "mentor")}</td>
                 <td>{concessionValue(row) ?? "—"}</td>
-                <td><span className={`risk-pill ${String(row.risk || "low").toLowerCase()}`}>{row.risk || "Low"}</span></td>
+                <td><span className={`risk-pill risk-${String(row.risk || "low").toLowerCase()}`}>{row.risk || "Low"}</span></td>
               </tr>
             )) : (
               <tr>
