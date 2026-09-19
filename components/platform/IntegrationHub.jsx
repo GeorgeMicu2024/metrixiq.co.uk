@@ -59,7 +59,11 @@ export default function IntegrationHub({
     if(!canManage)return;
     setBusy(item.source_key);setError("");setNotice("");
     try{
-      await updateIntegrationConfig(getSupabaseBrowserClient(),organizationId,item.source_key,patch);
+      await updateIntegrationConfig(getSupabaseBrowserClient(),organizationId,item.source_key,{
+        enabled: patch.enabled ?? item.enabled,
+        expectedFrequencyHours: patch.expectedFrequencyHours ?? item.expected_frequency_hours,
+        criticality: patch.criticality ?? item.criticality,
+      });
       setNotice(item.label+" configuration updated.");
       await load();
     }catch(e){setError(e?.message||"Could not update integration configuration.");}
