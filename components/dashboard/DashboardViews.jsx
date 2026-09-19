@@ -6,7 +6,7 @@ import { HistoryTrendChart } from "../HistoricalAnalytics";
 import { avg, fmt, initials, numberOrNull, tone } from "./utils";
 import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
 import CommandCenterPanel from "./CommandCenterPanel";
-import { buildDriver360Snapshot } from "../../lib/drivers/driver360";
+import { buildDriver360Snapshot } from "../../lib/drivers/driver360";\nimport { getSupabaseBrowserClient } from "../../lib/supabase/client";\nimport { updateMyProfile, updateMyPassword, signOutAllSessions } from "../../lib/data/account";
 import {
   Driver360DeltaGrid,
   Driver360Overview,
@@ -369,5 +369,15 @@ export function DriverScorecardView({ driver, history, historyLoading, onBack })
   </>;
 }
 
-export function SettingsView({ session, onLogout }) { return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Workspace settings</h1><p>Identity, organisation and data controls.</p></div></div><div className="settings-grid"><section className="panel"><h2>Account identity</h2><div className="setting-row"><span>Name</span><b>{session.name}</b></div><div className="setting-row"><span>Email</span><b>{session.email}</b></div><div className="setting-row"><span>Organisation</span><b>{session.organisation || "My Fleet"}</b></div><div className="setting-row"><span>Access</span><b>{session.role || "Member"}</b></div></section><section className="panel"><h2>Data & security</h2><p className="settings-copy">Authentication and fleet data access are protected by Supabase Auth and row-level security. Smart Import history is persisted in Supabase and protected by workspace row-level security.</p><button className="btn danger" onClick={onLogout}>Sign out</button></section></div></>; }
-
+export function SettingsView({ session, onLogout, onProfileUpdated }) {
+  const [name, setName] = useState(session.name || "");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  async function run(key, fn) { setBusy(key); setError(""); setMessage(""); try { await fn(); } catch(e) { setError(e?.message || "Action failed."); } finally { setBusy(""); } }
+  return <><div className="page-heading"><div><span className="page-kicker">ACCOUNT</span><h1>Account settings</h1><p>Identity, password and active sessions.</p></div></div>
+  {error && <div className="saas-error">{error}</div>}{message && <div className="form-notice">{message}</div>}
+  <div className="settings-grid"><section className="panel"><h2>Account identity</h2><label>Full name<input value={name} onChange={e=>setName(e.target.value)} /></label><div className="setting-row"><span>Email</span><b>{session.email}</b></div><div className="setting-row"><span>Organisation</span><b>{session.organisation || "My Fleet"}</b></div><div className="setting-row"><span>Access</span><b>{session.role || "Member"}</b></div><button className="btn primary" disabled={busy==="profile"} onClick={()=>run("profile",async()=>{await updateMyProfile(getSupabaseBrowserClient(),name); onProfileUpdated?.(name.trim()); setMessage("Profile updated.");})}>{busy==="profile"?"Saving…":"Save profile"}</button></section>
+  <section className="panel"><h2>Password & sessions</h2><label>New password<input type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Minimum 8 characters" /></label><button className="btn primary" disabled={busy==="password"} onClick={()=>run("password",async()=>{await updateMyPassword(getSupabaseBrowserClient(),password); setPassword(""); setMessage("Password updated.");})}>{busy==="password"?"Updating…":"Change password"}</button><p className="settings-copy">If you suspect another device still has access, sign out every active session and log in again.</p><button className="btn danger" disabled={busy==="sessions"} onClick={()=>run("sessions",async()=>{await signOutAllSessions(getSupabaseBrowserClient()); onLogout?.();})}>{busy==="sessions"?"Signing out…":"Sign out all sessions"}</button></section></div></>;
+}
