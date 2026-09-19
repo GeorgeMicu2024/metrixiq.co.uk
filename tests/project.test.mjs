@@ -732,8 +732,9 @@ test("team invite signup flow joins an existing workspace instead of asking for 
   const login = read("components/LoginClient.jsx");
   const workspace = read("lib/data/workspace.js");
 
-  assert.ok(team.includes('/login?mode=register&invite=1'));
+  assert.ok(team.includes('new URLSearchParams({ mode: "register", invite: "1" })'));
   assert.ok(team.includes("window.location.origin"));
+  assert.ok(team.includes('params.set("email", invite.email)'));
   assert.ok(login.includes('params.get("invite") === "1"'));
   assert.ok(login.includes("inviteMode ?"));
   assert.ok(login.includes("JOIN WORKSPACE"));
