@@ -473,20 +473,21 @@ test("fleet intelligence prioritises operational risk and next actions", () => {
   assert.equal(intelligence.trend.direction, "down");
 });
 
-test("Notifications Center uses site-scoped performance alerts", () => {
+test("Notifications V2 uses the auditable notification feed", () => {
   const dashboard = read("components/DashboardClient.jsx");
-  const notifications = read("components/notifications/NotificationsCenter.jsx");
-  const data = read("lib/data/notifications.js");
+  const notifications = read("components/notifications/NotificationsCenterV2.jsx");
+  const page = read("components/notifications/NotificationsPageV2.jsx");
+  const data = read("lib/data/notificationsV2.js");
 
-  assert.ok(dashboard.includes('import NotificationsCenter from "./notifications/NotificationsCenter"'));
-  assert.ok(dashboard.includes("<NotificationsCenter"));
-  assert.ok(data.includes('supabase.rpc("list_performance_alerts"'));
-  assert.ok(data.includes('item.status !== "resolved"'));
-  assert.ok(notifications.includes('item.status === "open"'));
-  assert.ok(notifications.includes("Acknowledge"));
+  assert.ok(dashboard.includes('import NotificationsCenterV2 from "./notifications/NotificationsCenterV2"'));
+  assert.ok(dashboard.includes("<NotificationsCenterV2"));
+  assert.ok(data.includes('supabase.rpc("list_notification_events"'));
+  assert.ok(data.includes('supabase.rpc("refresh_notification_events"'));
+  assert.ok(notifications.includes("NOTIFICATIONS V2"));
+  assert.ok(page.includes("Action Feed"));
+  assert.ok(page.includes("Reviewed"));
   assert.ok(notifications.includes("siteFilter"));
   assert.ok(notifications.includes("onOpenDriver"));
-  assert.ok(notifications.includes("onOpenCoaching"));
 });
 
 test("Command Center V2 uses the server-side workspace summary", () => {
@@ -546,9 +547,16 @@ test("Smart Import exposes professional preflight and readiness UI", () => {
   assert.ok(css.includes(".smart-readiness"));
 });
 
-test("dashboard exposes Smart Import", () => {
-  assert.ok(read("components/dashboard/navigation.js").includes("Smart Import"));
-  assert.ok(read("components/dashboard/DashboardViews.jsx").includes("Smart Import"));
+test("dashboard exposes Import Center V2", () => {
+  const navigation = read("components/dashboard/navigation.js");
+  const dashboard = read("components/DashboardClient.jsx");
+  const view = read("components/imports/ImportCenterV2.jsx");
+
+  assert.ok(navigation.includes('["imports", "Import Center"]'));
+  assert.ok(dashboard.includes('./imports/ImportCenterV2'));
+  assert.ok(view.includes("Analyse queue"));
+  assert.ok(view.includes("History & Rollback"));
+  assert.ok(view.includes("Replace previous"));
 });
 
 test("analyzer core validates station codes and reporting periods", () => {
@@ -932,27 +940,28 @@ test("DashboardClient is orchestration-focused", () => {
   assert.ok(read("components/dashboard/DashboardViews.jsx").includes("export function DashboardView"));
 });
 
-test("coaching view lives in the coaching product module", () => {
-  const legacy = read("components/CoachingAlertsView.jsx");
-  const coaching = read("components/coaching/CoachingAlertsView.jsx");
+test("Coaching V3 lives in the coaching product module", () => {
+  const coaching = read("components/coaching/CoachingV3.jsx");
   const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(legacy.includes('from "./coaching/CoachingAlertsView"'));
-  assert.ok(coaching.includes("export default function CoachingAlertsView"));
-  assert.ok(dashboard.includes('./coaching/CoachingAlertsView'));
+  assert.ok(coaching.includes("export default function CoachingV3"));
+  assert.ok(coaching.includes("Evaluate improvement"));
+  assert.ok(coaching.includes("Create coaching plan"));
+  assert.ok(dashboard.includes('./coaching/CoachingV3'));
 });
 
-test("coaching UI delegates mutations and reads to the data layer", () => {
-  const coaching = read("components/coaching/CoachingAlertsView.jsx");
-  const data = read("lib/data/coaching.js");
+test("Coaching V3 delegates workflow mutations and reads to its data layer", () => {
+  const coaching = read("components/coaching/CoachingV3.jsx");
+  const data = read("lib/data/coachingV3.js");
+  const templates = read("lib/coaching/templates.js");
 
   assert.equal(coaching.includes(".rpc("), false);
-  assert.ok(coaching.includes("fetchCoachingOverview"));
-  assert.ok(coaching.includes("fetchCoachingCaseNotes"));
-  assert.ok(coaching.includes("acknowledgePerformanceAlert"));
-  assert.ok(coaching.includes("updateCoachingCase"));
-  assert.ok(data.includes("export async function fetchCoachingOverview"));
-  assert.ok(data.includes("export async function addCoachingCaseNote"));
+  assert.ok(coaching.includes("fetchCoachingV3"));
+  assert.ok(coaching.includes("evaluateCoachingImprovement"));
+  assert.ok(coaching.includes("openCoachingCaseDirect"));
+  assert.ok(data.includes("export async function fetchCoachingV3"));
+  assert.ok(data.includes("export async function evaluateCoachingImprovement"));
+  assert.ok(templates.includes("COACHING_TEMPLATES"));
 });
 
 
