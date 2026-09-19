@@ -49,6 +49,7 @@ export default function DashboardClient() {
   const [siteFilter, setSiteFilter] = useState("all");
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [access, setAccess] = useState(null);
+  const [commandCenter, setCommandCenter] = useState(null);
   const searchRef = useRef(null);
 
   function navigate(id) {
@@ -77,10 +78,19 @@ export default function DashboardClient() {
         const context = await loadWorkspaceContext(supabase, userData.user);
         if (!alive) return;
 
-        const { resolved, profile, platformAdmin: adminFlag, access: accessState, scorecards, metricRows } = context;
+        const {
+          resolved,
+          profile,
+          platformAdmin: adminFlag,
+          access: accessState,
+          commandCenter: commandCenterState,
+          scorecards,
+          metricRows,
+        } = context;
 
         setPlatformAdmin(adminFlag);
         setAccess(accessState);
+        setCommandCenter(commandCenterState);
         setWorkspace(resolved);
         setSession({
           name: profile?.full_name || userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "MetrixIQ User",
@@ -147,7 +157,7 @@ export default function DashboardClient() {
     const organizationId = workspace?.organization?.id;
     if (!organizationId) throw new Error("Workspace is not ready yet.");
 
-    const { saved, scorecards, metricRows } = await persistWorkspaceImport({
+    const { saved, scorecards, metricRows, commandCenter: nextCommandCenter } = await persistWorkspaceImport({
       supabase: getSupabaseBrowserClient(),
       organizationId,
       analysis: result,
@@ -157,6 +167,7 @@ export default function DashboardClient() {
     setAnalysis(result);
     setDbDrivers(scorecards.map(mapScorecardRow));
     setMetricHistoryRows(metricRows);
+    setCommandCenter(nextCommandCenter);
     return saved;
   }
   async function logout() { try { await getSupabaseBrowserClient().auth.signOut(); } finally { localStorage.removeItem("metrixiq.analysis"); router.replace("/login"); } }
@@ -211,7 +222,7 @@ export default function DashboardClient() {
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
     case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    default: view = <DashboardView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onDataQuality={() => navigate("data-quality")} />;
+    default: view = <DashboardView commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} />;
   }
 
   if (authLoading) return <main className="app-loading"><div className="auth-spinner" /><h1>MetrixIQ</h1><p>Loading secure workspace…</p></main>;
