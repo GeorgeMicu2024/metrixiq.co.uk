@@ -106,7 +106,9 @@ export default function NotificationsCenter({
     );
   }, [rows, siteFilter]);
 
-  const activeCount = loaded ? visible.length : Number(summaryCount || 0);
+  const activeCount = loaded
+    ? visible.filter((item) => item.status === "open").length
+    : Number(summaryCount || 0);
 
   async function acknowledge(alert) {
     if (!canManage || busy) return;
