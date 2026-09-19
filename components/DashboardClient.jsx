@@ -47,6 +47,7 @@ import MobileManagerMode from "./mobile/MobileManagerMode";
 import MobileCommandDock from "./mobile/MobileCommandDock";
 import PortfolioDashboard from "./enterprise/PortfolioDashboard";
 import EnterpriseSettings from "./enterprise/EnterpriseSettings";
+import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -321,6 +322,7 @@ export default function DashboardClient() {
     case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
     case "integrations": view = <IntegrationHub organizationId={workspace?.organization?.id} canManage={platformAdmin || permissions?.manage_integrations} onNavigate={navigate} />; break;
     case "reliability": view = <ReliabilityCenter organizationId={workspace?.organization?.id} canRun={platformAdmin || permissions?.run_reliability_checks} onNavigate={navigate} />; break;
+    case "developer-platform": view = <IntegrationDeliveryCenter organizationId={workspace?.organization?.id} canManageApi={platformAdmin || permissions?.manage_api_keys} canManageWebhooks={platformAdmin || permissions?.manage_webhooks} canManageDelivery={platformAdmin || permissions?.manage_delivery} />; break;
     case "reports": view = <ReportBuilderV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
     case "team": view = <TeamAccessHub organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
