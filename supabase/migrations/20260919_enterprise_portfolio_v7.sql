@@ -580,7 +580,7 @@ begin
   ) values (
     p_organization_id,v_site,v_metric,p_target,p_direction,coalesce(p_warning_margin,0),p_unit,coalesce(p_enabled,true),(select auth.uid())
   )
-  on conflict (organization_id,coalesce(site,'*'),metric) do update
+  on conflict (organization_id,(coalesce(site,'*')),metric) do update
   set target=excluded.target,
       direction=excluded.direction,
       warning_margin=excluded.warning_margin,
@@ -719,6 +719,28 @@ begin
 end;
 $$;
 
+create or replace function public.list_portfolio_weeks(p_portfolio_id uuid)
+returns table(week_label text,year integer,week integer)
+language plpgsql
+security definer
+set search_path to ''
+as $
+begin
+  if not private.can_view_portfolio(p_portfolio_id) then
+    raise exception 'Not authorised' using errcode='42501';
+  end if;
+
+  return query
+  select sc.week_label,max(sc.year) as year,max(sc.week) as week
+  from public.site_scorecards sc
+  join public.enterprise_portfolio_organizations po
+    on po.organization_id=sc.organization_id
+  where po.portfolio_id=p_portfolio_id
+  group by sc.week_label
+  order by max(sc.year),max(sc.week);
+end;
+$;
+
 create or replace function public.list_portfolio_benchmark(
   p_portfolio_id uuid,
   p_week_label text default null
@@ -829,4 +851,5 @@ grant execute on function public.upsert_kpi_policy(uuid,text,text,numeric,text,n
 grant execute on function public.delete_kpi_policy(uuid) to authenticated;
 grant execute on function public.get_organization_branding(uuid) to authenticated;
 grant execute on function public.update_organization_branding(uuid,text,text,text,text,text,boolean) to authenticated;
+grant execute on function public.list_portfolio_weeks(uuid) to authenticated;
 grant execute on function public.list_portfolio_benchmark(uuid,text) to authenticated;
