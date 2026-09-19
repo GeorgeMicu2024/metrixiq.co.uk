@@ -10,6 +10,7 @@ import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
 import { buildDriverPerformanceRows, buildExecutiveSummary, buildRiskRows, toCsv } from "../lib/reports/fleetReports.js";
+import { buildDriver360Snapshot } from "../lib/drivers/driver360.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -688,6 +689,37 @@ test("workspace search keyboard hint is functional", () => {
   assert.ok(dashboard.includes("searchRef.current?.focus()"));
   assert.ok(dashboard.includes('key === "escape"'));
   assert.ok(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"));
+});
+
+test("Driver 360 calculates recent trajectory and evidence correctly", () => {
+  const snapshot = buildDriver360Snapshot(
+    {
+      name: "Driver One",
+      risk: "Medium",
+      performance: 86,
+      dcr: 99.1,
+      pod: 99.7,
+      iadc: 82,
+      cc: 98,
+      mentor_score: 820,
+      concessions: 1,
+    },
+    [
+      { week_label: "W35", performance: 80, dcr: 98.6, pod: 99.2, iadc: 72, cc: 95, mentor_score: 805, concessions: 2, risk: "High", data_confidence: 80 },
+      { week_label: "W36", performance: 83, dcr: 98.9, pod: 99.5, iadc: 77, cc: 97, mentor_score: 812, concessions: 1, risk: "Medium", data_confidence: 90 },
+      { week_label: "W37", performance: 86, dcr: 99.1, pod: 99.7, iadc: 82, cc: 98, mentor_score: 820, concessions: 1, risk: "Medium", data_confidence: 100 },
+    ]
+  );
+
+  assert.equal(snapshot.latestLabel, "W37");
+  assert.equal(snapshot.previousLabel, "W36");
+  assert.equal(snapshot.performanceDelta, 3);
+  assert.equal(snapshot.fourWeekConcessions, 4);
+  assert.equal(snapshot.concessionWeeks, 3);
+  assert.equal(snapshot.coverage, 100);
+  assert.equal(snapshot.latestRisk, "Medium");
+  assert.equal(snapshot.previousRisk, "Medium");
+  assert.equal(snapshot.metricDeltas.find((metric) => metric.key === "iadc").delta, 5);
 });
 
 test("Driver 360 V2 exposes trajectory, KPI movement and evidence timeline", () => {
