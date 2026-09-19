@@ -75,7 +75,7 @@ as $$
     )
     else jsonb_build_object(
       'view_dashboard',true,'view_driver_data',true,'view_scorecards',true,'view_reports',true,'view_audit',false,
-      'view_site_operations',true,'view_incidents',true,'view_integrations',true,'view_reliability',false,
+      'view_site_operations',true,'view_incidents',true,'view_integrations',false,'view_reliability',false,
       'manage_imports',false,'resolve_data_quality',false,'edit_scorecards',false,'reset_overrides',false,
       'manage_coaching',false,'bulk_actions',false,'manage_incidents',false,'manage_integrations',false,'run_reliability_checks',false,
       'manage_team',false,'manage_permissions',false,'view_billing',false
