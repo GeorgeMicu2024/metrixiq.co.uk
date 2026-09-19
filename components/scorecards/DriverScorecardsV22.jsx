@@ -7,6 +7,7 @@ import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
 import { calculateDriverScorecard } from "../../lib/scorecards/driverScoreFormula";
+import { applyMetricOverrides, fetchMetricOverrides, setMetricOverride } from "../../lib/data/governanceV2";
 import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimitives";
 
 export default function DriverScorecardsV22({
@@ -18,7 +19,15 @@ export default function DriverScorecardsV22({
 }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-    return fetchDriverScorecardData(supabase, organizationId);
+    const [scorecardData, overrides] = await Promise.all([
+      fetchDriverScorecardData(supabase, organizationId),
+      fetchMetricOverrides(supabase, organizationId, "active"),
+    ]);
+    return {
+      ...scorecardData,
+      rows: applyMetricOverrides(scorecardData.rows || [], overrides),
+      overrides,
+    };
   }, [organizationId]);
 
   const rows = load.data?.rows || [];
@@ -702,47 +711,25 @@ export default function DriverScorecardsV22({
 
     try {
       const supabase = getSupabaseBrowserClient();
-      const existingOverride = editRow.raw_data?.manual_fico_override || null;
-      const originalValue =
-        existingOverride?.original_value ??
-        num(editRow.mentor_score ?? editRow.ementor ?? editRow.fico);
-      const nextRawData = {
-        ...(editRow.raw_data || {}),
-        scorecard_formula_version: "v2-point-bands",
-        manual_fico_override: {
-          original_value: originalValue,
-          value,
-          updated_at: new Date().toISOString(),
-          source: "driver_scorecard_edit",
-        },
-      };
-
-      const { data, error } = await supabase
-        .from("driver_metrics")
-        .update({
-          mentor_score: value,
-          ementor: value,
-          fico: value,
-          raw_data: nextRawData,
-        })
-        .eq("organization_id", organizationId)
-        .eq("driver_id", editRow.driver_id)
-        .eq("week_label", editRow.week_label)
-        .select("driver_id");
-
-      if (error) throw error;
-      if (!data?.length) throw new Error("No matching driver-week record was updated.");
+      await setMetricOverride(supabase, {
+        organizationId,
+        driverId: editRow.driver_id,
+        weekLabel: editRow.week_label,
+        metricKey: "mentor_score",
+        value,
+        reason: "Driver Scorecard manual FICO edit",
+      });
 
       setManualFicoOverrides((current) => ({
         ...current,
         [manualOverrideKey(editRow)]: value,
       }));
       setBreakdownRow(null);
-      setEditMessage("Saved");
+      setEditMessage("Saved with audit trail");
       window.setTimeout(() => {
         setEditRow(null);
         setEditMessage("");
-      }, 500);
+      }, 650);
     } catch (error) {
       setEditMessage(error?.message || "Could not save the FICO override.");
     } finally {

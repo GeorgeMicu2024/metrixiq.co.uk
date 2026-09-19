@@ -805,7 +805,7 @@ test("SaaS foundation is split into canonical product modules", () => {
   assert.ok(team.includes("export function TeamManagementView"));
   assert.ok(admin.includes("export function PlatformAdminView"));
   assert.ok(dashboard.includes('./billing/BillingProView'));
-  assert.ok(dashboard.includes('./team/TeamManagementView'));
+  assert.ok(dashboard.includes('./team/TeamAccessHub'));
   assert.ok(dashboard.includes('./admin/PlatformAdminView'));
   assert.equal(dashboard.includes('./SaasFoundation'), false);
 });
@@ -814,7 +814,7 @@ test("internal workspace navigation cannot bypass plan or role permissions", () 
   const dashboard = read("components/DashboardClient.jsx");
 
   assert.ok(dashboard.includes("function navigate(id)"));
-  assert.ok(dashboard.includes("canAccessNav(id, access, platformAdmin, session?.role)"));
+  assert.ok(dashboard.includes("canAccessNav(id, access, platformAdmin, session?.role, permissions)"));
   assert.ok(dashboard.includes("const routedActive"));
   assert.ok(dashboard.includes('onImport={() => navigate("imports")}'));
   assert.ok(dashboard.includes('onDataQuality={() => navigate("data-quality")}'));
@@ -1012,7 +1012,7 @@ test("smart import lives in its own product module", () => {
 test("CDF and Data Quality use canonical product modules", () => {
   const legacy = read("components/OperationalViews.jsx");
   const cdf = read("components/customer-feedback/CdfView.jsx");
-  const dataQuality = read("components/data-quality/DataQualityView.jsx");
+  const dataQuality = read("components/data-quality/DataQualityV2.jsx");
   const cdfData = read("lib/data/cdf.js");
   const dataQualityData = read("lib/data/dataQuality.js");
   const dashboard = read("components/DashboardClient.jsx");
@@ -1021,7 +1021,7 @@ test("CDF and Data Quality use canonical product modules", () => {
   assert.equal(legacy.includes("export function DataQualityView"), false);
   assert.equal(legacy.includes("export function IadcView"), false);
   assert.ok(cdf.includes("export default function CdfView"));
-  assert.ok(dataQuality.includes("export default function DataQualityView"));
+  assert.ok(dataQuality.includes("export default function DataQualityV2"));
   assert.equal(cdf.includes('.from("feedback_events")'), false);
   assert.equal(dataQuality.includes(".rpc("), false);
   assert.equal(dataQuality.includes("driver_aliases"), false);
@@ -1029,7 +1029,7 @@ test("CDF and Data Quality use canonical product modules", () => {
   assert.ok(dataQualityData.includes("export async function fetchDataQualityState"));
   assert.ok(dataQualityData.includes("export async function resolveDriverIdentity"));
   assert.ok(dashboard.includes('./customer-feedback/CdfView'));
-  assert.ok(dashboard.includes('./data-quality/DataQualityView'));
+  assert.ok(dashboard.includes('./data-quality/DataQualityV2'));
 });
 
 test("Concessions V2 calculates movement, repeat offenders and actions", () => {

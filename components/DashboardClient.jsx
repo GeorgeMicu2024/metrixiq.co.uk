@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Brand from "./Brand";
 import { BillingProView } from "./billing/BillingProView";
-import { TeamManagementView } from "./team/TeamManagementView";
+import TeamAccessHub from "./team/TeamAccessHub";
 import { PlatformAdminView } from "./admin/PlatformAdminView";
 import { PlanOnboardingView } from "./saas/PlanOnboardingView";
 import { SuspendedWorkspaceView } from "./saas/SuspendedWorkspaceView";
@@ -12,7 +12,9 @@ import { canAccessNav } from "../lib/permissions/navigation";
 import { getSupabaseBrowserClient } from "../lib/supabase/client";
 import { aggregateFleetHistory } from "./HistoricalAnalytics";
 import CdfView from "./customer-feedback/CdfView";
-import DataQualityView from "./data-quality/DataQualityView";
+import DataQualityV2 from "./data-quality/DataQualityV2";
+import AuditCenter from "./governance/AuditCenter";
+import SavedViewsBulkActions from "./management/SavedViewsBulkActions";
 import { DriverScorecardsView, SiteScorecardsView } from "./scorecards/ScorecardViews";
 import PerformanceView from "./performance/PerformanceView";
 import DriverDirectoryView from "./drivers/DriverDirectoryView";
@@ -51,13 +53,14 @@ export default function DashboardClient() {
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [access, setAccess] = useState(null);
   const [commandCenter, setCommandCenter] = useState(null);
+  const [permissions, setPermissions] = useState(null);
   const searchRef = useRef(null);
 
   function navigate(id) {
     if (
       id === "dashboard" ||
       id === "driver-profile" ||
-      canAccessNav(id, access, platformAdmin, session?.role)
+      canAccessNav(id, access, platformAdmin, session?.role, permissions)
     ) {
       setActive(id);
       return true;
@@ -89,8 +92,14 @@ export default function DashboardClient() {
           metricRows,
         } = context;
 
+        const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
+          p_organization_id: resolved.organization.id,
+        });
+        if (permissionError) throw permissionError;
+
         setPlatformAdmin(adminFlag);
         setAccess(accessState);
+        setPermissions(permissionState || {});
         setCommandCenter(commandCenterState);
         setWorkspace(resolved);
         setSession({
@@ -199,7 +208,7 @@ export default function DashboardClient() {
   const routedActive =
     active === "driver-profile" ||
     active === "dashboard" ||
-    canAccessNav(active, access, platformAdmin, session?.role)
+    canAccessNav(active, access, platformAdmin, session?.role, permissions)
       ? active
       : "dashboard";
 
@@ -213,13 +222,15 @@ export default function DashboardClient() {
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
-    case "coaching": view = <CoachingAlertsView organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} canManage={platformAdmin || ["owner","admin","manager","dispatcher"].includes(session?.role)} />; break;
+    case "coaching": view = <CoachingAlertsView organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} canManage={platformAdmin || permissions?.manage_coaching} />; break;
     case "intelligence": view = <IntelligenceView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onCoaching={() => navigate("coaching")} onImport={() => navigate("imports")} onPerformance={() => navigate("performance")} onDataQuality={() => navigate("data-quality")} onOpenDriver={openDriver} />; break;
     case "imports": view = <SmartImportView onImported={imported} analysis={analysis} />; break;
-    case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} />; break;
+    case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
+    case "management-views": view = <SavedViewsBulkActions organizationId={workspace?.organization?.id} siteFilter={siteFilter} canBulk={platformAdmin || permissions?.bulk_actions} />; break;
+    case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
     case "reports": view = <ReportsView drivers={drivers} kpis={kpis} history={visibleFleetHistory} commandCenter={commandCenter} />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
-    case "team": view = <TeamManagementView organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
+    case "team": view = <TeamAccessHub organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
     case "driver-profile": view = selectedDriver ? <DriverScorecardView driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} onBack={backFromDriver} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
@@ -232,5 +243,5 @@ export default function DashboardClient() {
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
   if (!platformAdmin && access && !access.onboarding_completed) return <PlanOnboardingView organizationId={workspace?.organization?.id} organizationName={workspace?.organization?.name} onComplete={setAccess} onLogout={logout} />;
 
-  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.filter(([id]) => canAccessNav(id, access, platformAdmin, session?.role)).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { navigate(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>SMART</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button aria-label="Sign out" title="Sign out" onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) navigate("drivers");}} /><kbd>⌘ / Ctrl K</kbd></div></div><div className="topbar-right"><NotificationsCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} summaryCount={commandCenter?.alerts?.total || 0} refreshKey={commandCenter?.generated_at || ""} canManage={platformAdmin || ["owner","admin","manager","dispatcher"].includes(session?.role)} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} /><select className="site-select" aria-label="Filter workspace by site" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
+  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.filter(([id]) => canAccessNav(id, access, platformAdmin, session?.role, permissions)).map(([id, label], i) => <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { navigate(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>SMART</em>}</button></div>)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button aria-label="Sign out" title="Sign out" onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) navigate("drivers");}} /><kbd>⌘ / Ctrl K</kbd></div></div><div className="topbar-right"><NotificationsCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} summaryCount={commandCenter?.alerts?.total || 0} refreshKey={commandCenter?.generated_at || ""} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} /><select className="site-select" aria-label="Filter workspace by site" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div></div>;
 }
