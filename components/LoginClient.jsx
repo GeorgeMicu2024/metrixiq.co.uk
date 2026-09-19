@@ -28,9 +28,35 @@ export default function LoginClient() {
       const invited = params.get("invite") === "1";
       setInviteMode(invited);
       setRegister(params.get("mode") === "register" || invited);
+      const token = params.get("token") || "";
+      const invitedEmail = (params.get("email") || "").trim().toLowerCase();
+      setInviteToken(token);
+      if (invitedEmail) setEmail(invitedEmail);
       const supabase = getSupabaseBrowserClient();
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) router.replace("/app");
+      if (invited) {
+        if (!token || !invitedEmail) {
+          setError("This invitation link is incomplete. Ask your manager to resend it.");
+        } else {
+          setInviteLoading(true);
+          getInviteSignupContext(supabase, { token, email: invitedEmail })
+            .then((context) => {
+              if (!context) throw new Error("This invitation is invalid, cancelled or expired.");
+              setInviteContext(context);
+            })
+            .catch((inviteError) => {
+              setInviteContext(null);
+              setError(inviteError?.message || "This invitation is invalid, cancelled or expired.");
+            })
+            .finally(() => setInviteLoading(false));
+        }
+      }
+      supabase.auth.getSession().then(async ({ data }) => {
+        if (data.session) {
+          if (invited) {
+            try { await redeemPendingInvites(supabase); } catch {}
+          }
+          router.replace("/app");
+        }
       });
     } catch (e) {
       setError(e?.message || "Authentication is not configured.");
@@ -68,6 +94,7 @@ export default function LoginClient() {
         });
         if (signUpError) throw signUpError;
         if (data.session) {
+          if (inviteMode) await redeemPendingInvites(supabase);
           router.replace("/app");
           return;
         }
@@ -185,7 +212,7 @@ export default function LoginClient() {
             <label>Password<input type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>{!register && <button type="button" className="auth-forgot" disabled={busy} onClick={forgotPassword}>Forgot password?</button>}
             {error && <div className="form-error">{error}</div>}
             {notice && <div className="form-notice">{notice}</div>}
-            <button className="submit-btn" disabled={busy || inviteLoading || (inviteMode && !inviteContext)}>{busy ? "Please wait…" : register ? "Create workspace" : "Sign in"}<span>→</span></button>
+            <button className="submit-btn" disabled={busy || inviteLoading || (inviteMode && !inviteContext)}>{busy ? "Please wait…" : register ? (inviteMode ? "Join workspace" : "Create workspace") : "Sign in"}<span>→</span></button>
           </form>
 
           <div className="secure-auth-note"><span>✓</span><p><b>Secure authentication</b><br />Accounts and sessions are managed by Supabase Auth.</p></div>
