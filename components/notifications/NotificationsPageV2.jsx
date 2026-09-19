@@ -29,6 +29,7 @@ export default function NotificationsPageV2({
   onOpenCoaching,
   onOpenImports,
   onOpenDataQuality,
+  onNavigate,
 }){
   const [rows,setRows]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -92,6 +93,7 @@ export default function NotificationsPageV2({
     if(item.action_target==="coaching")return onOpenCoaching?.();
     if(item.action_target==="imports")return onOpenImports?.();
     if(item.action_target==="data-quality")return onOpenDataQuality?.();
+    if(item.action_target)return onNavigate?.(item.action_target);
   }
 
   const unread=rows.filter((x)=>x.status==="unread").length;
