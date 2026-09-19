@@ -918,7 +918,7 @@ returns table(
 language plpgsql
 security definer
 set search_path to ''
-as $
+as $automation_system$
 declare
   v_org uuid;
   v_result record;
@@ -976,7 +976,7 @@ begin
 
   return next;
 end;
-$;
+$automation_system$;
 
 revoke all on function public.run_due_automations_system() from public;
 revoke all on function public.run_due_automations_system() from authenticated;
