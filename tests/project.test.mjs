@@ -742,7 +742,7 @@ test("Driver 360 V2 exposes trajectory, KPI movement and evidence timeline", () 
 test("Driver history returns the latest periods in chronological display order", () => {
   const data = read("lib/data/driverMetrics.js");
 
-  assert.ok(data.includes('.order("period_end", { ascending: false })'));
+  assert.ok(data.includes('.order("period_end", { ascending: false, nullsFirst: false })'));
   assert.ok(data.includes("return (data || []).reverse()"));
   assert.ok(data.includes("psb,reattempts,concessions,lor"));
   assert.ok(data.includes("scorecard_score,tier,risk,issue,data_confidence"));
