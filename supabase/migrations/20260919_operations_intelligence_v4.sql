@@ -200,7 +200,7 @@ returns table(user_id uuid,email text,full_name text,role text,site_scope text[]
 language plpgsql
 security definer
 set search_path to ''
-as $
+as $incident_assignees$
 begin
   if not private.has_workspace_permission(p_organization_id,'view_incidents')
      and not private.is_platform_privileged() then
@@ -216,7 +216,7 @@ begin
   order by case m.role when 'owner' then 0 when 'admin' then 1 when 'manager' then 2 else 3 end,
            coalesce(p.full_name,p.email,'');
 end;
-$;
+$incident_assignees$;
 
 create or replace function public.create_operational_incident(
   p_organization_id uuid,
