@@ -690,6 +690,15 @@ test("workspace search keyboard hint is functional", () => {
   assert.ok(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"));
 });
 
+test("Driver history returns the latest periods in chronological display order", () => {
+  const data = read("lib/data/driverMetrics.js");
+
+  assert.ok(data.includes('.order("period_end", { ascending: false })'));
+  assert.ok(data.includes("return (data || []).reverse()"));
+  assert.ok(data.includes("psb,reattempts,concessions,lor"));
+  assert.ok(data.includes("scorecard_score,tier,risk,issue,data_confidence"));
+});
+
 test("DashboardClient is orchestration-focused", () => {
   const dashboard = read("components/DashboardClient.jsx");
   assert.ok(dashboard.includes('./dashboard/DashboardViews'));
