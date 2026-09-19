@@ -99,6 +99,20 @@ test("Manager Intelligence V3 migration creates workflow, notification and rollb
   }
 });
 
+test("Notification lifecycle cleanup removes resolved items from the active queue", () => {
+  const sql = fs.readFileSync(
+    "supabase/migrations/20260919_manager_intelligence_v3_notification_cleanup.sql",
+    "utf8"
+  ).toLowerCase();
+  const data = fs.readFileSync("lib/data/notificationsV2.js", "utf8");
+
+  assert.ok(sql.includes("cleanup_stale_notification_events"));
+  assert.ok(sql.includes("source_type='performance_alert'"));
+  assert.ok(sql.includes("source_type='coaching_case'"));
+  assert.ok(sql.includes("source_type='driver_metric'"));
+  assert.ok(data.includes('supabase.rpc("cleanup_stale_notification_events"'));
+});
+
 test("V3 product surfaces are wired into the workspace", () => {
   const dashboard = fs.readFileSync("components/DashboardClient.jsx", "utf8");
   const navigation = fs.readFileSync("components/dashboard/navigation.js", "utf8");
@@ -114,4 +128,6 @@ test("V3 product surfaces are wired into the workspace", () => {
   assert.ok(imports.includes("Replace previous"));
   assert.ok(imports.includes("History & Rollback"));
   assert.ok(notifications.includes("Action Feed"));
+  assert.ok(notifications.includes("onNavigate"));
+  assert.ok(dashboard.includes("onNavigate={navigate}"));
 });
