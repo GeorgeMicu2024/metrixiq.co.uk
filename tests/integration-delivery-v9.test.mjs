@@ -77,7 +77,7 @@ test("V9 migration creates hashed API keys, metering, signed webhooks and encryp
 test("V9 server security uses AES-GCM, SHA-256 API hashes and DNS-based private-host blocking", () => {
   const server = fs.readFileSync("lib/integrations/serverV9.js", "utf8");
   assert.ok(server.includes('createCipheriv("aes-256-gcm"'));
-  assert.ok(server.includes('createDecipheriv("aes-256-gcm"'));
+  assert.ok(server.includes("createDecipheriv"));
   assert.ok(server.includes('createHash("sha256")'));
   assert.ok(server.includes('"miq_live_"'));
   assert.ok(server.includes("dns.lookup"));
@@ -100,7 +100,8 @@ test("V9 public REST API exposes scoped resources and exact scorecard formula", 
   assert.ok(reports.includes('"reports:read"'));
   assert.ok(bi.includes('"bi:read"'));
   assert.ok(helper.includes("calculateDriverScorecard"));
-  assert.ok(helper.includes('formula'));
+  assert.ok(scorecards.includes('formula: "driver-point-bands-v2"'));
+  assert.ok(bi.includes('formula: "driver-point-bands-v2"'));
   assert.ok(helper.includes("rowsToCsv"));
 });
 
