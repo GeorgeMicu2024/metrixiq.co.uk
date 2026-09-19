@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./scorecard.css";
+import "./scorecards-v22.css";
 import "./mentor.css";
 
 export const metadata = {
