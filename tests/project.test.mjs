@@ -442,7 +442,7 @@ test("Smart Import exposes professional preflight and readiness UI", () => {
 
 test("dashboard exposes Smart Import", () => {
   assert.ok(read("components/dashboard/navigation.js").includes("Smart Import"));
-  assert.ok(read("components/dashboard/DashboardViews.jsx").includes("Smart Import"));
+  assert.ok(read("components/imports/SmartImportView.jsx").includes("Smart Import"));
 });
 
 test("analyzer core validates station codes and reporting periods", () => {
