@@ -44,6 +44,8 @@ export function ConcessionsKpis({
   leader,
   valueFor,
   wow,
+  wowPct,
+  repeatOffenderCount,
   latestWeek,
   previousWeek,
 }) {
@@ -74,6 +76,11 @@ export function ConcessionsKpis({
             :effectiveRankWeek}
         </small>
       </article>
+      <article className={repeatOffenderCount>0?"risk":""}>
+        <span>Repeat offenders</span>
+        <strong>{repeatOffenderCount}</strong>
+        <small>Affected in 2+ imported weeks</small>
+      </article>
 
       <article>
         <span>Highest driver</span>
@@ -96,7 +103,7 @@ export function ConcessionsKpis({
         </strong>
         <small>
           {latestWeek&&previousWeek
-            ?`${latestWeek} vs ${previousWeek}`
+            ?latestWeek+" vs "+previousWeek+(wowPct==null?"":" · "+(wowPct>0?"+":"")+wowPct+"%")
             :"Previous week unavailable"}
         </small>
       </article>
@@ -387,6 +394,9 @@ export function ConcessionsOverview({
   effectiveRankWeek,
   chooseWeek,
   priority,
+  valueFor,
+  repeatOffenders,
+  managementActions,
   onOpenDriver,
   missingWeeks,
   weeks,
@@ -572,6 +582,65 @@ export function ConcessionsOverview({
         </article>
       </section>
 
+      <section className="cx2-card cx2-management">
+        <div className="cx2-card-head">
+          <div>
+            <span>MANAGEMENT ACTIONS</span>
+            <h2>What to do next</h2>
+            <p>Priorities generated from repeat-driver concentration, weekly movement and reporting health.</p>
+          </div>
+          <div className="cx2-summary-pill">
+            <b>{repeatOffenders.length} repeat</b>
+            <span>drivers across 2+ weeks</span>
+          </div>
+        </div>
+
+        <div className="cx2-management-grid">
+          <div className="cx2-action-list-v2">
+            {managementActions.map((action,index)=>
+              <article key={action.id} className={action.severity}>
+                <span>{String(index+1).padStart(2,"0")}</span>
+                <div>
+                  <b>{action.title}</b>
+                  <p>{action.text}</p>
+                </div>
+              </article>
+            )}
+          </div>
+
+          <div className="cx2-repeat-panel">
+            <div className="cx2-repeat-head">
+              <b>Repeat-driver shortlist</b>
+              <span>Highest recurring concentration</span>
+            </div>
+
+            <div className="cx2-repeat-list">
+              {repeatOffenders.slice(0,5).map((item,index)=>
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={()=>onOpenDriver?.(
+                    openShape(item.row,{concessions:item.total})
+                  )}
+                >
+                  <span className="cx2-rank">{index+1}</span>
+                  <div>
+                    <b>{dname(item.driver)}</b>
+                    <small>{trid(item.driver)} · {item.affected} affected weeks</small>
+                  </div>
+                  <strong>{item.total}</strong>
+                </button>
+              )}
+
+              {!repeatOffenders.length&&
+                <div className="cx2-repeat-empty">
+                  No repeat concession driver is active in the selected period.
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
       <section className="cx2-card cx2-health">
         <div className="cx2-card-head">
           <div>
