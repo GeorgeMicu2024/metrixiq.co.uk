@@ -5,6 +5,7 @@ import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { HistoryTrendChart } from "../HistoricalAnalytics";
 import { avg, fmt, initials, numberOrNull, tone } from "./utils";
 import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
+import CommandCenterPanel from "./CommandCenterPanel";
 
 function MetricCard({ label, value, target, note, accent = "good" }) {
   return <article className="metric-card"><div className="metric-top"><span>{label}</span><i className={`metric-dot ${accent}`} /></div><strong>{value}</strong><div className="metric-bottom"><span>{target}</span><em>{note}</em></div></article>;
@@ -92,7 +93,7 @@ function DriverTable({
   );
 }
 
-export function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching, onDataQuality }) {
+export function DashboardView({ commandCenter, drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching, onConcessions, onDataQuality }) {
   const intelligence = buildFleetIntelligence(drivers, kpis, history);
   const high = intelligence.highRisk;
   const med = intelligence.mediumRisk;
@@ -107,6 +108,15 @@ export function DashboardView({ drivers, kpis, history, onImport, onOpenDriver, 
     return onPerformance?.();
   };
   return <><div className="page-heading"><div><span className="page-kicker">OVERVIEW</span><h1>Fleet performance</h1><p>One operating view across driver performance, risk, data quality and coaching.</p></div><div className="page-actions"><button className="btn ghost" onClick={onPerformance}>Performance history</button><button className="btn primary" onClick={onImport}>Import reports</button></div></div>
+    <CommandCenterPanel
+      summary={commandCenter}
+      intelligence={intelligence}
+      drivers={drivers}
+      onCoaching={onCoaching}
+      onConcessions={onConcessions}
+      onImport={onImport}
+      onOpenDriver={onOpenDriver}
+    />
     <section className="summary-strip"><div><span>Fleet health</span><strong>{health}<small>/100</small></strong><em>Current fleet score</em></div><div><span>Active drivers</span><strong>{drivers.length}</strong><em>Current workspace</em></div><div><span>High risk</span><strong>{high}</strong><em>Needs attention</em></div><div><span>Data confidence</span><strong>{kpis.data_confidence != null ? `${Number(kpis.data_confidence).toFixed(0)}%` : `${intelligence.confidence}%`}</strong><em>{intelligence.completeness}% KPI coverage</em></div></section>
     <section className="metric-grid"><MetricCard label="DCR" value={fmt(kpis.dcr, "dcr")} target={`Target ≥ ${TARGETS.dcr.toFixed(2)}%`} note="Fleet average" accent={kpis.dcr != null && kpis.dcr < TARGETS.dcr ? "warn" : "good"} /><MetricCard label="POD" value={fmt(kpis.pod, "pod")} target={`Target ≥ ${TARGETS.pod.toFixed(2)}%`} note={kpis.pod != null && kpis.pod < TARGETS.pod ? "Watch" : "Healthy"} accent={kpis.pod != null && kpis.pod < TARGETS.pod ? "warn" : "good"} /><MetricCard label="IADC" value={fmt(kpis.iadc, "iadc")} target={`Target ≥ ${TARGETS.iadc}%`} note="Fleet average" accent={kpis.iadc != null && kpis.iadc < TARGETS.iadc ? "warn" : "good"} /><MetricCard label="Mentor Score" value={fmt(kpis.mentor, "mentor")} target={`Target ≥ ${TARGETS.mentor}`} note="Unified driving score" accent={kpis.mentor != null && kpis.mentor < TARGETS.mentor ? "warn" : "good"} /><MetricCard label="Contact Compliance" value={fmt(kpis.cc, "cc")} target={targetLabel("cc")} note="Fleet average" /><MetricCard label="Concessions" value={fmt(kpis.concessions, "concessions")} target="Lower is better" note="Weekly quality signal" accent="warn" /></section>
     <section className="dashboard-grid"><article className="panel"><div className="panel-head"><div><h2>Performance trend</h2><p>Combined fleet score versus weekly target</p></div><span className="panel-badge good">Stored history</span></div><HistoryTrendChart history={history} /><div className="chart-legend"><span><i className="legend-line teal" />Fleet performance</span><span><i className="legend-line target" />Target 85</span></div></article>
