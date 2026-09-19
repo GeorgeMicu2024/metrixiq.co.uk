@@ -113,17 +113,19 @@ test("Notification lifecycle cleanup removes resolved items from the active queu
   assert.ok(data.includes('supabase.rpc("cleanup_stale_notification_events"'));
 });
 
-test("V3 product surfaces are wired into the workspace", () => {
+test("V3 foundations remain wired while V8 promotes Action Center V2", () => {
   const dashboard = fs.readFileSync("components/DashboardClient.jsx", "utf8");
   const navigation = fs.readFileSync("components/dashboard/navigation.js", "utf8");
   const imports = fs.readFileSync("components/imports/ImportCenterV2.jsx", "utf8");
   const notifications = fs.readFileSync("components/notifications/NotificationsPageV2.jsx", "utf8");
 
-  assert.ok(dashboard.includes('./management/ManagerControlCenterV2'));
+  assert.ok(dashboard.includes('./automation/ActionCenterV2'));
+  assert.ok(dashboard.includes('./automation/AutomationCenter'));
   assert.ok(dashboard.includes('./simulator/WhatIfSimulator'));
   assert.ok(dashboard.includes('./imports/ImportCenterV2'));
   assert.ok(dashboard.includes('./coaching/CoachingV3'));
-  assert.ok(navigation.includes('["manager-control", "Manager Control"]'));
+  assert.ok(navigation.includes('["manager-control", "Action Center"]'));
+  assert.ok(navigation.includes('["automation", "Automation Engine"]'));
   assert.ok(navigation.includes('["simulator", "What-if Simulator"]'));
   assert.ok(imports.includes("Replace previous"));
   assert.ok(imports.includes("History & Rollback"));
