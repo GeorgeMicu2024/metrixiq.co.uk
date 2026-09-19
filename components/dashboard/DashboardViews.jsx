@@ -1,12 +1,16 @@
 "use client";
 
+import { useState } from "react";
+
 import { isUsablePersonName } from "../../lib/identity";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { HistoryTrendChart } from "../HistoricalAnalytics";
 import { avg, fmt, initials, numberOrNull, tone } from "./utils";
 import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
 import CommandCenterPanel from "./CommandCenterPanel";
-import { buildDriver360Snapshot } from "../../lib/drivers/driver360";\nimport { getSupabaseBrowserClient } from "../../lib/supabase/client";\nimport { updateMyProfile, updateMyPassword, signOutAllSessions } from "../../lib/data/account";
+import { buildDriver360Snapshot } from "../../lib/drivers/driver360";
+import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { updateMyProfile, updateMyPassword, signOutAllSessions } from "../../lib/data/account";
 import {
   Driver360DeltaGrid,
   Driver360Overview,
