@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { dateLabel, dateTimeLabel, planLabel, SaasStyles } from "../saas/SaasShared";
-import { fetchAdminAccounts, setAdminWorkspacePlan, setAdminWorkspaceSuspension } from "../../lib/data/admin";
+import { dateLabel, dateTimeLabel, daysLeft, planLabel, SaasStyles } from "../saas/SaasShared";
+import { deleteAdminAccount, fetchAdminAccounts, setAdminWorkspacePlan, setAdminWorkspaceSuspension } from "../../lib/data/admin";
 
 export function PlatformAdminView() {
   const [accounts, setAccounts] = useState([]);
@@ -94,6 +94,28 @@ export function PlatformAdminView() {
       await load();
     } catch (e) {
       setError(e?.message || "Could not update workspace access.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+
+  async function deleteAccount(account) {
+    const label = account.email || account.full_name || "this account";
+    const confirmation = window.prompt(
+      `Delete ${label} permanently?\n\nThis removes the Auth account and any empty workspace owned only by this user. Type DELETE to continue.`
+    );
+    if (confirmation !== "DELETE") return;
+
+    const key = `${account.user_id}-delete`;
+    setBusy(key);
+    setError("");
+
+    try {
+      await deleteAdminAccount(getSupabaseBrowserClient(), account.user_id);
+      await load();
+    } catch (e) {
+      setError(e?.message || "Could not delete the account.");
     } finally {
       setBusy("");
     }
@@ -235,10 +257,17 @@ export function PlatformAdminView() {
 
                           <button
                             className={account.suspended ? "restore" : "suspend"}
-                            disabled={planBusy || suspendBusy}
+                            disabled={planBusy || suspendBusy || busy === `${account.user_id}-delete`}
                             onClick={() => setSuspended(account, !account.suspended)}
                           >
                             {suspendBusy ? "…" : account.suspended ? "Restore" : "Suspend"}
+                          </button>
+                          <button
+                            className="suspend"
+                            disabled={planBusy || suspendBusy || busy === `${account.user_id}-delete`}
+                            onClick={() => deleteAccount(account)}
+                          >
+                            {busy === `${account.user_id}-delete` ? "Deleting…" : "Delete"}
                           </button>
                         </div>
                       ) : "—"}

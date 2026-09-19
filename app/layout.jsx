@@ -10,6 +10,7 @@ import "./platform-mobile-v6.css";
 import "./enterprise-portfolio-v7.css";
 import "./automation-workflows-v8.css";
 import "./integration-delivery-v9.css";
+import "./account-settings.css";
 import PwaBootstrap from "../components/pwa/PwaBootstrap";
 
 export const metadata = {

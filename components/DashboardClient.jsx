@@ -29,7 +29,7 @@ import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
 import { persistWorkspaceImport } from "../lib/data/importWorkflow";
 import { refreshSlaEscalations, runAutomationEngine } from "../lib/data/automationV8";
-import { DashboardView, SettingsView } from "./dashboard/DashboardViews";
+import { DashboardView } from "./dashboard/DashboardViews";
 import ReportBuilderV2 from "./reports/ReportBuilderV2";
 import ExecutiveAnalystV2 from "./intelligence/ExecutiveAnalystV2";
 import ImportCenterV2 from "./imports/ImportCenterV2";
@@ -47,6 +47,7 @@ import MobileManagerMode from "./mobile/MobileManagerMode";
 import MobileCommandDock from "./mobile/MobileCommandDock";
 import PortfolioDashboard from "./enterprise/PortfolioDashboard";
 import EnterpriseSettings from "./enterprise/EnterpriseSettings";
+import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 
 export default function DashboardClient() {
@@ -326,8 +327,8 @@ export default function DashboardClient() {
     case "reports": view = <ReportBuilderV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
     case "team": view = <TeamAccessHub organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
-    case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
-    case "admin": view = platformAdmin ? <PlatformAdminView /> : <SettingsView session={session || {}} onLogout={logout} />; break;
+    case "settings": view = <AccountSettingsView platformAdmin={platformAdmin} />; break;
+    case "admin": view = platformAdmin ? <PlatformAdminView /> : <AccountSettingsView platformAdmin={false} />; break;
     case "driver-profile": view = selectedDriver ? <Driver360V2 organizationId={workspace?.organization?.id} driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} canManage={platformAdmin || permissions?.manage_incidents || permissions?.manage_coaching} onBack={backFromDriver} onOpenCoaching={() => navigate("coaching")} onOpenSimulator={() => navigate("simulator")} onOpenEvidence={() => navigate("evidence")} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     default: view = <DashboardView commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} />;
   }

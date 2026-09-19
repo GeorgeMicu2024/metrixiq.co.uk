@@ -53,8 +53,10 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
       });
       setMessage(
         result?.status === "accepted"
-          ? "The registered user was added to this workspace."
-          : "Invite created. Ask the user to register/sign in with the invited email."
+          ? "The existing MetrixIQ account was added to this workspace."
+          : result?.email_sent
+            ? "Invitation email sent. Access will activate when the invited user accepts and verifies the email."
+            : "Invite created, but email delivery is pending. You can resend it or copy the signup link."
       );
 
       setEmail("");
@@ -129,14 +131,49 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     }
   }
 
-  async function copySignupLink() {
-    const signupUrl = `${window.location.origin}/login?mode=register&invite=1`;
+  async function copySignupLink(invite = null) {
+    const params = new URLSearchParams({ mode: "register", invite: "1" });
+    if (invite?.email) params.set("email", invite.email);
+    if (invite?.token) params.set("token", invite.token);
+    const signupUrl = `${window.location.origin}/login?${params.toString()}`;
 
     try {
       await navigator.clipboard.writeText(signupUrl);
-      setMessage("Invite signup link copied. The workspace is matched automatically by email.");
+      setMessage(invite?.email
+        ? "Personal invite signup link copied."
+        : "Invite signup link copied. The workspace is matched automatically by email.");
     } catch {
       setMessage(`Signup URL: ${signupUrl}`);
+    }
+  }
+
+  async function resendInvite(invite) {
+    if (!canManage || !invite?.email) return;
+
+    setBusy(`resend-${invite.token}`);
+    setError("");
+    setMessage("");
+
+    try {
+      const result = await createTeamInvite(getSupabaseBrowserClient(), {
+        organizationId,
+        email: invite.email,
+        role: invite.role,
+        siteScope: invite.site_scope || [],
+      });
+      setMessage(
+        result?.status === "accepted"
+          ? "The account already exists and was added to this workspace."
+          : result?.email_sent
+            ? "Invitation email resent successfully."
+            : "Invite remains pending, but email delivery did not complete."
+      );
+      await load();
+    } catch (e) {
+      setError(e?.message || "Could not resend the invitation email.");
+      await load();
+    } finally {
+      setBusy("");
     }
   }
 
@@ -157,7 +194,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
         <div className="panel-head">
           <div>
             <h2>Invite a team member</h2>
-            <p>Existing accounts are added immediately. New users are linked when they register with the invited email.</p>
+            <p>Existing accounts are added immediately. New users receive a secure email invitation and are linked after verifying the invited email.</p>
           </div>
         </div>
 
@@ -282,7 +319,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
             <h2>Pending invites</h2>
             <p>Invites expire after 14 days.</p>
           </div>
-          <button className="btn ghost" onClick={copySignupLink}>Copy signup link</button>
+          <button className="btn ghost" onClick={() => copySignupLink()}>Copy generic signup link</button>
         </div>
 
         <div className="team-pending-list">
@@ -294,12 +331,26 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                   {invite.role} · {(invite.site_scope || []).length ? invite.site_scope.join(", ") : "All sites"} · expires {dateLabel(invite.expires_at)}
                 </small>
               </div>
-              <button
-                disabled={busy === `invite-${invite.token}`}
-                onClick={() => cancelInvite(invite)}
-              >
-                Cancel
-              </button>
+              <div className="team-actions">
+                <button
+                  disabled={!canManage || busy === `resend-${invite.token}`}
+                  onClick={() => resendInvite(invite)}
+                >
+                  {busy === `resend-${invite.token}` ? "Sending…" : "Resend email"}
+                </button>
+                <button
+                  disabled={busy === `copy-${invite.token}`}
+                  onClick={() => copySignupLink(invite)}
+                >
+                  Copy link
+                </button>
+                <button
+                  disabled={busy === `invite-${invite.token}`}
+                  onClick={() => cancelInvite(invite)}
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           ))}
 
