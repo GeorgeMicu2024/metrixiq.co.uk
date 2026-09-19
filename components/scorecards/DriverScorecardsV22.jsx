@@ -708,7 +708,7 @@ export default function DriverScorecardsV22({
         num(editRow.mentor_score ?? editRow.ementor ?? editRow.fico);
       const nextRawData = {
         ...(editRow.raw_data || {}),
-        scorecard_formula_version: "v1",
+        scorecard_formula_version: "v2-point-bands",
         manual_fico_override: {
           original_value: originalValue,
           value,
@@ -866,7 +866,7 @@ export default function DriverScorecardsV22({
         <span>·</span>
         <b>{nearPromotionCount}</b> within 3 points of the next tier
       </div>
-      <small>Formula v1 active · {formulaCount} calculated · missing metrics default to 100% per formula</small>
+      <small>Point-band formula active · {formulaCount} calculated · blank metrics score 0 points</small>
     </section>
 
     <section className="scorex3-summary">
@@ -981,7 +981,6 @@ export default function DriverScorecardsV22({
         <table className="scorex3-table">
           <thead>
             <tr>
-              <SortHeader columnKey="trid">Transporter ID</SortHeader>
               <SortHeader columnKey="rank">Rank</SortHeader>
               <SortHeader columnKey="name">Name</SortHeader>
               <SortHeader columnKey="concessions">Concessions</SortHeader>
@@ -1006,7 +1005,7 @@ export default function DriverScorecardsV22({
 
               return [
                 <tr key={`${group.cls}-header`} className={`scorex3-tier-row ${group.cls}`}>
-                  <td colSpan="15">
+                  <td colSpan="14">
                     <div>
                       <b>{group.label}</b>
                       <span>{group.min} TOTAL SCORE</span>
@@ -1023,7 +1022,6 @@ export default function DriverScorecardsV22({
                     key={`${row.driver_id}-${period?.key}`}
                     className={`scorex3-driver-row ${row.flags.filter((flag) => flag.severity === "bad").length >= 2 ? "multi-risk" : ""}`}
                   >
-                    <td className="scorex3-trid-cell">{driver.trid || "—"}</td>
                     <td className={`scorex3-rank-cell ${row.sourceRank.cls}`}>
                       <b>{row.sourceRank.label}</b>
                       <small className={movementClass(row)}>
@@ -1163,7 +1161,7 @@ export default function DriverScorecardsV22({
           </div>
 
           <div className="scorex3-edit-note">
-            Saving updates FICO for this driver and this scorecard week only. The Total Score, Rank and WoW comparison recalculate automatically from Formula v1.
+            Saving updates FICO for this driver and this scorecard week only. Total Score, Rank and WoW recalculate automatically from the point-band formula.
           </div>
 
           {editMessage && <div className={`scorex3-edit-message ${editMessage === "Saved" ? "success" : "error"}`}>{editMessage}</div>}
@@ -1211,9 +1209,9 @@ export default function DriverScorecardsV22({
           </section>
 
           <div className="scorex3-source-note">
-            <b>Scorecard formula v1</b>
+            <b>Scorecard formula · point bands</b>
             <span>
-              Exact weighted formula: FICO 17%, DCR 17%, DSC 17%, LoR 6%, POD 8%, CC 8%, CE 10%, CDF 10%, PSB 7%. Missing/non-numeric inputs default to 100% exactly as defined by the formula. Coverage: {breakdownRow.scoreCoverage}/9 real metrics.
+              Exact Google Sheet logic: FICO max 17 pts, DCR 17, DSC 17, LoR 6, POD 8, CC 8, CE 10, CDF 10 and PSB 7. Blank inputs score 0. Amazon source "-" values for CDF/PSB keep the full N/A points, matching the sheet. Coverage: {breakdownRow.scoreCoverage}/9 metrics.
             </span>
           </div>
 
@@ -1224,12 +1222,16 @@ export default function DriverScorecardsV22({
                   <div>
                     <b>{component.label}</b>
                     <span>
-                      {component.defaulted ? "Missing → 100% default" : component.format(component.value)}
+                      {component.inferredDash
+                        ? "— (source N/A)"
+                        : component.defaulted
+                          ? "Missing → 0 pts"
+                          : component.format(component.value)}
                     </span>
                   </div>
                   <div>
-                    <strong>{component.component.toFixed(0)}%</strong>
-                    <small>{component.weight}% weight · {component.contribution.toFixed(1)} pts</small>
+                    <strong>{component.points}/{component.maxPoints}</strong>
+                    <small>{component.maxPoints} max · {component.contribution.toFixed(0)} pts</small>
                   </div>
                 </div>
                 <div className="scorex3-breakdown-track">
