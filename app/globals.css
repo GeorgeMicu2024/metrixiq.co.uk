@@ -1037,3 +1037,61 @@
 @media(max-width:430px){
   .command-center-grid{grid-template-columns:1fr}
 }
+
+
+/* ===== Driver 360 V2 ===== */
+.driver360-hero{margin-bottom:12px}
+.driver360-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.driver360-stat{
+  padding:15px 16px;border:1px solid #dfe7eb;border-radius:13px;background:#fff;
+  box-shadow:0 2px 8px rgba(17,42,59,.025);
+}
+.driver360-stat>span{display:block;color:#85939f;font-size:8px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.driver360-stat>strong{display:block;margin-top:7px;color:#193249;font-size:25px;letter-spacing:-.035em}
+.driver360-stat>small{display:block;margin-top:3px;color:#81909d;font-size:8px}
+.driver360-stat.good{box-shadow:inset 3px 0 #4f9d7e}
+.driver360-stat.warn{box-shadow:inset 3px 0 #d5a13d}
+.driver360-stat.bad{box-shadow:inset 3px 0 #d8656f}
+.driver360-stat.neutral{box-shadow:inset 3px 0 #91a0ad}
+.driver360-deltas{margin-bottom:12px}
+.driver360-delta-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:13px}
+.driver360-delta-grid article{padding:11px;border:1px solid #e3e9ed;border-radius:10px;background:#fafcfd}
+.driver360-delta-grid article>div{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.driver360-delta-grid span{color:#6f7e8d;font-size:8px;font-weight:900;text-transform:uppercase}
+.driver360-delta-grid em{padding:3px 5px;border-radius:999px;font-size:6px;font-style:normal;font-weight:900}
+.driver360-delta-grid em.good{background:#e6f5ed;color:#32775b}
+.driver360-delta-grid em.bad{background:#f8dfe2;color:#a2444e}
+.driver360-delta-grid strong{display:block;margin-top:8px;color:#20364b;font-size:19px}
+.driver360-delta-grid small{display:block;margin-top:3px;font-size:8px;font-weight:850}
+.driver360-delta-grid small.good{color:#34785f}
+.driver360-delta-grid small.bad{color:#ac4651}
+.driver360-delta-grid small.neutral{color:#8995a1}
+.driver360-layout{margin-bottom:12px}
+.driver360-chart{margin-top:12px;padding:8px 6px 0;border:1px solid #edf1f3;border-radius:11px;background:linear-gradient(180deg,#fcfefe,#fff);overflow:hidden}
+.driver360-chart svg{display:block;width:100%;height:auto}
+.driver360-gridline{stroke:#e8edef;stroke-width:1;stroke-dasharray:3 5}
+.driver360-line{fill:none;stroke:#4c9585;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.driver360-point{fill:#fff;stroke:#4c9585;stroke-width:4}
+.driver360-value{fill:#243a4e;font-size:10px;font-weight:900}
+.driver360-label{fill:#8996a2;font-size:8px;font-weight:800}
+.driver360-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:120px;padding:18px;text-align:center}
+.driver360-empty b{color:#30485b;font-size:10px}
+.driver360-empty span{margin-top:5px;max-width:400px;color:#8996a2;font-size:9px;line-height:1.5}
+.driver360-risk-context{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0}
+.driver360-risk-context>div{padding:10px;border:1px solid #e5eaee;border-radius:9px;background:#fafcfd}
+.driver360-risk-context span{display:block;color:#8c98a3;font-size:7px;text-transform:uppercase;font-weight:900}
+.driver360-risk-context b{display:block;margin-top:4px;color:#263b4f;font-size:10px}
+.driver360-timeline{margin-bottom:12px}
+.driver360-table{min-width:820px}
+.driver360-table th,.driver360-table td{white-space:nowrap}
+.driver360-coaching{margin-bottom:18px}
+@media(max-width:1250px){
+  .driver360-delta-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media(max-width:900px){
+  .driver360-overview{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:650px){
+  .driver360-overview,.driver360-delta-grid{grid-template-columns:1fr}
+  .driver360-risk-context{grid-template-columns:1fr}
+}
