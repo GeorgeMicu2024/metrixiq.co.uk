@@ -87,8 +87,10 @@ begin
 end;
 $function$;
 
-grant execute on function public.get_team_invite_signup_context(uuid,text) to anon;
-grant execute on function public.get_team_invite_signup_context(uuid,text) to authenticated;
+revoke all on function public.get_team_invite_signup_context(uuid,text) from public;
+revoke all on function public.get_team_invite_signup_context(uuid,text) from anon;
+revoke all on function public.get_team_invite_signup_context(uuid,text) from authenticated;
+grant execute on function public.get_team_invite_signup_context(uuid,text) to service_role;
 
 revoke all on function public.complete_team_invite_signup(uuid,uuid,text) from public;
 revoke all on function public.complete_team_invite_signup(uuid,uuid,text) from anon;
