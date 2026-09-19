@@ -582,8 +582,19 @@ begin
       and enabled=true
       and (
         p_force
-        or schedule_mode='event'
-        or (schedule_mode in ('daily','weekly') and next_run_at is not null and next_run_at<=now())
+        or (
+          p_source='system_cron'
+          and schedule_mode in ('daily','weekly')
+          and next_run_at is not null
+          and next_run_at<=now()
+        )
+        or (
+          p_source<>'system_cron'
+          and (
+            schedule_mode='event'
+            or (schedule_mode in ('daily','weekly') and next_run_at is not null and next_run_at<=now())
+          )
+        )
       )
     order by created_at
   loop
@@ -939,10 +950,9 @@ begin
     select distinct r.organization_id
     from public.automation_rules r
     where r.enabled=true
-      and (
-        (r.schedule_mode in ('daily','weekly') and r.next_run_at is not null and r.next_run_at<=now())
-        or r.schedule_mode='event'
-      )
+      and r.schedule_mode in ('daily','weekly')
+      and r.next_run_at is not null
+      and r.next_run_at<=now()
     union
     select distinct organization_id from public.workflow_instances where status not in ('completed','cancelled')
     union
@@ -957,10 +967,9 @@ begin
     if exists (
       select 1 from public.automation_rules r
       where r.organization_id=v_org and r.enabled=true
-        and (
-          r.schedule_mode='event'
-          or (r.schedule_mode in ('daily','weekly') and r.next_run_at is not null and r.next_run_at<=now())
-        )
+        and r.schedule_mode in ('daily','weekly')
+        and r.next_run_at is not null
+        and r.next_run_at<=now()
     ) then
       select * into v_result
       from public.run_automation_engine(v_org,false,'system_cron');
