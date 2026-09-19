@@ -690,6 +690,23 @@ test("workspace search keyboard hint is functional", () => {
   assert.ok(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"));
 });
 
+test("Driver 360 V2 exposes trajectory, KPI movement and evidence timeline", () => {
+  const views = read("components/dashboard/DashboardViews.jsx");
+  const sections = read("components/drivers/Driver360Sections.jsx");
+  const model = read("lib/drivers/driver360.js");
+
+  assert.ok(views.includes("DRIVER 360"));
+  assert.ok(views.includes("Driver360Overview"));
+  assert.ok(views.includes("Driver360DeltaGrid"));
+  assert.ok(views.includes("DriverTrajectoryChart"));
+  assert.ok(views.includes("DriverEvidenceTimeline"));
+  assert.ok(sections.includes("KPI movement"));
+  assert.ok(sections.includes("Evidence timeline"));
+  assert.ok(model.includes("buildDriver360Snapshot"));
+  assert.ok(model.includes("fourWeekConcessions"));
+  assert.ok(model.includes("performanceDelta"));
+});
+
 test("Driver history returns the latest periods in chronological display order", () => {
   const data = read("lib/data/driverMetrics.js");
 
