@@ -11,6 +11,7 @@ import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
 import { buildDriverPerformanceRows, buildExecutiveSummary, buildRiskRows, toCsv } from "../lib/reports/fleetReports.js";
 import { buildDriver360Snapshot } from "../lib/drivers/driver360.js";
+import { buildConcessionsSignals } from "../lib/operations/concessions.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -863,6 +864,43 @@ test("CDF and Data Quality use canonical product modules", () => {
   assert.ok(dataQualityData.includes("export async function resolveDriverIdentity"));
   assert.ok(dashboard.includes('./customer-feedback/CdfView'));
   assert.ok(dashboard.includes('./data-quality/DataQualityView'));
+});
+
+test("Concessions V2 calculates movement, repeat offenders and actions", () => {
+  const ranking = [
+    { id: "A", affected: 3, total: 6, byWeek: { W35: 1, W36: 2, W37: 3 } },
+    { id: "B", affected: 2, total: 3, byWeek: { W35: 0, W36: 1, W37: 2 } },
+    { id: "C", affected: 1, total: 1, byWeek: { W35: 0, W36: 0, W37: 1 } },
+  ];
+  const signals = buildConcessionsSignals({
+    ranking,
+    weeks: ["W35", "W36", "W37", "W38"],
+    presentSet: new Set(["W35", "W36", "W37"]),
+    weekTotals: [10, 12, 15, 0],
+  });
+
+  assert.equal(signals.latestWeek, "W37");
+  assert.equal(signals.previousWeek, "W36");
+  assert.equal(signals.wow, 3);
+  assert.equal(signals.wowPct, 25);
+  assert.equal(signals.repeatOffenders.length, 2);
+  assert.deepEqual(signals.missingWeeks, ["W38"]);
+  assert.ok(signals.managementActions.some((action) => action.id === "repeat"));
+  assert.ok(signals.managementActions.some((action) => action.id === "increase"));
+  assert.ok(signals.managementActions.some((action) => action.id === "missing"));
+});
+
+test("Concessions Overview receives its ranking accessor and V2 management evidence", () => {
+  const view = read("components/operations/ConcessionsView.jsx");
+  const sections = read("components/operations/ConcessionsSections.jsx");
+
+  assert.ok(view.includes("buildConcessionsSignals"));
+  assert.ok(view.includes("valueFor={valueFor}"));
+  assert.ok(view.includes("managementActions={managementActions}"));
+  assert.ok(view.includes("repeatOffenders={repeatOffenders}"));
+  assert.ok(sections.includes("valueFor,"));
+  assert.ok(sections.includes("MANAGEMENT ACTIONS"));
+  assert.ok(sections.includes("Repeat-driver shortlist"));
 });
 
 test("Concessions separates orchestration from presentation sections", () => {
