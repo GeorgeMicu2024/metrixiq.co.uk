@@ -45,6 +45,7 @@ export default function EvidenceIncidentCenter({
   organizationId,
   siteFilter="all",
   drivers=[],
+  initialDriverId="",
   canManage=false,
   onOpenDriver,
   onOpenCoaching,
@@ -77,6 +78,14 @@ export default function EvidenceIncidentCenter({
     finally{setLoading(false);}
   }
   useEffect(()=>{load();},[organizationId]);
+
+  useEffect(()=>{
+    if(!initialDriverId)return;
+    const driver=drivers.find((item)=>String(item.dbId||item.driver_id)===String(initialDriverId));
+    if(driver)setQuery(driver.name||driver.id||"");
+    const incident=data.incidents.find((item)=>String(item.driver_id)===String(initialDriverId));
+    if(incident){setSelectedId(incident.id);setTab("incidents");}
+  },[initialDriverId,data.incidents.length,drivers.length]);
 
   const incidents=useMemo(()=>data.incidents.filter((item)=>siteFilter==="all"||!item.site||String(item.site).toUpperCase()===siteFilter),[data.incidents,siteFilter]);
   const feedback=useMemo(()=>data.feedback.filter((item)=>siteFilter==="all"||!item.site||String(item.site).toUpperCase()===siteFilter),[data.feedback,siteFilter]);
