@@ -217,7 +217,7 @@ export default function DashboardClient() {
     case "intelligence": view = <IntelligenceView drivers={drivers} kpis={kpis} history={visibleFleetHistory} onCoaching={() => navigate("coaching")} onImport={() => navigate("imports")} onPerformance={() => navigate("performance")} onDataQuality={() => navigate("data-quality")} onOpenDriver={openDriver} />; break;
     case "imports": view = <SmartImportView onImported={imported} analysis={analysis} />; break;
     case "data-quality": view = <DataQualityView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} />; break;
-    case "reports": view = <ReportsView drivers={drivers} kpis={kpis} history={visibleFleetHistory} />; break;
+    case "reports": view = <ReportsView drivers={drivers} kpis={kpis} history={visibleFleetHistory} commandCenter={commandCenter} />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
     case "team": view = <TeamManagementView organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <SettingsView session={session || {}} onLogout={logout} />; break;
