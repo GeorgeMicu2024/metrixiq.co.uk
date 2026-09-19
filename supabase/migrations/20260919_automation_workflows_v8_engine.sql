@@ -312,7 +312,8 @@ begin
   select * into v_rule from public.automation_rules where id=p_rule_id;
   if not found then raise exception 'Rule not found'; end if;
 
-  if not private.has_workspace_permission(v_rule.organization_id,'manage_automations')
+  if coalesce((select auth.role()),'')<>'service_role'
+     and not private.has_workspace_permission(v_rule.organization_id,'manage_automations')
      and not private.is_platform_privileged() then
     raise exception 'Not authorised' using errcode='42501';
   end if;
@@ -562,12 +563,15 @@ declare
   v_match integer;
   v_actions integer;
 begin
-  if not private.has_workspace_permission(p_organization_id,'manage_automations')
+  if coalesce((select auth.role()),'')<>'service_role'
+     and not private.has_workspace_permission(p_organization_id,'manage_automations')
      and not private.is_platform_privileged() then
     raise exception 'Not authorised' using errcode='42501';
   end if;
 
-  perform public.ensure_default_automation_rules(p_organization_id);
+  if coalesce((select auth.role()),'')<>'service_role' then
+    perform public.ensure_default_automation_rules(p_organization_id);
+  end if;
 
   rules_run:=0;matched_count:=0;action_count:=0;failed_count:=0;
 
@@ -612,7 +616,8 @@ security definer
 set search_path to ''
 as $$
 begin
-  if not private.has_workspace_permission(p_organization_id,'view_workflows')
+  if coalesce((select auth.role()),'')<>'service_role'
+     and not private.has_workspace_permission(p_organization_id,'view_workflows')
      and not private.has_workspace_permission(p_organization_id,'manage_coaching')
      and not private.is_platform_privileged() then
     raise exception 'Not authorised' using errcode='42501';
@@ -860,7 +865,8 @@ set search_path to ''
 as $$
 declare v_item record; v_count integer:=0; v_dedupe text; v_rows integer;
 begin
-  if not private.has_workspace_permission(p_organization_id,'manage_workflows')
+  if coalesce((select auth.role()),'')<>'service_role'
+     and not private.has_workspace_permission(p_organization_id,'manage_workflows')
      and not private.is_platform_privileged() then
     raise exception 'Not authorised' using errcode='42501';
   end if;
@@ -899,6 +905,82 @@ begin
   return v_count;
 end;
 $$;
+
+create or replace function public.run_due_automations_system()
+returns table(
+  organizations_checked integer,
+  rules_run integer,
+  matched_count integer,
+  action_count integer,
+  failed_count integer,
+  sla_notifications integer
+)
+language plpgsql
+security definer
+set search_path to ''
+as $
+declare
+  v_org uuid;
+  v_result record;
+  v_sla integer;
+begin
+  if coalesce((select auth.role()),'')<>'service_role' then
+    raise exception 'Service role required' using errcode='42501';
+  end if;
+
+  organizations_checked:=0;
+  rules_run:=0;
+  matched_count:=0;
+  action_count:=0;
+  failed_count:=0;
+  sla_notifications:=0;
+
+  for v_org in
+    select distinct r.organization_id
+    from public.automation_rules r
+    where r.enabled=true
+      and (
+        (r.schedule_mode in ('daily','weekly') and r.next_run_at is not null and r.next_run_at<=now())
+        or r.schedule_mode='event'
+      )
+    union
+    select distinct organization_id from public.workflow_instances where status not in ('completed','cancelled')
+    union
+    select distinct organization_id from public.manager_tasks where status not in ('done','dismissed')
+    union
+    select distinct organization_id from public.coaching_cases where status<>'closed'
+    union
+    select distinct organization_id from public.operational_incidents where status not in ('resolved','closed')
+  loop
+    organizations_checked:=organizations_checked+1;
+
+    if exists (
+      select 1 from public.automation_rules r
+      where r.organization_id=v_org and r.enabled=true
+        and (
+          r.schedule_mode='event'
+          or (r.schedule_mode in ('daily','weekly') and r.next_run_at is not null and r.next_run_at<=now())
+        )
+    ) then
+      select * into v_result
+      from public.run_automation_engine(v_org,false,'system_cron');
+      rules_run:=rules_run+coalesce(v_result.rules_run,0);
+      matched_count:=matched_count+coalesce(v_result.matched_count,0);
+      action_count:=action_count+coalesce(v_result.action_count,0);
+      failed_count:=failed_count+coalesce(v_result.failed_count,0);
+    end if;
+
+    select public.refresh_sla_escalations(v_org) into v_sla;
+    sla_notifications:=sla_notifications+coalesce(v_sla,0);
+  end loop;
+
+  return next;
+end;
+$;
+
+revoke all on function public.run_due_automations_system() from public;
+revoke all on function public.run_due_automations_system() from authenticated;
+grant execute on function public.run_due_automations_system() to service_role;
 
 grant execute on function public.ensure_default_automation_rules(uuid) to authenticated;
 grant execute on function public.run_automation_rule(uuid,boolean) to authenticated;
