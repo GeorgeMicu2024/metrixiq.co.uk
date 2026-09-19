@@ -44,6 +44,8 @@ export default function CommandCenterPanel({
   onCoaching,
   onConcessions,
   onImport,
+  onPerformance,
+  onDataQuality,
   onOpenDriver,
 }) {
   const alerts = summary?.alerts || {};
@@ -83,7 +85,7 @@ export default function CommandCenterPanel({
       value: deterioration,
       note: `${n(alerts.dcr_drop)} DCR drop · ${n(alerts.deteriorating)} trend`,
       tone: deterioration ? "warn" : "good",
-      action: undefined,
+      action: onPerformance,
     },
   ];
 
@@ -170,7 +172,8 @@ export default function CommandCenterPanel({
               onClick={() => {
                 if (action.destination === "coaching") return onCoaching?.();
                 if (action.destination === "imports") return onImport?.();
-                if (action.destination === "data-quality") return onImport?.();
+                if (action.destination === "data-quality") return onDataQuality?.();
+                if (action.destination === "performance") return onPerformance?.();
                 if (action.id === "concessions") return onConcessions?.();
                 return onCoaching?.();
               }}
