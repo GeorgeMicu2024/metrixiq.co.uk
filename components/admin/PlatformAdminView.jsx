@@ -8,7 +8,7 @@ function daysLeft(value) {
   if (!value) return 0;
   return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 86400000));
 }
-import { fetchAdminAccounts, fetchAdminPendingInvites, setAdminWorkspacePlan, setAdminWorkspaceSuspension } from "../../lib/data/admin";
+import { deleteAdminUser, fetchAdminAccounts, fetchAdminPendingInvites, resetAdminUserAccess, setAdminWorkspacePlan, setAdminWorkspaceSuspension } from "../../lib/data/admin";
 
 export function PlatformAdminView() {
   const [accounts, setAccounts] = useState([]);
@@ -108,6 +108,21 @@ export function PlatformAdminView() {
     } finally {
       setBusy("");
     }
+  }
+
+  async function resetAccess(account) {
+    if (!window.confirm(`Reset access for ${account.email}? Non-owner memberships will be reduced to Viewer and custom permissions cleared.`)) return;
+    const key = `${account.user_id}-reset`; setBusy(key); setError("");
+    try { await resetAdminUserAccess(getSupabaseBrowserClient(), account.user_id); await load(); }
+    catch (e) { setError(e?.message || "Could not reset user access."); } finally { setBusy(""); }
+  }
+
+  async function deleteUser(account) {
+    const typed = window.prompt(`Delete ${account.email}? This permanently removes the login account. Type DELETE to confirm.`);
+    if (typed !== "DELETE") return;
+    const key = `${account.user_id}-delete`; setBusy(key); setError("");
+    try { await deleteAdminUser(getSupabaseBrowserClient(), account.user_id); await load(); }
+    catch (e) { setError(e?.message || "Could not delete the user."); } finally { setBusy(""); }
   }
 
   return (
@@ -244,12 +259,14 @@ export function PlatformAdminView() {
                             <option value="full">Business</option>
                           </select>
 
-                          <button
-                            className={account.suspended ? "restore" : "suspend"}
-                            disabled={planBusy || suspendBusy}
-                            onClick={() => setSuspended(account, !account.suspended)}
-                          >
+                          <button className={account.suspended ? "restore" : "suspend"} disabled={planBusy || suspendBusy} onClick={() => setSuspended(account, !account.suspended)}>
                             {suspendBusy ? "…" : account.suspended ? "Restore" : "Suspend"}
+                          </button>
+                          <button className="ghost" disabled={!!busy} onClick={() => resetAccess(account)}>
+                            {busy === `${account.user_id}-reset` ? "…" : "Reset access"}
+                          </button>
+                          <button className="danger" disabled={!!busy} onClick={() => deleteUser(account)}>
+                            {busy === `${account.user_id}-delete` ? "…" : "Delete user"}
                           </button>
                         </div>
                       ) : "—"}
