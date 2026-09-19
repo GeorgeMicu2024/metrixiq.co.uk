@@ -12,6 +12,7 @@ import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../l
 import { buildDriverPerformanceRows, buildExecutiveSummary, buildRiskRows, toCsv } from "../lib/reports/fleetReports.js";
 import { buildDriver360Snapshot } from "../lib/drivers/driver360.js";
 import { buildConcessionsSignals } from "../lib/operations/concessions.js";
+import { buildWeeklyExecutiveBrief, formatWeeklyExecutiveBrief } from "../lib/reports/weeklyExecutiveBrief.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
@@ -198,6 +199,49 @@ test("persistence metrics use central KPI targets", () => {
   const metrics = read("lib/persistence/metrics.js");
   assert.ok(metrics.includes('from "../config/performance.js"'));
   assert.equal(metrics.includes("Number(row.cc) < 99"), false);
+});
+
+test("Weekly Executive Brief combines fleet movement and command center evidence", () => {
+  const brief = buildWeeklyExecutiveBrief({
+    drivers: [
+      { id: "A1", name: "Driver One", site: "DLS2", risk: "High", performance: 82, dcr: 98.8, pod: 99.5, iadc: 75, cc: 97, mentor_score: 810, concessions: 2 },
+      { id: "A2", name: "Driver Two", site: "DLS2", risk: "Low", performance: 91, dcr: 99.5, pod: 99.8, iadc: 88, cc: 99, mentor_score: 830, concessions: 0 },
+    ],
+    kpis: { dcr: 99.15, pod: 99.65, iadc: 81.5, cc: 98, mentor: 820, concessions: 1 },
+    history: [
+      { week_label: "W36", performance: 84 },
+      { week_label: "W37", performance: 87 },
+    ],
+    commandCenter: {
+      period_label: "W37",
+      alerts: { total: 3, critical: 1, high: 1, repeat_concessions: 1, dcr_drop: 1, deteriorating: 0 },
+      coaching: { open: 2, overdue: 1, closed: 3 },
+      priority_drivers: [
+        { driver_name: "Driver One", trid: "A1", site: "DLS2", alert_count: 2, critical_count: 1, high_count: 1, rank_score: 140 },
+      ],
+    },
+  });
+
+  assert.equal(brief.period, "W37");
+  assert.equal(brief.performance.delta, 3);
+  assert.equal(brief.alerts.total, 3);
+  assert.equal(brief.coaching.overdue, 1);
+  assert.equal(brief.priorities[0].trid, "A1");
+
+  const textBrief = formatWeeklyExecutiveBrief(brief);
+  assert.ok(textBrief.includes("METRIXIQ WEEKLY EXECUTIVE BRIEF"));
+  assert.ok(textBrief.includes("PRIORITY DRIVERS"));
+  assert.ok(textBrief.includes("NEXT ACTIONS"));
+});
+
+test("Reports exposes the Weekly Executive Brief workflow", () => {
+  const reports = read("components/reports/ReportsView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.ok(reports.includes("Weekly Executive Brief"));
+  assert.ok(reports.includes("copyWeeklyBrief"));
+  assert.ok(reports.includes("formatWeeklyExecutiveBrief"));
+  assert.ok(dashboard.includes("commandCenter={commandCenter}"));
 });
 
 test("reports builders export real fleet evidence", () => {
