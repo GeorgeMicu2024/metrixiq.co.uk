@@ -5,7 +5,7 @@ import { findIadcHeader } from "../lib/parsers/iadc.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 import { inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
-import { parseGenericMatrix } from "../lib/analyzer/spreadsheet.js";
+import { parseGenericMatrix, parseMentorAliasMatrix, parseMentorMatrix } from "../lib/analyzer/spreadsheet.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
@@ -161,6 +161,63 @@ test("analyzer delegates spreadsheet parsing to a dedicated engine", () => {
   assert.ok(spreadsheet.includes("function parseScorecardMatrix"));
   assert.ok(core.includes("export function inferPeriod"));
   assert.ok(analyzer.length < 40000);
+});
+
+test("eMentor Driver Report is performance data, not an alias dictionary", () => {
+  const matrix = [
+    [
+      "First Name",
+      "Last Name",
+      "FICO® Safe Driving Score",
+      "Acceleration Rating",
+      "Braking Rating",
+      "Cornering Rating",
+      "Distraction Rating",
+      "Speeding Rating",
+      "Speeding",
+      "Training Assigned",
+      "Training Completed",
+    ],
+    [
+      "Gfboppcmlg7lb+emwpfooa==",
+      "Dhzmglxrehilnuhxjh/1iq==",
+      624,
+      "Low Risk",
+      "High Risk",
+      "Low Risk",
+      "High Risk",
+      "High Risk",
+      0,
+      25,
+      0,
+    ],
+  ];
+
+  const mentor = parseMentorMatrix(
+    matrix,
+    "Driver Report_2026-09-18.xlsx",
+    "Driver Report (VRM)"
+  );
+  const aliases = parseMentorAliasMatrix(
+    matrix,
+    "Driver Report_2026-09-18.xlsx",
+    "Driver Report (VRM)"
+  );
+
+  assert.equal(mentor?.reportType, "mentor");
+  assert.equal(mentor?.records?.length, 1);
+  assert.equal(mentor?.records?.[0]?.metrics?.mentor_score, 624);
+  assert.equal(mentor?.records?.[0]?.details?.mentor?.braking, "High Risk");
+  assert.equal(mentor?.records?.[0]?.details?.mentor?.speedingRisk, "High Risk");
+  assert.equal(mentor?.records?.[0]?.details?.mentor?.training, 25);
+  assert.equal(mentor?.records?.[0]?.details?.mentor?.completed, 0);
+  assert.equal(aliases, null);
+
+  const source = read("lib/analyzer/spreadsheet.js");
+  assert.ok(
+    source.indexOf("const mentor = parseMentorMatrix") <
+      source.indexOf("const mentorAliases = parseMentorAliasMatrix")
+  );
 });
 
 test("Concessions spreadsheet parsers preserve site from source filenames", () => {
