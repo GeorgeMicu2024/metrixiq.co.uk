@@ -43,6 +43,8 @@ import IntegrationHub from "./platform/IntegrationHub";
 import ReliabilityCenter from "./platform/ReliabilityCenter";
 import MobileManagerMode from "./mobile/MobileManagerMode";
 import MobileCommandDock from "./mobile/MobileCommandDock";
+import PortfolioDashboard from "./enterprise/PortfolioDashboard";
+import EnterpriseSettings from "./enterprise/EnterpriseSettings";
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -65,6 +67,9 @@ export default function DashboardClient() {
   const [access, setAccess] = useState(null);
   const [commandCenter, setCommandCenter] = useState(null);
   const [permissions, setPermissions] = useState(null);
+  const [workspaceOptions, setWorkspaceOptions] = useState([]);
+  const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
+  const [branding, setBranding] = useState(null);
   const searchRef = useRef(null);
 
   function navigate(id) {
@@ -79,6 +84,78 @@ export default function DashboardClient() {
     return false;
   }
 
+  function applyWorkspaceContext(context, user, permissionState) {
+    const {
+      resolved,
+      profile,
+      platformAdmin: adminFlag,
+      access: accessState,
+      branding: brandingState,
+      commandCenter: commandCenterState,
+      scorecards,
+      metricRows,
+    } = context;
+
+    setPlatformAdmin(adminFlag);
+    setAccess(accessState);
+    setPermissions(permissionState || {});
+    setCommandCenter(commandCenterState);
+    setWorkspace(resolved);
+    setWorkspaceOptions(resolved.workspaces || []);
+    setBranding(brandingState || null);
+    setSession({
+      name: profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "MetrixIQ User",
+      email: profile?.email || user.email || "",
+      organisation: resolved.organization.name,
+      role: resolved.role,
+    });
+    setDbDrivers(scorecards.map(mapScorecardRow));
+    setMetricHistoryRows(metricRows);
+    setAnalysis(null);
+    setSelectedDriver(null);
+    setDriverHistory([]);
+    setSiteFilter("all");
+  }
+
+  async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null) {
+    const supabase = getSupabaseBrowserClient();
+    const context = await loadWorkspaceContext(supabase, user, preferredOrganizationId);
+    const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
+      p_organization_id: context.resolved.organization.id,
+    });
+    if (permissionError) throw permissionError;
+    return { context, permissionState };
+  }
+
+  async function switchWorkspace(organizationId) {
+    if (!organizationId || organizationId === workspace?.organization?.id || workspaceSwitching) return;
+    setWorkspaceSwitching(true);
+    setLoadError("");
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) throw userError || new Error("Authentication required.");
+      const { context, permissionState } = await fetchWorkspaceContextForUser(userData.user, organizationId);
+      applyWorkspaceContext(context, userData.user, permissionState);
+      localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
+      setActive("dashboard");
+    } catch (e) {
+      setLoadError(e?.message || "Could not switch workspace.");
+    } finally {
+      setWorkspaceSwitching(false);
+    }
+  }
+
+  async function refreshBranding() {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) return;
+    const { data, error } = await getSupabaseBrowserClient().rpc("get_organization_branding", {
+      p_organization_id: organizationId,
+    });
+    if (error) throw error;
+    setBranding(data || null);
+  }
+
   useEffect(() => {
     let alive = true;
     const supabase = getSupabaseBrowserClient();
@@ -90,37 +167,11 @@ export default function DashboardClient() {
           return;
         }
 
-        const context = await loadWorkspaceContext(supabase, userData.user);
+        const preferredOrganizationId = localStorage.getItem("metrixiq.organizationId");
+        const { context, permissionState } = await fetchWorkspaceContextForUser(userData.user, preferredOrganizationId);
         if (!alive) return;
-
-        const {
-          resolved,
-          profile,
-          platformAdmin: adminFlag,
-          access: accessState,
-          commandCenter: commandCenterState,
-          scorecards,
-          metricRows,
-        } = context;
-
-        const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
-          p_organization_id: resolved.organization.id,
-        });
-        if (permissionError) throw permissionError;
-
-        setPlatformAdmin(adminFlag);
-        setAccess(accessState);
-        setPermissions(permissionState || {});
-        setCommandCenter(commandCenterState);
-        setWorkspace(resolved);
-        setSession({
-          name: profile?.full_name || userData.user.user_metadata?.full_name || userData.user.email?.split("@")[0] || "MetrixIQ User",
-          email: profile?.email || userData.user.email || "",
-          organisation: resolved.organization.name,
-          role: resolved.role,
-        });
-        setDbDrivers(scorecards.map(mapScorecardRow));
-        setMetricHistoryRows(metricRows);
+        applyWorkspaceContext(context, userData.user, permissionState);
+        localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
       } finally {
@@ -225,6 +276,8 @@ export default function DashboardClient() {
 
   let view;
   switch (routedActive) {
+    case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
+    case "enterprise-settings": view = <EnterpriseSettings organization={workspace?.organization} sites={sites} canManageHierarchy={platformAdmin || permissions?.view_enterprise_settings} canManagePolicy={platformAdmin || permissions?.manage_kpi_policy} canManageBranding={platformAdmin || permissions?.manage_branding} onBrandingChanged={refreshBranding} />; break;
     case "mobile-manager": view = <MobileManagerMode organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} canManage={platformAdmin || permissions?.manage_coaching || permissions?.manage_incidents} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} />; break;
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
@@ -262,5 +315,5 @@ export default function DashboardClient() {
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
   if (!platformAdmin && access && !access.onboarding_completed) return <PlanOnboardingView organizationId={workspace?.organization?.id} organizationName={workspace?.organization?.name} onComplete={setAccess} onLogout={logout} />;
 
-  return <div className="app-shell"><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.map(([id, label], i) => canAccessNav(id, access, platformAdmin, session?.role, permissions) ? <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { navigate(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>SMART</em>}{id === "mobile-manager" && <em>MOBILE</em>}</button></div> : null)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button aria-label="Sign out" title="Sign out" onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) navigate("drivers");}} /><kbd>⌘ / Ctrl K</kbd></div></div><div className="topbar-right"><NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={commandCenter?.generated_at || ""} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={() => navigate("notifications")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} /><select className="site-select" aria-label="Filter workspace by site" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
+  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.map(([id, label], i) => canAccessNav(id, access, platformAdmin, session?.role, permissions) ? <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { navigate(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>SMART</em>}{id === "mobile-manager" && <em>MOBILE</em>}</button></div> : null)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button aria-label="Sign out" title="Sign out" onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) navigate("drivers");}} /><kbd>⌘ / Ctrl K</kbd></div></div><div className="topbar-right"><NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={commandCenter?.generated_at || ""} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={() => navigate("notifications")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />{workspaceOptions.length>1&&<select className="workspace-select" aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={(e)=>switchWorkspace(e.target.value)}>{workspaceOptions.map((item)=><option key={item.organization_id} value={item.organization_id}>{item.organization_name}</option>)}</select>}<select className="site-select" aria-label="Filter workspace by site" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
 }

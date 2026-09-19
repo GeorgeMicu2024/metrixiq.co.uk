@@ -22,6 +22,8 @@ export const NAV_ITEMS = [
   ["audit", "Audit Center"],
   ["integrations", "Integration Hub"],
   ["reliability", "Reliability Center"],
+  ["portfolio", "Enterprise Portfolio"],
+  ["enterprise-settings", "Enterprise Settings"],
   ["reports", "Report Builder"],
   ["billing", "Plans & Billing"],
   ["team", "Team & Access"],
@@ -53,6 +55,8 @@ export const NAV_ICONS = Object.freeze({
   audit: "◴",
   integrations: "⇄",
   reliability: "◌",
+  portfolio: "▦",
+  "enterprise-settings": "⚙",
   reports: "▤",
   billing: "£",
   settings: "⚙",
@@ -68,8 +72,9 @@ export function navSection(index) {
   if (index === 17) return "DATA";
   if (index === 19) return "GOVERNANCE";
   if (index === 21) return "PLATFORM";
-  if (index === 23) return "REPORTING";
-  if (index === 24) return "ACCOUNT";
-  if (index === 27) return "PLATFORM ADMIN";
+  if (index === 23) return "ENTERPRISE";
+  if (index === 25) return "REPORTING";
+  if (index === 26) return "ACCOUNT";
+  if (index === 29) return "PLATFORM ADMIN";
   return "";
 }
