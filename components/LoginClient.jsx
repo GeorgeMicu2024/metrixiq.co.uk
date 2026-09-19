@@ -10,6 +10,8 @@ export default function LoginClient() {
   const router = useRouter();
   const [register, setRegister] = useState(false);
   const [inviteMode, setInviteMode] = useState(false);
+  const [inviteToken, setInviteToken] = useState("");
+  const [invitedEmailLocked, setInvitedEmailLocked] = useState(false);
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
   const [email, setEmail] = useState("");
@@ -23,9 +25,14 @@ export default function LoginClient() {
       const params = new URLSearchParams(window.location.search);
       const invited = params.get("invite") === "1";
       const invitedEmail = String(params.get("email") || "").trim().toLowerCase();
+      const token = String(params.get("token") || "").trim();
       setInviteMode(invited);
+      setInviteToken(token);
       setRegister(params.get("mode") === "register" || invited);
-      if (invitedEmail) setEmail(invitedEmail);
+      if (invitedEmail) {
+        setEmail(invitedEmail);
+        setInvitedEmailLocked(Boolean(token));
+      }
       const supabase = getSupabaseBrowserClient();
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) router.replace("/app");
@@ -34,6 +41,46 @@ export default function LoginClient() {
       setError(e?.message || "Authentication is not configured.");
     }
   }, [router]);
+
+  function withTimeout(promise, ms, message) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(message)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer));
+  }
+
+  async function registerWithInviteToken(clean) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch("/api/auth/register-invite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          token: inviteToken,
+          email: clean,
+          password,
+          fullName: name.trim(),
+        }),
+        signal: controller.signal,
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not complete the invited registration.");
+      }
+      return payload;
+    } catch (e) {
+      if (e?.name === "AbortError") {
+        throw new Error("Registration timed out. Please try again; your account was not created.");
+      }
+      throw e;
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
 
   async function submit(e) {
     e.preventDefault();
@@ -49,19 +96,42 @@ export default function LoginClient() {
     setBusy(true);
     try {
       const supabase = getSupabaseBrowserClient();
+
+      if (register && inviteMode && inviteToken) {
+        const result = await registerWithInviteToken(clean);
+
+        const { error: signInError } = await withTimeout(
+          supabase.auth.signInWithPassword({ email: clean, password }),
+          12000,
+          "Your account was created, but sign-in timed out. Please use Sign in with the same email and password."
+        );
+        if (signInError) throw signInError;
+
+        setNotice(`Account created. Joining ${result?.organization_name || "your workspace"}…`);
+        router.replace("/app");
+        return;
+      }
+
       if (register) {
         const redirectTo = `${window.location.origin}/auth/callback?next=/app`;
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: clean,
-          password,
-          options: {
-            emailRedirectTo: redirectTo,
-            data: {
-              full_name: name.trim(),
-              ...(inviteMode ? {} : { organization_name: org.trim() }),
+        const { data, error: signUpError } = await withTimeout(
+          supabase.auth.signUp({
+            email: clean,
+            password,
+            options: {
+              emailRedirectTo: redirectTo,
+              data: {
+                full_name: name.trim(),
+                ...(inviteMode ? {} : { organization_name: org.trim() }),
+              },
             },
-          },
-        });
+          }),
+          15000,
+          inviteMode
+            ? "Registration service timed out. Ask your manager for the personal invite link and try again."
+            : "Registration service timed out. Please try again."
+        );
+
         if (signUpError) throw signUpError;
         if (data.session) {
           router.replace("/app");
@@ -71,10 +141,11 @@ export default function LoginClient() {
         return;
       }
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: clean,
-        password,
-      });
+      const { error: signInError } = await withTimeout(
+        supabase.auth.signInWithPassword({ email: clean, password }),
+        12000,
+        "Sign-in timed out. Please try again."
+      );
       if (signInError) throw signInError;
       router.replace("/app");
     } catch (e) {
@@ -175,11 +246,11 @@ export default function LoginClient() {
               <label>Full name<input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></label>
               {!inviteMode && <label>Organisation<input autoComplete="organization" value={org} onChange={(e) => setOrg(e.target.value)} /></label>}
             </>}
-            <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label>Email<input type="email" autoComplete="email" value={email} readOnly={invitedEmailLocked} onChange={(e) => setEmail(e.target.value)} /></label>
             <label>Password<input type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>{!register && <button type="button" className="auth-forgot" disabled={busy} onClick={forgotPassword}>Forgot password?</button>}
             {error && <div className="form-error">{error}</div>}
             {notice && <div className="form-notice">{notice}</div>}
-            <button className="submit-btn" disabled={busy}>{busy ? "Please wait…" : register ? (inviteMode ? "Join workspace" : "Create workspace") : "Sign in"}<span>→</span></button>
+            <button className="submit-btn" disabled={busy}>{busy ? (register ? "Creating account…" : "Signing in…") : register ? (inviteMode ? "Join workspace" : "Create workspace") : "Sign in"}<span>→</span></button>
           </form>
 
           <div className="secure-auth-note"><span>✓</span><p><b>Secure authentication</b><br />Accounts and sessions are managed by Supabase Auth.</p></div>
