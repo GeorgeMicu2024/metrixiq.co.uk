@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import DriverScorecardsV22 from "./DriverScorecardsV22";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchDriverScorecardData, fetchSiteScorecardData } from "../../lib/data/scorecardData";
 import { displayDriverName, isUsablePersonName, nameSignature, normalizeName } from "../../lib/identity";
@@ -380,7 +381,7 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
 
 
 
-export function DriverScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
+function LegacyDriverScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
     return fetchDriverScorecardData(supabase, organizationId);
@@ -889,3 +890,8 @@ export function DriverScorecardsView({ organizationId, onOpenDriver, onImport, s
 
 
 
+
+
+export function DriverScorecardsView(props) {
+  return <DriverScorecardsV22 {...props} />;
+}

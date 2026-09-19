@@ -13,9 +13,58 @@ import { buildDriverPerformanceRows, buildExecutiveSummary, buildRiskRows, toCsv
 import { buildDriver360Snapshot } from "../lib/drivers/driver360.js";
 import { buildConcessionsSignals } from "../lib/operations/concessions.js";
 import { buildWeeklyExecutiveBrief, formatWeeklyExecutiveBrief } from "../lib/reports/weeklyExecutiveBrief.js";
+import { calculateDriverScorecard } from "../lib/scorecards/driverScoreFormula.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const pkg = JSON.parse(read("package.json"));
+
+test("exact driver scorecard point bands match the Google Sheet", () => {
+  const sourceFiles = ["UK-DCSL-DLS2-Week37-DSP-Scorecard-3.0.pdf"];
+
+  const marinica = calculateDriverScorecard({
+    mentor_score: 836,
+    dcr: 99.25,
+    dsc_dpmo: 0,
+    lor: 0,
+    pod: 100,
+    cc: 100,
+    ce_dpmo: 0,
+    cdf_dpmo: null,
+    psb: 0,
+    raw_data: { source_files: sourceFiles, cdf_dpmo: null, psb: 0 },
+  });
+  assert.equal(marinica.value, 96);
+
+  const joseph = calculateDriverScorecard({
+    mentor_score: 847,
+    dcr: 99.29,
+    dsc_dpmo: 0,
+    lor: 0,
+    pod: 99.77,
+    cc: 100,
+    ce_dpmo: 0,
+    cdf_dpmo: 2049,
+    psb: 0,
+    raw_data: { source_files: sourceFiles },
+  });
+  assert.equal(joseph.value, 95);
+
+  const daniel = calculateDriverScorecard({
+    mentor_score: 812,
+    dcr: 99.71,
+    dsc_dpmo: 0,
+    lor: 0,
+    pod: 100,
+    cc: 100,
+    ce_dpmo: 0,
+    cdf_dpmo: 1921,
+    psb: 0,
+    raw_data: { source_files: sourceFiles },
+  });
+  assert.equal(daniel.value, 91);
+
+  assert.equal(calculateDriverScorecard({}).value, null);
+});
 
 test("required scripts exist", () => {
   assert.equal(pkg.scripts.dev, "next dev");
