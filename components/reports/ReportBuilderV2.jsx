@@ -184,13 +184,13 @@ export default function ReportBuilderV2({
     if(group==="fico")return previewAll.ficoFails.map((x)=>x.driver_id);
     if(group==="improved")return previewAll.improved.map((x)=>x.driver_id);
     if(group==="declined")return previewAll.declined.map((x)=>x.driver_id);
-    return[];
+    return null;
   }
 
   function generate(mode=tab){
     if(!data)return;
     const selectedSections=mode==="weekly"?ALL_SECTIONS:sections;
-    const selectedIds=mode==="weekly"?[]:resolvedDriverIds();
+    const selectedIds=mode==="weekly"?null:resolvedDriverIds();
     const next=buildExecutivePack(data,{
       site,weekLabel:week||null,driverIds:selectedIds,sections:selectedSections,
     });
@@ -246,7 +246,7 @@ export default function ReportBuilderV2({
         title:(pack.scope.site==="all"?"Workspace":pack.scope.site)+" "+pack.scope.weekLabel+" Management Pack",
         site:pack.scope.site==="all"?null:pack.scope.site,
         weekLabel:pack.scope.weekLabel,
-        filters:{site:pack.scope.site,weekLabel:pack.scope.weekLabel,driverGroup:group,driverIds:resolvedDriverIds()},
+        filters:{site:pack.scope.site,weekLabel:pack.scope.weekLabel,driverGroup:group,driverIds:resolvedDriverIds()||[]},
         sections,
         summary:{headline:pack.headline,summary:pack.summary,fleet:pack.fleet,actions:pack.actions},
         payload:pack,
