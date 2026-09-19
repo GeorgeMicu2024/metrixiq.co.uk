@@ -1096,3 +1096,20 @@ test("IADC parser does not invent a DLS2 site fallback", () => {
   assert.ok(html.includes("inferSiteCode(fileName"));
   assert.ok(pdf.includes("inferSiteCode(fileName"));
 });
+
+
+test("invite registration uses token-bound workspace validation", () => {
+  const login = read("components/LoginClient.jsx");
+  assert.match(login, /getInviteSignupContext/);
+  assert.match(login, /inviteToken/);
+  assert.match(login, /invited_email/);
+  assert.match(login, /redeemPendingInvites/);
+  assert.match(login, /secure personal invitation link/i);
+});
+
+test("team management exposes invite-specific secure links", () => {
+  const team = read("components/team/TeamManagementView.jsx");
+  assert.match(team, /token=\$\{encodeURIComponent\(invite\.token\)\}/);
+  assert.match(team, /email=\$\{encodeURIComponent\(invite\.email\)\}/);
+  assert.match(team, /Copy link/);
+});
