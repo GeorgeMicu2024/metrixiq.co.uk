@@ -68,7 +68,7 @@ as $$
     )
     when 'dispatcher' then jsonb_build_object(
       'view_dashboard',true,'view_driver_data',true,'view_scorecards',true,'view_reports',true,'view_audit',false,
-      'view_site_operations',true,'view_incidents',true,'view_integrations',true,'view_reliability',true,
+      'view_site_operations',true,'view_incidents',true,'view_integrations',false,'view_reliability',false,
       'manage_imports',false,'resolve_data_quality',false,'edit_scorecards',false,'reset_overrides',false,
       'manage_coaching',true,'bulk_actions',true,'manage_incidents',true,'manage_integrations',false,'run_reliability_checks',false,
       'manage_team',false,'manage_permissions',false,'view_billing',false
@@ -121,6 +121,7 @@ set search_path to ''
 as $$
 begin
   if not private.has_workspace_permission(p_organization_id,'view_integrations')
+     and not private.has_workspace_permission(p_organization_id,'view_reliability')
      and not private.is_platform_privileged() then
     raise exception 'Not authorised' using errcode='42501';
   end if;
@@ -129,7 +130,7 @@ begin
   with defaults(source_key,label,category,pattern,default_hours,default_criticality,default_meta) as (
     values
       ('scorecard','DSP Scorecard','scorecards','scorecard',240,'critical',jsonb_build_object('destination','driver-scorecards','description','Weekly driver and site scorecard evidence')),
-      ('mentor','eMentor / FICO','daily','mentor',48,'critical',jsonb_build_object('destination','mentor','description','Daily / weekly eMentor safety score')),
+      ('mentor','eMentor / FICO','daily','(^|[^a-z_])mentor([^a-z_]|$)',48,'critical',jsonb_build_object('destination','mentor','description','Daily / weekly eMentor safety score')),
       ('iadc','IADC','weekly','iadc',240,'high',jsonb_build_object('destination','iadc','description','Delivery workflow compliance')),
       ('cdf','CDF','weekly','(^|[^a-z])cdf([^a-z]|$)',336,'high',jsonb_build_object('destination','cdf','description','Customer delivery feedback')),
       ('concessions','Concessions','weekly','concessions',240,'high',jsonb_build_object('destination','concessions','description','DNR / concession evidence')),
