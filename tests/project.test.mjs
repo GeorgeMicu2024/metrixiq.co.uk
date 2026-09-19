@@ -739,7 +739,7 @@ test("team invite signup flow joins an existing workspace instead of asking for 
   assert.ok(login.includes("JOIN WORKSPACE"));
   assert.ok(login.includes("!inviteMode &&"));
   const loadContext = workspace.slice(workspace.indexOf("export async function loadWorkspaceContext"));
-  assert.ok(loadContext.indexOf('redeem_my_pending_invites') < loadContext.indexOf('resolveWorkspace(supabase, user)'));
+  assert.ok(loadContext.indexOf('redeem_my_pending_invites') < loadContext.indexOf('resolveWorkspace(supabase, user, preferredOrganizationId)'));
 });
 
 
