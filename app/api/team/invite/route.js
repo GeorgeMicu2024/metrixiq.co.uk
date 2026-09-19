@@ -73,7 +73,7 @@ export async function POST(request) {
 
     const admin = getSupabaseAdmin();
     const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-    const redirectTo = origin.replace(/\/$/, "") + "/auth/callback?next=/app";
+    const redirectTo = origin.replace(/\/$/, "") + "/auth/accept-invite";
 
     const { data: authInvite, error: authInviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       redirectTo,
