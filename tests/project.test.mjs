@@ -1007,15 +1007,16 @@ test("scorecard UI delegates data access to the data layer", () => {
 });
 
 
-test("smart import lives in its own product module", () => {
+test("Import Center V2 lives in its own product module", () => {
   const dashboardViews = read("components/dashboard/DashboardViews.jsx");
-  const smartImport = read("components/imports/SmartImportView.jsx");
+  const importCenter = read("components/imports/ImportCenterV2.jsx");
   const dashboard = read("components/DashboardClient.jsx");
 
   assert.equal(dashboardViews.includes("export function ImportsView"), false);
-  assert.ok(smartImport.includes("export default function SmartImportView"));
-  assert.ok(smartImport.includes("analyseFiles"));
-  assert.ok(dashboard.includes('./imports/SmartImportView'));
+  assert.ok(importCenter.includes("export default function ImportCenterV2"));
+  assert.ok(importCenter.includes("analyseFiles"));
+  assert.ok(importCenter.includes("findPotentialDuplicateImports"));
+  assert.ok(dashboard.includes('./imports/ImportCenterV2'));
 });
 
 test("CDF and Data Quality use canonical product modules", () => {
