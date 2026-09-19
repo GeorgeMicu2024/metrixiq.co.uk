@@ -4,6 +4,7 @@ import "./scorecards-v22.css";
 import "./mentor.css";
 import "./governance-v2.css";
 import "./manager-intelligence-v3.css";
+import "./operations-intelligence-v4.css";
 
 export const metadata = {
   metadataBase: new URL("https://www.metrixiq.co.uk"),
