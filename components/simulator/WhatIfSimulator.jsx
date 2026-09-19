@@ -18,7 +18,7 @@ function site(row){return String(row?.drivers?.site||"").toUpperCase();}
 function rowOrder(row){const raw=row?.period_end||row?.period_start||"";const d=raw?new Date(raw+"T12:00:00Z"):null;return d&&Number.isFinite(d.getTime())?d.getTime():Number(String(row?.week_label||"").replace(/\D/g,""))||0;}
 function displayValue(field,value){if(value==null||value==="")return"—";const n=Number(value);if(!Number.isFinite(n))return String(value);return field.unit==="%"?n.toFixed(2)+"%":Number.isInteger(n)?String(n):n.toFixed(2);}
 
-export default function WhatIfSimulator({organizationId,siteFilter="all",onOpenDriver}){
+export default function WhatIfSimulator({organizationId,siteFilter="all",initialDriverId="",onOpenDriver}){
   const [rows,setRows]=useState([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
@@ -56,9 +56,13 @@ export default function WhatIfSimulator({organizationId,siteFilter="all",onOpenD
   },[scoped]);
 
   useEffect(()=>{
+    if(initialDriverId&&driverOptions.some((row)=>row.driver_id===initialDriverId)){
+      setDriverId(initialDriverId);
+      return;
+    }
     if(driverId&&driverOptions.some((row)=>row.driver_id===driverId))return;
     setDriverId(driverOptions[0]?.driver_id||"");
-  },[driverOptions,driverId]);
+  },[driverOptions,driverId,initialDriverId]);
 
   const driverRows=useMemo(()=>scoped.filter((row)=>row.driver_id===driverId).sort((a,b)=>rowOrder(b)-rowOrder(a)),[scoped,driverId]);
 
