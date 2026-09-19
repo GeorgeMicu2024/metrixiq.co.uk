@@ -9,6 +9,7 @@ import {
   summarizePreflight,
 } from "../../lib/imports/preflight";
 import { buildImportIntelligence } from "../../lib/imports/analysisSummary";
+import { isoWeekDetails, isoWeekFromDate } from "../../lib/analyzer/core";
 
 function phaseLabel(phase) {
   if (phase === "analysing") return "Detecting reports";
@@ -26,6 +27,86 @@ function statusLabel(status) {
   return status || "Read";
 }
 
+const MENTOR_FILE_HINT = /mentor|e-?mentor|driver.?report|vrm|edriving/i;
+
+function dateFromFileName(name) {
+  const match = String(name || "").match(/(?:^|[^0-9])(20\d{2})[-_.](\d{2})[-_.](\d{2})(?!\d)/);
+  if (!match) return "";
+  const value = match[1] + "-" + match[2] + "-" + match[3];
+  const date = new Date(value + "T12:00:00Z");
+  return Number.isNaN(date.getTime()) ? "" : value;
+}
+
+function weekInputFromDate(value) {
+  const date = new Date(String(value || "") + "T12:00:00Z");
+  if (Number.isNaN(date.getTime())) return "";
+  const period = isoWeekFromDate(date);
+  return String(period.year) + "-W" + String(period.week).padStart(2, "0");
+}
+
+function periodFromWeekInput(value) {
+  const match = String(value || "").match(/^(20\d{2})-W(\d{2})$/i);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const week = Number(match[2]);
+  return week >= 1 && week <= 53 ? isoWeekDetails(year, week) : null;
+}
+
+function prepareMentorAnalysis(result, mode, reportDate, targetWeek) {
+  const recognised = (result?.fileResults || []).filter((item) => item.recognized);
+  const hasMentor = recognised.some((item) =>
+    /mentor/i.test(String(item.reportType || ""))
+  );
+  const nonMentor = recognised.filter((item) => {
+    const type = String(item.reportType || "");
+    return type && !/mentor/i.test(type);
+  });
+
+  if (!hasMentor) {
+    throw new Error("This import mode is for eMentor / Driver Report files only.");
+  }
+  if (nonMentor.length) {
+    throw new Error("Upload eMentor files separately when using Daily or Weekly eMentor mode.");
+  }
+
+  let period;
+  let importContext;
+
+  if (mode === "daily") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(reportDate || ""))) {
+      throw new Error("Choose the date represented by this eMentor report.");
+    }
+    period = isoWeekFromDate(new Date(reportDate + "T12:00:00Z"));
+    importContext = {
+      type: "mentor-daily",
+      reportDate,
+      weekLabel: period.weekLabel,
+    };
+  } else {
+    period = periodFromWeekInput(targetWeek);
+    if (!period) {
+      throw new Error("Choose the scorecard week for this weekly eMentor report.");
+    }
+    importContext = {
+      type: "mentor-weekly",
+      targetWeek,
+      weekLabel: period.weekLabel,
+    };
+  }
+
+  return {
+    ...result,
+    fileResults: (result.fileResults || []).map((item) =>
+      item.recognized ? { ...item, period } : item
+    ),
+    periods: (result.periods || []).map((item) => ({
+      ...item,
+      ...period,
+    })),
+    importContext,
+  };
+}
+
 export default function SmartImportView({ onImported, analysis }) {
   const input = useRef(null);
   const [files, setFiles] = useState([]);
@@ -33,6 +114,11 @@ export default function SmartImportView({ onImported, analysis }) {
   const [message, setMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [duplicateCount, setDuplicateCount] = useState(0);
+  const [mentorMode, setMentorMode] = useState("daily");
+  const [mentorDate, setMentorDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [mentorWeek, setMentorWeek] = useState(() =>
+    weekInputFromDate(new Date().toISOString().slice(0, 10))
+  );
 
   const busy = phase === "analysing" || phase === "saving";
   const preflight = useMemo(() => summarizePreflight(files), [files]);
@@ -43,12 +129,25 @@ export default function SmartImportView({ onImported, analysis }) {
       .map((item) => item.file),
     [preflight]
   );
+  const mentorCandidate = useMemo(
+    () => files.some((file) => MENTOR_FILE_HINT.test(file.name)),
+    [files]
+  );
 
   function addFiles(incoming) {
     const prepared = prepareImportFiles(files, incoming);
     setFiles(prepared.files);
     setDuplicateCount(prepared.duplicates);
     setMessage("");
+
+    const inferredDate = prepared.files
+      .map((file) => dateFromFileName(file.name))
+      .find(Boolean);
+    if (inferredDate) {
+      setMentorDate(inferredDate);
+      setMentorWeek(weekInputFromDate(inferredDate));
+    }
+
     if (phase === "error" || phase === "done") setPhase("idle");
   }
 
@@ -78,10 +177,19 @@ export default function SmartImportView({ onImported, analysis }) {
     setMessage("");
 
     try {
-      const result = await analyseFiles(importableFiles);
+      let result = await analyseFiles(importableFiles);
 
       if (!result.recognizedFiles) {
         throw new Error("No supported report structure was detected in the selected files.");
+      }
+
+      if (mentorCandidate) {
+        result = prepareMentorAnalysis(
+          result,
+          mentorMode,
+          mentorDate,
+          mentorWeek
+        );
       }
 
       setPhase("saving");
@@ -91,9 +199,25 @@ export default function SmartImportView({ onImported, analysis }) {
         ? ` · ${preflight.blocked} blocked file${preflight.blocked === 1 ? "" : "s"} skipped`
         : "";
 
-      setMessage(
-        `Saved ${saved?.savedMetrics ?? 0} driver-week records · ${saved?.savedScorecards ?? 0} site scorecards · ${saved?.savedFeedback ?? 0} CDF events · ${saved?.unmatched ?? 0} unmatched${skipped}.`
-      );
+      if (saved?.savedDaily != null) {
+        setMessage(
+          "Saved " + saved.savedDaily + " daily eMentor snapshots for " +
+          mentorDate + " · " + (saved?.unmatched ?? 0) + " unmatched" + skipped + "."
+        );
+      } else if (mentorCandidate && mentorMode === "weekly") {
+        setMessage(
+          "Applied eMentor/FICO to " + mentorWeek + " · " +
+          (saved?.savedMetrics ?? 0) + " driver scorecard records · " +
+          (saved?.unmatched ?? 0) + " unmatched" + skipped + "."
+        );
+      } else {
+        setMessage(
+          "Saved " + (saved?.savedMetrics ?? 0) + " driver-week records · " +
+          (saved?.savedScorecards ?? 0) + " site scorecards · " +
+          (saved?.savedFeedback ?? 0) + " CDF events · " +
+          (saved?.unmatched ?? 0) + " unmatched" + skipped + "."
+        );
+      }
       setPhase("done");
     } catch (error) {
       setMessage(error?.message || "Unknown import error");
@@ -181,6 +305,72 @@ export default function SmartImportView({ onImported, analysis }) {
         </div>
       )}
 
+      {mentorCandidate && files.length > 0 && (
+        <section className="panel mentor-import-mode">
+          <div className="mentor-import-head">
+            <div>
+              <span className="page-kicker">EMENTOR IMPORT</span>
+              <h2>How should MetrixIQ store this report?</h2>
+              <p>Keep daily history separate from the weekly FICO scorecard value.</p>
+            </div>
+            <span className="mentor-import-badge">DRIVER REPORT DETECTED</span>
+          </div>
+
+          <div className="mentor-import-controls">
+            <div className="mentor-mode-tabs" role="tablist" aria-label="eMentor import mode">
+              <button
+                type="button"
+                className={mentorMode === "daily" ? "active" : ""}
+                onClick={() => setMentorMode("daily")}
+              >
+                Daily history
+              </button>
+              <button
+                type="button"
+                className={mentorMode === "weekly" ? "active" : ""}
+                onClick={() => setMentorMode("weekly")}
+              >
+                Weekly scorecard
+              </button>
+            </div>
+
+            <div className="mentor-period-control">
+              {mentorMode === "daily" ? (
+                <>
+                  <label htmlFor="mentor-report-date">Report date</label>
+                  <input
+                    id="mentor-report-date"
+                    type="date"
+                    value={mentorDate}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setMentorDate(value);
+                      if (value) setMentorWeek(weekInputFromDate(value));
+                    }}
+                  />
+                </>
+              ) : (
+                <>
+                  <label htmlFor="mentor-scorecard-week">Scorecard week</label>
+                  <input
+                    id="mentor-scorecard-week"
+                    type="week"
+                    value={mentorWeek}
+                    onChange={(event) => setMentorWeek(event.target.value)}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="mentor-import-note">
+            {mentorMode === "daily"
+              ? "Daily keeps this exact day's score and driving behaviour so you can track eMentor day by day."
+              : "Weekly writes this eMentor score into the selected Driver Scorecard week in the FICO position."}
+          </div>
+        </section>
+      )}
+
       {files.length > 0 && (
         <>
           <section className="smart-import-status-grid">
@@ -230,7 +420,11 @@ export default function SmartImportView({ onImported, analysis }) {
                   ? "Detecting reports…"
                   : phase === "saving"
                     ? "Saving trusted history…"
-                    : `Analyse & save ${importableFiles.length} file${importableFiles.length === 1 ? "" : "s"}`}
+                    : mentorCandidate
+                      ? mentorMode === "daily"
+                        ? "Save daily eMentor"
+                        : "Apply eMentor to " + mentorWeek
+                      : `Analyse & save ${importableFiles.length} file${importableFiles.length === 1 ? "" : "s"}`}
               </button>
             </div>
 
