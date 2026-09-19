@@ -54,7 +54,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
       setMessage(
         result?.status === "accepted"
           ? "The registered user was added to this workspace."
-          : "Invite created. Ask the user to register/sign in with the invited email."
+          : "Invite created. Copy the secure personal invite link below and send it to the invited user."
       );
 
       setEmail("");
@@ -130,7 +130,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
   }
 
   async function copySignupLink() {
-    const signupUrl = `${window.location.origin}/login?mode=register&invite=1`;
+    const signupUrl = invites.length === 1\n      ? `${window.location.origin}/login?mode=register&invite=1&token=${encodeURIComponent(invites[0].token)}&email=${encodeURIComponent(invites[0].email)}`\n      : `${window.location.origin}/login?mode=register&invite=1`;
 
     try {
       await navigator.clipboard.writeText(signupUrl);
@@ -282,7 +282,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
             <h2>Pending invites</h2>
             <p>Invites expire after 14 days.</p>
           </div>
-          <button className="btn ghost" onClick={copySignupLink}>Copy signup link</button>
+          <button className="btn ghost" onClick={copySignupLink}>Copy secure invite link</button>
         </div>
 
         <div className="team-pending-list">
