@@ -365,7 +365,7 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
 
       .cx2-kpis{
         display:grid;
-        grid-template-columns:repeat(4,minmax(0,1fr));
+        grid-template-columns:repeat(5,minmax(0,1fr));
         gap:12px;
         margin-bottom:16px;
       }
@@ -1052,6 +1052,94 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
         margin-top:2px;
       }
 
+      .cx2-management{
+        margin-bottom:14px;
+      }
+
+      .cx2-management-grid{
+        display:grid;
+        grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);
+        gap:14px;
+      }
+
+      .cx2-action-list-v2{
+        display:grid;
+        gap:8px;
+      }
+
+      .cx2-action-list-v2 article{
+        display:grid;
+        grid-template-columns:34px 1fr;
+        gap:10px;
+        align-items:start;
+        padding:12px;
+        border:1px solid #e4e9ed;
+        border-radius:11px;
+        background:#fafcfd;
+      }
+
+      .cx2-action-list-v2 article>span{
+        display:grid;
+        place-items:center;
+        width:31px;
+        height:31px;
+        border-radius:9px;
+        background:#e9f3f1;
+        color:#357b6d;
+        font-size:9px;
+        font-weight:900;
+        letter-spacing:0;
+      }
+
+      .cx2-action-list-v2 article.high{border-left:3px solid #d7656f;}
+      .cx2-action-list-v2 article.medium{border-left:3px solid #d7a647;}
+      .cx2-action-list-v2 article.good{border-left:3px solid #4e9788;}
+
+      .cx2-action-list-v2 b{
+        display:block;
+        color:#24374b;
+        font-size:11px;
+      }
+
+      .cx2-action-list-v2 p{
+        margin:4px 0 0;
+        color:#778697;
+        font-size:10px;
+        line-height:1.5;
+      }
+
+      .cx2-repeat-panel{
+        border:1px solid #e2e8ec;
+        border-radius:12px;
+        padding:12px;
+        background:#fbfcfd;
+      }
+
+      .cx2-repeat-head{margin-bottom:7px;}
+      .cx2-repeat-head b{display:block;color:#25384c;font-size:11px;}
+      .cx2-repeat-head span{display:block;margin-top:2px;color:#8b97a4;font-size:9px;}
+      .cx2-repeat-list{display:grid;}
+
+      .cx2-repeat-list button{
+        display:grid;
+        grid-template-columns:31px minmax(0,1fr) auto;
+        gap:9px;
+        align-items:center;
+        width:100%;
+        padding:9px 2px;
+        border:0;
+        border-top:1px solid #edf1f3;
+        background:transparent;
+        text-align:left;
+        cursor:pointer;
+      }
+
+      .cx2-repeat-list button:first-child{border-top:0;}
+      .cx2-repeat-list button:hover{background:#f4f8f7;}
+      .cx2-repeat-list button b{display:block;color:#25384c;font-size:10px;}
+      .cx2-repeat-list button small{display:block;margin-top:2px;color:#93a0ac;font-size:8px;}
+      .cx2-repeat-list button>strong{color:#a2444e;font-size:15px;}
+      .cx2-repeat-empty{padding:18px 8px;color:#8b98a5;font-size:10px;text-align:center;}
       @media(max-width:1250px){
         .cx2-kpis{
           grid-template-columns:repeat(2,1fr);
@@ -1066,6 +1154,10 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
         }
 
         .cx2-overview-grid{
+          grid-template-columns:1fr;
+        }
+
+        .cx2-management-grid{
           grid-template-columns:1fr;
         }
       }
