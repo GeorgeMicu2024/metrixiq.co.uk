@@ -389,17 +389,17 @@ test("Reports CSV export is Excel-friendly and formula-safe", () => {
 });
 
 
-test("Reports Center is a canonical functional module", () => {
+test("Report Builder V2 is the canonical reporting module", () => {
   const dashboardViews = read("components/dashboard/DashboardViews.jsx");
-  const reports = read("components/reports/ReportsView.jsx");
+  const reports = read("components/reports/ReportBuilderV2.jsx");
   const dashboard = read("components/DashboardClient.jsx");
 
   assert.equal(dashboardViews.includes("export function ReportsView"), false);
-  assert.ok(reports.includes("buildExecutiveSummary"));
-  assert.ok(reports.includes("Download CSV"));
+  assert.ok(reports.includes("buildExecutivePack"));
+  assert.ok(reports.includes("Export CSV"));
   assert.ok(reports.includes("Print / Save PDF"));
-  assert.ok(dashboard.includes('./reports/ReportsView'));
-  assert.ok(dashboard.includes("visibleFleetHistory"));
+  assert.ok(reports.includes("Weekly Executive Pack"));
+  assert.ok(dashboard.includes('./reports/ReportBuilderV2'));
 });
 
 test("persistence orchestration delegates identity and evidence storage", () => {
@@ -510,16 +510,19 @@ test("Command Center V2 uses the server-side workspace summary", () => {
   assert.ok(dashboard.includes('onConcessions={() => navigate("concessions")}'));
 });
 
-test("dashboard consumes explainable fleet intelligence", () => {
+test("dashboard consumes explainable fleet intelligence and exposes the grounded AI Analyst", () => {
   const dashboardViews = read("components/dashboard/DashboardViews.jsx");
   const dashboardClient = read("components/DashboardClient.jsx");
   const navigation = read("components/dashboard/navigation.js");
+  const analyst = read("components/intelligence/ExecutiveAnalystV2.jsx");
 
   assert.ok(dashboardViews.includes("buildFleetIntelligence"));
   assert.ok(dashboardViews.includes("Operational intelligence"));
   assert.ok(dashboardViews.includes("Decision confidence"));
   assert.ok(dashboardClient.includes('onDataQuality={() => navigate("data-quality")}'));
-  assert.ok(navigation.includes('["intelligence", "Intelligence"]'));
+  assert.ok(dashboardClient.includes('./intelligence/ExecutiveAnalystV2'));
+  assert.ok(navigation.includes('["intelligence", "AI Analyst"]'));
+  assert.ok(analyst.includes("Evidence grounded"));
   assert.equal(navigation.includes("AI Insights"), false);
 });
 
