@@ -22,11 +22,7 @@ export async function DELETE(request) {
       if (prepareError) throw Object.assign(new Error(prepareError.message), { statusCode: 409 });
     }
 
-    // Revoke server-side sessions first; deleting the auth user then cascades memberships/profile.
-    const { error: sessionError } = await admin.from("auth.sessions").delete().eq("user_id", targetUserId);
-    if (sessionError && !String(sessionError.message || "").includes("schema")) {
-      // auth schema is not exposed through PostgREST in normal projects; deleteUser removes sessions.
-    }
+    // Supabase Auth deletion is server-only and removes the user's Auth sessions.
     const { error } = await admin.auth.admin.deleteUser(targetUserId);
     if (error) throw error;
     return Response.json({ ok: true });
