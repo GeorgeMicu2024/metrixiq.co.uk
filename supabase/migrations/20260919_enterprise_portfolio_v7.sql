@@ -728,7 +728,7 @@ returns table(week_label text,year integer,week integer)
 language plpgsql
 security definer
 set search_path to ''
-as $
+as $portfolio_weeks$
 begin
   if not private.can_view_portfolio(p_portfolio_id) then
     raise exception 'Not authorised' using errcode='42501';
@@ -743,7 +743,7 @@ begin
   group by sc.week_label
   order by max(sc.year),max(sc.week);
 end;
-$;
+$portfolio_weeks$;
 
 create or replace function public.list_portfolio_benchmark(
   p_portfolio_id uuid,
