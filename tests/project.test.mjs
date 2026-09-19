@@ -323,6 +323,22 @@ test("fleet intelligence prioritises operational risk and next actions", () => {
   assert.equal(intelligence.trend.direction, "down");
 });
 
+test("Notifications Center uses site-scoped performance alerts", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+  const notifications = read("components/notifications/NotificationsCenter.jsx");
+  const data = read("lib/data/notifications.js");
+
+  assert.ok(dashboard.includes('import NotificationsCenter from "./notifications/NotificationsCenter"'));
+  assert.ok(dashboard.includes("<NotificationsCenter"));
+  assert.ok(data.includes('supabase.rpc("list_performance_alerts"'));
+  assert.ok(data.includes('item.status !== "resolved"'));
+  assert.ok(notifications.includes('item.status === "open"'));
+  assert.ok(notifications.includes("Acknowledge"));
+  assert.ok(notifications.includes("siteFilter"));
+  assert.ok(notifications.includes("onOpenDriver"));
+  assert.ok(notifications.includes("onOpenCoaching"));
+});
+
 test("Command Center V2 uses the server-side workspace summary", () => {
   const panel = read("components/dashboard/CommandCenterPanel.jsx");
   const dashboard = read("components/DashboardClient.jsx");
