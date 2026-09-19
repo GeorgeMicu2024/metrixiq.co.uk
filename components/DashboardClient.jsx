@@ -28,13 +28,15 @@ import { loadWorkspaceContext } from "../lib/data/workspace";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
 import { persistWorkspaceImport } from "../lib/data/importWorkflow";
+import { refreshSlaEscalations, runAutomationEngine } from "../lib/data/automationV8";
 import { DashboardView, SettingsView } from "./dashboard/DashboardViews";
 import ReportBuilderV2 from "./reports/ReportBuilderV2";
 import ExecutiveAnalystV2 from "./intelligence/ExecutiveAnalystV2";
 import ImportCenterV2 from "./imports/ImportCenterV2";
 import NotificationsCenterV2 from "./notifications/NotificationsCenterV2";
 import NotificationsPageV2 from "./notifications/NotificationsPageV2";
-import ManagerControlCenterV2 from "./management/ManagerControlCenterV2";
+import ActionCenterV2 from "./automation/ActionCenterV2";
+import AutomationCenter from "./automation/AutomationCenter";
 import WhatIfSimulator from "./simulator/WhatIfSimulator";
 import Driver360V2 from "./drivers/Driver360V2";
 import EvidenceIncidentCenter from "./evidence/EvidenceIncidentCenter";
@@ -185,6 +187,16 @@ export default function DashboardClient() {
 
 
   useEffect(() => {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId || !(platformAdmin || permissions?.manage_automations)) return;
+    const supabase = getSupabaseBrowserClient();
+    Promise.allSettled([
+      runAutomationEngine(supabase, organizationId, false, "workspace_open"),
+      refreshSlaEscalations(supabase, organizationId),
+    ]);
+  }, [workspace?.organization?.id, platformAdmin, permissions?.manage_automations]);
+
+  useEffect(() => {
     function handleWorkspaceShortcut(event) {
       const key = String(event.key || "").toLowerCase();
 
@@ -240,6 +252,14 @@ export default function DashboardClient() {
     setDbDrivers(scorecards.map(mapScorecardRow));
     setMetricHistoryRows(metricRows);
     setCommandCenter(nextCommandCenter);
+
+    if (platformAdmin || permissions?.manage_automations) {
+      await Promise.allSettled([
+        runAutomationEngine(getSupabaseBrowserClient(), organizationId, false, "import_completed"),
+        refreshSlaEscalations(getSupabaseBrowserClient(), organizationId),
+      ]);
+    }
+
     return saved;
   }
   async function logout() { try { await getSupabaseBrowserClient().auth.signOut(); } finally { localStorage.removeItem("metrixiq.analysis"); router.replace("/login"); } }
@@ -289,7 +309,8 @@ export default function DashboardClient() {
     case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
-    case "manager-control": view = <ManagerControlCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenDataQuality={() => navigate("data-quality")} onOpenImports={() => navigate("imports")} />; break;
+    case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
+    case "automation": view = <AutomationCenter organizationId={workspace?.organization?.id} sites={sites} drivers={drivers} canManage={platformAdmin || permissions?.manage_automations} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "coaching": view = <CoachingV3 organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} onOpenDriver={openDriver} canManage={platformAdmin || permissions?.manage_coaching} />; break;
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
