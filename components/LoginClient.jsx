@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Brand from "./Brand";
-import { getSupabaseBrowserClient } from "../lib/supabase/client";
+import { getSupabaseBrowserClient } from "../lib/supabase/client";\nimport { getInviteSignupContext, redeemPendingInvites } from "../lib/data/team";
 
 export default function LoginClient() {
   const router = useRouter();
   const [register, setRegister] = useState(false);
-  const [inviteMode, setInviteMode] = useState(false);
+  const [inviteMode, setInviteMode] = useState(false);\n  const [inviteToken, setInviteToken] = useState("");\n  const [inviteContext, setInviteContext] = useState(null);\n  const [inviteLoading, setInviteLoading] = useState(false);
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
   const [email, setEmail] = useState("");
@@ -41,7 +41,7 @@ export default function LoginClient() {
 
     if (!/^\S+@\S+\.\S+$/.test(clean)) return setError("Enter a valid email address.");
     if (password.length < 8) return setError("Password must contain at least 8 characters.");
-    if (register && !name.trim()) return setError("Enter your full name.");
+    if (register && !name.trim()) return setError("Enter your full name.");\n    if (register && inviteMode && (!inviteToken || !inviteContext)) return setError("Use the secure personal invitation link sent by your manager.");\n    if (register && inviteMode && clean !== String(inviteContext?.invited_email || "").toLowerCase()) return setError("Use the email address this invitation was sent to.");
     if (register && !inviteMode && !org.trim()) return setError("Enter your organisation name.");
 
     setBusy(true);
@@ -173,11 +173,11 @@ export default function LoginClient() {
               <label>Full name<input autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></label>
               {!inviteMode && <label>Organisation<input autoComplete="organization" value={org} onChange={(e) => setOrg(e.target.value)} /></label>}
             </>}
-            <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+            <label>Email<input type="email" autoComplete="email" value={email} readOnly={inviteMode && !!inviteContext} onChange={(e) => setEmail(e.target.value)} /></label>\n            {inviteMode && inviteLoading && <div className="form-notice">Validating secure invitation…</div>}\n            {inviteMode && inviteContext && <div className="form-notice">Joining {inviteContext.organization_name} as {inviteContext.invited_role}.</div>}
             <label>Password<input type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>{!register && <button type="button" className="auth-forgot" disabled={busy} onClick={forgotPassword}>Forgot password?</button>}
             {error && <div className="form-error">{error}</div>}
             {notice && <div className="form-notice">{notice}</div>}
-            <button className="submit-btn" disabled={busy}>{busy ? "Please wait…" : register ? "Create workspace" : "Sign in"}<span>→</span></button>
+            <button className="submit-btn" disabled={busy || inviteLoading || (inviteMode && !inviteContext)}>{busy ? "Please wait…" : register ? "Create workspace" : "Sign in"}<span>→</span></button>
           </form>
 
           <div className="secure-auth-note"><span>✓</span><p><b>Secure authentication</b><br />Accounts and sessions are managed by Supabase Auth.</p></div>
