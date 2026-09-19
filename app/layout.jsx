@@ -1,5 +1,6 @@
 import "./globals.css";
 import "./scorecard.css";
+import "./mentor.css";
 
 export const metadata = {
   metadataBase: new URL("https://www.metrixiq.co.uk"),
