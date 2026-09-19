@@ -1,29 +1,44 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import { calculateDriverScorecard } from "../lib/scorecards/driverScoreFormula.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
-test("Driver Scorecards V2.2 keeps Formula v1 exact weights and thresholds", () => {
-  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+test("Driver Scorecards V2.2 matches the exact point-band formula", () => {
+  const formula = read("lib/scorecards/driverScoreFormula.js");
 
   for (const fragment of [
-    'weight: 17',
-    'weight: 6',
-    'weight: 8',
-    'weight: 10',
-    'weight: 7',
-    'if (raw < 750)',
-    'if (raw >= 810)',
-    '(raw - 750) / 70',
-    '(1180 - raw) / (1200 - 800)',
-    'formulaDpmo(row.lor, 220)',
-    'formulaDpmo(row.cdf_dpmo, 4000)',
-    'raw >= 2 ? 0 : raw === 1 ? 0.5 : 1',
-    'raw <= 1 ? raw : raw <= 10 ? raw / 10 : raw / 100',
+    "if (fico >= 849) return 17",
+    "if (fico >= 825) return 15",
+    "if (fico >= 810) return 10",
+    "if (fico >= 800) return 8",
+    "if (fico >= 780) return 5",
+    "if (dcr >= 0.999) return 17",
+    "if (dcr >= 0.992) return 15",
+    "if (dsc < 0.01) return 17",
+    "return lor === 0 ? 6 : 0",
+    "if (pod >= 0.9999) return 8",
+    "if (cc >= 0.999) return 8",
+    "return ce <= 0 ? 10 : 0",
+    "if (cdf <= 4420) return 10",
+    "return psb === 0 ? 7 : 0",
   ]) {
-    assert.ok(view.includes(fragment), `missing formula fragment: ${fragment}`);
+    assert.ok(formula.includes(fragment), `missing formula fragment: ${fragment}`);
   }
+
+  assert.equal(calculateDriverScorecard({
+    mentor_score: 847,
+    dcr: 99.29,
+    dsc_dpmo: 0,
+    lor: 0,
+    pod: 99.77,
+    cc: 100,
+    ce_dpmo: 0,
+    cdf_dpmo: 2049,
+    psb: 0,
+    raw_data: { source_files: ["Week37-DSP-Scorecard.pdf"] },
+  }).value, 95);
 });
 
 test("Driver Scorecards V2.2 persists manual FICO overrides by driver and week", () => {
@@ -36,5 +51,5 @@ test("Driver Scorecards V2.2 persists manual FICO overrides by driver and week",
   assert.ok(view.includes('.eq("driver_id", editRow.driver_id)'));
   assert.ok(view.includes('.eq("week_label", editRow.week_label)'));
   assert.ok(view.includes('manual_fico_override'));
-  assert.ok(view.includes('scorecard_formula_version: "v1"'));
+  assert.ok(view.includes('scorecard_formula_version: "v2-point-bands"'));
 });
