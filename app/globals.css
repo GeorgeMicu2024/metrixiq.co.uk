@@ -1152,3 +1152,17 @@
 @media(max-width:600px){
   .notifications-popover{position:fixed;top:58px;right:10px;left:10px;width:auto}
 }
+
+
+/* ===== Weekly Executive Brief ===== */
+.reports-weekly-meta{
+  display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;
+}
+.reports-weekly-meta span{
+  display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border:1px solid #dfe7e9;
+  border-radius:999px;background:#f4f8f7;color:#4f6d68;font-size:7px;font-weight:850;
+}
+@media(max-width:600px){
+  .reports-weekly-meta{gap:5px}
+  .reports-weekly-meta span{flex:1;justify-content:center;white-space:nowrap}
+}
