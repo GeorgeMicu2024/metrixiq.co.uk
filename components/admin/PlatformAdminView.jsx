@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { dateLabel, dateTimeLabel, planLabel, SaasStyles } from "../saas/SaasShared";
+
+function daysLeft(value) {
+  if (!value) return 0;
+  return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 86400000));
+}
 import { fetchAdminAccounts, fetchAdminPendingInvites, setAdminWorkspacePlan, setAdminWorkspaceSuspension } from "../../lib/data/admin";
 
 export function PlatformAdminView() {
@@ -11,15 +16,21 @@ export function PlatformAdminView() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
-  const [busy, setBusy] = useState("");\n  const [invites, setInvites] = useState([]);
+  const [busy, setBusy] = useState("");
+  const [invites, setInvites] = useState([]);
 
   async function load() {
     setLoading(true);
     setError("");
 
     try {
-      const nextAccounts = await fetchAdminAccounts(getSupabaseBrowserClient());
+      const supabase = getSupabaseBrowserClient();
+      const [nextAccounts, nextInvites] = await Promise.all([
+        fetchAdminAccounts(supabase),
+        fetchAdminPendingInvites(supabase),
+      ]);
       setAccounts(nextAccounts);
+      setInvites(nextInvites);
     } catch (e) {
       setError(e?.message || "Could not load registered accounts.");
     } finally {
@@ -119,7 +130,8 @@ export function PlatformAdminView() {
         <article><span>REGISTERED USERS</span><strong>{summary.uniqueUsers}</strong><small>All accounts</small></article>
         <article><span>ACTIVE TRIALS</span><strong>{summary.trials}</strong><small>7-day premium access</small></article>
         <article><span>PAID</span><strong>{summary.paid}</strong><small>Active subscriptions</small></article>
-        <article><span>SUSPENDED</span><strong>{summary.suspended}</strong><small>Workspace access blocked</small></article>\n        <article><span>PENDING INVITES</span><strong>{invites.length}</strong><small>Awaiting acceptance</small></article>
+        <article><span>SUSPENDED</span><strong>{summary.suspended}</strong><small>Workspace access blocked</small></article>
+        <article><span>PENDING INVITES</span><strong>{invites.length}</strong><small>Awaiting acceptance</small></article>
       </section>
 
       <section className="panel saas-admin-panel">
@@ -217,7 +229,6 @@ export function PlatformAdminView() {
                       {account.organization_id ? (
                         <div className="saas-admin-actions">
                           <select
-                            aria-label={`Plan for ${account.organization_name || account.email || "workspace"}`}
                             defaultValue={account.plan || "free"}
                             onChange={(e) => updatePlan(
                               account,
@@ -255,7 +266,9 @@ export function PlatformAdminView() {
         </div>
       </section>
 
-      <section className="panel saas-admin-panel"><div className="panel-head"><div><h2>Pending invitations</h2><p>Secure workspace invitations awaiting acceptance.</p></div><span className="panel-badge">{invites.length}</span></div><div className="table-wrap"><table className="data-table"><thead><tr><th>Email</th><th>Workspace</th><th>Role</th><th>Created</th><th>Expires</th></tr></thead><tbody>{invites.length ? invites.map((invite) => <tr key={invite.token}><td>{invite.email}</td><td>{invite.organization_name}</td><td>{invite.role}</td><td>{dateTimeLabel(invite.created_at)}</td><td>{dateTimeLabel(invite.expires_at)}</td></tr>) : <tr><td colSpan="5">No pending invitations.</td></tr>}</tbody></table></div></section>\n\n      <div className="saas-billing-note">
+      <section className="panel saas-admin-panel"><div className="panel-head"><div><h2>Pending invitations</h2><p>Secure workspace invitations awaiting acceptance.</p></div><span className="panel-badge">{invites.length}</span></div><div className="table-wrap"><table className="data-table"><thead><tr><th>Email</th><th>Workspace</th><th>Role</th><th>Created</th><th>Expires</th></tr></thead><tbody>{invites.length ? invites.map((invite) => <tr key={invite.token}><td>{invite.email}</td><td>{invite.organization_name}</td><td>{invite.role}</td><td>{dateTimeLabel(invite.created_at)}</td><td>{dateTimeLabel(invite.expires_at)}</td></tr>) : <tr><td colSpan="5">No pending invitations.</td></tr>}</tbody></table></div></section>
+
+      <div className="saas-billing-note">
         <b>Protected platform control</b>
         <p>
           The account directory and administrative actions are enforced by protected Supabase functions
