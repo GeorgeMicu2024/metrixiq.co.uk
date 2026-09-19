@@ -1,8 +1,8 @@
 import {
   apiError,
   requireIntegrationUser,
-} from "../../../lib/integrations/serverV9";
-import { testDeliveryConnection } from "../../../lib/integrations/deliveryV9";
+} from "../../../../lib/integrations/serverV9";
+import { testDeliveryConnection } from "../../../../lib/integrations/deliveryV9";
 
 export const runtime = "nodejs";
 
