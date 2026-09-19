@@ -101,9 +101,12 @@ begin
         full_name=coalesce(excluded.full_name,public.profiles.full_name),
         updated_at=now();
 
-  -- The Auth trigger runs without relying on an end-user session. Attach the
-  -- pending invite directly using NEW.id / NEW.email.
-  perform private.attach_pending_workspace_invite(new.id,new.email);
+  -- Only grant workspace access after Supabase has verified the mailbox.
+  -- The auth.users trigger also runs on UPDATE, so email confirmation / invite
+  -- acceptance attaches the pending workspace automatically.
+  if new.email_confirmed_at is not null then
+    perform private.attach_pending_workspace_invite(new.id,new.email);
+  end if;
 
   return new;
 end;
