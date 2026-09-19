@@ -41,15 +41,16 @@ test("Driver Scorecards V2.2 matches the exact point-band formula", () => {
   }).value, 95);
 });
 
-test("Driver Scorecards V2.2 persists manual FICO overrides by driver and week", () => {
+test("Driver Scorecards V2.2 persists audited FICO overrides without mutating source metrics", () => {
   const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const governance = read("lib/data/governanceV2.js");
 
-  assert.ok(view.includes('.from("driver_metrics")'));
-  assert.ok(view.includes('mentor_score: value'));
-  assert.ok(view.includes('ementor: value'));
-  assert.ok(view.includes('fico: value'));
-  assert.ok(view.includes('.eq("driver_id", editRow.driver_id)'));
-  assert.ok(view.includes('.eq("week_label", editRow.week_label)'));
-  assert.ok(view.includes('manual_fico_override'));
-  assert.ok(view.includes('scorecard_formula_version: "v2-point-bands"'));
+  assert.ok(view.includes("setMetricOverride"));
+  assert.ok(view.includes('metricKey: "mentor_score"'));
+  assert.ok(view.includes("editRow.driver_id"));
+  assert.ok(view.includes("editRow.week_label"));
+  assert.ok(view.includes("applyMetricOverrides"));
+  assert.ok(view.includes("fetchMetricOverrides"));
+  assert.equal(view.includes('.from("driver_metrics").update'), false);
+  assert.ok(governance.includes('supabase.rpc("set_driver_metric_override"'));
 });
