@@ -6,6 +6,8 @@ import "./governance-v2.css";
 import "./manager-intelligence-v3.css";
 import "./operations-intelligence-v4.css";
 import "./intelligence-reporting-v5.css";
+import "./platform-mobile-v6.css";
+import PwaBootstrap from "../components/pwa/PwaBootstrap";
 
 export const metadata = {
   metadataBase: new URL("https://www.metrixiq.co.uk"),
@@ -38,12 +40,27 @@ export const metadata = {
     icon: "/favicon.svg",
   },
   manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "MetrixIQ",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0b1f33",
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><PwaBootstrap />{children}</body>
     </html>
   );
 }

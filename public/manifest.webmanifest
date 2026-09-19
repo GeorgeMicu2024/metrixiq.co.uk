@@ -1,1 +1,35 @@
-{"name":"MetrixIQ","short_name":"MetrixIQ","start_url":"/","display":"standalone","background_color":"#f4f7f9","theme_color":"#0b1f33","icons":[]}
+{
+  "name": "MetrixIQ Manager",
+  "short_name": "MetrixIQ",
+  "description": "Fleet and driver performance intelligence for delivery operations.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f7f9",
+  "theme_color": "#0b1f33",
+  "categories": [
+    "business",
+    "productivity"
+  ],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Manager Mode",
+      "short_name": "Manager",
+      "url": "/app"
+    },
+    {
+      "name": "MetrixIQ Workspace",
+      "short_name": "Workspace",
+      "url": "/app"
+    }
+  ]
+}

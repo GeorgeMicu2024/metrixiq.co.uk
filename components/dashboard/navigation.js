@@ -1,6 +1,7 @@
 export const NAV_ITEMS = [
   ["dashboard", "Dashboard"],
   ["manager-control", "Manager Control"],
+  ["mobile-manager", "Manager Mobile"],
   ["site-operations", "Site Operations"],
   ["site-scorecards", "Site Scorecards"],
   ["driver-scorecards", "Driver Scorecards"],
@@ -19,6 +20,8 @@ export const NAV_ITEMS = [
   ["data-quality", "Data Quality"],
   ["management-views", "Management Views"],
   ["audit", "Audit Center"],
+  ["integrations", "Integration Hub"],
+  ["reliability", "Reliability Center"],
   ["reports", "Report Builder"],
   ["billing", "Plans & Billing"],
   ["team", "Team & Access"],
@@ -29,6 +32,7 @@ export const NAV_ITEMS = [
 export const NAV_ICONS = Object.freeze({
   dashboard: "▦",
   "manager-control": "◉",
+  "mobile-manager": "▥",
   "site-operations": "▣",
   "site-scorecards": "▤",
   "driver-scorecards": "◫",
@@ -47,6 +51,8 @@ export const NAV_ICONS = Object.freeze({
   "data-quality": "⌁",
   "management-views": "☷",
   audit: "◴",
+  integrations: "⇄",
+  reliability: "◌",
   reports: "▤",
   billing: "£",
   settings: "⚙",
@@ -56,13 +62,14 @@ export const NAV_ICONS = Object.freeze({
 
 export function navSection(index) {
   if (index === 1) return "MANAGEMENT";
-  if (index === 3) return "SCORECARDS";
-  if (index === 5) return "OPERATIONS";
-  if (index === 14) return "INTELLIGENCE";
-  if (index === 16) return "DATA";
-  if (index === 18) return "GOVERNANCE";
-  if (index === 20) return "REPORTING";
-  if (index === 21) return "ACCOUNT";
-  if (index === 24) return "PLATFORM";
+  if (index === 4) return "SCORECARDS";
+  if (index === 6) return "OPERATIONS";
+  if (index === 15) return "INTELLIGENCE";
+  if (index === 17) return "DATA";
+  if (index === 19) return "GOVERNANCE";
+  if (index === 21) return "PLATFORM";
+  if (index === 23) return "REPORTING";
+  if (index === 24) return "ACCOUNT";
+  if (index === 27) return "PLATFORM ADMIN";
   return "";
 }
