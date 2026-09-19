@@ -43,6 +43,7 @@ export default function NotificationsCenterV2({
   onOpenCoaching,
   onOpenImports,
   onOpenDataQuality,
+  onNavigate,
 }) {
   const [open,setOpen]=useState(false);
   const [rows,setRows]=useState([]);
@@ -99,6 +100,7 @@ export default function NotificationsCenterV2({
     if(item.action_target==="coaching")return onOpenCoaching?.();
     if(item.action_target==="imports")return onOpenImports?.();
     if(item.action_target==="data-quality")return onOpenDataQuality?.();
+    if(item.action_target)return onNavigate?.(item.action_target);
     return onOpenNotifications?.();
   }
 
