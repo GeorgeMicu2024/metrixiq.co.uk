@@ -154,10 +154,9 @@ export default function ManagerControlCenterV2({
     await run(
       "review-" + item.id,
       async () => {
+        const taskId = await ensure(item);
         await reviewManagerItem(getSupabaseBrowserClient(), organizationId, item, note);
-        if (item.source === "manager-task" && item.source_id) {
-          await updateManagerTask(getSupabaseBrowserClient(), item.source_id, { status: "done" });
-        }
+        await updateManagerTask(getSupabaseBrowserClient(), taskId, { status: "done" });
       },
       "Item marked reviewed."
     );
