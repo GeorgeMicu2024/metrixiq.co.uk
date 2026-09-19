@@ -4,7 +4,7 @@ import {
   assertSafeHttpsUrl,
   encryptIntegrationConfig,
   requireIntegrationUser,
-} from "../../../lib/integrations/serverV9";
+} from "../../../../lib/integrations/serverV9";
 
 export const runtime = "nodejs";
 
