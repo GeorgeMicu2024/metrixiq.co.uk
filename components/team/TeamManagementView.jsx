@@ -134,6 +134,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
   async function copySignupLink(invite = null) {
     const params = new URLSearchParams({ mode: "register", invite: "1" });
     if (invite?.email) params.set("email", invite.email);
+    if (invite?.token) params.set("token", invite.token);
     const signupUrl = `${window.location.origin}/login?${params.toString()}`;
 
     try {
