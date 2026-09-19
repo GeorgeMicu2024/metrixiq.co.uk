@@ -302,9 +302,13 @@ declare
 begin
   if btrim(coalesce(p_name,''))='' then raise exception 'Portfolio name is required'; end if;
 
-  if p_initial_organization_id is not null
-     and not private.can_manage_organization_enterprise(p_initial_organization_id) then
-    raise exception 'Organisation not accessible' using errcode='42501';
+  if p_initial_organization_id is null then
+    if not private.is_platform_privileged() then
+      raise exception 'An authorised initial organisation is required' using errcode='42501';
+    end if;
+  elsif not private.has_workspace_permission(p_initial_organization_id,'manage_portfolio')
+        and not private.is_platform_privileged() then
+    raise exception 'Portfolio creation requires Owner/Admin permission' using errcode='42501';
   end if;
 
   v_slug:=lower(regexp_replace(btrim(p_name),'[^a-zA-Z0-9]+','-','g'));
