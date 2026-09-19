@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ConcessionsHeader, ConcessionsKpis, ConcessionsMatrix, ConcessionsOverview } from "./ConcessionsSections";
+import { buildConcessionsSignals } from "../../lib/operations/concessions";
 import {
   ErrorBox,
   Loading,
@@ -87,9 +88,22 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
     };
   });
 
-  const importedWeeks=weeks.filter(w=>presentSet.has(w));
-  const latestWeek=importedWeeks[importedWeeks.length-1]||"";
-  const previousWeek=importedWeeks[importedWeeks.length-2]||"";
+  const signals=buildConcessionsSignals({
+    ranking,
+    weeks,
+    presentSet,
+    weekTotals,
+  });
+  const {
+    importedWeeks,
+    latestWeek,
+    previousWeek,
+    wow,
+    wowPct,
+    repeatOffenders,
+    missingWeeks,
+    managementActions,
+  }=signals;
 
   const effectiveRankWeek=
     rankWeek==="total"
@@ -158,27 +172,6 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
         (valueFor(b)||0)-(valueFor(a)||0)||
         b.total-a.total
       )[0]||null;
-
-  const latestIndex=weeks.indexOf(latestWeek);
-  const previousIndex=weeks.indexOf(previousWeek);
-
-  const latestTotal=
-    latestIndex>=0
-      ?weekTotals[latestIndex]
-      :null;
-
-  const previousTotal=
-    previousIndex>=0
-      ?weekTotals[previousIndex]
-      :null;
-
-  const wow=
-    latestTotal!=null&&previousTotal!=null
-      ?latestTotal-previousTotal
-      :null;
-
-  const missingWeeks=
-    weeks.filter(w=>!presentSet.has(w));
 
   const maxWeekly=
     Math.max(1,...weekTotals);
@@ -254,6 +247,8 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
       leader={leader}
       valueFor={valueFor}
       wow={wow}
+      wowPct={wowPct}
+      repeatOffenderCount={repeatOffenders.length}
       latestWeek={latestWeek}
       previousWeek={previousWeek}
     />
@@ -295,6 +290,9 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
         effectiveRankWeek={effectiveRankWeek}
         chooseWeek={chooseWeek}
         priority={priority}
+        valueFor={valueFor}
+        repeatOffenders={repeatOffenders}
+        managementActions={managementActions}
         onOpenDriver={onOpenDriver}
         missingWeeks={missingWeeks}
         weeks={weeks}
