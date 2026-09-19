@@ -47,6 +47,7 @@ as $function$
 declare
   v_email text:=lower(btrim(coalesce(p_email,'')));
   v_auth_email text;
+  v_invite public.workspace_invites%rowtype;
 begin
   if coalesce((select auth.role()),'')<>'service_role' then
     raise exception 'Service role required' using errcode='42501';
@@ -60,37 +61,53 @@ begin
     raise exception 'Auth user does not match invited email';
   end if;
 
-  if not exists(
-    select 1
-    from public.workspace_invites wi
-    where wi.token=p_token
-      and lower(wi.email)=v_email
-      and wi.status='pending'
-      and wi.expires_at>now()
-  ) then
+  select wi.* into v_invite
+  from public.workspace_invites wi
+  where wi.token=p_token
+    and lower(wi.email)=v_email
+    and wi.status='pending'
+    and wi.expires_at>now()
+  for update;
+
+  if not found then
     raise exception 'Invitation is invalid or expired';
   end if;
 
-  perform private.attach_pending_workspace_invite(p_user_id,v_email);
-
-  if not exists(
+  if exists (
     select 1
-    from public.workspace_invites wi
-    where wi.token=p_token
-      and wi.status='accepted'
-      and wi.accepted_by=p_user_id
+    from public.organization_members om
+    where om.user_id=p_user_id
+      and om.organization_id<>v_invite.organization_id
   ) then
-    raise exception 'Workspace invitation could not be attached';
+    raise exception 'This account already belongs to another workspace';
   end if;
+
+  insert into public.organization_members(
+    organization_id,user_id,role,site_scope
+  )
+  values(
+    v_invite.organization_id,p_user_id,v_invite.role,coalesce(v_invite.site_scope,'{}'::text[])
+  )
+  on conflict (organization_id,user_id) do update
+    set role=excluded.role,
+        site_scope=excluded.site_scope;
+
+  update public.workspace_invites
+  set status='accepted',
+      accepted_at=now(),
+      accepted_by=p_user_id
+  where token=p_token;
+
+  update public.workspace_invites
+  set status='cancelled'
+  where organization_id=v_invite.organization_id
+    and lower(email)=v_email
+    and status='pending'
+    and token<>p_token;
 
   return true;
 end;
 $function$;
-
-revoke all on function public.get_team_invite_signup_context(uuid,text) from public;
-revoke all on function public.get_team_invite_signup_context(uuid,text) from anon;
-revoke all on function public.get_team_invite_signup_context(uuid,text) from authenticated;
-grant execute on function public.get_team_invite_signup_context(uuid,text) to service_role;
 
 revoke all on function public.complete_team_invite_signup(uuid,uuid,text) from public;
 revoke all on function public.complete_team_invite_signup(uuid,uuid,text) from anon;
