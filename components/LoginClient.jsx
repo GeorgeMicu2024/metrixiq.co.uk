@@ -22,8 +22,10 @@ export default function LoginClient() {
     try {
       const params = new URLSearchParams(window.location.search);
       const invited = params.get("invite") === "1";
+      const invitedEmail = String(params.get("email") || "").trim().toLowerCase();
       setInviteMode(invited);
       setRegister(params.get("mode") === "register" || invited);
+      if (invitedEmail) setEmail(invitedEmail);
       const supabase = getSupabaseBrowserClient();
       supabase.auth.getSession().then(({ data }) => {
         if (data.session) router.replace("/app");
@@ -177,7 +179,7 @@ export default function LoginClient() {
             <label>Password<input type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={(e) => setPassword(e.target.value)} /></label>{!register && <button type="button" className="auth-forgot" disabled={busy} onClick={forgotPassword}>Forgot password?</button>}
             {error && <div className="form-error">{error}</div>}
             {notice && <div className="form-notice">{notice}</div>}
-            <button className="submit-btn" disabled={busy}>{busy ? "Please wait…" : register ? "Create workspace" : "Sign in"}<span>→</span></button>
+            <button className="submit-btn" disabled={busy}>{busy ? "Please wait…" : register ? (inviteMode ? "Join workspace" : "Create workspace") : "Sign in"}<span>→</span></button>
           </form>
 
           <div className="secure-auth-note"><span>✓</span><p><b>Secure authentication</b><br />Accounts and sessions are managed by Supabase Auth.</p></div>
