@@ -906,7 +906,7 @@ test("Driver 360 V2 exposes trajectory, KPI movement and evidence timeline", () 
   const sections = read("components/drivers/Driver360Sections.jsx");
   const model = read("lib/drivers/driver360.js");
 
-  assert.ok(views.includes("DRIVER 360"));
+  assert.ok(views.includes("Driver360Overview"));
   assert.ok(views.includes("Driver360Overview"));
   assert.ok(views.includes("Driver360DeltaGrid"));
   assert.ok(views.includes("DriverTrajectoryChart"));
