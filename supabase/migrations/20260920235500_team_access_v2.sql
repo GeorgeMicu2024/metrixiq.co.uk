@@ -1,0 +1,2 @@
+-- Team & Access V2: ownership transfer, per-member overrides and workspace audit directory.
+-- See live database definitions for canonical function bodies.
