@@ -678,7 +678,7 @@ test("active product controls keep accessible names", () => {
   assert.ok(dashboard.includes('aria-label="Filter workspace by site"'));
   assert.ok(performance.includes('aria-label="Search performance drivers"'));
   assert.ok(scorecards.includes('aria-label="Search scorecards"'));
-  assert.ok(iadc.includes('aria-label="Search IADC drivers"'));
+  assert.ok(iadc.includes('aria-label={`Search ${meta.label} drivers`}'));
   assert.ok(mentor.includes('aria-label="Search Mentor drivers"'));
   assert.ok(cdf.includes('aria-label="Search CDF records"'));
 });
