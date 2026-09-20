@@ -135,3 +135,23 @@ test('IADC DWC V4 keeps daily snapshots separate from weekly metrics', () => {
   assert.ok(metrics.includes('metric_date'));
   assert.ok(view.includes('highest IADC to lowest IADC'));
 });
+
+
+test("POD DCR CC operations views use their own metric and targets", () => {
+  const view = fs.readFileSync("components/operations/IadcView.jsx","utf8");
+  const nav = fs.readFileSync("components/dashboard/navigation.js","utf8");
+  const dashboard = fs.readFileSync("components/DashboardClient.jsx","utf8");
+  const data = fs.readFileSync("lib/data/directOperational.js","utf8");
+  assert.ok(view.includes('metric="iadc"') || view.includes('metric="iadc"'));
+  assert.ok(view.includes('target:99.6'));
+  assert.ok(view.includes('target:99.2'));
+  assert.ok(view.includes('target:98'));
+  assert.ok(view.includes('useOperationalRows(organizationId,metric)'));
+  assert.ok(nav.includes('["pod", "POD"]'));
+  assert.ok(nav.includes('["dcr", "DCR"]'));
+  assert.ok(nav.includes('["cc", "Customer Compliance"]'));
+  assert.ok(dashboard.includes('metric="pod"'));
+  assert.ok(dashboard.includes('metric="dcr"'));
+  assert.ok(dashboard.includes('metric="cc"'));
+  assert.ok(data.includes('"driver_id,week_label,period_start,period_end,dcr,pod,cc,iadc'));
+});
