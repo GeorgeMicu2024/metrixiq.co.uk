@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchMentorDailyRows } from "../../lib/data/mentorDaily";
+import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
   Loading,
@@ -467,6 +468,8 @@ export default function MentorView({
             onSort={toggleSort}
             onOpenDriver={onOpenDriver}
           />
+
+          <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} />
 
           <footer className="mentor-report-footer">
             <span>
