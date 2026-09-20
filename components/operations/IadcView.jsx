@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TARGETS } from "../../lib/config/performance";
 import { ErrorBox,Loading,dname,filterRowsBySite,n,openShape,pct,trid,useOperationalRows,weekNo } from "../operations/OperationalShared";
 
 const rowDate=r=>String(r?.raw_data?.metric_date||r?.period_end||r?.period_start||"").slice(0,10);
@@ -9,14 +8,12 @@ const calendarWeek=r=>String(r?.raw_data?.calendar_week||r?.week_label||"");
 const granularity=r=>String(r?.raw_data?.metric_granularity||"weekly");
 const dwcOf=r=>n(r.raw_data?.dwc);
 const METRIC_META={iadc:{label:"IADC",target:80,bands:[90,80,70],title:"IADC & DWC — Driver Compliance",kicker:"WORKFLOW COMPLIANCE",description:"In-App Delivery Compliance (IADC) and Driver Workflow Compliance (DWC). Analyse performance, trends and error breakdowns."},pod:{label:"POD",target:99.6,bands:[99.8,99.6,99],title:"POD — Photo-on-Delivery Compliance",kicker:"DELIVERY QUALITY",description:"Photo-on-Delivery compliance by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."},dcr:{label:"DCR",target:99.2,bands:[99.5,99.2,98],title:"DCR — Delivery Completion Rate",kicker:"DELIVERY PERFORMANCE",description:"Delivery Completion Rate by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."},cc:{label:"CC",target:98,bands:[99,98,95],title:"Customer Compliance",kicker:"CUSTOMER COMPLIANCE",description:"Customer Compliance by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."}};
-const band=v=>v>=90?"excellent":v>=80?"target":v>=70?"risk":"critical";
-const bandLabel=v=>v>=90?"Excellent":v>=80?"On target":v>=70?"At risk":"Critical";
 const errorLabels={photoDefect:"Photo Defect",photoManualBypass:"Photo Manual Bypass",geoDistance25m:"Geo Distance > 25m",contactComplianceMiss:"Contact Compliance",otpMiss:"OTP Miss"};
 const average=(a,get)=>{const x=a.map(get).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);return x.length?x.reduce((s,v)=>s+v,0)/x.length:null};
 const escapeCsv=v=>'"'+String(v??"").replaceAll('"','""')+'"';
 
-export default function IadcView({organizationId,onOpenDriver,onImport,siteFilter="all"}){
-  const load=useOperationalRows(organizationId,"iadc");
+export default function IadcView({organizationId,onOpenDriver,onImport,siteFilter="all",metric="iadc"}){
+  const load=useOperationalRows(organizationId,metric);
   const rows=filterRowsBySite(load.rows,siteFilter);
   const meta=METRIC_META[metric]||METRIC_META.iadc;
   const metricValue=r=>n(r?.[metric]);
