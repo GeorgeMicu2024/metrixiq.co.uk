@@ -205,7 +205,15 @@ export default function LoginClient() {
   }
 
   function toggleMode() {
-    setRegister((value) => !value);
+    if (inviteMode) {
+      setRegister(false);
+      setInviteMode(false);
+      setInviteToken("");
+      setInvitedEmailLocked(false);
+      window.history.replaceState({}, "", "/login");
+    } else {
+      setRegister((value) => !value);
+    }
     setError("");
     setNotice("");
   }
