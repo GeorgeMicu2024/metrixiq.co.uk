@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Brand from "./Brand";
 import { BillingProView } from "./billing/BillingProView";
 import TeamAccessHub from "./team/TeamAccessHub";
@@ -52,8 +52,7 @@ import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter"
 
 export default function DashboardClient() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [active, setActive] = useState(() => searchParams.get("view") || "dashboard");
+  const [active, setActive] = useState("dashboard");
   const [previousActive, setPreviousActive] = useState("drivers");
   const [session, setSession] = useState(null);
   const [workspace, setWorkspace] = useState(null);
@@ -171,6 +170,8 @@ export default function DashboardClient() {
     const supabase = getSupabaseBrowserClient();
     async function initialise() {
       try {
+        const requestedView = new URLSearchParams(window.location.search).get("view");
+        if (requestedView) setActive(requestedView);
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
           router.replace("/login");
