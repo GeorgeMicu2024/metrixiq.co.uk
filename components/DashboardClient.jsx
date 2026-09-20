@@ -66,6 +66,8 @@ export default function DashboardClient() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [metricHistoryRows, setMetricHistoryRows] = useState([]);
   const [globalSearch, setGlobalSearch] = useState("");
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [favorites, setFavorites] = useState([]);
   const [siteFilter, setSiteFilter] = useState("all");
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [access, setAccess] = useState(null);
@@ -75,6 +77,18 @@ export default function DashboardClient() {
   const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
   const [branding, setBranding] = useState(null);
   const searchRef = useRef(null);
+
+  useEffect(() => {
+    try { setFavorites(JSON.parse(localStorage.getItem("metrixiq.navFavorites") || "[]")); } catch { setFavorites([]); }
+  }, []);
+
+  function toggleFavorite(id) {
+    setFavorites((current) => {
+      const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id];
+      localStorage.setItem("metrixiq.navFavorites", JSON.stringify(next));
+      return next;
+    });
+  }
 
   function navigate(id) {
     if (
@@ -225,13 +239,15 @@ export default function DashboardClient() {
 
       if ((event.ctrlKey || event.metaKey) && key === "k") {
         event.preventDefault();
+        setCommandOpen(true);
         searchRef.current?.focus();
         searchRef.current?.select();
         return;
       }
 
-      if (key === "escape" && document.activeElement === searchRef.current) {
+      if (key === "escape" && commandOpen) {
         event.preventDefault();
+        setCommandOpen(false);
         setGlobalSearch("");
         searchRef.current?.blur();
       }
@@ -239,7 +255,7 @@ export default function DashboardClient() {
 
     window.addEventListener("keydown", handleWorkspaceShortcut);
     return () => window.removeEventListener("keydown", handleWorkspaceShortcut);
-  }, []);
+  }, [commandOpen]);
 
   const sites = [...new Set(dbDrivers.map((d) => String(d.site || "").trim().toUpperCase()).filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site)))].sort();
   const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
@@ -351,7 +367,7 @@ export default function DashboardClient() {
     case "settings": view = <AccountSettingsView platformAdmin={platformAdmin} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <AccountSettingsView platformAdmin={false} />; break;
     case "driver-profile": view = selectedDriver ? <Driver360V2 organizationId={workspace?.organization?.id} driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} canManage={platformAdmin || permissions?.manage_incidents || permissions?.manage_coaching} onBack={backFromDriver} onOpenCoaching={() => navigate("coaching")} onOpenSimulator={() => navigate("simulator")} onOpenEvidence={() => navigate("evidence")} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    default: view = <DashboardView commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} />;
+    default: view = <DashboardView commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
   }
 
   if (authLoading) return <main className="app-loading"><div className="auth-spinner" /><h1>MetrixIQ</h1><p>Loading secure workspace…</p></main>;
@@ -360,5 +376,11 @@ export default function DashboardClient() {
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
   if (!platformAdmin && access && !access.onboarding_completed) return <PlanOnboardingView organizationId={workspace?.organization?.id} organizationName={workspace?.organization?.name} onComplete={setAccess} onLogout={logout} />;
 
-  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{nav.map(([id, label], i) => canAccessNav(id, access, platformAdmin, session?.role, permissions) ? <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onClick={() => { navigate(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{id === "intelligence" && <em>SMART</em>}{id === "mobile-manager" && <em>MOBILE</em>}</button></div> : null)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button aria-label="Sign out" title="Sign out" onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search drivers" placeholder="Search drivers by name or TRID…" value={globalSearch} onChange={(e)=>{setGlobalSearch(e.target.value); if(e.target.value) navigate("drivers");}} /><kbd>⌘ / Ctrl K</kbd></div></div><div className="topbar-right"><NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={commandCenter?.generated_at || ""} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={() => navigate("notifications")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />{workspaceOptions.length>1&&<select className="workspace-select" aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={(e)=>switchWorkspace(e.target.value)}>{workspaceOptions.map((item)=><option key={item.organization_id} value={item.organization_id}>{item.organization_name}</option>)}</select>}<select className="site-select" aria-label="Filter workspace by site" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
+  const commandItems = nav.filter(([id, label]) =>
+    canAccessNav(id, access, platformAdmin, session?.role, permissions) &&
+    (!globalSearch.trim() || label.toLowerCase().includes(globalSearch.trim().toLowerCase()) || id.includes(globalSearch.trim().toLowerCase()))
+  );
+  const favoriteItems = nav.filter(([id]) => favorites.includes(id) && canAccessNav(id, access, platformAdmin, session?.role, permissions));
+
+  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={mobile ? "sidebar open" : "sidebar"}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span>{label}<em>★</em></button></div>)}</>}{nav.map(([id, label], i) => canAccessNav(id, access, platformAdmin, session?.role, permissions) ? <div key={id}>{navSection(i) && <small className="nav-section">{navSection(i)}</small>}<button onDoubleClick={()=>toggleFavorite(id)} title="Double-click to add/remove favorite" onClick={() => { navigate(id); setSelectedDriver(null); setMobile(false); }} className={active === id ? "active" : ""}><span>{icon[id]}</span>{label}{favorites.includes(id)&&<em>★</em>}{id === "intelligence" && <em>SMART</em>}{id === "mobile-manager" && <em>MOBILE</em>}</button></div> : null)}</nav><div className="sidebar-user"><span>{initials(session.name)}</span><div><b>{session.name}</b><small>{session.email}</small></div><button aria-label="Sign out" title="Sign out" onClick={logout}>↪</button></div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar"><div className="topbar-left"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="search-box">⌕ <input ref={searchRef} aria-label="Search MetrixIQ" placeholder="Search pages, drivers or TRID…" value={globalSearch} onFocus={()=>setCommandOpen(true)} onChange={(e)=>setGlobalSearch(e.target.value)} /><kbd>⌘ / Ctrl K</kbd></div>{commandOpen&&<div className="command-palette"><div className="command-palette-head"><b>Go to</b><button onClick={()=>setCommandOpen(false)}>×</button></div>{commandItems.slice(0,12).map(([id,label])=><button key={id} onClick={()=>{navigate(id);setGlobalSearch("");setCommandOpen(false);}}><span>{icon[id]}</span><div><b>{label}</b><small>{id}</small></div><em>{favorites.includes(id)?"★":"→"}</em></button>)}{globalSearch.trim()&&<button onClick={()=>{navigate("drivers");setCommandOpen(false);}}><span>◎</span><div><b>Search drivers for “{globalSearch}”</b><small>Name or TRID</small></div><em>→</em></button>}</div>}</div><div className="topbar-right"><NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={commandCenter?.generated_at || ""} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={() => navigate("notifications")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />{workspaceOptions.length>1&&<select className="workspace-select" aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={(e)=>switchWorkspace(e.target.value)}>{workspaceOptions.map((item)=><option key={item.organization_id} value={item.organization_id}>{item.organization_name}</option>)}</select>}<select className="site-select" aria-label="Filter workspace by site" value={siteFilter} onChange={(e) => setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map((site) => <option key={site} value={site}>{site}</option>)}</select><span className="top-avatar">{initials(session.name)}</span></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
 }
