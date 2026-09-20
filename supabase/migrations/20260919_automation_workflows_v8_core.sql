@@ -1009,7 +1009,7 @@ returns setof public.workflow_notification_routes
 language plpgsql
 security definer
 set search_path to ''
-as $
+as $$
 begin
   if not private.has_workspace_permission(p_organization_id,'view_workflows')
      and not private.is_platform_privileged() then
@@ -1020,7 +1020,7 @@ begin
   where organization_id=p_organization_id
   order by category,channel,recipient_role;
 end;
-$;
+$$;
 
 create or replace function public.upsert_notification_route(
   p_organization_id uuid,p_category text,p_minimum_severity text,p_channel text,p_recipient_role text,p_enabled boolean
