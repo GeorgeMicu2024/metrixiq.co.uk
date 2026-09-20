@@ -60,6 +60,13 @@ function ReportPackPreview({pack,sections}){
       <div><b>{pack.fleet.drivers}</b><span>drivers in scope</span></div>
     </header>
 
+    {pack.ai?.executive&&<section className="reportv5-section ai-executive-section">
+      <div className="reportv5-section-title"><span>AI</span><div><h2>MetrixIQ AI Executive Brief</h2><p>Predictive, evidence-grounded management priorities.</p></div></div>
+      <div className="reportv5-callout"><h3>{pack.ai.executive.headline}</h3><p>Decision confidence: {pack.ai.executive.confidence}%</p><small>{pack.ai.executive.caveat}</small></div>
+      <div className="action-list">{pack.ai.executive.priorities.map((item,index)=><div className="action-item" key={item}><span>{String(index+1).padStart(2,"0")}</span><div><b>{item}</b></div></div>)}</div>
+      <div className="reportv5-kpis"><article><span>Stale / Missing Reports</span><strong>{pack.ai.freshness.filter(x=>x.status!=="fresh").length}</strong></article><article><span>Deterioration Signals</span><strong>{pack.ai.predictions.filter(x=>x.deteriorating).length}</strong></article><article><span>Coaching Improved</span><strong>{pack.ai.coachingEffectiveness.filter(x=>x.outcomeSignal==="improved").length}</strong></article></div>
+    </section>}
+
     {show("executive")&&<section className="reportv5-section">
       <div className="reportv5-section-title"><span>01</span><div><h2>Executive Summary</h2><p>Current management signal from stored evidence.</p></div></div>
       <div className="reportv5-callout"><h3>{pack.headline}</h3><p>{pack.summary}</p></div>
