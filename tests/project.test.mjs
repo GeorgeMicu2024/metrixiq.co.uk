@@ -1242,3 +1242,18 @@ test("RC auth and navigation safety rails stay wired", () => {
   assert.ok(dashboard.includes("syncViewFromHistory"));
   assert.ok(dashboard.includes('params.set("view", id)'));
 });
+
+
+test("Team Access V2 migration is reproducible and RPCs are permission-hardened", () => {
+  const migration = read("supabase/migrations/20260920235500_team_access_v2.sql");
+  const team = read("components/team/TeamManagementView.jsx");
+  assert.ok(migration.includes("create or replace function public.transfer_workspace_ownership"));
+  assert.ok(migration.includes("create or replace function public.set_member_permission_overrides"));
+  assert.ok(migration.includes("private.has_workspace_permission(p_organization_id,'manage_permissions')"));
+  assert.ok(migration.includes("Unsupported permission"));
+  assert.ok(migration.includes("revoke execute on function public.set_member_permission_overrides"));
+  assert.equal(migration.includes("See live database definitions"), false);
+  assert.ok(team.includes("Promise.allSettled"));
+  assert.ok(team.includes("canManagePermissions"));
+  assert.ok(team.includes("canViewAudit"));
+});
