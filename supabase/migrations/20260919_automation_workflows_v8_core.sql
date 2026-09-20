@@ -1011,6 +1011,10 @@ security definer
 set search_path to ''
 as $$
 begin
+  if not private.has_workspace_permission(p_organization_id,'view_workflows')
+     and not private.is_platform_privileged() then
+    raise exception 'Not authorised' using errcode='42501';
+  end if;
   perform public.ensure_default_workflow_config(p_organization_id);
   return query select * from public.workflow_notification_routes
   where organization_id=p_organization_id

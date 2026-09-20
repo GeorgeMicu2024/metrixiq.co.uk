@@ -1216,3 +1216,44 @@ test("IADC parser does not invent a DLS2 site fallback", () => {
   assert.ok(html.includes("inferSiteCode(fileName"));
   assert.ok(pdf.includes("inferSiteCode(fileName"));
 });
+
+
+test("RC auth and navigation safety rails stay wired", () => {
+  const login = read("components/LoginClient.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+  const inviteApi = read("app/api/team/invite/route.js");
+  const registerInviteApi = read("app/api/auth/register-invite/route.js");
+  const accountDeleteApi = read("app/api/account/delete/route.js");
+  const adminDeleteApi = read("app/api/admin/accounts/delete/route.js");
+  const team = read("components/team/TeamManagementView.jsx");
+
+  assert.ok(login.includes("registerWithInviteToken"));
+  assert.ok(login.includes("setInviteToken(\"\")"));
+  assert.ok(login.includes("window.history.replaceState"));
+  assert.ok(inviteApi.includes("inviteUserByEmail"));
+  assert.ok(registerInviteApi.includes("complete_team_invite_signup"));
+  assert.ok(accountDeleteApi.includes("deleteMetrixAccount"));
+  assert.ok(adminDeleteApi.includes("is_platform_admin"));
+  assert.ok(team.includes("transferWorkspaceOwnership"));
+  assert.ok(team.includes("setMemberPermissionOverrides"));
+
+  assert.ok(dashboard.includes("window.history.pushState"));
+  assert.ok(dashboard.includes("window.addEventListener(\"popstate\""));
+  assert.ok(dashboard.includes("syncViewFromHistory"));
+  assert.ok(dashboard.includes('params.set("view", id)'));
+});
+
+
+test("Team Access V2 migration is reproducible and RPCs are permission-hardened", () => {
+  const migration = read("supabase/migrations/20260920235500_team_access_v2.sql");
+  const team = read("components/team/TeamManagementView.jsx");
+  assert.ok(migration.includes("create or replace function public.transfer_workspace_ownership"));
+  assert.ok(migration.includes("create or replace function public.set_member_permission_overrides"));
+  assert.ok(migration.includes("private.has_workspace_permission(p_organization_id,'manage_permissions')"));
+  assert.ok(migration.includes("Unsupported permission"));
+  assert.ok(migration.includes("revoke execute on function public.set_member_permission_overrides"));
+  assert.equal(migration.includes("See live database definitions"), false);
+  assert.ok(team.includes("Promise.allSettled"));
+  assert.ok(team.includes("canManagePermissions"));
+  assert.ok(team.includes("canViewAudit"));
+});

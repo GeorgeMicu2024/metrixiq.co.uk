@@ -83,6 +83,10 @@ export default function DashboardClient() {
       canAccessNav(id, access, platformAdmin, session?.role, permissions)
     ) {
       setActive(id);
+      const params = new URLSearchParams(window.location.search);
+      if (id === "dashboard") params.delete("view"); else params.set("view", id);
+      const query = params.toString();
+      window.history.pushState({ metrixiqView: id }, "", "/app" + (query ? "?" + query : ""));
       return true;
     }
     return false;
@@ -143,6 +147,7 @@ export default function DashboardClient() {
       applyWorkspaceContext(context, userData.user, permissionState);
       localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
       setActive("dashboard");
+      window.history.replaceState({ metrixiqView: "dashboard" }, "", "/app");
     } catch (e) {
       setLoadError(e?.message || "Could not switch workspace.");
     } finally {
@@ -165,6 +170,8 @@ export default function DashboardClient() {
     const supabase = getSupabaseBrowserClient();
     async function initialise() {
       try {
+        const requestedView = new URLSearchParams(window.location.search).get("view");
+        if (requestedView) setActive(requestedView);
         const { data: userData, error: userError } = await supabase.auth.getUser();
         if (userError || !userData.user) {
           router.replace("/login");
@@ -197,6 +204,20 @@ export default function DashboardClient() {
       refreshSlaEscalations(supabase, organizationId),
     ]);
   }, [workspace?.organization?.id, platformAdmin, permissions?.manage_automations]);
+
+  useEffect(() => {
+    function syncViewFromHistory() {
+      const params = new URLSearchParams(window.location.search);
+      const requested = params.get("view") || "dashboard";
+      if (requested === "dashboard" || requested === "driver-profile" || canAccessNav(requested, access, platformAdmin, session?.role, permissions)) {
+        setActive(requested === "driver-profile" && !selectedDriver ? "dashboard" : requested);
+      } else {
+        setActive("dashboard");
+      }
+    }
+    window.addEventListener("popstate", syncViewFromHistory);
+    return () => window.removeEventListener("popstate", syncViewFromHistory);
+  }, [access, platformAdmin, session?.role, permissions, selectedDriver]);
 
   useEffect(() => {
     function handleWorkspaceShortcut(event) {

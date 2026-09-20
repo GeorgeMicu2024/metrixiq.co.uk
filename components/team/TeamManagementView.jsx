@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { cancelTeamInvite, createTeamInvite, fetchTeamWorkspace, removeTeamMember as removeWorkspaceMember, updateTeamMember } from "../../lib/data/team";
+import { cancelTeamInvite, createTeamInvite, fetchMemberPermissionOverrides, fetchTeamWorkspace, fetchWorkspaceAuditEvents, removeTeamMember as removeWorkspaceMember, setMemberPermissionOverrides, transferWorkspaceOwnership, updateTeamMember } from "../../lib/data/team";
 import { canManageTeam, parseSiteScope } from "../../lib/permissions/roles";
 import { dateLabel, SaasStyles } from "../saas/SaasShared";
 
@@ -16,18 +16,31 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [audit, setAudit] = useState([]);
+  const [permissionDrafts, setPermissionDrafts] = useState({});
 
   const canManage = canManageTeam(workspaceRole, platformAdmin);
+  const canManagePermissions = platformAdmin || ["owner", "admin"].includes(String(workspaceRole || "").toLowerCase());
+  const canViewAudit = platformAdmin || ["owner", "admin", "manager"].includes(String(workspaceRole || "").toLowerCase());
 
   async function load() {
     if (!organizationId) return;
     setError("");
 
     try {
-      const workspace = await fetchTeamWorkspace(getSupabaseBrowserClient(), organizationId);
+      const supabase = getSupabaseBrowserClient();
+      const workspace = await fetchTeamWorkspace(supabase, organizationId);
+      const [overrideResult, auditResult] = await Promise.allSettled([
+        canManage ? fetchMemberPermissionOverrides(supabase, organizationId) : Promise.resolve([]),
+        canViewAudit ? fetchWorkspaceAuditEvents(supabase, organizationId) : Promise.resolve([]),
+      ]);
+      const overrides = overrideResult.status === "fulfilled" ? overrideResult.value : [];
+      const events = auditResult.status === "fulfilled" ? auditResult.value : [];
       setCurrentUserId(workspace.currentUserId);
       setMembers(workspace.members);
       setInvites(workspace.invites);
+      setAudit(events);
+      setPermissionDrafts(Object.fromEntries(overrides.map((item) => [item.user_id, JSON.stringify(item.permissions || {})])));
     } catch (e) {
       setError(e?.message || "Could not load team members.");
     }
@@ -177,6 +190,23 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
     }
   }
 
+  async function transferOwner(member) {
+    if (!window.confirm(`Transfer workspace ownership to ${member.full_name || member.email}? Your role will become Admin.`)) return;
+    setBusy(`owner-${member.user_id}`); setError("");
+    try { await transferWorkspaceOwnership(getSupabaseBrowserClient(), { organizationId, userId: member.user_id }); await load(); setMessage("Workspace ownership transferred."); }
+    catch(e){ setError(e?.message || "Could not transfer ownership."); } finally { setBusy(""); }
+  }
+
+  async function savePermissions(member) {
+    setBusy(`permissions-${member.user_id}`); setError("");
+    try {
+      let permissions = {};
+      try { permissions = JSON.parse(permissionDrafts[member.user_id] || "{}"); } catch { throw new Error("Permissions must be valid JSON."); }
+      await setMemberPermissionOverrides(getSupabaseBrowserClient(), { organizationId, userId: member.user_id, permissions });
+      await load(); setMessage(`Custom permissions saved for ${member.full_name || member.email}.`);
+    } catch(e){ setError(e?.message || "Could not save custom permissions."); } finally { setBusy(""); }
+  }
+
   return (
     <>
       <div className="page-heading">
@@ -240,6 +270,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                 <th>Role</th>
                 <th>Site scope</th>
                 <th>Joined</th>
+                <th>Permissions</th>
                 <th />
               </tr>
             </thead>
@@ -282,6 +313,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                     </td>
 
                     <td>{dateLabel(member.joined_at)}</td>
+                    <td><input aria-label={`Permission overrides for ${member.full_name || member.email}`} value={permissionDrafts[member.user_id] ?? "{}"} disabled={!canManagePermissions || ["owner","admin"].includes(member.role)} onChange={(e)=>setPermissionDrafts((x)=>({...x,[member.user_id]:e.target.value}))} placeholder='{"reports.export":true}' /></td>
 
                     <td>
                       {!protectedMember && (
@@ -293,6 +325,8 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                           >
                             Save
                           </button>
+                          <button className="team-save" disabled={!canManagePermissions || ["owner","admin"].includes(member.role) || busy === `permissions-${member.user_id}`} onClick={() => savePermissions(member)}>Permissions</button>
+                          {workspaceRole === "owner" && !isSelf && <button className="team-save" disabled={!!busy} onClick={() => transferOwner(member)}>Make owner</button>}
                           <button
                             className="team-remove"
                             disabled={!canManage || isSelf || busy === `remove-${member.user_id}`}
@@ -307,7 +341,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                 );
               })}
 
-              {!members.length && <tr><td colSpan="5">No team members found.</td></tr>}
+              {!members.length && <tr><td colSpan="6">No team members found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -356,6 +390,13 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
 
           {!invites.length && <p className="team-empty">No pending invites.</p>}
         </div>
+      </section>
+
+      <section className="panel team-list-panel">
+        <div className="panel-head"><div><h2>Access audit</h2><p>Latest workspace access and permission events.</p></div><span className="panel-badge">{audit.length}</span></div>
+        <div className="table-wrap"><table className="data-table"><thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Entity</th></tr></thead><tbody>
+          {audit.length ? audit.map((event)=><tr key={event.id}><td>{dateLabel(event.created_at)}</td><td>{event.actor_name || "System"}</td><td>{event.action || event.event_type}</td><td>{event.entity_type || "—"} · {event.entity_id || "—"}</td></tr>) : <tr><td colSpan="4">No access events yet.</td></tr>}
+        </tbody></table></div>
       </section>
 
       <div className="saas-billing-note">

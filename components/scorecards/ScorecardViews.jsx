@@ -16,13 +16,11 @@ import {
 import {
   EmptyPanel,
   ErrorPanel,
-  LeaderList,
   LoadingPanel,
-  ScorecardMetricRow,
   useLoad,
 } from "./ScorecardPrimitives";
 
-export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
+export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
     return fetchSiteScorecardData(supabase, organizationId);
@@ -43,24 +41,6 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
 
   const sortedCards = useMemo(() => cards.slice().sort(weekSort), [cards]);
   const card = cards.find((item) => item.id === selectedId) || cards[0];
-
-  const weekRows = useMemo(() => {
-    if (!card) return [];
-    return (load.data?.rows || []).filter((row) =>
-      row.week_label === card.week_label &&
-      (!card.site || !row.drivers?.site || row.drivers.site === card.site)
-    );
-  }, [card, load.data]);
-
-  const delivered = weekRows.reduce((sum, row) => sum + (num(row.delivered) || 0), 0);
-  const concessions = weekRows.reduce((sum, row) => sum + (num(row.concessions) || 0), 0);
-  const below = weekRows.filter((row) => {
-    const mentor = num(row.mentor_score ?? row.ementor ?? row.fico);
-    return (num(row.dcr) != null && row.dcr < TARGETS.dcr) ||
-      (num(row.pod) != null && row.pod < TARGETS.pod) ||
-      (num(row.iadc) != null && row.iadc < TARGETS.iadc) ||
-      (mentor != null && mentor < TARGETS.mentor);
-  }).length;
 
   const standingClass = (standing) => {
     const value = String(standing || "").trim().toLowerCase();
@@ -197,6 +177,7 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
           )}
         </select>
         <button className="btn ghost" onClick={() => window.print()}>Export / print</button>
+        <button className="btn primary" onClick={onImport}>Import scorecard</button>
       </div>
     </div>
 
@@ -334,6 +315,13 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
         </div>
       </section>
 
+      <section className="sitepro-health-grid">
+        <article><span>Safety</span><strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong><small>FICO, speeding, adoption & compliance</small></article>
+        <article><span>Delivery quality</span><strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong><small>DCR, POD, CC, DNR & customer experience</small></article>
+        <article><span>Capacity</span><strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong><small>Capacity reliability for the selected week</small></article>
+        <article><span>Pickup quality</span><strong className={standingClass(card.pickup_quality_standing)}>{card.pickup_quality_standing || "—"}</strong><small>Pickup success behaviours</small></article>
+      </section>
+
       <section className="sitepro-focus">
         <span>RECOMMENDED FOCUS AREAS</span>
         <ol>
@@ -345,32 +333,17 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
       </section>
     </section>
 
-    <section className="sitepro-context">
-      <article>
-        <span>Drivers measured</span>
-        <strong>{weekRows.length}</strong>
-        <small>{card.week_label}</small>
-      </article>
-      <article>
-        <span>Parcels delivered</span>
-        <strong>{Math.round(delivered).toLocaleString()}</strong>
-        <small>Driver evidence total</small>
-      </article>
-      <article>
-        <span>Concessions</span>
-        <strong>{Math.round(concessions)}</strong>
-        <small>Same reporting week</small>
-      </article>
-      <article>
-        <span>Below operational target</span>
-        <strong>{below}</strong>
-        <small>DCR / POD / IADC / Mentor</small>
-      </article>
-    </section>
-
-    <section className="leaderboard-grid sitepro-leaders">
-      <LeaderList rows={weekRows} title="Top 5 performers" onOpenDriver={onOpenDriver} />
-      <LeaderList rows={weekRows} title="Bottom 5 — attention" inverse onOpenDriver={onOpenDriver} />
+    <section className="sitepro-summary-band">
+      <div>
+        <span>WEEKLY SCORECARD DETAIL</span>
+        <strong>{card.site || "Site"} · {card.week_label || `W${card.week || "—"}`}</strong>
+        <small>Amazon source metrics shown exactly for the selected reporting week.</small>
+      </div>
+      <div className="sitepro-summary-result">
+        <span>Overall result</span>
+        <strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong>
+        <em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em>
+      </div>
     </section>
 
     

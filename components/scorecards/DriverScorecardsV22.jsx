@@ -208,6 +208,8 @@ export default function DriverScorecardsV22({
   const [periodKey, setPeriodKey] = useState("");
   const [query, setQuery] = useState("");
   const [groupFilter, setGroupFilter] = useState("all");
+  const [scoreFilter, setScoreFilter] = useState("all");
+  const [concessionFilter, setConcessionFilter] = useState("all");
   const [quickFilter, setQuickFilter] = useState("all");
   const [sort, setSort] = useState({ key: "displayScore", direction: "desc" });
   const [shareOpen, setShareOpen] = useState(false);
@@ -364,6 +366,8 @@ export default function DriverScorecardsV22({
   const totalDrivers = enrichedRows.length;
   const delivered = enrichedRows.reduce((sum, row) => sum + (num(row.delivered) || 0), 0);
   const concessions = enrichedRows.reduce((sum, row) => sum + (num(row.concessions) || 0), 0);
+  const highConcessionDrivers = enrichedRows.filter((row) => (num(row.concessions) || 0) >= 3).length;
+  const onTargetDrivers = enrichedRows.filter((row) => (num(row.displayScore) || 0) >= 80).length;
   const ficoLinked = enrichedRows.filter(
     (row) => num(row.mentor_score ?? row.ementor ?? row.fico) != null
   ).length;
@@ -546,9 +550,27 @@ export default function DriverScorecardsV22({
         return !q || text.includes(q);
       })
       .filter((row) => groupFilter === "all" || row.sourceRank.cls === groupFilter)
+      .filter((row) => {
+        const score = num(row.displayScore);
+        if (scoreFilter === "all") return true;
+        if (scoreFilter === "lt60") return score != null && score < 60;
+        if (scoreFilter === "60-69") return score != null && score >= 60 && score < 70;
+        if (scoreFilter === "70-79") return score != null && score >= 70 && score < 80;
+        if (scoreFilter === "80-89") return score != null && score >= 80 && score < 90;
+        if (scoreFilter === "90+") return score != null && score >= 90;
+        return true;
+      })
+      .filter((row) => {
+        const value = num(row.concessions) || 0;
+        if (concessionFilter === "all") return true;
+        if (concessionFilter === "0") return value === 0;
+        if (concessionFilter === "1-2") return value >= 1 && value <= 2;
+        if (concessionFilter === "3+") return value >= 3;
+        return true;
+      })
       .filter(matchesQuickFilter)
       .sort(compareRows);
-  }, [enrichedRows, query, groupFilter, quickFilter, sort]);
+  }, [enrichedRows, query, groupFilter, scoreFilter, concessionFilter, quickFilter, sort]);
 
   const toggleSort = (key) => {
     setSort((current) =>
@@ -782,6 +804,13 @@ export default function DriverScorecardsV22({
       </div>
     </section>
 
+    <section className="scorex3-kpi-cards">
+      <article className="drivers"><span>Total drivers</span><strong>{totalDrivers}</strong><small>{period?.weekLabel}</small></article>
+      <article className="attention"><span>Below target</span><strong>{attentionCount}</strong><small>Fair / Poor or multi-risk</small></article>
+      <article className="concessions"><span>With 3+ concessions</span><strong>{highConcessionDrivers}</strong><small>Immediate attention</small></article>
+      <article className="target"><span>On target ≥ 80</span><strong>{onTargetDrivers}</strong><small>{totalDrivers ? Math.round((onTargetDrivers / totalDrivers) * 100) : 0}% of drivers</small></article>
+    </section>
+
     <section className="scorex3-toolbar">
       <label>
         <span>Week</span>
@@ -812,6 +841,20 @@ export default function DriverScorecardsV22({
       </label>
 
       <label>
+        <span>Score</span>
+        <select aria-label="Filter driver scorecards by score" value={scoreFilter} onChange={(event) => setScoreFilter(event.target.value)}>
+          <option value="all">All scores</option><option value="lt60">Below 60</option><option value="60-69">60–69</option><option value="70-79">70–79</option><option value="80-89">80–89</option><option value="90+">90+</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Concessions</span>
+        <select aria-label="Filter driver scorecards by concessions" value={concessionFilter} onChange={(event) => setConcessionFilter(event.target.value)}>
+          <option value="all">All</option><option value="0">0 only</option><option value="1-2">1–2</option><option value="3+">3+ high</option>
+        </select>
+      </label>
+
+      <label>
         <span>Rank</span>
         <select
           aria-label="Filter driver scorecards by rank"
@@ -835,7 +878,7 @@ export default function DriverScorecardsV22({
         />
       </label>
 
-      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
+      <button type="button" className="btn ghost scorex3-reset-button" onClick={() => { setQuery(""); setGroupFilter("all"); setScoreFilter("all"); setConcessionFilter("all"); setQuickFilter("all"); setSort({ key: "displayScore", direction: "desc" }); }}>Reset filters</button>\n      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
         Share view
       </button>
       <button type="button" className="btn primary scorex3-import" onClick={onImport}>
@@ -1031,7 +1074,10 @@ export default function DriverScorecardsV22({
                       </div>
                     </td>
                     <td className={`scorex3-metric ${metricTone("concessions", row.concessions)}`}>
-                      {plain(row.concessions)}
+                      <span className={`scorex3-concession-badge ${(num(row.concessions) || 0) >= 3 ? "high" : (num(row.concessions) || 0) > 0 ? "active" : "zero"}`}>
+                        {plain(row.concessions)}
+                        {(num(row.concessions) || 0) >= 3 && <small>HIGH</small>}
+                      </span>
                     </td>
                     <td className={`scorex3-score-cell ${row.sourceRank.cls}`}>
                       <button
