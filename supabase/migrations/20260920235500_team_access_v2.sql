@@ -47,7 +47,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path=''
-as $
+as $$
 declare
   v_actor uuid := (select auth.uid());
   v_allowed text[] := array[
