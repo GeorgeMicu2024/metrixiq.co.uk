@@ -1168,3 +1168,15 @@
   .reports-weekly-meta{gap:5px}
   .reports-weekly-meta span{flex:1;justify-content:center;white-space:nowrap}
 }
+
+/* Enterprise navigation V2 */
+.topbar-left{position:relative}
+.command-palette{position:absolute;top:54px;left:0;width:min(520px,calc(100vw - 32px));max-height:520px;overflow:auto;background:var(--surface,#111827);border:1px solid rgba(148,163,184,.2);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:8px;z-index:120}
+.command-palette-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.command-palette-head button{border:0;background:transparent;color:inherit;font-size:20px;cursor:pointer}
+.command-palette>button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:0;background:transparent;color:inherit;border-radius:10px;padding:10px;cursor:pointer}
+.command-palette>button:hover{background:rgba(148,163,184,.1)}
+.command-palette>button>span{width:26px;text-align:center}
+.command-palette>button>div{display:flex;flex:1;flex-direction:column;gap:2px}
+.command-palette>button small{color:#94a3b8}
+.command-palette>button em{font-style:normal;color:var(--miq-accent,#66e3ce)}
