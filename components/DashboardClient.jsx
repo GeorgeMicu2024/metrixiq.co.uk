@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Brand from "./Brand";
 import { BillingProView } from "./billing/BillingProView";
 import TeamAccessHub from "./team/TeamAccessHub";
@@ -52,7 +52,8 @@ import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter"
 
 export default function DashboardClient() {
   const router = useRouter();
-  const [active, setActive] = useState("dashboard");
+  const searchParams = useSearchParams();
+  const [active, setActive] = useState(() => searchParams.get("view") || "dashboard");
   const [previousActive, setPreviousActive] = useState("drivers");
   const [session, setSession] = useState(null);
   const [workspace, setWorkspace] = useState(null);
@@ -83,6 +84,10 @@ export default function DashboardClient() {
       canAccessNav(id, access, platformAdmin, session?.role, permissions)
     ) {
       setActive(id);
+      const params = new URLSearchParams(window.location.search);
+      if (id === "dashboard") params.delete("view"); else params.set("view", id);
+      const query = params.toString();
+      window.history.pushState({ metrixiqView: id }, "", "/app" + (query ? "?" + query : ""));
       return true;
     }
     return false;
@@ -143,6 +148,7 @@ export default function DashboardClient() {
       applyWorkspaceContext(context, userData.user, permissionState);
       localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
       setActive("dashboard");
+      window.history.replaceState({ metrixiqView: "dashboard" }, "", "/app");
     } catch (e) {
       setLoadError(e?.message || "Could not switch workspace.");
     } finally {
@@ -197,6 +203,20 @@ export default function DashboardClient() {
       refreshSlaEscalations(supabase, organizationId),
     ]);
   }, [workspace?.organization?.id, platformAdmin, permissions?.manage_automations]);
+
+  useEffect(() => {
+    function syncViewFromHistory() {
+      const params = new URLSearchParams(window.location.search);
+      const requested = params.get("view") || "dashboard";
+      if (requested === "dashboard" || requested === "driver-profile" || canAccessNav(requested, access, platformAdmin, session?.role, permissions)) {
+        setActive(requested === "driver-profile" && !selectedDriver ? "dashboard" : requested);
+      } else {
+        setActive("dashboard");
+      }
+    }
+    window.addEventListener("popstate", syncViewFromHistory);
+    return () => window.removeEventListener("popstate", syncViewFromHistory);
+  }, [access, platformAdmin, session?.role, permissions, selectedDriver]);
 
   useEffect(() => {
     function handleWorkspaceShortcut(event) {
