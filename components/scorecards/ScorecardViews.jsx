@@ -368,9 +368,17 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
       </article>
     </section>
 
-    <section className="leaderboard-grid sitepro-leaders">
-      <LeaderList rows={weekRows} title="Top 5 performers" onOpenDriver={onOpenDriver} />
-      <LeaderList rows={weekRows} title="Bottom 5 — attention" inverse onOpenDriver={onOpenDriver} />
+    <section className="sitepro-summary-band">
+      <div>
+        <span>WEEKLY SCORECARD DETAIL</span>
+        <strong>{card.site || "Site"} · {card.week_label || `W${card.week || "—"}`}</strong>
+        <small>Amazon source metrics shown exactly for the selected reporting week.</small>
+      </div>
+      <div className="sitepro-summary-result">
+        <span>Overall result</span>
+        <strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong>
+        <em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em>
+      </div>
     </section>
 
     
