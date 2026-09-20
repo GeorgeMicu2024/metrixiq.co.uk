@@ -28,7 +28,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const dwcErrors=useMemo(()=>Object.entries(errorLabels).map(([key,label])=>({key,label,value:selected.reduce((s,r)=>s+Number(r.raw_data?.dwc_detail?.errors?.[key]||0),0)})).filter(x=>x.value>0),[selected]);
   const maxTrend=Math.max(80,...trend.map(x=>x.value||0)),minTrend=Math.min(60,...trend.map(x=>x.value||100));
   const trendPoints=trend.map((x,i)=>`${8+i*(84/Math.max(1,trend.length-1))},${82-((x.value||minTrend)-minTrend)/Math.max(1,maxTrend-minTrend)*62}`).join(" ");
-  const active=detail||shown[0]||null;\n  const latestDwcRow=useMemo(()=>rows.filter(r=>dwcOf(r)!=null).sort((a,b)=>String(rowDate(b)).localeCompare(String(rowDate(a))))[0]||null,[rows]);\n  const dwcUnavailable=dwcAvg==null;
+  const active=detail||shown[0]||null;\n  const latestDwcRow=useMemo(()=>rows.filter(r=>granularity(r)==="daily"&&dwcOf(r)!=null).sort((a,b)=>String(rowDate(b)).localeCompare(String(rowDate(a))))[0]||null,[rows]);\n  const dwcUnavailable=dwcAvg==null;
   const activeErrors=active?.raw_data?.dwc_detail?.errors||{};
 
   const reset=()=>{setQuery("");setBandFilter("all");setPage(1)};
