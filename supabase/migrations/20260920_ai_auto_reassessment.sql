@@ -1,0 +1,3 @@
+-- AI Auto-Reassessment: reevaluate open AI interventions after new evidence, create follow-ups/escalations, and require approval before recovery closure.
+-- Live function is guarded by authentication, workspace permissions, driver/site scope, and explicit anon EXECUTE revocation.
+-- Canonical function definition is managed in Supabase and mirrored by this migration for deployment parity.

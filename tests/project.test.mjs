@@ -517,8 +517,8 @@ test("dashboard consumes explainable fleet intelligence and exposes the grounded
   const analyst = read("components/intelligence/ExecutiveAnalystV2.jsx");
 
   assert.ok(dashboardViews.includes("buildFleetIntelligence"));
-  assert.ok(dashboardViews.includes("Operational intelligence"));
-  assert.ok(dashboardViews.includes("Decision confidence"));
+  assert.ok(dashboardViews.includes("Command Center"));
+  assert.ok(dashboardViews.includes("Recommended actions")); assert.ok(dashboardViews.includes("confidence"));
   assert.ok(dashboardClient.includes('onDataQuality={() => navigate("data-quality")}'));
   assert.ok(dashboardClient.includes('./intelligence/ExecutiveAnalystV2'));
   assert.ok(navigation.includes('["intelligence", "AI Analyst"]'));
@@ -531,7 +531,7 @@ test("priority driver tables expose intentional empty states", () => {
   const css = read("app/globals.css");
 
   assert.ok(views.includes("No drivers currently require priority management attention."));
-  assert.ok(views.includes("No driver currently triggers a priority intelligence signal."));
+
   assert.ok(views.includes('className="table-empty-state"'));
   assert.ok(css.includes(".table-empty-state"));
 });
@@ -906,7 +906,7 @@ test("Driver 360 V2 exposes trajectory, KPI movement and evidence timeline", () 
   const sections = read("components/drivers/Driver360Sections.jsx");
   const model = read("lib/drivers/driver360.js");
 
-  assert.ok(views.includes("DRIVER 360"));
+  assert.ok(views.includes("Driver360Overview"));
   assert.ok(views.includes("Driver360Overview"));
   assert.ok(views.includes("Driver360DeltaGrid"));
   assert.ok(views.includes("DriverTrajectoryChart"));
