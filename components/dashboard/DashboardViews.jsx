@@ -6,6 +6,7 @@ import { HistoryTrendChart } from "../HistoricalAnalytics";
 import { avg, fmt, initials, numberOrNull, tone } from "./utils";
 import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
 import CommandCenterPanel from "./CommandCenterPanel";
+import ManagerDailyBrief from "./ManagerDailyBrief";
 import { buildDriver360Snapshot } from "../../lib/drivers/driver360";
 import {
   Driver360DeltaGrid,
@@ -100,7 +101,7 @@ function DriverTable({
   );
 }
 
-export function DashboardView({ commandCenter, drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching, onConcessions, onDataQuality }) {
+export function DashboardView({ commandCenter, drivers, kpis, history, onImport, onOpenDriver, onDrivers, onPerformance, onCoaching, onConcessions, onDataQuality, onNavigate }) {
   const intelligence = buildFleetIntelligence(drivers, kpis, history);
   const high = intelligence.highRisk;
   const med = intelligence.mediumRisk;
@@ -115,6 +116,7 @@ export function DashboardView({ commandCenter, drivers, kpis, history, onImport,
     return onPerformance?.();
   };
   return <><div className="page-heading"><div><span className="page-kicker">OVERVIEW</span><h1>Fleet performance</h1><p>One operating view across driver performance, risk, data quality and coaching.</p></div><div className="page-actions"><button className="btn ghost" onClick={onPerformance}>Performance history</button><button className="btn primary" onClick={onImport}>Import reports</button></div></div>
+    <ManagerDailyBrief drivers={drivers} kpis={kpis} history={history} onOpenDriver={onOpenDriver} onNavigate={onNavigate} />
     <CommandCenterPanel
       summary={commandCenter}
       intelligence={intelligence}
