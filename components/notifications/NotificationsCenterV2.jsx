@@ -121,7 +121,7 @@ export default function NotificationsCenterV2({
       aria-expanded={open}
       onClick={()=>setOpen((value)=>!value)}
     >
-      <span>♢</span>
+      <span aria-hidden="true">🔔</span>
       {unread>0&&<b>{unread>99?"99+":unread}</b>}
     </button>
 
