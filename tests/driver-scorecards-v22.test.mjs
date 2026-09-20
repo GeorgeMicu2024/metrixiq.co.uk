@@ -67,6 +67,9 @@ test("Site Scorecard stays scorecard-first and excludes driver leaderboards", ()
   assert.ok(siteView.includes("RECOMMENDED FOCUS AREAS"));
   assert.ok(siteView.includes("Import scorecard"));
   assert.equal(siteView.includes("Top 5 performers"), false);
-  assert.equal(siteView.includes("Bottom 5"), false);\n  assert.equal(siteView.includes("Drivers measured"), false);\n  assert.equal(siteView.includes("Below operational target"), false);\n  assert.equal(siteView.includes("onOpenDriver"), false);
+  assert.equal(siteView.includes("Bottom 5"), false);
+  assert.equal(siteView.includes("Drivers measured"), false);
+  assert.equal(siteView.includes("Below operational target"), false);
+  assert.equal(siteView.includes("onOpenDriver"), false);
   assert.equal(siteView.includes("\\n        <button"), false);
 });
