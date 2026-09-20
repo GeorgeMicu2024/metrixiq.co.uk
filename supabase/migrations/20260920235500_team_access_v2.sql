@@ -43,11 +43,11 @@ end;
 $$;
 
 create or replace function public.set_member_permission_overrides(p_organization_id uuid,p_user_id uuid,p_permissions jsonb)
-returns void
+returns boolean
 language plpgsql
 security definer
 set search_path=''
-as $$
+as $
 declare
   v_actor uuid := (select auth.uid());
   v_allowed text[] := array[
@@ -86,8 +86,9 @@ begin
   insert into public.audit_events(organization_id,actor_id,event_type,entity_type,entity_id,action,before_data,after_data)
   values(p_organization_id,v_actor,'team_permissions_updated','organization_member',p_user_id::text,'set_permission_overrides',
     coalesce(v_before,'{}'::jsonb),coalesce(p_permissions,'{}'::jsonb));
+  return true;
 end;
-$$;
+$;
 
 create or replace function public.list_member_permission_overrides(p_organization_id uuid)
 returns table(user_id uuid,permissions jsonb,updated_at timestamptz)
@@ -105,7 +106,7 @@ end;
 $$;
 
 create or replace function public.list_workspace_audit_events(p_organization_id uuid,p_limit integer default 50)
-returns table(id uuid,actor_id uuid,actor_name text,event_type text,entity_type text,entity_id text,action text,created_at timestamptz)
+returns table(id uuid,event_type text,entity_type text,entity_id text,action text,metadata jsonb,created_at timestamptz,actor_id uuid,actor_name text)
 language plpgsql
 security definer
 set search_path=''
@@ -116,7 +117,7 @@ begin
     raise exception 'Audit access required' using errcode='42501';
   end if;
   return query
-    select a.id,a.actor_id,p.full_name,a.event_type,a.entity_type,a.entity_id,a.action,a.created_at
+    select a.id,a.event_type,a.entity_type,a.entity_id,a.action,a.metadata,a.created_at,a.actor_id,p.full_name
     from public.audit_events a left join public.profiles p on p.id=a.actor_id
     where a.organization_id=p_organization_id order by a.created_at desc
     limit greatest(1,least(coalesce(p_limit,50),200));
