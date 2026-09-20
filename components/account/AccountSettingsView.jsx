@@ -23,6 +23,7 @@ export default function AccountSettingsView({ platformAdmin=false }) {
   const [busy,setBusy]=useState("");
   const [error,setError]=useState("");
   const [message,setMessage]=useState("");
+  const [avatarUrl,setAvatarUrl]=useState("");
 
   useEffect(()=>{
     let active=true;
@@ -36,9 +37,18 @@ export default function AccountSettingsView({ platformAdmin=false }) {
       const user=userResult.data?.user;
       setEmail(user?.email||"");
       setName(user?.user_metadata?.full_name||user?.user_metadata?.name||"");
+      setAvatarUrl(user?.user_metadata?.avatar_url||"");
     }).catch((e)=>{if(active)setError(e?.message||"Could not load account settings.");});
     return()=>{active=false;};
   },[]);
+
+  async function uploadAvatar(event){
+    const file=event.target.files?.[0];if(!file)return;
+    if(!file.type.startsWith("image/"))return setError("Choose an image file.");
+    if(file.size>2*1024*1024)return setError("Profile image must be under 2 MB.");
+    setBusy("avatar");setError("");
+    try{const reader=new FileReader();const data=await new Promise((resolve,reject)=>{reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});const {error}=await getSupabaseBrowserClient().auth.updateUser({data:{avatar_url:data}});if(error)throw error;setAvatarUrl(data);setMessage("Profile photo updated. Refresh the workspace to see it in the header.");}catch(e){setError(e?.message||"Could not update profile photo.");}finally{setBusy("");}
+  }
 
   async function saveProfile(){
     if(!name.trim())return setError("Enter your full name.");
