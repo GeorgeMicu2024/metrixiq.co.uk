@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { TARGETS } from "../../lib/config/performance";
 import { ErrorBox,Loading,dname,filterRowsBySite,n,openShape,pct,trid,useOperationalRows,weekNo } from "../operations/OperationalShared";
 
-const rowDate=r=>r.period_end||r.period_start||"";
+const rowDate=r=>String(r?.raw_data?.metric_date||r?.period_end||r?.period_start||"").slice(0,10);\nconst calendarWeek=r=>String(r?.raw_data?.calendar_week||r?.week_label||"");\nconst granularity=r=>String(r?.raw_data?.metric_granularity||"weekly");
 const dwcOf=r=>n(r.raw_data?.dwc);
 const band=v=>v>=90?"excellent":v>=80?"target":v>=70?"risk":"critical";
 const bandLabel=v=>v>=90?"Excellent":v>=80?"On target":v>=70?"At risk":"Critical";
@@ -16,19 +16,28 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const load=useOperationalRows(organizationId,"iadc");
   const rows=filterRowsBySite(load.rows,siteFilter);
   const [mode,setMode]=useState("daily"),[week,setWeek]=useState(""),[day,setDay]=useState(""),[query,setQuery]=useState(""),[bandFilter,setBandFilter]=useState("all"),[page,setPage]=useState(1),[detail,setDetail]=useState(null);
-  const weeks=useMemo(()=>[...new Set(rows.map(r=>r.week_label).filter(Boolean))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
-  const days=useMemo(()=>[...new Set(rows.map(rowDate).filter(Boolean))].sort().reverse(),[rows]);
-  const selectedWeek=week&&weeks.includes(week)?week:(weeks[0]||""),selectedDay=day&&days.includes(day)?day:(days[0]||"");
-  const selected=useMemo(()=>rows.filter(r=>mode==="daily"?rowDate(r)===selectedDay:r.week_label===selectedWeek).sort((a,b)=>Number(b.iadc)-Number(a.iadc)),[rows,mode,selectedDay,selectedWeek]);
-  const avg=average(selected,r=>r.iadc),dwcAvg=average(selected,dwcOf);
+  const weeks=useMemo(()=>[...new Set(rows.map(calendarWeek).filter(w=>/^W\\d+$/i.test(w)))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
+  const selectedWeek=week&&weeks.includes(week)?week:(weeks[0]||"");
+  const weekRows=useMemo(()=>rows.filter(r=>granularity(r)==="weekly"&&calendarWeek(r)===selectedWeek),[rows,selectedWeek]);
+  const dailyRows=useMemo(()=>rows.filter(r=>granularity(r)==="daily"&&calendarWeek(r)===selectedWeek),[rows,selectedWeek]);
+  const days=useMemo(()=>[...new Set(dailyRows.map(rowDate).filter(Boolean))].sort().reverse(),[dailyRows]);
+  const selectedDay=day&&days.includes(day)?day:(days[0]||"");
+  const selected=useMemo(()=>(
+    mode==="daily"?dailyRows.filter(r=>rowDate(r)===selectedDay):weekRows
+  ).sort((a,b)=>Number(b.iadc)-Number(a.iadc)),[mode,dailyRows,weekRows,selectedDay]);
+  const officialSummary=selected.find(r=>r.raw_data?.compliance_summary)?.raw_data?.compliance_summary||null;
+  const avg=n(officialSummary?.iadc)??average(selected,r=>r.iadc);
+  const dwcAvg=n(officialSummary?.dwc)??average(selected,dwcOf);
   const counts={excellent:selected.filter(r=>Number(r.iadc)>=90).length,target:selected.filter(r=>Number(r.iadc)>=80&&Number(r.iadc)<90).length,risk:selected.filter(r=>Number(r.iadc)>=70&&Number(r.iadc)<80).length,critical:selected.filter(r=>Number(r.iadc)<70).length};
   const filtered=selected.filter(r=>{const v=Number(r.iadc);return(bandFilter==="all"||band(v)===bandFilter)&&`${dname(r.drivers)} ${trid(r.drivers)}`.toLowerCase().includes(query.toLowerCase())});
   const shown=filtered;
-  const trend=useMemo(()=>weeks.slice(0,4).reverse().map(w=>({label:w,value:average(rows.filter(r=>r.week_label===w),r=>r.iadc)})),[rows,weeks]);
+  const trend=useMemo(()=>weeks.slice(0,4).reverse().map(w=>{const wr=rows.filter(r=>granularity(r)==="weekly"&&calendarWeek(r)===w);const summary=wr.find(r=>r.raw_data?.compliance_summary)?.raw_data?.compliance_summary;return {label:w,value:n(summary?.iadc)??average(wr,r=>r.iadc)}}),[rows,weeks]);
   const dwcErrors=useMemo(()=>Object.entries(errorLabels).map(([key,label])=>({key,label,value:selected.reduce((s,r)=>s+Number(r.raw_data?.dwc_detail?.errors?.[key]||0),0)})).filter(x=>x.value>0),[selected]);
   const maxTrend=Math.max(80,...trend.map(x=>x.value||0)),minTrend=Math.min(60,...trend.map(x=>x.value||100));
   const trendPoints=trend.map((x,i)=>`${8+i*(84/Math.max(1,trend.length-1))},${82-((x.value||minTrend)-minTrend)/Math.max(1,maxTrend-minTrend)*62}`).join(" ");
-  const active=detail||shown[0]||null;\n  const latestDwcRow=useMemo(()=>rows.filter(r=>granularity(r)==="daily"&&dwcOf(r)!=null).sort((a,b)=>String(rowDate(b)).localeCompare(String(rowDate(a))))[0]||null,[rows]);\n  const dwcUnavailable=dwcAvg==null;
+  const active=detail||shown[0]||null;
+  const latestDwcRow=useMemo(()=>rows.filter(r=>granularity(r)==="daily"&&dwcOf(r)!=null).sort((a,b)=>rowDate(b).localeCompare(rowDate(a)))[0]||null,[rows]);
+  const dwcUnavailable=dwcAvg==null;
   const activeErrors=active?.raw_data?.dwc_detail?.errors||{};
 
   const reset=()=>{setQuery("");setBandFilter("all");setPage(1)};
