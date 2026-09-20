@@ -366,6 +366,8 @@ export default function DriverScorecardsV22({
   const totalDrivers = enrichedRows.length;
   const delivered = enrichedRows.reduce((sum, row) => sum + (num(row.delivered) || 0), 0);
   const concessions = enrichedRows.reduce((sum, row) => sum + (num(row.concessions) || 0), 0);
+  const highConcessionDrivers = enrichedRows.filter((row) => (num(row.concessions) || 0) >= 3).length;
+  const onTargetDrivers = enrichedRows.filter((row) => (num(row.displayScore) || 0) >= 80).length;
   const ficoLinked = enrichedRows.filter(
     (row) => num(row.mentor_score ?? row.ementor ?? row.fico) != null
   ).length;
@@ -802,6 +804,13 @@ export default function DriverScorecardsV22({
       </div>
     </section>
 
+    <section className="scorex3-kpi-cards">
+      <article className="drivers"><span>Total drivers</span><strong>{totalDrivers}</strong><small>{period?.weekLabel}</small></article>
+      <article className="attention"><span>Below target</span><strong>{attentionCount}</strong><small>Fair / Poor or multi-risk</small></article>
+      <article className="concessions"><span>With 3+ concessions</span><strong>{highConcessionDrivers}</strong><small>Immediate attention</small></article>
+      <article className="target"><span>On target ≥ 80</span><strong>{onTargetDrivers}</strong><small>{totalDrivers ? Math.round((onTargetDrivers / totalDrivers) * 100) : 0}% of drivers</small></article>
+    </section>
+
     <section className="scorex3-toolbar">
       <label>
         <span>Week</span>
@@ -869,7 +878,7 @@ export default function DriverScorecardsV22({
         />
       </label>
 
-      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
+      <button type="button" className="btn ghost scorex3-reset-button" onClick={() => { setQuery(""); setGroupFilter("all"); setScoreFilter("all"); setConcessionFilter("all"); setQuickFilter("all"); setSort({ key: "displayScore", direction: "desc" }); }}>Reset filters</button>\n      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
         Share view
       </button>
       <button type="button" className="btn primary scorex3-import" onClick={onImport}>
