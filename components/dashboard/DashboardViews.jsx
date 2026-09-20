@@ -5,6 +5,8 @@ import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { HistoryTrendChart } from "../HistoricalAnalytics";
 import { avg, fmt, initials, numberOrNull, tone } from "./utils";
 import { buildFleetIntelligence } from "../../lib/intelligence/fleet";
+import { buildInterventionQueue } from "../../lib/intelligence/operationsCopilot";
+import { predictDeterioration } from "../../lib/intelligence/decisionEngine";
 import CommandCenterPanel from "./CommandCenterPanel";
 import ManagerDailyBrief from "./ManagerDailyBrief";
 import { buildDriver360Snapshot } from "../../lib/drivers/driver360";
@@ -109,6 +111,8 @@ export function DashboardView({ commandCenter, drivers, kpis, history, onImport,
   const health = Math.round(avg(drivers, "performance") || 0);
   const total = Math.max(1, drivers.length);
   const attentionDrivers = intelligence.priorityDrivers.slice(0, 6).map((item) => item.driver);
+  const interventionQueue = buildInterventionQueue(drivers).slice(0,5);
+  const deterioration = predictDeterioration(history).filter((item)=>item.deteriorating).slice(0,5);
   const openAction = (destination) => {
     if (destination === "coaching") return onCoaching?.();
     if (destination === "data-quality") return onDataQuality?.();
@@ -117,6 +121,7 @@ export function DashboardView({ commandCenter, drivers, kpis, history, onImport,
   };
   return <><div className="page-heading"><div><span className="page-kicker">OVERVIEW</span><h1>Fleet performance</h1><p>One operating view across driver performance, risk, data quality and coaching.</p></div><div className="page-actions"><button className="btn ghost" onClick={onPerformance}>Performance history</button><button className="btn primary" onClick={onImport}>Import reports</button></div></div>
     <ManagerDailyBrief drivers={drivers} kpis={kpis} history={history} onOpenDriver={onOpenDriver} onNavigate={onNavigate} />
+    <section className="panel ai-intervention-queue"><div className="panel-head"><div><h2>AI Intervention Queue</h2><p>Detect → explain → prioritise → act → measure.</p></div><span className="panel-badge">{interventionQueue.length} priority</span></div><div className="action-list">{interventionQueue.map((item,index)=><Action key={item.driver?.dbId||item.driver?.id||index} n={String(index+1).padStart(2,"0")} title={(item.driver?.name||"Unresolved driver")+" · "+item.primary.label} text={item.explanation} onClick={()=>onOpenDriver?.(item.driver)} />)}{!interventionQueue.length&&<div className="table-empty-state"><b>No intervention required</b><span>Current evidence does not trigger an intervention threshold.</span></div>}</div>{deterioration.length>0&&<div className="ai-prediction-strip"><b>Predictive deterioration</b><span>{deterioration.map(x=>x.driverName+" ("+x.velocity+")").join(" · ")}</span></div>}</section>
     <CommandCenterPanel
       summary={commandCenter}
       intelligence={intelligence}
