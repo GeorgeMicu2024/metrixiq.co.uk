@@ -220,6 +220,7 @@ export default function MentorView({
   const [query, setQuery] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [sort, setSort] = useState({ key: "score", direction: "asc" });
+  const [mappingRefresh, setMappingRefresh] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -251,7 +252,7 @@ export default function MentorView({
     return () => {
       alive = false;
     };
-  }, [organizationId]);
+  }, [organizationId, mappingRefresh]);
 
   const allDailyRows = dailyLoad.rows || [];
   const allWeeklyRows = weeklyLoad.rows || [];
@@ -469,7 +470,7 @@ export default function MentorView({
             onOpenDriver={onOpenDriver}
           />
 
-          <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} />
+          <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} onChanged={() => setMappingRefresh((value) => value + 1)} />
 
           <footer className="mentor-report-footer">
             <span>
