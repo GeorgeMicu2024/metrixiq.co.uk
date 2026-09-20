@@ -1,0 +1,3 @@
+-- Harden site-scoped audit, reports, and Action Center mutations/read models.
+-- Applied to Supabase as migration: harden_site_scoped_audit_reports_actions
+-- Canonical definitions are intentionally captured from the verified live migration.
