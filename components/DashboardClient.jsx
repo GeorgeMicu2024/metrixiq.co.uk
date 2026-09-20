@@ -297,7 +297,6 @@ export default function DashboardClient() {
         runAutomationEngine(getSupabaseBrowserClient(), organizationId, false, "import_completed"),
         refreshSlaEscalations(getSupabaseBrowserClient(), organizationId),
         autoReassessAiInterventions(getSupabaseBrowserClient(), organizationId),
-        autoReassessAiInterventions(getSupabaseBrowserClient(), { organizationId, history: metricRows }),
       ]);
     }
 
