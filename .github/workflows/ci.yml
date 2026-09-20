@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - main
-      - "feature/**"\n      - fix/**
+      - "feature/**"
+      - "fix/**"
   pull_request:
 
 permissions:
