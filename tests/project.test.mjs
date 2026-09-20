@@ -1216,3 +1216,29 @@ test("IADC parser does not invent a DLS2 site fallback", () => {
   assert.ok(html.includes("inferSiteCode(fileName"));
   assert.ok(pdf.includes("inferSiteCode(fileName"));
 });
+
+
+test("RC auth and navigation safety rails stay wired", () => {
+  const login = read("components/LoginClient.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+  const inviteApi = read("app/api/team/invite/route.js");
+  const registerInviteApi = read("app/api/auth/register-invite/route.js");
+  const accountDeleteApi = read("app/api/account/delete/route.js");
+  const adminDeleteApi = read("app/api/admin/accounts/delete/route.js");
+  const team = read("components/team/TeamManagementView.jsx");
+
+  assert.ok(login.includes("registerWithInviteToken"));
+  assert.ok(login.includes("setInviteToken(\"\")"));
+  assert.ok(login.includes("window.history.replaceState"));
+  assert.ok(inviteApi.includes("inviteUserByEmail"));
+  assert.ok(registerInviteApi.includes("complete_team_invite_signup"));
+  assert.ok(accountDeleteApi.includes("deleteMetrixAccount"));
+  assert.ok(adminDeleteApi.includes("is_platform_admin"));
+  assert.ok(team.includes("transferWorkspaceOwnership"));
+  assert.ok(team.includes("setMemberPermissionOverrides"));
+
+  assert.ok(dashboard.includes("window.history.pushState"));
+  assert.ok(dashboard.includes("window.addEventListener(\"popstate\""));
+  assert.ok(dashboard.includes("syncViewFromHistory"));
+  assert.ok(dashboard.includes('params.set("view", id)'));
+});
