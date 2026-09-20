@@ -200,9 +200,16 @@ export default function SmartImportView({ onImported, analysis }) {
         : "";
 
       if (saved?.savedDaily != null) {
+        const rec = saved?.reconciliation;
+        const reconciliationText = rec
+          ? " · " + rec.accountedRows + "/" + rec.sourceRows + " accounted" +
+            (rec.balanced ? " ✓" : " ⚠") +
+            " (" + rec.matchedRows + " matched · " + rec.unmatchedRows + " need review" +
+            (rec.skippedWithoutScore ? " · " + rec.skippedWithoutScore + " without score" : "") + ")"
+          : "";
         setMessage(
           "Saved " + saved.savedDaily + " daily eMentor snapshots for " +
-          mentorDate + " · " + (saved?.unmatched ?? 0) + " unmatched" + skipped + "."
+          mentorDate + " · " + (saved?.unmatched ?? 0) + " unmatched" + skipped + reconciliationText + "."
         );
       } else if (mentorCandidate && mentorMode === "weekly") {
         setMessage(

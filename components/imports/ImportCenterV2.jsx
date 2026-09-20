@@ -191,11 +191,17 @@ export default function ImportCenterV2({
       const saved=await onImported(result,accepted);
       setPreview(result);
       setPhase("done");
+      const rec=saved?.reconciliation;
+      const reconciliationText=rec
+        ?" · "+rec.accountedRows+"/"+rec.sourceRows+" accounted"+(rec.balanced?" ✓":" ⚠")+
+          " ("+rec.matchedRows+" matched · "+rec.unmatchedRows+" need review"+
+          (rec.skippedWithoutScore?" · "+rec.skippedWithoutScore+" without score":"")+")"
+        :"";
       setMessage(
         "Saved "+(saved?.savedMetrics??saved?.savedDaily??0)+" metric / daily records · "+
         (saved?.savedScorecards??0)+" site scorecards · "+
         (saved?.savedFeedback??0)+" feedback events · "+
-        (saved?.unmatched??0)+" unmatched"+
+        (saved?.unmatched??0)+" unmatched"+reconciliationText+
         (replaced.length?" · "+replaced.length+" previous import replaced":"")+"."
       );
       await loadHistory();

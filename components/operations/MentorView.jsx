@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchMentorDailyRows } from "../../lib/data/mentorDaily";
+import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
   Loading,
@@ -219,6 +220,7 @@ export default function MentorView({
   const [query, setQuery] = useState("");
   const [shareOpen, setShareOpen] = useState(false);
   const [sort, setSort] = useState({ key: "score", direction: "asc" });
+  const [mappingRefresh, setMappingRefresh] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -250,7 +252,7 @@ export default function MentorView({
     return () => {
       alive = false;
     };
-  }, [organizationId]);
+  }, [organizationId, mappingRefresh]);
 
   const allDailyRows = dailyLoad.rows || [];
   const allWeeklyRows = weeklyLoad.rows || [];
@@ -467,6 +469,8 @@ export default function MentorView({
             onSort={toggleSort}
             onOpenDriver={onOpenDriver}
           />
+
+          <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} onChanged={() => setMappingRefresh((value) => value + 1)} />
 
           <footer className="mentor-report-footer">
             <span>
