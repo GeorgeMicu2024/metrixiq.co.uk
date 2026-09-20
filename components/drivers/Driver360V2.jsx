@@ -137,6 +137,16 @@ export default function Driver360V2({
   const openCoaching=(data?.coaching||[]).filter((x)=>x.status!=="closed").length;
   const activeAlerts=(data?.alerts||[]).filter((x)=>x.status!=="resolved").length;
   const activeOverrides=(data?.overrides||[]).filter((x)=>x.status==="active").length;
+  const dwcScore=latest?.raw_data?.dwc??null;
+  const dwcErrors=latest?.raw_data?.dwc_detail?.errors||{};
+  const dwcErrorLabels={
+    photoDefect:"Photo Defect",
+    photoManualBypass:"Photo Manual Bypass",
+    geoDistance25m:"Geo Distance >25m",
+    contactComplianceMiss:"Contact Compliance Miss",
+    otpMiss:"OTP Miss",
+  };
+  const dwcIssues=Object.entries(dwcErrors).filter(([,value])=>value!=null&&Number(value)>0);
 
   async function addNote(){
     if(!canManage||!note.trim()||!driver?.dbId)return;
@@ -211,6 +221,7 @@ export default function Driver360V2({
           <article className="panel"><div className="panel-head"><div><h2>Performance trajectory</h2><p>Recent imported periods.</p></div><span className="panel-badge">{snapshot.periods.length} periods</span></div><DriverTrajectoryChart snapshot={snapshot}/></article>
           <article className="panel"><div className="panel-head"><div><h2>Recovery plan</h2><p>Highest recoverable next-band opportunities.</p></div></div><div className="driver360v2-recovery">{recovery.map((item)=><div key={item.metric}><b>{String(item.rank).padStart(2,"0")}</b><p><strong>{item.metric}</strong><small>{item.action}</small></p><em>+{item.recoverableNext} pts</em></div>)}{!recovery.length&&<div className="driver360v2-empty compact">No scorecard recovery action required.</div>}</div></article>
         </section>
+        <section className="panel driver360v2-dwc"><div className="panel-head"><div><h2>IADC & DWC compliance detail</h2><p>Exact workflow exceptions extracted from the selected Amazon compliance report.</p></div><span className="panel-badge">DWC {dwcScore==null?"—":Number(dwcScore).toFixed(2)+"%"}</span></div><div className="driver360v2-dwc-summary"><article><span>IADC</span><strong>{latest?.iadc==null?"—":Number(latest.iadc).toFixed(2)+"%"}</strong></article><article><span>DWC</span><strong>{dwcScore==null?"—":Number(dwcScore).toFixed(2)+"%"}</strong></article><article><span>Recorded misses</span><strong>{dwcIssues.reduce((sum,[,value])=>sum+Number(value||0),0)}</strong></article></div><div className="driver360v2-dwc-errors">{Object.entries(dwcErrorLabels).map(([key,label])=>{const value=dwcErrors[key];const known=value!=null;return <div key={key} className={known&&Number(value)>0?"has-miss":"clean"}><span>{label}</span><strong>{known?Number(value):"—"}</strong><small>{!known?"No evidence in this report":Number(value)>0?"Recorded workflow miss":"No miss recorded"}</small></div>})}</div></section>
         <Driver360DeltaGrid snapshot={snapshot}/>
       </>}
 
