@@ -20,7 +20,7 @@ import {
   useLoad,
 } from "./ScorecardPrimitives";
 
-export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, siteFilter = "all" }) {
+export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
     return fetchSiteScorecardData(supabase, organizationId);
@@ -41,24 +41,6 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
 
   const sortedCards = useMemo(() => cards.slice().sort(weekSort), [cards]);
   const card = cards.find((item) => item.id === selectedId) || cards[0];
-
-  const weekRows = useMemo(() => {
-    if (!card) return [];
-    return (load.data?.rows || []).filter((row) =>
-      row.week_label === card.week_label &&
-      (!card.site || !row.drivers?.site || row.drivers.site === card.site)
-    );
-  }, [card, load.data]);
-
-  const delivered = weekRows.reduce((sum, row) => sum + (num(row.delivered) || 0), 0);
-  const concessions = weekRows.reduce((sum, row) => sum + (num(row.concessions) || 0), 0);
-  const below = weekRows.filter((row) => {
-    const mentor = num(row.mentor_score ?? row.ementor ?? row.fico);
-    return (num(row.dcr) != null && row.dcr < TARGETS.dcr) ||
-      (num(row.pod) != null && row.pod < TARGETS.pod) ||
-      (num(row.iadc) != null && row.iadc < TARGETS.iadc) ||
-      (mentor != null && mentor < TARGETS.mentor);
-  }).length;
 
   const standingClass = (standing) => {
     const value = String(standing || "").trim().toLowerCase();
@@ -349,29 +331,6 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
           }
         </ol>
       </section>
-    </section>
-
-    <section className="sitepro-context">
-      <article>
-        <span>Drivers measured</span>
-        <strong>{weekRows.length}</strong>
-        <small>{card.week_label}</small>
-      </article>
-      <article>
-        <span>Parcels delivered</span>
-        <strong>{Math.round(delivered).toLocaleString()}</strong>
-        <small>Driver evidence total</small>
-      </article>
-      <article>
-        <span>Concessions</span>
-        <strong>{Math.round(concessions)}</strong>
-        <small>Same reporting week</small>
-      </article>
-      <article>
-        <span>Below operational target</span>
-        <strong>{below}</strong>
-        <small>DCR / POD / IADC / Mentor</small>
-      </article>
     </section>
 
     <section className="sitepro-summary-band">
