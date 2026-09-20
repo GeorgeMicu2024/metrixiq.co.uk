@@ -194,7 +194,7 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
             </option>
           )}
         </select>
-        <button className="btn ghost" onClick={() => window.print()}>Export / print</button>
+        <button className="btn ghost" onClick={() => window.print()}>Export / print</button>\n        <button className="btn primary" onClick={onImport}>Import scorecard</button>
       </div>
     </div>
 
@@ -330,6 +330,13 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
         <div className="sitepro-single-metric">
           <MetricLine label="Pickup Success Behaviours" item={metrics.psb} />
         </div>
+      </section>
+
+      <section className="sitepro-health-grid">
+        <article><span>Safety</span><strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong><small>FICO, speeding, adoption & compliance</small></article>
+        <article><span>Delivery quality</span><strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong><small>DCR, POD, CC, DNR & customer experience</small></article>
+        <article><span>Capacity</span><strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong><small>Capacity reliability for the selected week</small></article>
+        <article><span>Pickup quality</span><strong className={standingClass(card.pickup_quality_standing)}>{card.pickup_quality_standing || "—"}</strong><small>Pickup success behaviours</small></article>
       </section>
 
       <section className="sitepro-focus">
