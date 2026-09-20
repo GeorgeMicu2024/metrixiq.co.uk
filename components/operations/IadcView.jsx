@@ -23,7 +23,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const [excellentCut,targetCut,riskCut]=meta.bands||[90,80,70];
   const metricBand=v=>v>=excellentCut?"excellent":v>=targetCut?"target":v>=riskCut?"risk":"critical";
   const metricBandLabel=v=>v>=excellentCut?"Excellent":v>=targetCut?"On target":v>=riskCut?"At risk":"Critical";
-  const [mode,setMode]=useState("daily"),[week,setWeek]=useState(""),[day,setDay]=useState(""),[query,setQuery]=useState(""),[bandFilter,setBandFilter]=useState("all"),[page,setPage]=useState(1),[detail,setDetail]=useState(null);
+  const [mode,setMode]=useState("daily"),[week,setWeek]=useState(""),[day,setDay]=useState(""),[query,setQuery]=useState(""),[bandFilter,setBandFilter]=useState("all"),[detail,setDetail]=useState(null);
   const weeks=useMemo(()=>[...new Set(rows.map(calendarWeek).filter(w=>/^W\\d+$/i.test(w)))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
   const selectedWeek=week&&weeks.includes(week)?week:(weeks[0]||"");
   const weekRows=useMemo(()=>rows.filter(r=>granularity(r)==="weekly"&&calendarWeek(r)===selectedWeek),[rows,selectedWeek]);
@@ -48,8 +48,8 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const dwcUnavailable=dwcAvg==null;
   const activeErrors=active?.raw_data?.dwc_detail?.errors||{};
 
-  const reset=()=>{setQuery("");setBandFilter("all");setPage(1)};
-  const exportCsv=()=>{const header=["Driver","TRID",meta.label,"DWC","Band"];const body=filtered.map(r=>[dname(r.drivers),trid(r.drivers),metricValue(r),metric==="iadc"?dwcOf(r):null,metricBandLabel(Number(metricValue(r)))]);const blob=new Blob([[header,...body].map(x=>x.map(escapeCsv).join(",")).join("\r
+  const reset=()=>{setQuery("");setBandFilter("all")};
+  const exportCsv=()=>{const header=metric==="iadc"?["Driver","TRID",meta.label,"DWC","Band"]:["Driver","TRID",meta.label,"Band"];const body=filtered.map(r=>metric==="iadc"?[dname(r.drivers),trid(r.drivers),metricValue(r),dwcOf(r),metricBandLabel(Number(metricValue(r)))]:[dname(r.drivers),trid(r.drivers),metricValue(r),metricBandLabel(Number(metricValue(r)))]);const blob=new Blob([[header,...body].map(x=>x.map(escapeCsv).join(",")).join("\r
 ")],{type:"text/csv"});const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=`metrixiq-${metric}-${mode==="daily"?selectedDay:selectedWeek}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(u),300)};
   const share=async()=>{const text=`MetrixIQ ${meta.label} · ${mode==="daily"?selectedDay:selectedWeek} · ${meta.label} ${pct(avg,1)} · ${selected.length} drivers`;if(navigator.share)await navigator.share({title:`MetrixIQ ${meta.label}`,text});else await navigator.clipboard?.writeText(text)};
 
@@ -59,7 +59,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   return <div className="iadcv3">
     <div className="iadcv3-head"><div><span className="page-kicker">{meta.kicker}</span><h1>{meta.title}</h1><p>{meta.description}</p></div><div className="iadcv3-actions"><button className="btn primary" onClick={onImport}>⇧ &nbsp; Import Report</button><button className="btn ghost" onClick={exportCsv}>⇧ &nbsp; Export</button><button className="btn ghost" onClick={share}>↗ &nbsp; Share</button></div></div>
 
-    <section className="iadcv3-toolbar"><div className="iadcv3-tabs"><button className={mode==="daily"?"active":""} onClick={()=>{setMode("daily");setPage(1)}}>Daily</button><button className={mode==="weekly"?"active":""} onClick={()=>{setMode("weekly");setPage(1)}}>Weekly</button></div>{mode==="daily"?<select value={selectedDay} onChange={e=>{setDay(e.target.value);setPage(1)}}>{days.map(d=><option key={d}>{d}</option>)}</select>:<select value={selectedWeek} onChange={e=>{setWeek(e.target.value);setPage(1)}}>{weeks.map(w=><option key={w}>{w}</option>)}</select>}<select value={bandFilter} onChange={e=>{setBandFilter(e.target.value);setPage(1)}}><option value="all">All bands</option><option value="excellent">Excellent ≥{excellentCut}%</option><option value="target">On target ≥{targetCut}%</option><option value="risk">At risk ≥{riskCut}%</option><option value="critical">Critical &lt;{riskCut}%</option></select><input aria-label="Search IADC drivers" value={query} onChange={e=>{setQuery(e.target.value);setPage(1)}} placeholder="⌕  Search driver or TRID…"/><button className="iadcv3-reset" onClick={reset}>Reset</button></section>
+    <section className="iadcv3-toolbar"><div className="iadcv3-tabs"><button className={mode==="daily"?"active":""} onClick={()=>{setMode("daily");}}>Daily</button><button className={mode==="weekly"?"active":""} onClick={()=>{setMode("weekly");}}>Weekly</button></div>{mode==="daily"?<select value={selectedDay} onChange={e=>{setDay(e.target.value);}}>{days.map(d=><option key={d}>{d}</option>)}</select>:<select value={selectedWeek} onChange={e=>{setWeek(e.target.value);}}>{weeks.map(w=><option key={w}>{w}</option>)}</select>}<select value={bandFilter} onChange={e=>{setBandFilter(e.target.value);}}><option value="all">All bands</option><option value="excellent">Excellent ≥{excellentCut}%</option><option value="target">On target ≥{targetCut}%</option><option value="risk">At risk ≥{riskCut}%</option><option value="critical">Critical &lt;{riskCut}%</option></select><input aria-label={`Search ${meta.label} drivers`} value={query} onChange={e=>{setQuery(e.target.value);}} placeholder="⌕  Search driver or TRID…"/><button className="iadcv3-reset" onClick={reset}>Reset</button></section>
 
     <section className="iadcv3-kpis">
       <article><i>♟</i><div><span>Total Drivers</span><strong>{selected.length}</strong><small>{siteFilter==="all"?"All sites":siteFilter}</small></div></article>
