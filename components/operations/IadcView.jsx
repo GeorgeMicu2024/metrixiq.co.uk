@@ -4,8 +4,11 @@ import { useMemo, useState } from "react";
 import { TARGETS } from "../../lib/config/performance";
 import { ErrorBox,Loading,dname,filterRowsBySite,n,openShape,pct,trid,useOperationalRows,weekNo } from "../operations/OperationalShared";
 
-const rowDate=r=>String(r?.raw_data?.metric_date||r?.period_end||r?.period_start||"").slice(0,10);\nconst calendarWeek=r=>String(r?.raw_data?.calendar_week||r?.week_label||"");\nconst granularity=r=>String(r?.raw_data?.metric_granularity||"weekly");
-const dwcOf=r=>n(r.raw_data?.dwc);\nconst METRIC_META={iadc:{label:"IADC",target:80,bands:[90,80,70],title:"IADC & DWC — Driver Compliance",kicker:"WORKFLOW COMPLIANCE",description:"In-App Delivery Compliance (IADC) and Driver Workflow Compliance (DWC). Analyse performance, trends and error breakdowns."},pod:{label:"POD",target:99.6,bands:[99.8,99.6,99],title:"POD — Photo-on-Delivery Compliance",kicker:"DELIVERY QUALITY",description:"Photo-on-Delivery compliance by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."},dcr:{label:"DCR",target:99.2,bands:[99.5,99.2,98],title:"DCR — Delivery Completion Rate",kicker:"DELIVERY PERFORMANCE",description:"Delivery Completion Rate by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."},cc:{label:"CC",target:98,bands:[99,98,95],title:"Customer Compliance",kicker:"CUSTOMER COMPLIANCE",description:"Customer Compliance by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."}};
+const rowDate=r=>String(r?.raw_data?.metric_date||r?.period_end||r?.period_start||"").slice(0,10);
+const calendarWeek=r=>String(r?.raw_data?.calendar_week||r?.week_label||"");
+const granularity=r=>String(r?.raw_data?.metric_granularity||"weekly");
+const dwcOf=r=>n(r.raw_data?.dwc);
+const METRIC_META={iadc:{label:"IADC",target:80,bands:[90,80,70],title:"IADC & DWC — Driver Compliance",kicker:"WORKFLOW COMPLIANCE",description:"In-App Delivery Compliance (IADC) and Driver Workflow Compliance (DWC). Analyse performance, trends and error breakdowns."},pod:{label:"POD",target:99.6,bands:[99.8,99.6,99],title:"POD — Photo-on-Delivery Compliance",kicker:"DELIVERY QUALITY",description:"Photo-on-Delivery compliance by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."},dcr:{label:"DCR",target:99.2,bands:[99.5,99.2,98],title:"DCR — Delivery Completion Rate",kicker:"DELIVERY PERFORMANCE",description:"Delivery Completion Rate by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."},cc:{label:"CC",target:98,bands:[99,98,95],title:"Customer Compliance",kicker:"CUSTOMER COMPLIANCE",description:"Customer Compliance by driver. Weekly values come from scorecards; Daily values are shown only when a true daily source exists."}};
 const band=v=>v>=90?"excellent":v>=80?"target":v>=70?"risk":"critical";
 const bandLabel=v=>v>=90?"Excellent":v>=80?"On target":v>=70?"At risk":"Critical";
 const errorLabels={photoDefect:"Photo Defect",photoManualBypass:"Photo Manual Bypass",geoDistance25m:"Geo Distance > 25m",contactComplianceMiss:"Contact Compliance",otpMiss:"OTP Miss"};
@@ -14,7 +17,12 @@ const escapeCsv=v=>'"'+String(v??"").replaceAll('"','""')+'"';
 
 export default function IadcView({organizationId,onOpenDriver,onImport,siteFilter="all"}){
   const load=useOperationalRows(organizationId,"iadc");
-  const rows=filterRowsBySite(load.rows,siteFilter);\n  const meta=METRIC_META[metric]||METRIC_META.iadc;\n  const metricValue=r=>n(r?.[metric]);\n  const [excellentCut,targetCut,riskCut]=meta.bands||[90,80,70];\n  const metricBand=v=>v>=excellentCut?"excellent":v>=targetCut?"target":v>=riskCut?"risk":"critical";\n  const metricBandLabel=v=>v>=excellentCut?"Excellent":v>=targetCut?"On target":v>=riskCut?"At risk":"Critical";
+  const rows=filterRowsBySite(load.rows,siteFilter);
+  const meta=METRIC_META[metric]||METRIC_META.iadc;
+  const metricValue=r=>n(r?.[metric]);
+  const [excellentCut,targetCut,riskCut]=meta.bands||[90,80,70];
+  const metricBand=v=>v>=excellentCut?"excellent":v>=targetCut?"target":v>=riskCut?"risk":"critical";
+  const metricBandLabel=v=>v>=excellentCut?"Excellent":v>=targetCut?"On target":v>=riskCut?"At risk":"Critical";
   const [mode,setMode]=useState("daily"),[week,setWeek]=useState(""),[day,setDay]=useState(""),[query,setQuery]=useState(""),[bandFilter,setBandFilter]=useState("all"),[page,setPage]=useState(1),[detail,setDetail]=useState(null);
   const weeks=useMemo(()=>[...new Set(rows.map(calendarWeek).filter(w=>/^W\\d+$/i.test(w)))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
   const selectedWeek=week&&weeks.includes(week)?week:(weeks[0]||"");
@@ -41,7 +49,8 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const activeErrors=active?.raw_data?.dwc_detail?.errors||{};
 
   const reset=()=>{setQuery("");setBandFilter("all");setPage(1)};
-  const exportCsv=()=>{const header=["Driver","TRID",meta.label,"DWC","Band"];const body=filtered.map(r=>[dname(r.drivers),trid(r.drivers),metricValue(r),metric==="iadc"?dwcOf(r):null,metricBandLabel(Number(metricValue(r)))]);const blob=new Blob([[header,...body].map(x=>x.map(escapeCsv).join(",")).join("\r\n")],{type:"text/csv"});const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=`metrixiq-${metric}-${mode==="daily"?selectedDay:selectedWeek}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(u),300)};
+  const exportCsv=()=>{const header=["Driver","TRID",meta.label,"DWC","Band"];const body=filtered.map(r=>[dname(r.drivers),trid(r.drivers),metricValue(r),metric==="iadc"?dwcOf(r):null,metricBandLabel(Number(metricValue(r)))]);const blob=new Blob([[header,...body].map(x=>x.map(escapeCsv).join(",")).join("\r
+")],{type:"text/csv"});const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=`metrixiq-${metric}-${mode==="daily"?selectedDay:selectedWeek}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(u),300)};
   const share=async()=>{const text=`MetrixIQ ${meta.label} · ${mode==="daily"?selectedDay:selectedWeek} · ${meta.label} ${pct(avg,1)} · ${selected.length} drivers`;if(navigator.share)await navigator.share({title:`MetrixIQ ${meta.label}`,text});else await navigator.clipboard?.writeText(text)};
 
   if(load.loading)return <Loading text={`Loading ${meta.label} compliance…`}/>;
