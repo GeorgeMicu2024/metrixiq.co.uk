@@ -152,7 +152,7 @@ export default function ActionCenterV2({
             <div><span>Status</span><b>{human(selected.status)}</b></div>
             <div><span>Priority</span><b>{human(selected.priority)}</b></div>
             <div><span>SLA deadline</span><b>{dateTime(selected.sla_deadline)}</b></div>
-            <div><span>Owner</span><b>{selected.assigned_name||"Unassigned"}</b></div>
+            <div><span>Owner</span><b>{selected.assigned_name||"Unassigned"}</b></div>{selected.metadata?.ai_outcome&&<><div><span>AI outcome</span><b>{human(selected.metadata.outcome)}</b></div><div><span>AI recommendation</span><b>{human(selected.metadata.recommendation)}</b></div><div><span>AI confidence</span><b>{selected.metadata.confidence??"—"}%</b></div><div><span>Human approval</span><b>{selected.metadata.human_approval_required?"Required":"—"}</b></div></>}
           </div>
 
           <button className="actionv8-open" onClick={()=>openRelated(selected)}>{selected.driver_id?"Open Driver 360 →":"Open related module →"}</button>
