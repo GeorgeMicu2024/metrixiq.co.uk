@@ -123,3 +123,15 @@ test("V4 product surfaces are wired into the workspace without replacing source 
   assert.ok(incidents.includes("Operational Investigations"));
   assert.ok(site.includes("Control Room"));
 });
+
+test('IADC DWC V4 keeps daily snapshots separate from weekly metrics', () => {
+  const html = fs.readFileSync('lib/analyzer/html.js','utf8');
+  const metrics = fs.readFileSync('lib/persistence/metrics.js','utf8');
+  const view = fs.readFileSync('components/operations/IadcView.jsx','utf8');
+  assert.ok(html.includes('iadc-daily'));
+  assert.ok(html.includes('iadc-weekly'));
+  assert.ok(metrics.includes('metric_granularity'));
+  assert.ok(metrics.includes('calendar_week'));
+  assert.ok(metrics.includes('metric_date'));
+  assert.ok(view.includes('highest IADC to lowest IADC'));
+});
