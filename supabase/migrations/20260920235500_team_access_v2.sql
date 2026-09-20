@@ -88,7 +88,7 @@ begin
     coalesce(v_before,'{}'::jsonb),coalesce(p_permissions,'{}'::jsonb));
   return true;
 end;
-$;
+$$;
 
 create or replace function public.list_member_permission_overrides(p_organization_id uuid)
 returns table(user_id uuid,permissions jsonb,updated_at timestamptz)
