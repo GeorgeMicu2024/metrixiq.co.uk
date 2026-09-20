@@ -22,7 +22,7 @@ import IadcView from "./operations/IadcView";
 import MentorView from "./operations/MentorView";
 import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
-import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_LABELS, navSection } from "./dashboard/navigation";
+import { NAV_ICONS as icon, NAV_ITEMS as nav, navSection } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
 import { loadWorkspaceContext } from "../lib/data/workspace";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
@@ -245,8 +245,9 @@ export default function DashboardClient() {
         return;
       }
 
-      if (key === "escape" && document.activeElement === searchRef.current) {
+      if (key === "escape" && commandOpen) {
         event.preventDefault();
+        setCommandOpen(false);
         setGlobalSearch("");
         searchRef.current?.blur();
       }
@@ -254,7 +255,7 @@ export default function DashboardClient() {
 
     window.addEventListener("keydown", handleWorkspaceShortcut);
     return () => window.removeEventListener("keydown", handleWorkspaceShortcut);
-  }, []);
+  }, [commandOpen]);
 
   const sites = [...new Set(dbDrivers.map((d) => String(d.site || "").trim().toUpperCase()).filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site)))].sort();
   const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
