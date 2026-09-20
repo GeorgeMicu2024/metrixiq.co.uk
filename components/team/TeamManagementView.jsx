@@ -20,6 +20,8 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
   const [permissionDrafts, setPermissionDrafts] = useState({});
 
   const canManage = canManageTeam(workspaceRole, platformAdmin);
+  const canManagePermissions = platformAdmin || ["owner", "admin"].includes(String(workspaceRole || "").toLowerCase());
+  const canViewAudit = platformAdmin || ["owner", "admin", "manager"].includes(String(workspaceRole || "").toLowerCase());
 
   async function load() {
     if (!organizationId) return;
@@ -27,11 +29,13 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
 
     try {
       const supabase = getSupabaseBrowserClient();
-      const [workspace, overrides, events] = await Promise.all([
-        fetchTeamWorkspace(supabase, organizationId),
-        fetchMemberPermissionOverrides(supabase, organizationId),
-        fetchWorkspaceAuditEvents(supabase, organizationId),
+      const workspace = await fetchTeamWorkspace(supabase, organizationId);
+      const [overrideResult, auditResult] = await Promise.allSettled([
+        canManage ? fetchMemberPermissionOverrides(supabase, organizationId) : Promise.resolve([]),
+        canViewAudit ? fetchWorkspaceAuditEvents(supabase, organizationId) : Promise.resolve([]),
       ]);
+      const overrides = overrideResult.status === "fulfilled" ? overrideResult.value : [];
+      const events = auditResult.status === "fulfilled" ? auditResult.value : [];
       setCurrentUserId(workspace.currentUserId);
       setMembers(workspace.members);
       setInvites(workspace.invites);
@@ -309,7 +313,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                     </td>
 
                     <td>{dateLabel(member.joined_at)}</td>
-                    <td><input aria-label={`Permission overrides for ${member.full_name || member.email}`} value={permissionDrafts[member.user_id] ?? "{}"} disabled={!canManage || member.role === "owner"} onChange={(e)=>setPermissionDrafts((x)=>({...x,[member.user_id]:e.target.value}))} placeholder='{"reports.export":true}' /></td>
+                    <td><input aria-label={`Permission overrides for ${member.full_name || member.email}`} value={permissionDrafts[member.user_id] ?? "{}"} disabled={!canManagePermissions || ["owner","admin"].includes(member.role)} onChange={(e)=>setPermissionDrafts((x)=>({...x,[member.user_id]:e.target.value}))} placeholder='{"reports.export":true}' /></td>
 
                     <td>
                       {!protectedMember && (
@@ -321,7 +325,7 @@ export function TeamManagementView({ organizationId, workspaceRole, platformAdmi
                           >
                             Save
                           </button>
-                          <button className="team-save" disabled={!canManage || member.role === "owner" || busy === `permissions-${member.user_id}`} onClick={() => savePermissions(member)}>Permissions</button>
+                          <button className="team-save" disabled={!canManagePermissions || ["owner","admin"].includes(member.role) || busy === `permissions-${member.user_id}`} onClick={() => savePermissions(member)}>Permissions</button>
                           {workspaceRole === "owner" && !isSelf && <button className="team-save" disabled={!!busy} onClick={() => transferOwner(member)}>Make owner</button>}
                           <button
                             className="team-remove"
