@@ -194,7 +194,8 @@ export function SiteScorecardsView({ organizationId, onOpenDriver, onImport, sit
             </option>
           )}
         </select>
-        <button className="btn ghost" onClick={() => window.print()}>Export / print</button>\n        <button className="btn primary" onClick={onImport}>Import scorecard</button>
+        <button className="btn ghost" onClick={() => window.print()}>Export / print</button>
+        <button className="btn primary" onClick={onImport}>Import scorecard</button>
       </div>
     </div>
 
