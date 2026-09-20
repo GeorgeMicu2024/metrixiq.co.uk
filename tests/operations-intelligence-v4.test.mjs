@@ -133,7 +133,7 @@ test('IADC DWC V4 keeps daily snapshots separate from weekly metrics', () => {
   assert.ok(metrics.includes('metric_granularity'));
   assert.ok(metrics.includes('calendar_week'));
   assert.ok(metrics.includes('metric_date'));
-  assert.ok(view.includes('highest IADC to lowest IADC'));
+  assert.ok(view.includes('highest {meta.label} to lowest {meta.label}'));
 });
 
 
