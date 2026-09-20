@@ -132,6 +132,7 @@ export default function DashboardClient() {
       email: profile?.email || user.email || "",
       organisation: resolved.organization.name,
       role: resolved.role,
+      avatar_url: user.user_metadata?.avatar_url || "",
     });
     setDbDrivers(scorecards.map(mapScorecardRow));
     setMetricHistoryRows(metricRows);
