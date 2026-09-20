@@ -518,7 +518,7 @@ test("dashboard consumes explainable fleet intelligence and exposes the grounded
 
   assert.ok(dashboardViews.includes("buildFleetIntelligence"));
   assert.ok(dashboardViews.includes("Command Center"));
-  assert.ok(dashboardViews.includes("Recommended actions"));\n  assert.ok(dashboardViews.includes("confidence"));
+  assert.ok(dashboardViews.includes("Recommended actions")); assert.ok(dashboardViews.includes("confidence"));
   assert.ok(dashboardClient.includes('onDataQuality={() => navigate("data-quality")}'));
   assert.ok(dashboardClient.includes('./intelligence/ExecutiveAnalystV2'));
   assert.ok(navigation.includes('["intelligence", "AI Analyst"]'));
