@@ -6,6 +6,7 @@ import {
   fetchNotificationsV2,
   refreshNotificationsV2,
   setNotificationStatus,
+  markAllNotificationsRead,
 } from "../../lib/data/notificationsV2";
 
 const severityRank = { critical:0, high:1, medium:2, low:3, info:4 };
@@ -93,6 +94,14 @@ export default function NotificationsCenterV2({
     finally{setBusy("");}
   }
 
+  async function markAllRead(){
+    if(!unread||busy)return;
+    setBusy("all");setError("");
+    try{await markAllNotificationsRead(getSupabaseBrowserClient(),organizationId);setRows(current=>current.map(row=>row.status==="unread"?{...row,status:"read"}:row));}
+    catch(e){setError(e?.message||"Could not mark notifications as read.");}
+    finally{setBusy("");}
+  }
+
   function openItem(item){
     if(item.status==="unread")mark(item,"read");
     setOpen(false);
@@ -125,7 +134,7 @@ export default function NotificationsCenterV2({
       <div className="notifv2-summary">
         <span><b>{unread}</b> unread</span>
         <span><b>{visible.filter((item)=>item.severity==="critical").length}</b> critical</span>
-        <button onClick={()=>load(true)}>Refresh</button>
+        <button disabled={!unread||busy==="all"} onClick={markAllRead}>Mark all as read</button><button onClick={()=>load(true)}>Refresh</button>
       </div>
       <div className="notifications-list">
         {!loaded&&<div className="notifications-empty"><div className="auth-spinner"/><span>Loading notifications…</span></div>}
