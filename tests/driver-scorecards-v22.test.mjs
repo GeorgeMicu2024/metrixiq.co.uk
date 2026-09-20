@@ -54,3 +54,19 @@ test("Driver Scorecards V2.2 persists audited FICO overrides without mutating so
   assert.equal(view.includes('.from("driver_metrics").update'), false);
   assert.ok(governance.includes('supabase.rpc("set_driver_metric_override"'));
 });
+
+
+test("Site Scorecard stays scorecard-first and excludes driver leaderboards", () => {
+  const view = read("components/scorecards/ScorecardViews.jsx");
+  const siteStart = view.indexOf("export function SiteScorecardsView");
+  const driverStart = view.indexOf("function LegacyDriverScorecardsView");
+  const siteView = view.slice(siteStart, driverStart);
+
+  assert.ok(siteView.includes("DSP WEEKLY SCORECARD"));
+  assert.ok(siteView.includes("sitepro-health-grid"));
+  assert.ok(siteView.includes("RECOMMENDED FOCUS AREAS"));
+  assert.ok(siteView.includes("Import scorecard"));
+  assert.equal(siteView.includes("Top 5 performers"), false);
+  assert.equal(siteView.includes("Bottom 5"), false);
+  assert.equal(siteView.includes("\\n        <button"), false);
+});
