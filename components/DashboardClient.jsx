@@ -28,7 +28,7 @@ import { loadWorkspaceContext } from "../lib/data/workspace";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
 import { persistWorkspaceImport } from "../lib/data/importWorkflow";
-import { autoReassessAiInterventions, refreshSlaEscalations, runAutomationEngine, autoReassessAiInterventions } from "../lib/data/automationV8";
+import { autoReassessAiInterventions, refreshSlaEscalations, runAutomationEngine } from "../lib/data/automationV8";
 import { DashboardView } from "./dashboard/DashboardViews";
 import ReportBuilderV2 from "./reports/ReportBuilderV2";
 import ExecutiveAnalystV2 from "./intelligence/ExecutiveAnalystV2";
