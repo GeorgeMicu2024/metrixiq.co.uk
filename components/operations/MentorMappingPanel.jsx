@@ -15,6 +15,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
   const [filter, setFilter] = useState("open");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
+  const [driverQueries, setDriverQueries] = useState({});
 
   async function load() {
     if (!organizationId) return;
@@ -136,10 +137,45 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                 <td>{row.site || "—"}</td>
                 <td><b>{row.payload?.score ?? "—"}</b></td>
                 <td>
-                  <select disabled={busy === row.id} value={row.matched_driver_id || ""} onChange={(e) => resolve(row, e.target.value)}>
-                    <option value="">Select driver…</option>
-                    {drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.full_name} · {driver.trid || "no TRID"}{driver.site ? " · "+driver.site : ""}</option>)}
-                  </select>
+                  <div className="mentor-driver-combobox">
+                    <input
+                      type="search"
+                      autoComplete="off"
+                      disabled={busy === row.id}
+                      placeholder="Search name or TRID…"
+                      value={driverQueries[row.id] ?? ""}
+                      onChange={(e) => setDriverQueries((current) => ({ ...current, [row.id]: e.target.value }))}
+                      aria-label={`Search driver for ${row.raw_name || "eMentor account"}`}
+                    />
+                    {(driverQueries[row.id] || "").trim() && (
+                      <div className="mentor-driver-results">
+                        {drivers
+                          .filter((driver) => {
+                            const query = (driverQueries[row.id] || "").trim().toLowerCase();
+                            return !query || `${driver.full_name || ""} ${driver.trid || ""} ${driver.site || ""}`.toLowerCase().includes(query);
+                          })
+                          .slice(0, 12)
+                          .map((driver) => (
+                            <button
+                              key={driver.id}
+                              type="button"
+                              disabled={busy === row.id}
+                              onClick={() => {
+                                setDriverQueries((current) => ({ ...current, [row.id]: driver.full_name || driver.trid || "" }));
+                                resolve(row, driver.id);
+                              }}
+                            >
+                              <b>{driver.full_name}</b>
+                              <span>{driver.trid || "no TRID"}{driver.site ? " · " + driver.site : ""}</span>
+                            </button>
+                          ))}
+                        {!drivers.some((driver) => {
+                          const query = (driverQueries[row.id] || "").trim().toLowerCase();
+                          return `${driver.full_name || ""} ${driver.trid || ""} ${driver.site || ""}`.toLowerCase().includes(query);
+                        }) && <div className="mentor-driver-empty">No matching driver</div>}
+                      </div>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
