@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import {
   classifyMentorMapping,
+  createMentorMappingDriver,
   fetchMentorMappingDrivers,
   fetchMentorMappingRows,
   resolveMentorMapping,
@@ -16,6 +17,8 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [driverQueries, setDriverQueries] = useState({});
+  const [createFor, setCreateFor] = useState(null);
+  const [newDriver, setNewDriver] = useState({ full_name: "", trid: "", site: "" });
 
   async function load() {
     if (!organizationId) return;
@@ -69,10 +72,22 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     open: reconciled.filter((r) => r.status === "open").length,
     resolved: reconciled.filter((r) => r.status === "resolved").length,
     hidden: reconciled.filter((r) => r.status === "hidden").length,
-    transporter: reconciled.filter((r) => r.status === "transporter").length,
   }), [reconciled]);
 
   const visible = filter === "all" ? reconciled : reconciled.filter((r) => r.status === filter);
+
+  async function createAndResolve() {
+    if (!createFor || !newDriver.full_name.trim()) return;
+    setBusy(createFor.id); setError("");
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const driver = await createMentorMappingDriver(supabase, organizationId, newDriver);
+      await resolveMentorMapping(supabase, organizationId, createFor, driver.id);
+      setCreateFor(null); setNewDriver({ full_name: "", trid: "", site: "" });
+      await load(); onChanged?.();
+    } catch (e) { setError(e?.message || "Could not create and link driver."); }
+    finally { setBusy(""); }
+  }
 
   async function resolve(row, driverId) {
     if (!driverId) return;
@@ -108,11 +123,10 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
           <span>{counts.open} need review</span>
           <span>{counts.resolved} mapped</span>
           <span>{counts.hidden} hidden</span>
-          <span>{counts.transporter} transporter</span>
         </div>
       </div>
       <div className="mentor-mapping-tabs">
-        {["open","resolved","hidden","transporter","all"].map((key) => (
+        {["open","resolved","hidden","all"].map((key) => (
           <button key={key} type="button" className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>
             {key === "open" ? "Needs review" : key[0].toUpperCase()+key.slice(1)} ({counts[key]})
           </button>
@@ -129,8 +143,6 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                   {row.status === "hidden"
                     ? <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Unhide</button>
                     : <button type="button" disabled={busy === row.id} onClick={() => classify(row, "hidden")}>Hide</button>}
-                  {row.status !== "transporter" && <button type="button" disabled={busy === row.id} onClick={() => classify(row, "transporter")}>Transporter</button>}
-                  {row.status === "transporter" && <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Restore</button>}
                 </td>
                 <td><b>{row.raw_name || "Unknown / encrypted"}</b></td>
                 <td><code>{row.raw_trid || row.payload?.driver?.mentorHash || "—"}</code></td>
@@ -173,6 +185,10 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                           const query = (driverQueries[row.id] || "").trim().toLowerCase();
                           return `${driver.full_name || ""} ${driver.trid || ""} ${driver.site || ""}`.toLowerCase().includes(query);
                         }) && <div className="mentor-driver-empty">No matching driver</div>}
+                        <button type="button" className="mentor-create-driver" onMouseDown={(e) => e.preventDefault()} onClick={() => {
+                          setCreateFor(row);
+                          setNewDriver({ full_name: driverQueries[row.id] || "", trid: "", site: row.site || "" });
+                        }}><b>+ Create new driver</b><span>Create and permanently link this eMentor account</span></button>
                       </div>
                     )}
                   </div>
@@ -183,6 +199,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
           </tbody>
         </table>
       </div>
+      {createFor && <div className="mentor-create-backdrop" role="presentation" onMouseDown={() => setCreateFor(null)}><div className="mentor-create-modal" role="dialog" aria-modal="true" aria-label="Add new driver" onMouseDown={(e) => e.stopPropagation()}><div className="mentor-create-title"><div><b>Add New Driver</b><small>Create a new driver and link it to this eMentor account.</small></div><button type="button" onClick={() => setCreateFor(null)}>×</button></div><label>Full name *<input autoFocus value={newDriver.full_name} onChange={(e) => setNewDriver(v => ({...v,full_name:e.target.value}))} placeholder="e.g. John Smith" /></label><label>TRID (optional)<input value={newDriver.trid} onChange={(e) => setNewDriver(v => ({...v,trid:e.target.value}))} placeholder="e.g. A123B456" /></label><label>Site<input value={newDriver.site} onChange={(e) => setNewDriver(v => ({...v,site:e.target.value}))} placeholder="DLS2" /></label><div className="mentor-create-actions"><button type="button" className="btn ghost" onClick={() => setCreateFor(null)}>Cancel</button><button type="button" className="btn primary" disabled={!newDriver.full_name.trim() || busy === createFor.id} onClick={createAndResolve}>Create & Link</button></div></div></div>}
     </section>
   );
 }
