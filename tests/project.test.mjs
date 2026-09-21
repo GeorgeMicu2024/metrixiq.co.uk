@@ -1257,3 +1257,37 @@ test("Team Access V2 migration is reproducible and RPCs are permission-hardened"
   assert.ok(team.includes("canManagePermissions"));
   assert.ok(team.includes("canViewAudit"));
 });
+
+
+test("eMentor reconciliation is idempotent by stable source identity", () => {
+  const persistence = read("lib/persistence/identity.js");
+  const migration = read("supabase/migrations/20260921155500_dedupe_mentor_daily_reconciliation.sql");
+  const mapping = read("components/operations/MentorMappingPanel.jsx");
+
+  assert.ok(persistence.includes('reconciliation_key: reconciliationKey || null'));
+  assert.ok(persistence.includes('row.payload?.driver?.mentorHash'));
+  assert.ok(persistence.includes('row.payload?.driver?.details?.mentor?.identityKey'));
+  assert.ok(persistence.includes('.upsert(mentorRows'));
+  assert.ok(persistence.includes('ignoreDuplicates: true'));
+
+  assert.ok(migration.includes('unmatched_mentor_daily_identity_unique'));
+  assert.ok(migration.includes("payload->>'reportDate'"));
+  assert.ok(migration.includes('reconciliation_key'));
+
+  assert.ok(mapping.includes('const reconciled = useMemo'));
+  assert.ok(mapping.includes('unique source accounts'));
+});
+
+test("daily eMentor supports multiple source accounts per driver and persistent hide", () => {
+  const daily = read("lib/persistence/mentorDaily.js");
+  const view = read("components/operations/MentorView.jsx");
+  const migration = read("supabase/migrations/20260921154000_mentor_daily_persistent_visibility.sql");
+
+  assert.ok(daily.includes('rowsBySource.set(sourceIdentityKey, row)'));
+  assert.ok(daily.includes('organization_id,report_date,source_identity_key'));
+  assert.ok(view.includes('setMentorDailyVisibility'));
+  assert.ok(view.includes('Show hidden rows'));
+  assert.ok(view.includes('Restore'));
+  assert.ok(migration.includes('set_mentor_daily_visibility'));
+  assert.ok(migration.includes('is_hidden'));
+});
