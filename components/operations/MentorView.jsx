@@ -121,6 +121,7 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, onRestore
         <thead>
           <tr>
             <th className="mentor-head index">#</th>
+            {(onHide || onRestore) && <th className="mentor-head numeric">Visibility</th>}
             {REPORT_COLUMNS.map(([key, label]) => (
               <ReportSortHeader
                 key={key}
@@ -131,13 +132,17 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, onRestore
                 tone={key === "score" ? "score" : ["speedingEvents", "training", "completed"].includes(key) ? "numeric" : "risk"}
               />
             ))}
-            {(onHide || onRestore) && <th className="mentor-head numeric">Visibility</th>}
           </tr>
         </thead>
         <tbody>
           {rows.map((item, index) => (
             <tr key={item.id + "-" + index}>
               <td className="mentor-index-cell">{index + 1}</td>
+              {(onHide || onRestore) && <td className="mentor-number-cell">
+                {item.row?.is_hidden
+                  ? <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onRestore?.(item)}>Restore</button>
+                  : <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onHide?.(item)}>Hide</button>}
+              </td>
               <td className="mentor-name-cell">
                 <button
                   type="button"
