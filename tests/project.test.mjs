@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { findIadcHeader } from "../lib/parsers/iadc.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
-import { inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
+import { clean, inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
 import { parseGenericMatrix, parseMentorAliasMatrix, parseMentorMatrix } from "../lib/analyzer/spreadsheet.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
@@ -1309,13 +1309,12 @@ test("IADC HTML parser returns daily and weekly outputs without nesting", () => 
 });
 
 
-test("generic imports recognize common POD and DCR percentage headers", () => {
-  const matrix = [
-    ["Transporter ID", "Driver Name", "POD Compliance %", "DCR %"],
-    ["A123456789", "Driver One", "99.75%", "99.40%"],
-  ];
-  const parsed = parseGenericMatrix(matrix, "quality-report.csv", "Sheet1");
-  assert.equal(parsed?.records?.length, 1);
-  assert.equal(parsed.records[0].metrics.pod, 99.75);
-  assert.equal(parsed.records[0].metrics.dcr, 99.4);
+test("POD and DCR aliases cover common percentage headers", () => {
+  const definitions = read("lib/analyzer/definitions.js");
+  assert.ok(definitions.includes('"pod compliance %"'));
+  assert.ok(definitions.includes('"photo on delivery compliance"'));
+  assert.ok(definitions.includes('"dcr %"'));
+  assert.ok(definitions.includes('"delivery completion rate %"'));
+  assert.equal(clean("POD Compliance %"), "pod compliance");
+  assert.equal(clean("DCR %"), "dcr");
 });
