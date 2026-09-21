@@ -42,7 +42,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
 
   const reconciled = useMemo(() => {
     const byIdentity = new Map();
-    const rank = { resolved: 4, hidden: 3, transporter: 2, open: 1 };
+    const rank = { resolved: 4, ignored: 3, open: 1 };
 
     for (const row of dated) {
       const sourceKey = String(
@@ -71,10 +71,10 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     all: reconciled.length,
     open: reconciled.filter((r) => r.status === "open").length,
     resolved: reconciled.filter((r) => r.status === "resolved").length,
-    hidden: reconciled.filter((r) => r.status === "hidden").length,
+    hidden: reconciled.filter((r) => r.status === "ignored").length,
   }), [reconciled]);
 
-  const visible = filter === "all" ? reconciled : reconciled.filter((r) => r.status === filter);
+  const visible = filter === "all" ? reconciled : reconciled.filter((r) => filter === "hidden" ? r.status === "ignored" : r.status === filter);
 
   async function createAndResolve() {
     if (!createFor || !newDriver.full_name.trim()) return;
@@ -140,9 +140,9 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
             {visible.map((row) => (
               <tr key={row.id}>
                 <td className="mentor-mapping-actions">
-                  {row.status === "hidden"
+                  {row.status === "ignored"
                     ? <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Unhide</button>
-                    : <button type="button" disabled={busy === row.id} onClick={() => classify(row, "hidden")}>Hide</button>}
+                    : <button type="button" disabled={busy === row.id} onClick={() => classify(row, "ignored")}>Hide</button>}
                 </td>
                 <td><b>{row.raw_name || "Unknown / encrypted"}</b></td>
                 <td><code>{row.raw_trid || row.payload?.driver?.mentorHash || "—"}</code></td>
