@@ -1232,3 +1232,16 @@
 .profile-account-btn{display:flex;align-items:center;gap:11px;min-width:250px;padding:8px 12px;border:1px solid var(--line,#dbe5ef);border-radius:16px;background:var(--panel,#fff);cursor:pointer;text-align:left}
 .profile-account-btn .top-avatar{width:44px;height:44px;flex:0 0 44px}.profile-account-copy{display:flex;min-width:0;flex:1;flex-direction:column}.profile-account-copy b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-account-copy small{margin-top:2px;font-size:11px;color:var(--muted,#74869a)}.profile-account-chevron{font-size:16px}
 @media(max-width:760px){.topbar-clean{min-height:64px;padding:8px 12px}.profile-account-btn{min-width:0;padding:4px;border:0}.profile-account-copy,.profile-account-chevron{display:none}.profile-account-btn .top-avatar{width:44px;height:44px}}
+
+
+/* Approved shell V2 — context lives in the sidebar, no desktop top-right controls */
+.topbar-minimal{min-height:0;height:0;padding:0;border:0;background:transparent;overflow:visible}
+.topbar-minimal .menu-btn{display:none}
+.sidebar-context{margin-top:auto;padding:14px 12px 16px;border-top:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:6px}
+.sidebar-profile,.sidebar-context-row{width:100%;display:flex;align-items:center;gap:10px;padding:8px;border:0;border-radius:12px;background:transparent;color:inherit;text-align:left}
+.sidebar-profile{cursor:pointer}.sidebar-profile:hover{background:rgba(255,255,255,.07)}
+.sidebar-profile-avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.16);font-weight:800}.sidebar-profile-avatar img{width:100%;height:100%;object-fit:cover}
+.sidebar-profile-copy,.sidebar-context-row>div{min-width:0;display:flex;flex-direction:column}.sidebar-profile-copy b,.sidebar-context-row b{font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sidebar-profile-copy small,.sidebar-context-row small{margin-top:2px;font-size:10px;color:rgba(255,255,255,.65)}
+.sidebar-context-row>span{width:38px;text-align:center;font-size:19px;color:rgba(255,255,255,.9)}
+.sidebar.compact .sidebar-profile-copy,.sidebar.compact .sidebar-context-row>div{display:none}.sidebar.compact .sidebar-context{padding-inline:6px}.sidebar.compact .sidebar-profile,.sidebar.compact .sidebar-context-row{justify-content:center;padding-inline:0}
+@media(max-width:760px){.topbar-minimal{height:48px;min-height:48px;padding:6px 10px}.topbar-minimal .menu-btn{display:inline-flex}.sidebar-context{padding-bottom:20px}}
