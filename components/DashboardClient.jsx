@@ -68,7 +68,8 @@ export default function DashboardClient() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [metricHistoryRows, setMetricHistoryRows] = useState([]);
   const [globalSearch, setGlobalSearch] = useState("");
-  const [commandOpen, setCommandOpen] = useState(false);\n  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [favorites, setFavorites] = useState([]);
   const [siteFilter, setSiteFilter] = useState("all");
   const [platformAdmin, setPlatformAdmin] = useState(false);
