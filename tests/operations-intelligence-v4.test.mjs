@@ -146,7 +146,7 @@ test("POD DCR CC operations views use their own metric and targets", () => {
   assert.ok(view.includes('target:99.6'));
   assert.ok(view.includes('target:99.2'));
   assert.ok(view.includes('target:98'));
-  assert.ok(view.includes('useOperationalRows(organizationId,metric)'));
+  assert.ok(view.includes('useOperationalRows(organizationId,metric,refreshKey)'));
   assert.ok(nav.includes('["pod", "POD"]'));
   assert.ok(nav.includes('["dcr", "DCR"]'));
   assert.ok(nav.includes('["cc", "Customer Compliance"]'));
