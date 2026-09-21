@@ -1,6 +1,6 @@
 export const NAV_GROUPS = [
   { label: "OVERVIEW", items: [["dashboard", "Dashboard"], ["manager-control", "Action Center"], ["mobile-manager", "Manager Mobile"]] },
-  { label: "OPERATIONS", items: [["site-operations", "Site Operations"], ["iadc", "IADC / DWC"], ["pod", "POD"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"], ["evidence", "Evidence & Incidents"], ["coaching", "Coaching"], ["notifications", "Notifications"], ["automation", "Automation Engine"]] },
+  { label: "OPERATIONS", items: [["site-operations", "Site Operations"], ["daily-dispatch", "Daily Dispatch"], ["iadc", "IADC / DWC"], ["pod", "POD"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"], ["evidence", "Evidence & Incidents"], ["coaching", "Coaching"], ["notifications", "Notifications"], ["automation", "Automation Engine"]] },
   { label: "PERFORMANCE", items: [["site-scorecards", "Site Scorecards"], ["driver-scorecards", "Driver Scorecards"], ["performance", "Performance"]] },
   { label: "PEOPLE", items: [["drivers", "Drivers"], ["team", "Team & Access"]] },
   { label: "INTELLIGENCE", items: [["intelligence", "AI Analyst"], ["simulator", "What-if Simulator"], ["management-views", "Management Views"], ["reports", "Report Builder"]] },
@@ -13,7 +13,7 @@ export const NAV_LABELS = Object.freeze(Object.fromEntries(NAV_ITEMS));
 
 export const NAV_ICONS = Object.freeze({
   dashboard:"▦","manager-control":"◉",automation:"⌁","mobile-manager":"▥","site-operations":"▣",
-  "site-scorecards":"▤","driver-scorecards":"◫",drivers:"◎",performance:"↗",iadc:"✓",pod:"◫",dcr:"↗",cc:"◎",cdf:"◈",
+  "daily-dispatch":"＋","site-scorecards":"▤","driver-scorecards":"◫",drivers:"◎",performance:"↗",iadc:"✓",pod:"◫",dcr:"↗",cc:"◎",cdf:"◈",
   mentor:"◇",concessions:"◆",evidence:"⌕",coaching:"✓",notifications:"♢",intelligence:"✦",
   simulator:"≈",imports:"⇧","data-quality":"⌁","management-views":"☷",audit:"◴",integrations:"⇄",
   reliability:"◌","developer-platform":"⌘",portfolio:"▦","enterprise-settings":"⚙",reports:"▤",
