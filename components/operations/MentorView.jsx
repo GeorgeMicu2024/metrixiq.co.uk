@@ -419,7 +419,7 @@ export default function MentorView({
         <section className="mentor-daily-shell">
           <div className="mentor-report-toolbar">
             <div className="mentor-report-title">
-              <span className="mentor-report-icon" aria-hidden="true">▥</span>
+              <span className="mentor-report-icon mentor-report-icon-logo" aria-hidden="true"><img src="/ementor-ddp.svg" alt="" /></span>
               <div>
                 <span className="page-kicker">EMENTOR SAFETY</span>
                 <h1>Daily eMentor Report</h1>
