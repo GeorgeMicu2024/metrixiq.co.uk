@@ -114,7 +114,7 @@ function ReportSortHeader({ columnKey, label, sort, onSort, tone = "risk" }) {
   );
 }
 
-function MentorReportTable({ rows, sort, onSort, onOpenDriver, compact = false }) {
+function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, compact = false }) {
   return (
     <div className={compact ? "mentor-report-scroll compact" : "mentor-report-scroll"}>
       <table className="mentor-report-table">
@@ -131,6 +131,7 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, compact = false }
                 tone={key === "score" ? "score" : ["speedingEvents", "training", "completed"].includes(key) ? "numeric" : "risk"}
               />
             ))}
+            {onHide && <th className="mentor-head numeric">Visibility</th>}
           </tr>
         </thead>
         <tbody>
@@ -186,11 +187,12 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, compact = false }
               <td className={"mentor-number-cell completed " + ((item.completed ?? 0) > 0 ? "done" : "zero")}>
                 {item.completed ?? "—"}
               </td>
+              {onHide && <td className="mentor-number-cell"><button type="button" className="btn ghost" onClick={() => onHide(item)}>Hide</button></td>}
             </tr>
           ))}
           {!rows.length && (
             <tr>
-              <td colSpan="12">
+              <td colSpan={onHide ? 13 : 12}>
                 <div className="mentor-report-empty">No eMentor rows match this report selection.</div>
               </td>
             </tr>
@@ -222,6 +224,7 @@ export default function MentorView({
   const [shareOpen, setShareOpen] = useState(false);
   const [sort, setSort] = useState({ key: "score", direction: "asc" });
   const [mappingRefresh, setMappingRefresh] = useState(0);
+  const [hiddenSourceKeys, setHiddenSourceKeys] = useState(() => new Set());
 
   useEffect(() => {
     let alive = true;
@@ -335,7 +338,14 @@ export default function MentorView({
     );
   }
 
-  const activeRows = mode === "daily" ? dailyMap : weeklyMap;
+  const activeRowsUnfiltered = mode === "daily" ? dailyMap : weeklyMap;
+  const activeRows = mode === "daily" ? activeRowsUnfiltered.filter((item) => !hiddenSourceKeys.has(item.row?.source_identity_key)) : activeRowsUnfiltered;
+
+  function hideDailyItem(item) {
+    const key = item?.row?.source_identity_key;
+    if (!key) return;
+    setHiddenSourceKeys((current) => new Set([...current, key]));
+  }
   const searchedRows = activeRows.filter((item) =>
     [
       item.firstName,
@@ -469,6 +479,7 @@ export default function MentorView({
             sort={sort}
             onSort={toggleSort}
             onOpenDriver={onOpenDriver}
+            onHide={hideDailyItem}
           />
 
           <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} onChanged={() => setMappingRefresh((value) => value + 1)} />
