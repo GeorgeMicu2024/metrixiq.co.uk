@@ -1307,3 +1307,15 @@ test("IADC HTML parser returns daily and weekly outputs without nesting", () => 
   assert.ok(html.includes("if (outputs.length) return outputs"));
   assert.equal(html.includes("if (output) return [output]"), false);
 });
+
+
+test("generic imports recognize common POD and DCR percentage headers", () => {
+  const matrix = [
+    ["Transporter ID", "Driver Name", "POD Compliance %", "DCR %"],
+    ["A123456789", "Driver One", "99.75%", "99.40%"],
+  ];
+  const parsed = parseGenericMatrix(matrix, "quality-report.csv", "Sheet1");
+  assert.equal(parsed?.records?.length, 1);
+  assert.equal(parsed.records[0].metrics.pod, 99.75);
+  assert.equal(parsed.records[0].metrics.dcr, 99.4);
+});
