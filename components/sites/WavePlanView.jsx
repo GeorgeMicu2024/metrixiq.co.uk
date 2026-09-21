@@ -26,8 +26,9 @@ function findStaging(cells){return cells.map(clean).find(x=>/STG[- ]?[A-Z].*(PUR
 function waveFrom(staging,cells){const hay=norm(staging+" "+cells.join(" "));return Object.keys(WAVE_COLORS).find(x=>hay.includes(x))||"OTHER"}
 function driverCandidate(cells,route,time,staging){return cells.map(clean).find(x=>x&&x!==route&&x!==time&&x!==staging&&/[A-Za-z]/.test(x)&&!/STG|WAVE|ROUTE|DRIVER|TIME|LOCATION/i.test(x)&&!/^\d+$/.test(x))||""}
 
-export default function WavePlanView({site="DLS2"}){
+export default function WavePlanView({site="DLS2",drivers=[]}){
  const [routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[history,setHistory]=useState([]);
+ const [atlasText,setAtlasText]=useState("");
  const routeInput=useRef(null),waveInput=useRef(null);
  const load=async(file,setFile,setRows)=>{if(!file)return;setFile(file);setRows(await rowsFromWorkbook(file));setGenerated(false)};
  const plan=useMemo(()=>{const drivers=new Map();for(const x of routeRows){const route=findRoute(x.cells);if(!route)continue;const d=driverCandidate(x.cells,route,findTime(x.cells),findStaging(x.cells));if(d)drivers.set(norm(route),d)}
@@ -38,8 +39,26 @@ export default function WavePlanView({site="DLS2"}){
  const generate=()=>{setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
  const removeHistory=id=>{if(confirm("Delete this Wave Plan from Recent Uploads?"))setHistory(h=>h.filter(x=>x.id!==id))};
  const exportImage=()=>window.print();
+ const driverByTrid=useMemo(()=>new Map(drivers.map(d=>[norm(d.trid),d.full_name||d.name||d.trid])),[drivers]);
+ const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{
+   const m=line.match(/\b(UK\d+)\s*-\s*(CA[_ -]?A?\d+)\s*-\s*([A-Z0-9]{8,})\b/i);
+   if(!m)return null;
+   const trid=m[3].toUpperCase();
+   return {tracking:m[1],route:m[2].replace(/ /g,"_").toUpperCase(),trid,name:driverByTrid.get(trid)||""};
+ }).filter(Boolean),[atlasText,driverByTrid]);
+ const atlasOutput=useMemo(()=>atlasRows.map(r=>`${r.tracking} - ${r.route} - ${r.name||r.trid}`).join("\n"),[atlasRows]);
+ const copyAtlas=async()=>{if(atlasOutput)await navigator.clipboard.writeText(atlasOutput)};
  return <div className="waveplan-root">
    <div className="waveplan-heading"><div><span className="page-kicker">SITE OPERATIONS › WAVE PLAN</span><h1>Wave Plan</h1><p>Upload Amazon reports, we'll generate your wave plan automatically.</p></div><span className={"waveplan-ready "+(generated?"ok":"")}>{generated?"✓ Ready":"Waiting for files"}</span></div>
+   <section className="panel atlas-converter">
+    <div className="panel-head"><div><h2>Atlas Driver Converter</h2><p>Paste the Atlas message. Transporter IDs are matched against your driver database and replaced with driver names.</p></div><span className="panel-badge">{atlasRows.filter(r=>r.name).length}/{atlasRows.length} matched</span></div>
+    <div className="atlas-grid">
+      <label><span>Paste Atlas message</span><textarea value={atlasText} onChange={e=>setAtlasText(e.target.value)} placeholder="UK4855619514 - CA_A216 - A1VIBVZUIF3BZO"/></label>
+      <label><span>Ready to copy</span><textarea readOnly value={atlasOutput} placeholder="Tracking ID - Route code - Driver name"/></label>
+    </div>
+    <div className="atlas-actions"><button className="btn ghost" onClick={()=>setAtlasText("")} disabled={!atlasText}>Clear</button><button className="btn primary" onClick={copyAtlas} disabled={!atlasOutput}>Copy with driver names</button></div>
+    {atlasRows.some(r=>!r.name)&&<p className="atlas-warning">Unmatched TRIDs stay unchanged so no driver is guessed.</p>}
+   </section>
    <section className="waveplan-files">
     <article><input ref={routeInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><div className="waveplan-file-icon">X</div><div><b>Route Plan</b><span>{routeFile?.name||"Upload Amazon Route Plan"}</span><small>{routeRows.length?routeRows.length+" rows detected":""}</small></div><button onClick={()=>routeInput.current?.click()}>{routeFile?"Replace file":"Choose file"}</button></article>
     <article><input ref={waveInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setWaveFile,setWaveRows)}/><div className="waveplan-file-icon">X</div><div><b>Wave Plan</b><span>{waveFile?.name||"Upload Amazon Wave Plan"}</span><small>{waveRows.length?waveRows.length+" rows detected":""}</small></div><button onClick={()=>waveInput.current?.click()}>{waveFile?"Replace file":"Choose file"}</button></article>
