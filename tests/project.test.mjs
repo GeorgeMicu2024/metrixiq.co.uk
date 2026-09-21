@@ -1299,3 +1299,11 @@ test("IADC POD and DCR views normalize daily composite week labels", () => {
   assert.ok(view.includes('match?match[0].toUpperCase():raw'));
   assert.ok(view.includes('granularity(r)==="daily"&&calendarWeek(r)===selectedWeek'));
 });
+
+
+test("IADC HTML parser returns daily and weekly outputs without nesting", () => {
+  const html = read("lib/analyzer/html.js");
+  assert.ok(html.includes("const outputs = parseIadcHtml(doc, file.name, period)"));
+  assert.ok(html.includes("if (outputs.length) return outputs"));
+  assert.equal(html.includes("if (output) return [output]"), false);
+});
