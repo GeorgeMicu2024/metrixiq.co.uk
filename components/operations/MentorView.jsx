@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { fetchMentorDailyRows } from "../../lib/data/mentorDaily";
+import { fetchMentorDailyRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
 import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
@@ -114,7 +114,7 @@ function ReportSortHeader({ columnKey, label, sort, onSort, tone = "risk" }) {
   );
 }
 
-function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, compact = false }) {
+function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, onRestore, visibilityBusy = "", compact = false }) {
   return (
     <div className={compact ? "mentor-report-scroll compact" : "mentor-report-scroll"}>
       <table className="mentor-report-table">
@@ -131,7 +131,7 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, compact =
                 tone={key === "score" ? "score" : ["speedingEvents", "training", "completed"].includes(key) ? "numeric" : "risk"}
               />
             ))}
-            {onHide && <th className="mentor-head numeric">Visibility</th>}
+            {(onHide || onRestore) && <th className="mentor-head numeric">Visibility</th>}
           </tr>
         </thead>
         <tbody>
@@ -187,12 +187,16 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, compact =
               <td className={"mentor-number-cell completed " + ((item.completed ?? 0) > 0 ? "done" : "zero")}>
                 {item.completed ?? "—"}
               </td>
-              {onHide && <td className="mentor-number-cell"><button type="button" className="btn ghost" onClick={() => onHide(item)}>Hide</button></td>}
+              {(onHide || onRestore) && <td className="mentor-number-cell">
+                {item.row?.is_hidden
+                  ? <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onRestore?.(item)}>Restore</button>
+                  : <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onHide?.(item)}>Hide</button>}
+              </td>}
             </tr>
           ))}
           {!rows.length && (
             <tr>
-              <td colSpan={onHide ? 13 : 12}>
+              <td colSpan={(onHide || onRestore) ? 13 : 12}>
                 <div className="mentor-report-empty">No eMentor rows match this report selection.</div>
               </td>
             </tr>
@@ -224,7 +228,8 @@ export default function MentorView({
   const [shareOpen, setShareOpen] = useState(false);
   const [sort, setSort] = useState({ key: "score", direction: "asc" });
   const [mappingRefresh, setMappingRefresh] = useState(0);
-  const [hiddenSourceKeys, setHiddenSourceKeys] = useState(() => new Set());
+  const [showHidden, setShowHidden] = useState(false);
+  const [visibilityBusy, setVisibilityBusy] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -339,12 +344,30 @@ export default function MentorView({
   }
 
   const activeRowsUnfiltered = mode === "daily" ? dailyMap : weeklyMap;
-  const activeRows = mode === "daily" ? activeRowsUnfiltered.filter((item) => !hiddenSourceKeys.has(item.row?.source_identity_key)) : activeRowsUnfiltered;
+  const activeRows = mode === "daily"
+    ? activeRowsUnfiltered.filter((item) => showHidden || !item.row?.is_hidden)
+    : activeRowsUnfiltered;
 
-  function hideDailyItem(item) {
-    const key = item?.row?.source_identity_key;
-    if (!key) return;
-    setHiddenSourceKeys((current) => new Set([...current, key]));
+  async function setDailyItemHidden(item, hidden) {
+    const snapshotId = item?.row?.id;
+    if (!snapshotId || visibilityBusy) return;
+    setVisibilityBusy(snapshotId);
+    try {
+      await setMentorDailyVisibility(
+        getSupabaseBrowserClient(),
+        organizationId,
+        snapshotId,
+        hidden
+      );
+      setDailyLoad((current) => ({
+        ...current,
+        rows: current.rows.map((row) =>
+          row.id === snapshotId ? { ...row, is_hidden: hidden } : row
+        ),
+      }));
+    } finally {
+      setVisibilityBusy("");
+    }
   }
   const searchedRows = activeRows.filter((item) =>
     [
@@ -479,8 +502,16 @@ export default function MentorView({
             sort={sort}
             onSort={toggleSort}
             onOpenDriver={onOpenDriver}
-            onHide={hideDailyItem}
+            onHide={(item) => setDailyItemHidden(item, true)}
+            onRestore={(item) => setDailyItemHidden(item, false)}
+            visibilityBusy={visibilityBusy}
           />
+          <div className="mentor-mode-switch">
+            <button type="button" className={showHidden ? "active" : ""} onClick={() => setShowHidden((value) => !value)}>
+              {showHidden ? "Hide hidden rows" : "Show hidden rows"}
+            </button>
+            <span>{dailyMap.filter((item) => item.row?.is_hidden).length} hidden account(s)</span>
+          </div>
 
           <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} onChanged={() => setMappingRefresh((value) => value + 1)} />
 
