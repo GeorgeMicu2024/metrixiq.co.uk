@@ -375,7 +375,7 @@ export default function DashboardClient() {
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
     case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="iadc" refreshKey={operationalRefreshKey} />; break;
-    case "pod": view = <PodQualityView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
+    case "pod": view = <PodQualityView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
