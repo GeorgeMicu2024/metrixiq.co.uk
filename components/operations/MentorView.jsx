@@ -207,8 +207,9 @@ export default function MentorView({
   onImport,
   siteFilter = "all",
   onSiteFilterChange,
+  refreshKey = 0,
 }) {
-  const weeklyLoad = useOperationalRows(organizationId, "mentor");
+  const weeklyLoad = useOperationalRows(organizationId, "mentor", refreshKey);
   const [dailyLoad, setDailyLoad] = useState({
     loading: true,
     error: "",
@@ -252,7 +253,7 @@ export default function MentorView({
     return () => {
       alive = false;
     };
-  }, [organizationId, mappingRefresh]);
+  }, [organizationId, mappingRefresh, refreshKey]);
 
   const allDailyRows = dailyLoad.rows || [];
   const allWeeklyRows = weeklyLoad.rows || [];

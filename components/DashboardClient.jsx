@@ -76,6 +76,7 @@ export default function DashboardClient() {
   const [workspaceOptions, setWorkspaceOptions] = useState([]);
   const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
   const [branding, setBranding] = useState(null);
+  const [operationalRefreshKey, setOperationalRefreshKey] = useState(0);
   const [collapsedGroups,setCollapsedGroups]=useState({});
   const [sidebarCompact,setSidebarCompact]=useState(false);
   const searchRef = useRef(null);
@@ -294,6 +295,7 @@ export default function DashboardClient() {
     setDbDrivers(scorecards.map(mapScorecardRow));
     setMetricHistoryRows(metricRows);
     setCommandCenter(nextCommandCenter);
+    setOperationalRefreshKey((value) => value + 1);
 
     if (platformAdmin || permissions?.manage_automations) {
       await Promise.allSettled([
@@ -347,12 +349,12 @@ export default function DashboardClient() {
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
-    case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="iadc" />; break;
-    case "pod": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="pod" />; break;
-    case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" />; break;
-    case "cc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="cc" />; break;
+    case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="iadc" refreshKey={operationalRefreshKey} />; break;
+    case "pod": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="pod" refreshKey={operationalRefreshKey} />; break;
+    case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
+    case "cc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="cc" refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
+    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
     case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;

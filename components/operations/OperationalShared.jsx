@@ -29,7 +29,7 @@ export function filterRowsBySite(rows, siteFilter = "all") {
   );
 }
 
-export function useOperationalRows(organizationId, kind) {
+export function useOperationalRows(organizationId, kind, refreshKey = 0) {
   const [state, setState] = useState({
     loading: true,
     error: "",
@@ -70,7 +70,7 @@ export function useOperationalRows(organizationId, kind) {
     return () => {
       alive = false;
     };
-  }, [organizationId, kind]);
+  }, [organizationId, kind, refreshKey]);
 
   return state;
 }

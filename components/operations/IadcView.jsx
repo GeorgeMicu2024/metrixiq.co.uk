@@ -12,8 +12,8 @@ const errorLabels={photoDefect:"Photo Defect",photoManualBypass:"Photo Manual By
 const average=(a,get)=>{const x=a.map(get).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);return x.length?x.reduce((s,v)=>s+v,0)/x.length:null};
 const escapeCsv=v=>'"'+String(v??"").replaceAll('"','""')+'"';
 
-export default function IadcView({organizationId,onOpenDriver,onImport,siteFilter="all",metric="iadc"}){
-  const load=useOperationalRows(organizationId,metric);
+export default function IadcView({organizationId,onOpenDriver,onImport,siteFilter="all",metric="iadc",refreshKey=0}){
+  const load=useOperationalRows(organizationId,metric,refreshKey);
   const rows=filterRowsBySite(load.rows,siteFilter);
   const meta=METRIC_META[metric]||METRIC_META.iadc;
   const metricValue=r=>n(r?.[metric]);
