@@ -192,11 +192,6 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, onRestore
               <td className={"mentor-number-cell completed " + ((item.completed ?? 0) > 0 ? "done" : "zero")}>
                 {item.completed ?? "—"}
               </td>
-              {(onHide || onRestore) && <td className="mentor-number-cell">
-                {item.row?.is_hidden
-                  ? <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onRestore?.(item)}>Restore</button>
-                  : <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onHide?.(item)}>Hide</button>}
-              </td>}
             </tr>
           ))}
           {!rows.length && (
