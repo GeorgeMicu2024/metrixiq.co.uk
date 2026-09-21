@@ -36,15 +36,42 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     return !reportDate || date === reportDate;
   }), [rows, reportDate]);
 
-  const counts = useMemo(() => ({
-    all: dated.length,
-    open: dated.filter((r) => r.status === "open").length,
-    resolved: dated.filter((r) => r.status === "resolved").length,
-    hidden: dated.filter((r) => r.status === "hidden").length,
-    transporter: dated.filter((r) => r.status === "transporter").length,
-  }), [dated]);
+  const reconciled = useMemo(() => {
+    const byIdentity = new Map();
+    const rank = { resolved: 4, hidden: 3, transporter: 2, open: 1 };
 
-  const visible = filter === "all" ? dated : dated.filter((r) => r.status === filter);
+    for (const row of dated) {
+      const sourceKey = String(
+        row.payload?.driver?.mentorHash ||
+        row.payload?.driver?.details?.mentor?.identityKey ||
+        row.raw_trid ||
+        row.normalized_name ||
+        row.id
+      ).trim();
+      const current = byIdentity.get(sourceKey);
+
+      if (
+        !current ||
+        (rank[row.status] || 0) > (rank[current.status] || 0) ||
+        ((rank[row.status] || 0) === (rank[current.status] || 0) &&
+          String(row.created_at || "") > String(current.created_at || ""))
+      ) {
+        byIdentity.set(sourceKey, { ...row, reconciliation_key: sourceKey });
+      }
+    }
+
+    return [...byIdentity.values()];
+  }, [dated]);
+
+  const counts = useMemo(() => ({
+    all: reconciled.length,
+    open: reconciled.filter((r) => r.status === "open").length,
+    resolved: reconciled.filter((r) => r.status === "resolved").length,
+    hidden: reconciled.filter((r) => r.status === "hidden").length,
+    transporter: reconciled.filter((r) => r.status === "transporter").length,
+  }), [reconciled]);
+
+  const visible = filter === "all" ? reconciled : reconciled.filter((r) => r.status === filter);
 
   async function resolve(row, driverId) {
     if (!driverId) return;
@@ -76,7 +103,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
           <p>Review rows that could not be matched automatically. Manual mappings are reused on future imports.</p>
         </div>
         <div className="mentor-mapping-counts">
-          <b>{dated.length} source rows</b>
+          <b>{reconciled.length} unique source accounts</b>
           <span>{counts.open} need review</span>
           <span>{counts.resolved} mapped</span>
           <span>{counts.hidden} hidden</span>
