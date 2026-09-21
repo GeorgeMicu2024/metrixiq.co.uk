@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { analyseFiles } from "../../lib/analyzer";
+import { IMPORT_ACCEPT } from "../../lib/imports/preflight";
 import { ErrorBox,Loading,dname,filterRowsBySite,n,openShape,pct,trid,useOperationalRows,weekNo } from "../operations/OperationalShared";
 
 const rowDate=r=>String(r?.raw_data?.metric_date||r?.period_end||r?.period_start||"").slice(0,10);
@@ -16,7 +18,7 @@ const errorLabels={photoDefect:"Photo Defect",photoManualBypass:"Photo Manual By
 const average=(a,get)=>{const x=a.map(get).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);return x.length?x.reduce((s,v)=>s+v,0)/x.length:null};
 const escapeCsv=v=>'"'+String(v??"").replaceAll('"','""')+'"';
 
-export default function IadcView({organizationId,onOpenDriver,onImport,siteFilter="all",metric="iadc",refreshKey=0}){
+export default function IadcView({organizationId,onOpenDriver,onImport,onImported,siteFilter="all",metric="iadc",refreshKey=0}){
   const load=useOperationalRows(organizationId,metric,refreshKey);
   const rows=filterRowsBySite(load.rows,siteFilter);
   const meta=METRIC_META[metric]||METRIC_META.iadc;
@@ -24,7 +26,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const [excellentCut,targetCut,riskCut]=meta.bands||[90,80,70];
   const metricBand=v=>v>=excellentCut?"excellent":v>=targetCut?"target":v>=riskCut?"risk":"critical";
   const metricBandLabel=v=>v>=excellentCut?"Excellent":v>=targetCut?"On target":v>=riskCut?"At risk":"Critical";
-  const [mode,setMode]=useState("daily"),[week,setWeek]=useState(""),[day,setDay]=useState(""),[query,setQuery]=useState(""),[bandFilter,setBandFilter]=useState("all"),[detail,setDetail]=useState(null);
+  const [mode,setMode]=useState("daily"),[week,setWeek]=useState(""),[day,setDay]=useState(""),[query,setQuery]=useState(""),[bandFilter,setBandFilter]=useState("all"),[detail,setDetail]=useState(null),[complianceTab,setComplianceTab]=useState("iadc"),[importing,setImporting]=useState(false),[importMessage,setImportMessage]=useState(""),fileInput=useRef(null);
   const weeks=useMemo(()=>[...new Set(rows.map(calendarWeek).filter(w=>/^W\\d+$/i.test(w)))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
   const selectedWeek=week&&weeks.includes(week)?week:(weeks[0]||"");
   const weekRows=useMemo(()=>rows.filter(r=>granularity(r)==="weekly"&&calendarWeek(r)===selectedWeek),[rows,selectedWeek]);
@@ -50,6 +52,7 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   const activeErrors=active?.raw_data?.dwc_detail?.errors||{};
 
   const reset=()=>{setQuery("");setBandFilter("all")};
+  const quickImport=async file=>{if(!file||importing)return;setImporting(true);setImportMessage(`Analysing ${file.name}…`);try{const result=await analyseFiles([file]);const types=(result?.fileResults||[]).filter(x=>x.recognized).map(x=>String(x.reportType||"").toLowerCase());if(!result?.recognizedFiles||!types.some(x=>x.includes("iadc")))throw new Error("This is not an IADC / DWC report.");await onImported?.(result,[file]);setImportMessage("IADC / DWC report imported. Select a day or Weekly to review it.");setWeek("");setDay("");setDetail(null);}catch(e){setImportMessage(e?.message||"Could not import IADC / DWC report.");}finally{setImporting(false);if(fileInput.current)fileInput.current.value=""}};
   const exportCsv=()=>{const header=metric==="iadc"?["Driver","TRID",meta.label,"DWC","Band"]:["Driver","TRID",meta.label,"Band"];const body=filtered.map(r=>metric==="iadc"?[dname(r.drivers),trid(r.drivers),metricValue(r),dwcOf(r),metricBandLabel(Number(metricValue(r)))]:[dname(r.drivers),trid(r.drivers),metricValue(r),metricBandLabel(Number(metricValue(r)))]);const blob=new Blob([[header,...body].map(x=>x.map(escapeCsv).join(",")).join("\\r\\n")],{type:"text/csv"});const u=URL.createObjectURL(blob),a=document.createElement("a");a.href=u;a.download=`metrixiq-${metric}-${mode==="daily"?selectedDay:selectedWeek}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(u),300)};
   const share=async()=>{const text=`MetrixIQ ${meta.label} · ${mode==="daily"?selectedDay:selectedWeek} · ${meta.label} ${pct(avg,1)} · ${selected.length} drivers`;if(navigator.share)await navigator.share({title:`MetrixIQ ${meta.label}`,text});else await navigator.clipboard?.writeText(text)};
 
@@ -57,11 +60,11 @@ export default function IadcView({organizationId,onOpenDriver,onImport,siteFilte
   if(load.error)return <ErrorBox error={load.error}/>;
 
   return <div className="iadcv3">
-    <div className="iadcv3-head"><div><span className="page-kicker">{meta.kicker}</span><h1>{meta.title}</h1><p>{meta.description}</p></div><div className="iadcv3-actions"><button className="btn primary" onClick={onImport}>⇧ &nbsp; Import Report</button><button className="btn ghost" onClick={exportCsv}>⇧ &nbsp; Export</button><button className="btn ghost" onClick={share}>↗ &nbsp; Share</button></div></div>
+    <div className="iadcv3-head"><div><span className="page-kicker">{meta.kicker}</span><h1>{meta.title}</h1><p>{meta.description}</p></div><div className="iadcv3-actions"><input ref={fileInput} type="file" hidden accept={IMPORT_ACCEPT} onChange={e=>quickImport(e.target.files?.[0])}/><button className="btn primary" disabled={importing} onClick={()=>metric==="iadc"?fileInput.current?.click():onImport?.()}>{importing?"Importing…":"⇧  Import IADC / DWC"}</button><button className="btn ghost" onClick={exportCsv}>⇧ &nbsp; Export</button><button className="btn ghost" onClick={share}>↗ &nbsp; Share</button></div></div>
 
-    <section className="iadcv3-toolbar"><div className="iadcv3-tabs"><button className={mode==="daily"?"active":""} onClick={()=>{setMode("daily");}}>Daily</button><button className={mode==="weekly"?"active":""} onClick={()=>{setMode("weekly");}}>Weekly</button></div>{mode==="daily"?<select value={selectedDay} onChange={e=>{setDay(e.target.value);}}>{days.map(d=><option key={d}>{d}</option>)}</select>:<select value={selectedWeek} onChange={e=>{setWeek(e.target.value);}}>{weeks.map(w=><option key={w}>{w}</option>)}</select>}<select value={bandFilter} onChange={e=>{setBandFilter(e.target.value);}}><option value="all">All bands</option><option value="excellent">Excellent ≥{excellentCut}%</option><option value="target">On target ≥{targetCut}%</option><option value="risk">At risk ≥{riskCut}%</option><option value="critical">Critical &lt;{riskCut}%</option></select><input aria-label={`Search ${meta.label} drivers`} value={query} onChange={e=>{setQuery(e.target.value);}} placeholder="⌕  Search driver or TRID…"/><button className="iadcv3-reset" onClick={reset}>Reset</button></section>
+    {metric==="iadc"?<div className="iadcv3-metric-tabs"><button className={complianceTab==="iadc"?"active":""} onClick={()=>setComplianceTab("iadc")}>IADC</button><button className={complianceTab==="dwc"?"active":""} onClick={()=>setComplianceTab("dwc")}>DWC</button></div>:null}\n    {importMessage?<div className="ccv2-import-message">{importMessage}</div>:null}\n    <section className="iadcv3-toolbar"><div className="iadcv3-tabs"><button className={mode==="daily"?"active":""} onClick={()=>{setMode("daily");}}>Daily</button><button className={mode==="weekly"?"active":""} onClick={()=>{setMode("weekly");}}>Weekly</button></div>{mode==="daily"?<select value={selectedDay} onChange={e=>{setDay(e.target.value);}}>{days.map(d=><option key={d}>{d}</option>)}</select>:<select value={selectedWeek} onChange={e=>{setWeek(e.target.value);}}>{weeks.map(w=><option key={w}>{w}</option>)}</select>}<select value={bandFilter} onChange={e=>{setBandFilter(e.target.value);}}><option value="all">All bands</option><option value="excellent">Excellent ≥{excellentCut}%</option><option value="target">On target ≥{targetCut}%</option><option value="risk">At risk ≥{riskCut}%</option><option value="critical">Critical &lt;{riskCut}%</option></select><input aria-label={`Search ${meta.label} drivers`} value={query} onChange={e=>{setQuery(e.target.value);}} placeholder="⌕  Search driver or TRID…"/><button className="iadcv3-reset" onClick={reset}>Reset</button></section>
 
-    <section className="iadcv3-kpis">
+    {complianceTab==="iadc"||metric!=="iadc"?<><section className="iadcv3-kpis">
       <article><i>♟</i><div><span>Total Drivers</span><strong>{selected.length}</strong><small>{siteFilter==="all"?"All sites":siteFilter}</small></div></article>
       <article><i>◫</i><div><span>{meta.label} (Average)</span><strong>{pct(avg,1)}</strong><small>Target ≥ {meta.target}%</small></div></article>
       {metric==="iadc"?<article className={"mint "+(dwcUnavailable?"missing":"")}><i>✓</i><div><span>DWC (Average)</span><strong>{dwcUnavailable?"No data":pct(dwcAvg,1)}</strong><small>{dwcUnavailable?(latestDwcRow?`No DWC for selected day · latest ${rowDate(latestDwcRow)} ${pct(dwcOf(latestDwcRow),1)}`:"No DWC evidence in imported report"):"Workflow compliance"}</small></div></article>:null}\n      <article className="green"><i>✓</i><div><span>≥ {excellentCut}% (Excellent)</span><strong>{counts.excellent}</strong><small>{selected.length?Math.round(counts.excellent/selected.length*1000)/10:0}%</small></div></article>
