@@ -1291,3 +1291,11 @@ test("daily eMentor supports multiple source accounts per driver and persistent 
   assert.ok(migration.includes('set_mentor_daily_visibility'));
   assert.ok(migration.includes('is_hidden'));
 });
+
+
+test("IADC POD and DCR views normalize daily composite week labels", () => {
+  const view = read("components/operations/IadcView.jsx");
+  assert.ok(view.includes('raw.match(/W\\d+/i)'));
+  assert.ok(view.includes('match?match[0].toUpperCase():raw'));
+  assert.ok(view.includes('granularity(r)==="daily"&&calendarWeek(r)===selectedWeek'));
+});
