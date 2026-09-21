@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchSiteOperationsData, driverOperationalSnapshot } from "../../lib/data/operationsV4";
 import RootCausePanel from "../intelligence/RootCausePanel";
+import WavePlanView from "./WavePlanView";
 
 function dateLabel(value){
   if(!value)return"—";
@@ -140,12 +141,12 @@ export default function SiteOperationsCenter({
 
     <div className="siteopsv4-tabs">
       {[
-        ["overview","Overview"],["drivers","Drivers"],["root-cause","Root Cause"],
+        ["overview","Overview"],["wave-plan","Wave Plan"],["drivers","Drivers"],["root-cause","Root Cause"],
         ["actions","Actions"],["incidents","Incidents"],["reporting","Reporting Health"],
       ].map(([id,label])=><button key={id} className={tab===id?"active":""} onClick={()=>setTab(id)}>{label}</button>)}
     </div>
 
-    {loading?<section className="panel siteopsv4-empty"><div className="auth-spinner"/><b>Loading {selectedSite} operations…</b></section>:<>
+    {tab==="wave-plan"?<WavePlanView site={selectedSite}/>:loading?<section className="panel siteopsv4-empty"><div className="auth-spinner"/><b>Loading {selectedSite} operations…</b></section>:<>
       {tab==="overview"&&<section className="siteopsv4-overview">
         <article className="panel"><div className="panel-head"><div><h2>Tier distribution</h2><p>Latest driver scorecard tier in the selected site.</p></div><span className="panel-badge">{driverRows.length}</span></div><div className="siteopsv4-tiers">{Object.entries(tierCounts).map(([tier,count])=><div key={tier}><span className={tierClass(tier)}>{tier}</span><strong>{count}</strong><i style={{width:(driverRows.length?count/driverRows.length*100:0)+"%"}}/></div>)}</div></article>
         <article className="panel"><div className="panel-head"><div><h2>Management focus</h2><p>Highest-impact operational items at {selectedSite}.</p></div></div><div className="siteopsv4-focus">
