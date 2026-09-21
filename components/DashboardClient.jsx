@@ -421,7 +421,7 @@ export default function DashboardClient() {
   {profileMenuOpen&&<div className="sidebar-profile-menu">
     <button onClick={()=>{navigate("settings");setProfileMenuOpen(false)}}><span>⚙</span><div><b>Account settings</b><small>Profile, security & preferences</small></div></button>
     <button onClick={()=>{navigate("notifications");setProfileMenuOpen(false)}}><span>◉</span><div><b>Notifications</b><small>Alerts & activity</small></div></button>
-    {platformAdmin&&<button onClick={()=>{navigate("platform-admin");setProfileMenuOpen(false)}}><span>◇</span><div><b>Super Admin</b><small>Platform administration</small></div></button>}
+    {platformAdmin&&<button onClick={()=>{navigate("admin");setProfileMenuOpen(false)}}><span>◇</span><div><b>Super Admin</b><small>Platform administration</small></div></button>}
     <div className="sidebar-profile-menu-sep" />
     <button className="logout" onClick={logout}><span>↪</span><div><b>Log out</b><small>Sign out of MetrixIQ</small></div></button>
   </div>}
