@@ -120,10 +120,17 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
       {error && <div className="mentor-mapping-error">{error}</div>}
       <div className="mentor-mapping-scroll">
         <table className="mentor-mapping-table">
-          <thead><tr><th>Source name</th><th>Source ID</th><th>Site</th><th>Score</th><th>Match to driver</th><th>Visibility</th></tr></thead>
+          <thead><tr><th>Visibility</th><th>Source name</th><th>Source ID</th><th>Site</th><th>Score</th><th>Match to driver</th></tr></thead>
           <tbody>
             {visible.map((row) => (
               <tr key={row.id}>
+                <td className="mentor-mapping-actions">
+                  {row.status === "hidden"
+                    ? <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Unhide</button>
+                    : <button type="button" disabled={busy === row.id} onClick={() => classify(row, "hidden")}>Hide</button>}
+                  {row.status !== "transporter" && <button type="button" disabled={busy === row.id} onClick={() => classify(row, "transporter")}>Transporter</button>}
+                  {row.status === "transporter" && <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Restore</button>}
+                </td>
                 <td><b>{row.raw_name || "Unknown / encrypted"}</b></td>
                 <td><code>{row.raw_trid || row.payload?.driver?.mentorHash || "—"}</code></td>
                 <td>{row.site || "—"}</td>
@@ -133,11 +140,6 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                     <option value="">Select driver…</option>
                     {drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.full_name} · {driver.trid || "no TRID"}{driver.site ? " · "+driver.site : ""}</option>)}
                   </select>
-                </td>
-                <td className="mentor-mapping-actions">
-                  <button type="button" disabled={busy === row.id} onClick={() => classify(row, "hidden")}>Hide</button>
-                  <button type="button" disabled={busy === row.id} onClick={() => classify(row, "transporter")}>Transporter</button>
-                  {row.status !== "open" && <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Restore</button>}
                 </td>
               </tr>
             ))}
