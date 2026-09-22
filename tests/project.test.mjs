@@ -181,7 +181,7 @@ test("scorecard parser does not persist zero-opportunity DCR as a real 0%", () =
     [
       ["TRID", "Name", "Total Score", "Delivered", "DCR", "POD", "CC"],
       ["A123456789", "No Opportunity", 90, 0, "0%", "100%", "100%"],
-      ["B123456780", "Real Delivery", 90, 120, "99.5%", "100%", "100%"],
+      ["A987654321", "Real Delivery", 90, 120, "99.5%", "100%", "100%"],
     ],
     "Week38-DSP-Scorecard.xlsx",
     "Scorecard"
