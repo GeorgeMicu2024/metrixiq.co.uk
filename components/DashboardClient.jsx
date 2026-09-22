@@ -83,10 +83,8 @@ export default function DashboardClient() {
   const [operationalRefreshKey, setOperationalRefreshKey] = useState(0);
   const [collapsedGroups,setCollapsedGroups]=useState({});
   const [sidebarCompact,setSidebarCompact]=useState(false);
-  const [profileMenuOpen,setProfileMenuOpen]=useState(false);
   const [now,setNow]=useState(()=>new Date());
   const searchRef = useRef(null);
-  const profileMenuRef = useRef(null);
 
   useEffect(() => {
     try { setFavorites(JSON.parse(localStorage.getItem("metrixiq.navFavorites") || "[]")); } catch { setFavorites([]); }
@@ -97,20 +95,6 @@ export default function DashboardClient() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    function closeProfileMenu(event) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) setProfileMenuOpen(false);
-    }
-    function closeProfileMenuOnEscape(event) {
-      if (event.key === "Escape") setProfileMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", closeProfileMenu);
-    window.addEventListener("keydown", closeProfileMenuOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeProfileMenu);
-      window.removeEventListener("keydown", closeProfileMenuOnEscape);
-    };
-  }, []);
 
   function toggleFavorite(id) {
     setFavorites((current) => {
@@ -378,7 +362,6 @@ export default function DashboardClient() {
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
     case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
     case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onImported={imported} siteFilter={siteFilter} metric="iadc" initialComplianceTab="iadc" refreshKey={operationalRefreshKey} />; break;
-    case "dwc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onImported={imported} siteFilter={siteFilter} metric="iadc" initialComplianceTab="dwc" refreshKey={operationalRefreshKey} />; break;
     case "pod": view = <PodQualityView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
@@ -420,18 +403,5 @@ export default function DashboardClient() {
   );
   const favoriteItems = nav.filter(([id]) => favorites.includes(id) && canAccessNav(id, access, platformAdmin, session?.role, permissions));
 
-  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav><div className="sidebar-context">
-  {profileMenuOpen&&<div className="sidebar-profile-menu">
-    <button onClick={()=>{navigate("settings");setProfileMenuOpen(false)}}><span>⚙</span><div><b>Account settings</b><small>Profile, security & preferences</small></div></button>
-    <button onClick={()=>{navigate("notifications");setProfileMenuOpen(false)}}><span>◉</span><div><b>Notifications</b><small>Alerts & activity</small></div></button>
-    {platformAdmin&&<button onClick={()=>{navigate("admin");setProfileMenuOpen(false)}}><span>◇</span><div><b>Super Admin</b><small>Platform administration</small></div></button>}
-    <div className="sidebar-profile-menu-sep" />
-    <button className="logout" onClick={logout}><span>↪</span><div><b>Log out</b><small>Sign out of MetrixIQ</small></div></button>
-  </div>}
-  <button className={"sidebar-profile "+(profileMenuOpen?"open":"")} onClick={()=>setProfileMenuOpen(v=>!v)} title="Account menu">
-    <span className="sidebar-profile-avatar">{session.avatar_url?<img src={session.avatar_url} alt="" />:initials(session.name)}</span>
-    <span className="sidebar-profile-copy"><b>{session.name||"Manager"}</b><small>{platformAdmin?"Super Admin":session.role||"Manager"}</small></span>
-    <span className="sidebar-profile-chevron">{profileMenuOpen?"⌄":"⌃"}</span>
-  </button>
-</div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-minimal"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="topbar-controls">{workspaceOptions.length>1?<select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select>:null}<select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}</select><div className="workspace-search"><input ref={searchRef} value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Search workspace…" aria-label="Search workspace"/><kbd>⌘ / Ctrl K</kbd></div><NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin||permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate}/><button className="btn ghost" aria-label="Sign out" onClick={logout}>Sign out</button></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
+  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-minimal"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="topbar-controls">{workspaceOptions.length>1?<select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select>:null}<select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}</select><div className="workspace-search"><input ref={searchRef} value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Search workspace…" aria-label="Search workspace"/><kbd>⌘ / Ctrl K</kbd></div></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
 }
