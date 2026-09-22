@@ -133,7 +133,7 @@ test('IADC DWC V4 keeps daily snapshots separate from weekly metrics', () => {
   assert.ok(metrics.includes('metric_granularity'));
   assert.ok(metrics.includes('calendar_week'));
   assert.ok(metrics.includes('metric_date'));
-  assert.ok(view.includes('highest {meta.label} to lowest {meta.label}'));
+  assert.ok(view.includes('.sort((a,b)=>Number(metricValue(b))-Number(metricValue(a)))'));
 });
 
 
@@ -150,9 +150,9 @@ test("POD DCR CC operations views use their own metric and targets", () => {
   assert.ok(nav.includes('["pod", "POD"]'));
   assert.ok(nav.includes('["dcr", "DCR"]'));
   assert.ok(nav.includes('["cc", "Customer Compliance"]'));
-  assert.ok(dashboard.includes('metric="pod"'));
+  assert.ok(dashboard.includes('<PodQualityView'));
   assert.ok(dashboard.includes('metric="dcr"'));
-  assert.ok(dashboard.includes('metric="cc"'));
+  assert.ok(dashboard.includes('<CustomerComplianceView'));
   assert.ok(data.includes('"driver_id,week_label,period_start,period_end,dcr,pod,cc,iadc'));
 });
 
@@ -164,7 +164,7 @@ test("operational metric imports reload and query the correct metric column", ()
   const iadc = fs.readFileSync("components/operations/IadcView.jsx","utf8");
   const mentor = fs.readFileSync("components/operations/MentorView.jsx","utf8");
 
-  assert.ok(data.includes('["iadc", "pod", "dcr", "cc"].includes(kind)'));
+  assert.ok(data.includes('["pod", "dcr", "cc"].includes(kind)'));
   assert.ok(data.includes('query.not(kind, "is", null)'));
   assert.ok(shared.includes("refreshKey = 0"));
   assert.ok(shared.includes("[organizationId, kind, refreshKey]"));
