@@ -183,7 +183,7 @@ test("DWC/IADC percentage parsing rejects impossible values and does not bleed i
   assert.equal(percentageMetric("", "dwc"), null);
 
   const text = "7 Day Rolling DWC 2026-09-13 2026-09-14 2026-09-15 2026-09-16 2026-09-17 2026-09-18 2026-09-19 96.61% 93.85% 95.07% 94.81% Unable to display chart 7 Week Rolling DWC 2026-32 93.88%";
-  assert.deepEqual(rollingSeries(text, "7 Day Rolling DWC", /\\d{4}-\\d{2}-\\d{2}/g), {
+  assert.deepEqual(rollingSeries(text, "7 Day Rolling DWC", /\d{4}-\d{2}-\d{2}/g), {
     "2026-09-13": 96.61,
     "2026-09-14": 93.85,
     "2026-09-15": 95.07,
