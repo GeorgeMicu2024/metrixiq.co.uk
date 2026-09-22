@@ -1348,3 +1348,17 @@
 .iadcv3-table td.iadcv3-heat .iadcv3-score{font-size:18px;font-weight:900;color:#111827}
 .iadcv3-status{font-size:14px;font-weight:800;border:1px solid rgba(15,23,42,.08)}
 .iadcv3-sort{min-width:190px;height:38px;padding:0 12px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#0f172a;font-size:14px;font-weight:700}
+
+/* DWC professional workspace */
+.iadcv3-dwc-toolbar{display:grid;grid-template-columns:auto minmax(150px,220px) minmax(220px,1fr) auto auto auto;gap:10px;align-items:center;margin:14px 0}
+.iadcv3-dwc-toolbar>select,.iadcv3-dwc-toolbar>input{height:40px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;padding:0 12px;font-size:14px}
+.iadcv3-dwc-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.iadcv3-dwc-kpis .dwc-alert{background:#fff7f7;border-color:#fecaca}
+.iadcv3-dwc-kpis .dwc-alert i{background:#fee2e2;color:#dc2626}
+.iadcv3-dwc-lower{grid-template-columns:minmax(0,1fr) 330px}
+.iadcv3-dwc-lower .table-wrap{max-height:650px;overflow-y:auto}
+.iadcv3-dwc-lower thead th{position:sticky;top:0;z-index:2;background:#f8fafc}
+.iadcv3-issues{max-width:240px;color:#475569;font-size:14px!important}
+.iadcv3-dwc-detail{position:sticky;top:16px;align-self:start}
+.iadcv3-dwc-detail .iadcv3-detail-head>div:nth-child(2){display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+@media(max-width:1100px){.iadcv3-dwc-toolbar{grid-template-columns:1fr 1fr}.iadcv3-dwc-kpis{grid-template-columns:1fr 1fr}.iadcv3-dwc-lower{grid-template-columns:1fr}}
