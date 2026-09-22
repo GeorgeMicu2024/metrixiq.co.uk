@@ -8,8 +8,14 @@ const clean=v=>String(v??"").trim();
 const norm=v=>clean(v).toUpperCase().replace(/\s+/g," ");
 const routeOf=c=>c.map(clean).find(x=>/^(CA|SA)[_ -]?A?\d+/i.test(x))||"";
 const timeOf=c=>c.map(clean).find(x=>/^\d{1,2}:\d{2}\s*(AM|PM)?$/i.test(x))||"";
-const stageOf=c=>c.map(clean).find(x=>/STG[- ]?[A-Z].*(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)/i.test(x))||c.map(clean).find(x=>/(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\.\d+/i.test(x))||"";
-const waveOf=(stage,c)=>Object.keys(COLORS).find(x=>norm(stage+" "+c.join(" ")).includes(x))||"OTHER";
+const stageOf=c=>c.map(clean).find(x=>/STG[- ]?[A-Z](?:[. -]?\d+)?/i.test(x))||c.map(clean).find(x=>/(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\.\d+/i.test(x))||"";
+const waveOf=(stage,c)=>Object.keys(COLORS).find(x=>norm(stage+" "+c.join(" ")).includes(x))||(()=>{
+ const n=Number(clean(stage).match(/(?:\.|-|\s)(\d+)$/)?.[1]);
+ if(!Number.isFinite(n))return "OTHER";
+ if(n>=15&&n<=20)return "PURPLE";
+ if(n>=1&&n<=14)return "BLUE";
+ return "OTHER";
+})();
 const companyLike=s=>/\b(DANUBE|COURIER|SERVICES|LIMITED|LTD|DCSL|DSP)\b/i.test(s);
 const candidate=(c,route,time,stage)=>c.map(clean).find(x=>x&&x!==route&&x!==time&&x!==stage&&/[A-Za-z]/.test(x)&&!companyLike(x)&&!/STG|WAVE|ROUTE|DRIVER|TIME|LOCATION|STATION/i.test(x)&&!/^(STANDARD|LARGE|SMALL)\b/i.test(x)&&!/^\d+$/.test(x))||"";
 const toMinutes=v=>{const m=clean(v).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(!m)return null;let h=+m[1],n=+m[2],a=(m[3]||"").toUpperCase();if(a==="PM"&&h<12)h+=12;if(a==="AM"&&h===12)h=0;return h*60+n};
@@ -21,7 +27,17 @@ async function imageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
  const {data}=await worker.recognize(file); await worker.terminate();
- return data.text.split(/\r?\n/).map((line,i)=>({sheet:"Image",row:i+1,cells:line.trim().split(/\s{2,}|\t/).filter(Boolean)})).filter(x=>x.cells.length);
+ const rows=[];
+ for(const [i,raw] of data.text.split(/\r?\n/).entries()){
+   const line=raw.replace(/[|]/g," ").replace(/\s+/g," ").trim();
+   if(!line)continue;
+   const route=line.match(/\b(?:CA|SA)[_ -]?A?\d+\b/i)?.[0]?.replace(/[ -]/g,"_").toUpperCase();
+   const time=line.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)?\b/i)?.[0];
+   const stage=line.match(/\bSTG[- ]?[A-Z][. -]?\d*\b/i)?.[0]?.replace(/ /g,"-").toUpperCase();
+   if(route&&time&&stage){rows.push({sheet:"Image",row:i+1,cells:[route,time,stage]});continue}
+   rows.push({sheet:"Image",row:i+1,cells:line.split(/\s{2,}|\t/).filter(Boolean)});
+ }
+ return rows;
 }
 export default function WavePlanView({site="DLS2",drivers=[]}){
  const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[ocrProgress,setOcrProgress]=useState(null);
