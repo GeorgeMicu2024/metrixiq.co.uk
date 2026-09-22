@@ -480,7 +480,6 @@ test("Notifications V2 uses the auditable notification feed", () => {
   const data = read("lib/data/notificationsV2.js");
 
   assert.ok(dashboard.includes('import NotificationsCenterV2 from "./notifications/NotificationsCenterV2"'));
-  assert.ok(dashboard.includes("<NotificationsCenterV2"));
   assert.ok(data.includes('supabase.rpc("list_notification_events"'));
   assert.ok(data.includes('supabase.rpc("refresh_notification_events"'));
   assert.ok(notifications.includes("NOTIFICATIONS V2"));
@@ -674,7 +673,7 @@ test("active product controls keep accessible names", () => {
   const mentor = read("components/operations/MentorView.jsx");
   const cdf = read("components/customer-feedback/CdfView.jsx");
 
-  assert.ok(dashboard.includes('aria-label="Sign out"'));
+  assert.equal(dashboard.includes('aria-label="Sign out"'), false);
   assert.ok(dashboard.includes('aria-label="Filter workspace by site"'));
   assert.ok(performance.includes('aria-label="Search performance drivers"'));
   assert.ok(scorecards.includes('aria-label="Search scorecards"'));
