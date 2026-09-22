@@ -139,6 +139,16 @@ test('IADC DWC V4 keeps daily snapshots separate from weekly metrics', () => {
 });
 
 
+test("IADC daily selector is scoped to daily weeks and explicit dates", () => {
+  const view = fs.readFileSync("components/operations/IadcView.jsx","utf8");
+  assert.ok(view.includes('const dailyWeeks=useMemo'));
+  assert.ok(view.includes('const weeklyWeeks=useMemo'));
+  assert.ok(view.includes('const availableWeeks=mode==="daily"?dailyWeeks:weeklyWeeks'));
+  assert.ok(view.includes('aria-label="Daily IADC week"'));
+  assert.ok(view.includes('aria-label="Daily IADC date"'));
+  assert.ok(view.includes('setWeek(e.target.value);setDay("")'));
+});
+
 test("POD DCR CC operations views use their own metric and targets", () => {
   const view = fs.readFileSync("components/operations/IadcView.jsx","utf8");
   const nav = fs.readFileSync("components/dashboard/navigation.js","utf8");
