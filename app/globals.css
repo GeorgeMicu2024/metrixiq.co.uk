@@ -1377,3 +1377,15 @@
 .iadcv3-dcr-overview strong{font-size:17px;color:#0f172a}
 .iadcv3-dcr-tip{margin-top:12px;padding:12px 14px;border:1px solid #bfdbfe;border-radius:10px;background:#eff6ff;color:#1e3a8a;font-size:13px;line-height:1.45}
 @media(max-width:900px){.iadcv3-dcr-kpis{grid-template-columns:1fr 1fr}.iadcv3-dcr-overview{grid-template-columns:1fr}}
+
+/* DCR audit corrections: readable borders, regular names, green toward 100% */
+.iadcv3-dcr-table{border:1px solid #cbd5e1}
+.iadcv3-dcr-table table{border-collapse:separate;border-spacing:0}
+.iadcv3-dcr-table th,.iadcv3-dcr-table td{border-right:1px solid #dbe3ec;border-bottom:1px solid #dbe3ec}
+.iadcv3-dcr-table th:last-child,.iadcv3-dcr-table td:last-child{border-right:0}
+.iadcv3-dcr-table .iadcv3-driver-name{font-size:16px;font-weight:500;color:#0f172a}
+.iadcv3-dcr-table td.iadcv3-heat.excellent{background:#22c55e}
+.iadcv3-dcr-table td.iadcv3-heat.target{background:#84cc16}
+.iadcv3-dcr-table td.iadcv3-heat.risk{background:#facc15}
+.iadcv3-dcr-table td.iadcv3-heat.critical{background:#fb7185}
+.iadcv3-dcr-table td.iadcv3-heat .iadcv3-score{font-size:16px;font-weight:700;color:#111827}
