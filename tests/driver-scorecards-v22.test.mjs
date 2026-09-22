@@ -20,7 +20,8 @@ test("Driver Scorecards V2.2 matches the exact point-band formula", () => {
     "return lor === 0 ? 6 : 0",
     "if (pod >= 0.9999) return 8",
     "if (cc >= 0.999) return 8",
-    "return ce <= 0 ? 10 : 0",
+    "if (ce === 0) return 10",
+    "if (ce <= 2) return 6",
     "if (cdf <= 2500) return 10",
     "return psb === 0 ? 7 : 0",
   ]) {
