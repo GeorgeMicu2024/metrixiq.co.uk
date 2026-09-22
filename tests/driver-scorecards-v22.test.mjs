@@ -16,12 +16,12 @@ test("Driver Scorecards V2.2 matches the exact point-band formula", () => {
     "if (fico >= 780) return 5",
     "if (dcr >= 0.999) return 17",
     "if (dcr >= 0.992) return 15",
-    "if (dsc < 0.01) return 17",
+    "if (dsc <= 550) return 17",
     "return lor === 0 ? 6 : 0",
     "if (pod >= 0.9999) return 8",
     "if (cc >= 0.999) return 8",
     "return ce <= 0 ? 10 : 0",
-    "if (cdf <= 4420) return 10",
+    "if (cdf <= 2500) return 10",
     "return psb === 0 ? 7 : 0",
   ]) {
     assert.ok(formula.includes(fragment), `missing formula fragment: ${fragment}`);
