@@ -1,6 +1,5 @@
 export const NAV_GROUPS = [
-  { label: "OVERVIEW", items: [["dashboard", "Dashboard"], ["manager-control", "Action Center"], ["mobile-manager", "Manager Mobile"]] },
-  { label: "OPERATIONS", items: [["site-operations", "Site Operations"], ["daily-dispatch", "Daily Dispatch"], ["iadc", "IADC"], ["dwc", "DWC"], ["pod", "POD"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"], ["evidence", "Evidence & Incidents"], ["coaching", "Coaching"], ["notifications", "Notifications"], ["automation", "Automation Engine"]] },
+  { label: "OPERATION", items: [["daily-dispatch", "Daily Dispatch"], ["iadc", "IADC"], ["pod", "POD"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"], ["evidence", "Evidence & Incidents"], ["coaching", "Coaching"], ["notifications", "Notifications"]] },
   { label: "PERFORMANCE", items: [["site-scorecards", "Site Scorecards"], ["driver-scorecards", "Driver Scorecards"], ["performance", "Performance"]] },
   { label: "PEOPLE", items: [["drivers", "Drivers"], ["team", "Team & Access"]] },
   { label: "INTELLIGENCE", items: [["intelligence", "AI Analyst"], ["simulator", "What-if Simulator"], ["management-views", "Management Views"], ["reports", "Report Builder"]] },
