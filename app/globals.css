@@ -1331,3 +1331,20 @@
 .iadcv3-table td:nth-child(2) b{font-size:16px}
 .iadcv3-table td.iadcv3-heat .iadcv3-score{font-size:16px}
 .iadcv3-scroll-footer{padding:12px 16px;color:#64748b;font-size:13px}
+
+/* IADC readability refresh */
+.iadcv3-table{border:1px solid #cbd5e1;border-radius:14px;overflow:hidden}
+.iadcv3-table .table-wrap{border-top:1px solid #dbe3ec}
+.iadcv3-table table{font-size:17px}
+.iadcv3-table th{font-size:14px;font-weight:800;letter-spacing:.025em;padding:14px 16px;border-bottom:1px solid #cbd5e1}
+.iadcv3-table td{font-size:17px;padding:13px 16px;border-bottom:1px solid #e2e8f0}
+.iadcv3-table tbody tr:hover td{background-color:#f8fafc}
+.iadcv3-table td:nth-child(2) b{font-size:18px;font-weight:800;line-height:1.25;color:#0f172a}
+.iadcv3-table td.iadcv3-heat{border-left:1px solid rgba(15,23,42,.12);border-right:1px solid rgba(15,23,42,.12)}
+.iadcv3-table td.iadcv3-heat.excellent{background:#34d399}
+.iadcv3-table td.iadcv3-heat.target{background:#a3e635}
+.iadcv3-table td.iadcv3-heat.risk{background:#fbbf24}
+.iadcv3-table td.iadcv3-heat.critical{background:#fb7185}
+.iadcv3-table td.iadcv3-heat .iadcv3-score{font-size:18px;font-weight:900;color:#111827}
+.iadcv3-status{font-size:14px;font-weight:800;border:1px solid rgba(15,23,42,.08)}
+.iadcv3-sort{min-width:190px;height:38px;padding:0 12px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#0f172a;font-size:14px;font-weight:700}
