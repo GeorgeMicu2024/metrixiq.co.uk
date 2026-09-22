@@ -74,7 +74,11 @@ export default function IadcView({organizationId,onOpenDriver,onImport,onImporte
       });
       if(!result?.recognizedFiles||!iadcLike)throw new Error("This doesn’t look like a valid Amazon IADC report. Please upload the correct IADC file.");
       await onImported?.(result,[file]);
-      setImportMessage("IADC report imported successfully.");
+      const importedTypes=recognized.flatMap(x=>String(x.reportType||"").toLowerCase().split(",").map(v=>v.trim()));
+      const hasDaily=importedTypes.some(x=>x.includes("iadc-daily"));
+      const hasWeekly=importedTypes.some(x=>x.includes("iadc-weekly"));
+      setMode(hasDaily?"daily":hasWeekly?"weekly":mode);
+      setImportMessage(hasDaily?"IADC daily report imported successfully.":hasWeekly?"IADC weekly report imported successfully.":"IADC report imported successfully.");
       setWeek("");setDay("");setDetail(null);setPage(1);
     }catch(e){setImportMessage("");setImportError(e?.message||"Could not import IADC report.");}
     finally{setImporting(false);if(fileInput.current)fileInput.current.value=""}
