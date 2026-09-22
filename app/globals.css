@@ -1322,3 +1322,12 @@
 .iadcv3-table td.iadcv3-heat.risk{background:#fde68a}
 .iadcv3-table td.iadcv3-heat.critical{background:#f87171}
 .iadcv3-table td.iadcv3-heat .iadcv3-score{color:#111827;font-weight:900}
+
+/* IADC simplified scrolling table */
+.iadcv3-table .table-wrap{max-height:680px;overflow-y:auto}
+.iadcv3-table table{font-size:15px}
+.iadcv3-table th{font-size:13px;padding:12px 14px}
+.iadcv3-table td{font-size:15px;padding:11px 14px}
+.iadcv3-table td:nth-child(2) b{font-size:16px}
+.iadcv3-table td.iadcv3-heat .iadcv3-score{font-size:16px}
+.iadcv3-scroll-footer{padding:12px 16px;color:#64748b;font-size:13px}
