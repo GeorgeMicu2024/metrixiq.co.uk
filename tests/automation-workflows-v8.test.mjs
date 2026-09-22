@@ -150,7 +150,7 @@ test("V8 product surfaces replace Manager Control with Action Center V2 and wire
   assert.ok(dashboard.includes('runAutomationEngine(getSupabaseBrowserClient(), organizationId, false, "import_completed")'));
   assert.ok(dashboard.includes('runAutomationEngine(supabase, organizationId, false, "workspace_open")'));
 
-  assert.ok(navigation.includes('["manager-control", "Action Center"]'));
+  assert.equal(navigation.includes('["manager-control", "Action Center"]'), false);
   assert.ok(navigation.includes('["automation", "Automation Engine"]'));
   assert.ok(actionCenter.includes("ACTION CENTER V2"));
   assert.ok(actionCenter.includes("Request closure approval"));
