@@ -1,6 +1,6 @@
 "use client";
 
-// Wave Plan deployment checkpoint
+// Wave Plan deployment checkpoint — Daily Dispatch
 
 import { useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
