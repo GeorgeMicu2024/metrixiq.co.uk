@@ -1,76 +1,43 @@
 "use client";
 
-// Wave Plan deployment checkpoint — Daily Dispatch
-
 import { useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 
-const WAVE_COLORS={PURPLE:"#6f2da8",BLUE:"#087fc1",GREEN:"#00a651",RED:"#d62828",YELLOW:"#d7ad00",ORANGE:"#e67e22"};
+const COLORS={PURPLE:"#762db3",BLUE:"#087fcf",GREEN:"#05ad58",RED:"#d62828",YELLOW:"#d7ad00",ORANGE:"#e67e22"};
 const clean=v=>String(v??"").trim();
 const norm=v=>clean(v).toUpperCase().replace(/\s+/g," ");
-const minus20=value=>{
-  const s=clean(value); if(!s)return"";
-  let h,m,ampm="";
-  const match=s.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i); if(!match)return s;
-  h=Number(match[1]);m=Number(match[2]);ampm=(match[3]||"").toUpperCase();
-  if(ampm){if(ampm==="PM"&&h<12)h+=12;if(ampm==="AM"&&h===12)h=0;}
-  let total=(h*60+m-20+1440)%1440;h=Math.floor(total/60);m=total%60;
-  const outAmp=h>=12?"PM":"AM",hh=h%12||12;return `${hh}:${String(m).padStart(2,"0")} ${outAmp}`;
-};
-function rowsFromWorkbook(file){
-  return file.arrayBuffer().then(buf=>{const wb=XLSX.read(buf,{type:"array",cellStyles:true});const rows=[];for(const name of wb.SheetNames){const ws=wb.Sheets[name];const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:"",raw:false});data.forEach((r,i)=>rows.push({sheet:name,row:i+1,cells:r}));}return rows;});
-}
-function findRoute(cells){return cells.map(clean).find(x=>/^CA[_ -]?A?\d+/i.test(x))||""}
-function findTime(cells){return cells.map(clean).find(x=>/^\d{1,2}:\d{2}\s*(AM|PM)?$/i.test(x))||""}
-function findStaging(cells){return cells.map(clean).find(x=>/STG[- ]?[A-Z].*(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)/i.test(x))||cells.map(clean).find(x=>/(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\.\d+/i.test(x))||""}
-function waveFrom(staging,cells){const hay=norm(staging+" "+cells.join(" "));return Object.keys(WAVE_COLORS).find(x=>hay.includes(x))||"OTHER"}
-function driverCandidate(cells,route,time,staging){return cells.map(clean).find(x=>x&&x!==route&&x!==time&&x!==staging&&/[A-Za-z]/.test(x)&&!/STG|WAVE|ROUTE|DRIVER|TIME|LOCATION/i.test(x)&&!/^\d+$/.test(x))||""}
+const routeOf=c=>c.map(clean).find(x=>/^CA[_ -]?A?\d+/i.test(x))||"";
+const timeOf=c=>c.map(clean).find(x=>/^\d{1,2}:\d{2}\s*(AM|PM)?$/i.test(x))||"";
+const stageOf=c=>c.map(clean).find(x=>/STG[- ]?[A-Z].*(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)/i.test(x))||c.map(clean).find(x=>/(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\.\d+/i.test(x))||"";
+const waveOf=(stage,c)=>Object.keys(COLORS).find(x=>norm(stage+" "+c.join(" ")).includes(x))||"OTHER";
+const companyLike=s=>/\b(DANUBE|COURIER|SERVICES|LIMITED|LTD|DCSL|DSP)\b/i.test(s);
+const candidate=(c,route,time,stage)=>c.map(clean).find(x=>x&&x!==route&&x!==time&&x!==stage&&/[A-Za-z]/.test(x)&&!companyLike(x)&&!/STG|WAVE|ROUTE|DRIVER|TIME|LOCATION|STATION/i.test(x)&&!/^(STANDARD|LARGE|SMALL)\b/i.test(x)&&!/^\d+$/.test(x))||"";
+const toMinutes=v=>{const m=clean(v).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(!m)return null;let h=+m[1],n=+m[2],a=(m[3]||"").toUpperCase();if(a==="PM"&&h<12)h+=12;if(a==="AM"&&h===12)h=0;return h*60+n};
+const formatMinutes=n=>{n=(n+1440)%1440;let h=Math.floor(n/60),m=n%60,a=h>=12?"PM":"AM";return `${h%12||12}:${String(m).padStart(2,"0")} ${a}`};
+const adjustTime=(v,delta)=>{const n=toMinutes(v);return n==null?clean(v):formatMinutes(n+delta)};
+async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array",cellStyles:true}),rows=[];for(const sheet of wb.SheetNames){XLSX.utils.sheet_to_json(wb.Sheets[sheet],{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet,row:i+1,cells}))}return rows}
 
 export default function WavePlanView({site="DLS2",drivers=[]}){
- const [routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[history,setHistory]=useState([]);
- const [atlasText,setAtlasText]=useState("");
+ const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[adjust,setAdjust]=useState(-20);
  const routeInput=useRef(null),waveInput=useRef(null);
- const load=async(file,setFile,setRows)=>{if(!file)return;setFile(file);setRows(await rowsFromWorkbook(file));setGenerated(false)};
- const plan=useMemo(()=>{const drivers=new Map();for(const x of routeRows){const route=findRoute(x.cells);if(!route)continue;const d=driverCandidate(x.cells,route,findTime(x.cells),findStaging(x.cells));if(d)drivers.set(norm(route),d)}
-   return waveRows.map(x=>{const route=findRoute(x.cells),time=findTime(x.cells),staging=findStaging(x.cells);if(!route||!time||!staging)return null;return{route,driver:drivers.get(norm(route))||driverCandidate(x.cells,route,time,staging)||"Unassigned",amazonTime:time,time:minus20(time),staging,wave:waveFrom(staging,x.cells)}}).filter(Boolean);
- },[routeRows,waveRows]);
- const groups=useMemo(()=>{const m={};for(const r of plan){const key=r.wave+"|"+r.time+"|"+(r.staging.match(/STG[- ]?[A-Z]/i)?.[0]?.replace(" ","-").toUpperCase()||"STG-A");(m[key]??=[]).push(r)}return Object.entries(m).sort((a,b)=>a[0].localeCompare(b[0]));},[plan]);
- const clear=()=>{if(!confirm("Clear the current Wave Plan? Saved history will not be deleted."))return;setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);if(routeInput.current)routeInput.current.value="";if(waveInput.current)waveInput.current.value=""};
- const generate=()=>{setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
- const removeHistory=id=>{if(confirm("Delete this Wave Plan from Recent Uploads?"))setHistory(h=>h.filter(x=>x.id!==id))};
- const exportImage=()=>window.print();
- const driverByTrid=useMemo(()=>new Map(drivers.map(d=>[norm(d.trid),d.full_name||d.name||d.trid])),[drivers]);
- const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{
-   const m=line.match(/\b(UK\d+)\s*-\s*(CA[_ -]?A?\d+)\s*-\s*([A-Z0-9]{8,})\b/i);
-   if(!m)return null;
-   const trid=m[3].toUpperCase();
-   return {tracking:m[1],route:m[2].replace(/ /g,"_").toUpperCase(),trid,name:driverByTrid.get(trid)||""};
- }).filter(Boolean),[atlasText,driverByTrid]);
+ const load=async(file,setFile,setRows)=>{if(!file)return;setFile(file);setRows(await workbookRows(file));setGenerated(false)};
+ const driverByTrid=useMemo(()=>new Map(drivers.filter(d=>d?.trid).map(d=>[norm(d.trid),d.full_name||d.name||d.trid])),[drivers]);
+ const routeDrivers=useMemo(()=>{const m=new Map();for(const x of routeRows){const route=routeOf(x.cells);if(!route)continue;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v));const dbName=trid&&driverByTrid.get(norm(trid));const name=dbName||candidate(x.cells,route,timeOf(x.cells),stageOf(x.cells));if(name&&!companyLike(name))m.set(norm(route),name)}return m},[routeRows,driverByTrid]);
+ const plan=useMemo(()=>waveRows.map(x=>{const route=routeOf(x.cells),amazon=timeOf(x.cells),staging=stageOf(x.cells);if(!route||!amazon||!staging)return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v));const name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED";return{route,driver:name,amazonTime:amazon,time:adjustTime(amazon,adjust),staging,wave:waveOf(staging,x.cells)}}).filter(Boolean),[waveRows,routeDrivers,driverByTrid,adjust]);
+ const groups=useMemo(()=>{const m=new Map();for(const r of plan){const stg=r.staging.match(/STG[- ]?[A-Z]/i)?.[0]?.replace(" ","-").toUpperCase()||"STG-A",key=[r.time,r.wave,stg].join("|");if(!m.has(key))m.set(key,[]);m.get(key).push(r)}return [...m.entries()].sort((a,b)=>(toMinutes(a[0].split("|")[0])??9999)-(toMinutes(b[0].split("|")[0])??9999)||a[0].localeCompare(b[0]))},[plan]);
+ const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{const m=line.match(/\b(UK\d+)\s*-\s*(CA[_ -]?A?\d+)\s*-\s*([A-Z0-9]{8,})\b/i);if(!m)return null;const trid=m[3].toUpperCase();return{tracking:m[1],route:m[2].replace(/ /g,"_").toUpperCase(),trid,name:driverByTrid.get(trid)||""}}).filter(Boolean),[atlasText,driverByTrid]);
  const atlasOutput=useMemo(()=>atlasRows.map(r=>`${r.tracking} - ${r.route} - ${r.name||r.trid}`).join("\n"),[atlasRows]);
- const copyAtlas=async()=>{if(atlasOutput)await navigator.clipboard.writeText(atlasOutput)};
- return <div className="waveplan-root">
-   <div className="waveplan-heading"><div><span className="page-kicker">SITE OPERATIONS › WAVE PLAN</span><h1>Wave Plan</h1><p>Upload Amazon reports, we'll generate your wave plan automatically.</p></div><span className={"waveplan-ready "+(generated?"ok":"")}>{generated?"✓ Ready":"Waiting for files"}</span></div>
-   <section className="panel atlas-converter">
-    <div className="panel-head"><div><h2>Atlas Driver Converter</h2><p>Paste the Atlas message. Transporter IDs are matched against your driver database and replaced with driver names.</p></div><span className="panel-badge">{atlasRows.filter(r=>r.name).length}/{atlasRows.length} matched</span></div>
-    <div className="atlas-grid">
-      <label><span>Paste Atlas message</span><textarea value={atlasText} onChange={e=>setAtlasText(e.target.value)} placeholder="UK4855619514 - CA_A216 - A1VIBVZUIF3BZO"/></label>
-      <label><span>Ready to copy</span><textarea readOnly value={atlasOutput} placeholder="Tracking ID - Route code - Driver name"/></label>
-    </div>
-    <div className="atlas-actions"><button className="btn ghost" onClick={()=>setAtlasText("")} disabled={!atlasText}>Clear</button><button className="btn primary" onClick={copyAtlas} disabled={!atlasOutput}>Copy with driver names</button></div>
-    {atlasRows.some(r=>!r.name)&&<p className="atlas-warning">Unmatched TRIDs stay unchanged so no driver is guessed.</p>}
-   </section>
-   <section className="waveplan-files">
-    <article><input ref={routeInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><div className="waveplan-file-icon">X</div><div><b>Route Plan</b><span>{routeFile?.name||"Upload Amazon Route Plan"}</span><small>{routeRows.length?routeRows.length+" rows detected":""}</small></div><button onClick={()=>routeInput.current?.click()}>{routeFile?"Replace file":"Choose file"}</button></article>
-    <article><input ref={waveInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setWaveFile,setWaveRows)}/><div className="waveplan-file-icon">X</div><div><b>Wave Plan</b><span>{waveFile?.name||"Upload Amazon Wave Plan"}</span><small>{waveRows.length?waveRows.length+" rows detected":""}</small></div><button onClick={()=>waveInput.current?.click()}>{waveFile?"Replace file":"Choose file"}</button></article>
-   </section>
-   <section className="panel waveplan-settings"><h2>Settings</h2><div><label>Adjust loading time <strong>− 20</strong> minutes <small>(from Amazon time)</small></label><label>● Detect wave colours automatically</label><label>● Group by staging location</label><label>Site / Station <strong>{site}</strong></label><label>Date <strong>{new Date().toLocaleDateString("en-GB")}</strong></label></div></section>
-   <div className="waveplan-actions"><button className="btn primary" disabled={!routeFile||!waveFile} onClick={generate}>↻ Generate Wave Plan</button><span/><button className="btn ghost" onClick={()=>setGenerated(true)}>◉ Preview</button><button className="btn ghost danger" onClick={clear}>Clear</button><button className="btn success" disabled={!generated} onClick={exportImage}>▣ Export Image</button></div>
-   <section className="waveplan-workspace">
-    <aside><article className="panel waveplan-summary"><h2>Summary</h2>{groups.map(([k,v])=>{const wave=k.split("|")[0];return <p key={k}><i style={{background:WAVE_COLORS[wave]||"#64748b"}}/><span>{wave[0]+wave.slice(1).toLowerCase()} Wave</span><b>{v.length} drivers</b></p>})}<footer>Total <b>{plan.length} drivers</b></footer></article>
-    <article className="panel waveplan-history"><h2>Recent Uploads</h2>{history.length?history.map(x=><div key={x.id}><p><b>{x.date}</b><small>✓ Generated</small><span>{x.route} + {x.wave}</span></p><button onClick={()=>removeHistory(x.id)}>Delete</button></div>):<p className="muted">No generated plans in this session.</p>}</article></aside>
-    <article className="panel waveplan-preview"><div className="panel-head"><div><h2>Wave Plan Preview</h2><p>Amazon loading time automatically adjusted by −20 minutes.</p></div>{generated&&<span className="waveplan-ready ok">Ready to send</span>}</div>
-    {generated?<div className="dcsl-sheet"><header><strong>DCSL</strong><h3>Wave Plan {new Date().toLocaleDateString("en-GB")}</h3></header>{groups.map(([k,rows])=>{const [wave,time,stg]=k.split("|");return <section key={k} style={{"--wave":WAVE_COLORS[wave]||"#475569"}}><h4>{wave} WAVE&nbsp; - &nbsp;{time} {stg.replace("-"," ")}</h4>{rows.map((r,i)=><div key={r.route+"-"+i}><b>{r.route}</b><strong>{r.driver.toUpperCase()}</strong><span>{r.time}</span><em>{r.staging}</em></div>)}</section>})}<footer><span>DCSL &nbsp;|&nbsp; {site} &nbsp;|&nbsp; {new Date().toLocaleDateString("en-GB")}</span><b>Delivering Together for a Better Tomorrow</b></footer></div>:<div className="waveplan-empty">Upload Route Plan + Wave Plan and select <b>Generate Wave Plan</b>.</div>}
-    </article>
-   </section>
+ const clear=()=>{if(!confirm("Clear current Wave Plan?"))return;setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);if(routeInput.current)routeInput.current.value="";if(waveInput.current)waveInput.current.value=""};
+ const generate=()=>{setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
+ return <div className="waveplan-root daily-dispatch">
+  <div className="waveplan-heading"><div><span className="page-kicker">SITE OPERATIONS › DAILY DISPATCH</span><h1>Daily Dispatch</h1><p>Generate the DCSL Wave Plan in the approved format.</p></div><span className={"waveplan-ready "+(generated?"ok":"")}>{generated?"✓ Ready":"Waiting for files"}</span></div>
+  <div className="dispatch-tabs"><button className={tab==="wave"?"active":""} onClick={()=>setTab("wave")}>Wave Plan</button><button className={tab==="atlas"?"active":""} onClick={()=>setTab("atlas")}>Atlas</button></div>
+  {tab==="atlas"?<section className="panel atlas-converter"><div className="panel-head"><div><h2>Atlas Driver Converter</h2><p>Paste the Amazon message. TRIDs are replaced only when an exact driver match exists.</p></div><span className="panel-badge">{atlasRows.filter(r=>r.name).length}/{atlasRows.length} matched</span></div><div className="atlas-grid"><label><span>Paste Atlas message</span><textarea value={atlasText} onChange={e=>setAtlasText(e.target.value)}/></label><label><span>Ready to copy</span><textarea readOnly value={atlasOutput}/></label></div><div className="atlas-actions"><button className="btn ghost" onClick={()=>setAtlasText("")}>Clear</button><button className="btn primary" disabled={!atlasOutput} onClick={()=>navigator.clipboard.writeText(atlasOutput)}>Copy with driver names</button></div>{atlasRows.some(r=>!r.name)&&<p className="atlas-warning">Unmatched TRIDs remain unchanged.</p>}</section>:<>
+   <section className="waveplan-files"><article><input ref={routeInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><div className="waveplan-file-icon">X</div><div><b>Route Plan</b><span>{routeFile?.name||"Upload Amazon Route Plan"}</span><small>{routeRows.length?routeRows.length+" rows detected":""}</small></div><button onClick={()=>routeInput.current?.click()}>{routeFile?"Replace file":"Choose file"}</button></article><article><input ref={waveInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setWaveFile,setWaveRows)}/><div className="waveplan-file-icon">X</div><div><b>Wave Plan</b><span>{waveFile?.name||"Upload Amazon Wave Plan"}</span><small>{waveRows.length?waveRows.length+" rows detected":""}</small></div><button onClick={()=>waveInput.current?.click()}>{waveFile?"Replace file":"Choose file"}</button></article></section>
+   <section className="panel waveplan-settings"><h2>Settings</h2><div className="dispatch-settings-grid"><label>Time adjustment<div className="time-adjust"><button onClick={()=>setAdjust(v=>v-5)}>−</button><input type="number" value={adjust} onChange={e=>setAdjust(Number(e.target.value)||0)}/><button onClick={()=>setAdjust(v=>v+5)}>+</button><span>minutes</span></div><small>Negative subtracts; positive adds to Amazon time.</small></label><label>● Detect wave colours automatically</label><label>● Group by staging location</label><label>Site / Station <strong>{site}</strong></label><label>Date <strong>{new Date().toLocaleDateString("en-GB")}</strong></label></div></section>
+   <div className="waveplan-actions"><button className="btn primary" disabled={!routeFile||!waveFile} onClick={generate}>↻ Generate Wave Plan</button><button className="btn ghost" onClick={()=>setGenerated(true)}>◉ Preview</button><button className="btn ghost danger" onClick={clear}>Clear</button><button className="btn success" disabled={!generated} onClick={()=>window.print()}>▣ Export Image</button></div>
+   <section className="waveplan-workspace"><aside><article className="panel waveplan-summary"><h2>Summary</h2>{groups.map(([k,v])=>{const wave=k.split("|")[1];return <p key={k}><i style={{background:COLORS[wave]||"#64748b"}}/><span>{wave[0]+wave.slice(1).toLowerCase()} Wave</span><b>{v.length} drivers · {k.split("|")[0]}</b></p>})}<footer>Total <b>{plan.length} drivers</b></footer></article><article className="panel waveplan-history"><h2>Recent Uploads</h2>{history.length?history.map(x=><div key={x.id}><p><b>{x.date}</b><small>✓ Generated</small><span>{x.route} + {x.wave}</span></p><button onClick={()=>setHistory(h=>h.filter(y=>y.id!==x.id))}>Delete</button></div>):<p className="muted">No generated plans in this session.</p>}</article></aside>
+   <article className="panel waveplan-preview"><div className="panel-head"><div><h2>Wave Plan Preview</h2><p>DCSL format · ordered chronologically.</p></div>{generated&&<span className="waveplan-ready ok">Ready to send</span>}</div>{generated?<div className="dcsl-sheet"><header><strong className="dcsl-logo">DCSL</strong><h3>Wave Plan {new Date().toLocaleDateString("en-GB")}</h3></header>{groups.map(([k,rows])=>{const [time,wave,stg]=k.split("|");return <section key={k} style={{"--wave":COLORS[wave]||"#475569"}}><h4>{wave} WAVE&nbsp; - &nbsp;{time} {stg.replace("-"," ")}</h4>{rows.map((r,i)=><div key={r.route+"-"+i}><b>{r.route}</b><strong>{r.driver.toUpperCase()}</strong><span>{r.time}</span><em>{r.staging}</em></div>)}</section>})}<footer><span>DCSL &nbsp;|&nbsp; {site} &nbsp;|&nbsp; {new Date().toLocaleDateString("en-GB")}</span><b>Delivering Together for a Better Tomorrow</b></footer></div>:<div className="waveplan-empty">Upload Route Plan + Wave Plan and select <b>Generate Wave Plan</b>.</div>}</article></section>
+  </>}
  </div>
 }
