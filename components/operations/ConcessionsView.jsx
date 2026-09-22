@@ -38,7 +38,9 @@ export default function ConcessionsView({organizationId,onOpenDriver,siteFilter=
   };
 
   const concessionRows=rows.filter(r=>n(r.concessions)!=null);
-  const weeks=contiguousWeeks(rows,range);
+  // Build the concessions window only from rows that actually contain concessions.
+  // Daily IADC rows use date-qualified week labels and must never shift this weekly matrix.
+  const weeks=contiguousWeeks(concessionRows,range);
   const weekSet=new Set(weeks);
   const presentSet=new Set(concessionRows.map(r=>r.week_label));
 
