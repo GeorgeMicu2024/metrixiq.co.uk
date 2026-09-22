@@ -1350,3 +1350,11 @@ test("analysis preserves daily granularity for IADC persistence and IADC opens i
   assert.ok(iadc.includes('x.includes("iadc-weekly")'));
   assert.ok(iadc.includes('setMode(hasDaily?"daily":hasWeekly?"weekly":mode)'));
 });
+
+
+test("concessions week window ignores unrelated daily operational rows", () => {
+  const view = read("components/operations/ConcessionsView.jsx");
+  assert.ok(view.includes("const concessionRows=rows.filter(r=>n(r.concessions)!=null)"));
+  assert.ok(view.includes("const weeks=contiguousWeeks(concessionRows,range)"));
+  assert.equal(view.includes("const weeks=contiguousWeeks(rows,range)"), false);
+});
