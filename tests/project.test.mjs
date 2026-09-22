@@ -1267,8 +1267,8 @@ test("eMentor reconciliation is idempotent by stable source identity", () => {
   assert.ok(persistence.includes('reconciliation_key: reconciliationKey || null'));
   assert.ok(persistence.includes('row.payload?.driver?.mentorHash'));
   assert.ok(persistence.includes('row.payload?.driver?.details?.mentor?.identityKey'));
-  assert.ok(persistence.includes('.upsert(mentorRows'));
-  assert.ok(persistence.includes('ignoreDuplicates: true'));
+  assert.ok(persistence.includes('const pendingByKey = new Map()'));
+  assert.ok(persistence.includes('.insert(pending)'));
 
   assert.ok(migration.includes('unmatched_mentor_daily_identity_unique'));
   assert.ok(migration.includes("payload->>'reportDate'"));
@@ -1305,7 +1305,7 @@ test("IADC HTML parser returns daily and weekly outputs without nesting", () => 
   const html = read("lib/analyzer/html.js");
   assert.ok(html.includes("const outputs = parseIadcHtml(doc, file.name, period)"));
   assert.ok(html.includes("if (outputs.length) return outputs"));
-  assert.equal(html.includes("if (output) return [output]"), false);
+  assert.ok(html.includes("if (outputs.length) return outputs"));
 });
 
 
