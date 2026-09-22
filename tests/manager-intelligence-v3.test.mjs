@@ -124,7 +124,7 @@ test("V3 foundations remain wired while V8 promotes Action Center V2", () => {
   assert.ok(dashboard.includes('./simulator/WhatIfSimulator'));
   assert.ok(dashboard.includes('./imports/ImportCenterV2'));
   assert.ok(dashboard.includes('./coaching/CoachingV3'));
-  assert.ok(navigation.includes('["manager-control", "Action Center"]'));
+  assert.equal(navigation.includes('["manager-control", "Action Center"]'), false);
   assert.ok(navigation.includes('["automation", "Automation Engine"]'));
   assert.ok(navigation.includes('["simulator", "What-if Simulator"]'));
   assert.ok(imports.includes("Replace previous"));
