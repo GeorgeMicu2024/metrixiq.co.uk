@@ -858,15 +858,14 @@ test("dashboard delegates Smart Import persistence workflow", () => {
   assert.ok(workflow.includes("refreshWorkspacePerformance"));
 });
 
-test("workspace search keyboard hint is functional", () => {
+test("workspace topbar has no global Ctrl K search", () => {
   const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(dashboard.includes("useRef"));
-  assert.ok(dashboard.includes('key === "k"'));
-  assert.ok(dashboard.includes("event.ctrlKey || event.metaKey"));
-  assert.ok(dashboard.includes("searchRef.current?.focus()"));
-  assert.ok(dashboard.includes('key === "escape"'));
-  assert.ok(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"));
+  assert.equal(dashboard.includes('key === "k"'), false);
+  assert.equal(dashboard.includes("event.ctrlKey || event.metaKey"), false);
+  assert.equal(dashboard.includes("searchRef.current?.focus()"), false);
+  assert.equal(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"), false);
+  assert.equal(dashboard.includes('aria-label="Search workspace"'), false);
 });
 
 test("Driver 360 calculates recent trajectory and evidence correctly", () => {
