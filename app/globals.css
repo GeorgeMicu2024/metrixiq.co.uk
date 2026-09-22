@@ -1314,3 +1314,11 @@
 .iadcv3-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;font-weight:700;font-size:12px}
 .iadcv3-status.excellent,.iadcv3-status.target{background:#dcfce7;color:#15803d}.iadcv3-status.risk{background:#fef3c7;color:#b45309}.iadcv3-status.critical{background:#fee2e2;color:#b91c1c}
 @media (max-width:900px){.iadcv3-import-panel{grid-template-columns:1fr}.iadcv3-import-panel .iadcv3-tabs,.iadcv3-dropzone,.iadcv3-import-actions{grid-column:1}.iadcv3-import-actions{grid-template-columns:1fr 1fr}.iadcv3-import-actions input{grid-column:1/-1}}
+
+/* IADC score heatmap — visual parity with the operational report */
+.iadcv3-table td.iadcv3-heat{font-variant-numeric:tabular-nums;text-align:center;transition:background .15s ease}
+.iadcv3-table td.iadcv3-heat.excellent{background:#4ade80}
+.iadcv3-table td.iadcv3-heat.target{background:#bef264}
+.iadcv3-table td.iadcv3-heat.risk{background:#fde68a}
+.iadcv3-table td.iadcv3-heat.critical{background:#f87171}
+.iadcv3-table td.iadcv3-heat .iadcv3-score{color:#111827;font-weight:900}
