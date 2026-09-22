@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { findIadcHeader } from "../lib/parsers/iadc.js";
+import { percentageMetric, rollingSeries } from "../lib/analyzer/html.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 import { clean, inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
@@ -174,6 +175,20 @@ test("shared analyzer parsers remain runtime-safe across formats", () => {
 
   assert.equal(generic?.records?.length, 1);
   assert.equal(generic.records[0].metrics.dcr, 99.5);
+});
+
+test("DWC/IADC percentage parsing rejects impossible values and does not bleed into the next rolling chart", () => {
+  assert.equal(percentageMetric("95.15%", "dwc"), 95.15);
+  assert.equal(percentageMetric("1973.36%", "dwc"), null);
+  assert.equal(percentageMetric("", "dwc"), null);
+
+  const text = "7 Day Rolling DWC 2026-09-13 2026-09-14 2026-09-15 2026-09-16 2026-09-17 2026-09-18 2026-09-19 96.61% 93.85% 95.07% 94.81% Unable to display chart 7 Week Rolling DWC 2026-32 93.88%";
+  assert.deepEqual(rollingSeries(text, "7 Day Rolling DWC", /\\d{4}-\\d{2}-\\d{2}/g), {
+    "2026-09-13": 96.61,
+    "2026-09-14": 93.85,
+    "2026-09-15": 95.07,
+    "2026-09-16": 94.81,
+  });
 });
 
 test("scorecard parser does not persist zero-opportunity DCR as a real 0%", () => {
