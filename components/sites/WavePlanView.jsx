@@ -7,9 +7,9 @@ const COLORS={PURPLE:"#762db3",BLUE:"#087fcf",GREEN:"#05ad58",RED:"#d62828",YELL
 const clean=v=>String(v??"").trim();
 const norm=v=>clean(v).toUpperCase().replace(/\s+/g," ");
 const routeOf=c=>{const m=c.map(clean).join(" ").match(/\b(?:CA|SA)[_\s-]*A?[0-9O]{2,4}\b/i);return m?m[0].replace(/\s+/g,"_").replace(/O/g,"0").toUpperCase():""};
-const timeOf=c=>c.map(clean).join(" ").match(/\b\d{1,2}[:.]\d{2}\s*(?:AM|PM)?\b/i)?.[0]?.replace(".",":")||"";
+const timeOf=c=>{let t=c.map(clean).join(" ").toUpperCase().replace(/O/g,"0");const m=t.match(/\b(\d{1,2})\s*[:.]\s*(\d{2})\s*(AM|PM)?\b/i)||t.match(/\b(\d{1,2})(\d{2})\s*(AM|PM)\b/i);return m?`${m[1]}:${m[2]} ${m[3]||""}`.trim():""};
 const stageOf=c=>{const t=c.map(clean).join(" ");return t.match(/\bSTG\s*[-.]?\s*[A-Z]\s*[. -]?\s*\d*\b/i)?.[0]?.replace(/\s+/g,"").replace(/^STG([A-Z])/i,"STG-$1").toUpperCase()||t.match(/\b(?:PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\.\d+\b/i)?.[0]?.toUpperCase()||""};
-const stageLoose=t=>{const s=clean(t).toUpperCase().replace(/\s+/g,"");const n=s.match(/(?:STG)?[-.]?[A-Z][.-]?(\d{1,2})\b/)?.[1];return n?`STG-A.${n}`:""};
+const stageLoose=t=>{const s=clean(t).toUpperCase().replace(/\s+/g,"").replace(/O/g,"0");const n=s.match(/(?:STG)?[-.]?[A-Z][.-]?(\d{1,2})\b/)?.[1]||s.match(/STG[-.]?[A-Z](\d{1,2})/)?.[1];return n?`STG-A.${n}`:""};
 const waveOf=(stage,c)=>Object.keys(COLORS).find(x=>norm(stage+" "+c.join(" ")).includes(x))||(()=>{
  const n=Number(clean(stage).match(/(?:\.|-|\s)(\d+)$/)?.[1]);
  if(!Number.isFinite(n))return "OTHER";
@@ -29,14 +29,14 @@ async function imageRows(file,onProgress){
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
  const {data}=await worker.recognize(file); await worker.terminate();
  const rows=[];
- for(const [i,raw] of data.text.split(/\r?\n/).entries()){
-   const line=raw.replace(/[|]/g," ").replace(/\s+/g," ").trim();
-   if(!line)continue;
-   const route=line.match(/\b(?:CA|SA)[_ -]?A?\d+\b/i)?.[0]?.replace(/[ -]/g,"_").toUpperCase();
-   const time=line.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)?\b/i)?.[0];
-   const stage=line.match(/\bSTG[- ]?[A-Z][. -]?\d*\b/i)?.[0]?.replace(/ /g,"-").toUpperCase();
-   if(route||time||stage){rows.push({sheet:"Image",row:i+1,cells:[route||line,time,stage].filter(Boolean)});continue}
-   rows.push({sheet:"Image",row:i+1,cells:[line]});
+ const lines=data.text.split(/\r?\n/).map(x=>x.replace(/[|]/g," ").replace(/\s+/g," ").trim()).filter(Boolean);
+ for(const [i,raw] of lines.entries()){
+   const upper=raw.toUpperCase();
+   const routeMatch=upper.match(/\b[CS][A4]\s*[_-]?\s*A\s*[_-]?\s*[0-9O]{2,4}\b/)||upper.match(/\b(?:CA|SA)\s*[_-]?\s*[0-9O]{2,4}\b/);
+   const route=routeMatch?routeMatch[0].replace(/\s+/g,"").replace(/-/g,"_").replace(/^C4/,"CA").replace(/^S4/,"SA").replace(/O/g,"0").replace(/^(CA|SA)(?!_)/,"$1_").replace(/^(CA|SA)_?(\d)/,"$1_A$2"):"";
+   const time=timeOf([upper]);
+   const staging=stageOf([upper])||stageLoose(upper);
+   if(route) rows.push({sheet:"Image",row:i+1,cells:[route,time,staging||"STG-A",upper]});
  }
  return rows;
 }
@@ -52,12 +52,12 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const routeIdentity=useMemo(()=>{const m=new Map();for(const x of routeRows){const route=routeOf(x.cells);if(!route)continue;const trids=[...new Set(x.cells.flatMap(v=>clean(v).split(/[\/|,;\s]+/)).filter(v=>/^A[A-Z0-9]{8,}$/i.test(v)).map(norm))];const names=[...new Set(trids.map(t=>driverByTrid.get(t)).filter(Boolean))];const fallback=candidate(x.cells,route,timeOf(x.cells),stageOf(x.cells));m.set(norm(route),{trids,names,fallback:!companyLike(fallback)?fallback:""})}return m},[routeRows,driverByTrid]);
  const conflicts=useMemo(()=>[...routeIdentity.entries()].filter(([route,v])=>(v.trids.length>1||v.names.length>1)&&!dismissedConflicts.has(route)),[routeIdentity,dismissedConflicts]);
  const routeDrivers=useMemo(()=>{const m=new Map();for(const [route,v] of routeIdentity){const manual=overrides[route];const name=manual||((v.trids.length===1||v.names.length===1)?v.names[0]:"")||v.fallback;if(name)m.set(route,name)}return m},[routeIdentity,overrides]);
- const plan=useMemo(()=>waveRows.map(x=>{const route=routeOf(x.cells),amazon=timeOf(x.cells),staging=stageOf(x.cells)||stageLoose(x.cells.join(" "));if(!route||!amazon||!staging)return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v));const name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED";return{route,driver:name,amazonTime:amazon,time:adjustTime(amazon,adjust),staging,wave:waveOf(staging,x.cells)}}).filter(Boolean),[waveRows,routeDrivers,driverByTrid,adjust]);
+ const plan=useMemo(()=>waveRows.map(x=>{const route=routeOf(x.cells),amazon=timeOf(x.cells),staging=stageOf(x.cells)||stageLoose(x.cells.join(" "))||"STG-A";if(!route||!amazon)return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v));const name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED";return{route,driver:name,amazonTime:amazon,time:adjustTime(amazon,adjust),staging,wave:waveOf(staging,x.cells)}}).filter(Boolean),[waveRows,routeDrivers,driverByTrid,adjust]);
  const groups=useMemo(()=>{const m=new Map();for(const r of plan){const stg=r.staging.match(/STG[- ]?[A-Z]/i)?.[0]?.replace(" ","-").toUpperCase()||"STG-A",key=[r.time,r.wave,stg].join("|");if(!m.has(key))m.set(key,[]);m.get(key).push(r)}return [...m.entries()].sort((a,b)=>(toMinutes(a[0].split("|")[0])??9999)-(toMinutes(b[0].split("|")[0])??9999)||a[0].localeCompare(b[0]))},[plan]);
  const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{const m=line.match(/\b(UK\d+)\s*-\s*(CA[_ -]?A?\d+)\s*-\s*([A-Z0-9]{8,})\b/i);if(!m)return null;const trid=m[3].toUpperCase();return{tracking:m[1],route:m[2].replace(/ /g,"_").toUpperCase(),trid,name:driverByTrid.get(trid)||""}}).filter(Boolean),[atlasText,driverByTrid]);
  const atlasOutput=useMemo(()=>atlasRows.map(r=>`${r.tracking} - ${r.route} - ${r.name||"DRIVER NOT FOUND"}`).join("\n"),[atlasRows]);
  const clear=()=>{if(!confirm("Clear current Wave Plan?"))return;setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setOverrides({});setDismissedConflicts(new Set());setGenerated(false);if(routeInput.current)routeInput.current.value="";if(waveInput.current)waveInput.current.value=""};
- const generate=()=>{if(!plan.length){alert(`No Wave Plan rows were recognised from ${waveFile?.name||"the file"}. OCR read ${waveRows.length} text rows. Try a clearer/cropped image if needed.`);return}setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
+ const generate=()=>{if(!plan.length){alert(`No usable route + time pairs were recognised from ${waveFile?.name||"the file"}. OCR found ${waveRows.length} route candidates. The image parser accepts SA_Axx morning routes and CA_Axxx afternoon routes.`);return}setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
  const exportPng=async(share=false)=>{
    if(!sheetRef.current)return;
    try{
