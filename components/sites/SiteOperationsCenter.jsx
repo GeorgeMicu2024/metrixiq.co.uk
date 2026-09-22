@@ -36,6 +36,7 @@ export default function SiteOperationsCenter({
   onOpenImports,
   onOpenDataQuality,
   onOpenScorecards,
+  drivers=[],
 }){
   const [selectedSite,setSelectedSite]=useState(siteFilter!=="all"?siteFilter:(sites[0]||""));
   const [data,setData]=useState(null);
@@ -146,7 +147,7 @@ export default function SiteOperationsCenter({
       ].map(([id,label])=><button key={id} className={tab===id?"active":""} onClick={()=>setTab(id)}>{label}</button>)}
     </div>
 
-    {tab==="wave-plan"?<WavePlanView site={selectedSite}/>:loading?<section className="panel siteopsv4-empty"><div className="auth-spinner"/><b>Loading {selectedSite} operations…</b></section>:<>
+    {tab==="wave-plan"?<WavePlanView site={selectedSite} drivers={drivers}/>:loading?<section className="panel siteopsv4-empty"><div className="auth-spinner"/><b>Loading {selectedSite} operations…</b></section>:<>
       {tab==="overview"&&<section className="siteopsv4-overview">
         <article className="panel"><div className="panel-head"><div><h2>Tier distribution</h2><p>Latest driver scorecard tier in the selected site.</p></div><span className="panel-badge">{driverRows.length}</span></div><div className="siteopsv4-tiers">{Object.entries(tierCounts).map(([tier,count])=><div key={tier}><span className={tierClass(tier)}>{tier}</span><strong>{count}</strong><i style={{width:(driverRows.length?count/driverRows.length*100:0)+"%"}}/></div>)}</div></article>
         <article className="panel"><div className="panel-head"><div><h2>Management focus</h2><p>Highest-impact operational items at {selectedSite}.</p></div></div><div className="siteopsv4-focus">
