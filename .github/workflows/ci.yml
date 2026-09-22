@@ -1,4 +1,5 @@
 name: CI
+# lockfile synchronized; normal branch push resumes CI
 # lockfile synchronized; trigger validation on repository head
 
 on:
