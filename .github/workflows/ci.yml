@@ -1,4 +1,5 @@
 name: CI
+# Lockfile synchronized; normal CI trigger restored.
 # lockfile synchronized; normal branch push resumes CI
 # lockfile synchronized; trigger validation on repository head
 
