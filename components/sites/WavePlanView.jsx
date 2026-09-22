@@ -6,9 +6,9 @@ import * as XLSX from "xlsx";
 const COLORS={PURPLE:"#762db3",BLUE:"#087fcf",GREEN:"#05ad58",RED:"#d62828",YELLOW:"#d7ad00",ORANGE:"#e67e22"};
 const clean=v=>String(v??"").trim();
 const norm=v=>clean(v).toUpperCase().replace(/\s+/g," ");
-const routeOf=c=>c.map(clean).find(x=>/^(CA|SA)[_ -]?A?\d+/i.test(x))||"";
-const timeOf=c=>c.map(clean).find(x=>/^\d{1,2}:\d{2}\s*(AM|PM)?$/i.test(x))||"";
-const stageOf=c=>c.map(clean).find(x=>/STG[- ]?[A-Z](?:[. -]?\d+)?/i.test(x))||c.map(clean).find(x=>/(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\.\d+/i.test(x))||"";
+const routeOf=c=>{const m=c.map(clean).join(" ").match(/\b(?:CA|SA)[_\s-]*A?[0-9O]{2,4}\b/i);return m?m[0].replace(/\s+/g,"_").replace(/O/g,"0").toUpperCase():""};
+const timeOf=c=>c.map(clean).join(" ").match(/\b\d{1,2}[:.]\d{2}\s*(?:AM|PM)?\b/i)?.[0]?.replace(".",":")||"";
+const stageOf=c=>{const t=c.map(clean).join(" ");return t.match(/\bSTG\s*[-.]?\s*[A-Z]\s*[. -]?\s*\d*\b/i)?.[0]?.replace(/\s+/g,"").replace(/^STG([A-Z])/i,"STG-$1").toUpperCase()||t.match(/\b(?:PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\.\d+\b/i)?.[0]?.toUpperCase()||""};
 const waveOf=(stage,c)=>Object.keys(COLORS).find(x=>norm(stage+" "+c.join(" ")).includes(x))||(()=>{
  const n=Number(clean(stage).match(/(?:\.|-|\s)(\d+)$/)?.[1]);
  if(!Number.isFinite(n))return "OTHER";
@@ -34,8 +34,8 @@ async function imageRows(file,onProgress){
    const route=line.match(/\b(?:CA|SA)[_ -]?A?\d+\b/i)?.[0]?.replace(/[ -]/g,"_").toUpperCase();
    const time=line.match(/\b\d{1,2}:\d{2}\s*(?:AM|PM)?\b/i)?.[0];
    const stage=line.match(/\bSTG[- ]?[A-Z][. -]?\d*\b/i)?.[0]?.replace(/ /g,"-").toUpperCase();
-   if(route&&time&&stage){rows.push({sheet:"Image",row:i+1,cells:[route,time,stage]});continue}
-   rows.push({sheet:"Image",row:i+1,cells:line.split(/\s{2,}|\t/).filter(Boolean)});
+   if(route||time||stage){rows.push({sheet:"Image",row:i+1,cells:[route||line,time,stage].filter(Boolean)});continue}
+   rows.push({sheet:"Image",row:i+1,cells:[line]});
  }
  return rows;
 }
@@ -56,7 +56,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{const m=line.match(/\b(UK\d+)\s*-\s*(CA[_ -]?A?\d+)\s*-\s*([A-Z0-9]{8,})\b/i);if(!m)return null;const trid=m[3].toUpperCase();return{tracking:m[1],route:m[2].replace(/ /g,"_").toUpperCase(),trid,name:driverByTrid.get(trid)||""}}).filter(Boolean),[atlasText,driverByTrid]);
  const atlasOutput=useMemo(()=>atlasRows.map(r=>`${r.tracking} - ${r.route} - ${r.name||"DRIVER NOT FOUND"}`).join("\n"),[atlasRows]);
  const clear=()=>{if(!confirm("Clear current Wave Plan?"))return;setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);if(routeInput.current)routeInput.current.value="";if(waveInput.current)waveInput.current.value=""};
- const generate=()=>{setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
+ const generate=()=>{if(!plan.length){alert(`No Wave Plan rows were recognised from ${waveFile?.name||"the file"}. OCR read ${waveRows.length} text rows. Try a clearer/cropped image if needed.`);return}setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
  const exportPng=async(share=false)=>{
    if(!sheetRef.current)return;
    try{
