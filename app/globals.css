@@ -1295,3 +1295,6 @@
 .identity-fix>b{font-weight:900}.identity-fix>span{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;overflow-wrap:anywhere}
 .identity-fix select,.identity-fix input{min-height:40px;border:1px solid #cbd5e1;border-radius:9px;padding:8px 10px;background:#fff;color:#172033}
 @media(max-width:760px){.identity-fix{grid-template-columns:1fr}.dispatch-attention{padding:14px}}
+
+/* IADC/DWC mock-up parity: compact paginated driver table */
+.iadcv3-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px}.iadcv3-pagination>div{display:flex;align-items:center;gap:6px}.iadcv3-pagination button{min-width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-weight:800;color:#334155;cursor:pointer}.iadcv3-pagination button.active{background:#f1f5f9;color:#0f172a;border-color:#cbd5e1}.iadcv3-pagination button:disabled{opacity:.4;cursor:not-allowed}.iadcv3-pagination span{color:#64748b;font-size:12px}
