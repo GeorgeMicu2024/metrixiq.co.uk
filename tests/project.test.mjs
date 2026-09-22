@@ -5,7 +5,7 @@ import { findIadcHeader } from "../lib/parsers/iadc.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
 import { clean, inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
-import { parseGenericMatrix, parseMentorAliasMatrix, parseMentorMatrix } from "../lib/analyzer/spreadsheet.js";
+import { parseGenericMatrix, parseMentorAliasMatrix, parseMentorMatrix, parseScorecardMatrix } from "../lib/analyzer/spreadsheet.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
@@ -174,6 +174,24 @@ test("shared analyzer parsers remain runtime-safe across formats", () => {
 
   assert.equal(generic?.records?.length, 1);
   assert.equal(generic.records[0].metrics.dcr, 99.5);
+});
+
+test("scorecard parser does not persist zero-opportunity DCR as a real 0%", () => {
+  const parsed = parseScorecardMatrix(
+    [
+      ["TRID", "Name", "Total Score", "Delivered", "DCR", "POD", "CC"],
+      ["A123456789", "No Opportunity", 90, 0, "0%", "100%", "100%"],
+      ["B123456789", "Real Delivery", 90, 120, "99.5%", "100%", "100%"],
+    ],
+    "Week38-DSP-Scorecard.xlsx",
+    "Scorecard"
+  );
+
+  assert.equal(parsed?.records?.length, 2);
+  assert.equal(parsed.records[0].metrics.delivered, 0);
+  assert.equal(parsed.records[0].metrics.dcr, undefined);
+  assert.equal(parsed.records[1].metrics.delivered, 120);
+  assert.equal(parsed.records[1].metrics.dcr, 99.5);
 });
 
 test("analyzer delegates HTML and PDF parsing to dedicated engines", () => {
