@@ -1340,3 +1340,13 @@ test("IADC import is direct, validated, and keeps band out of the table", () => 
   assert.equal(iadc.includes('"Band"'), false);
   assert.equal(iadc.includes('className="iadcv3-charts"'), false);
 });
+
+
+test("analysis preserves daily granularity for IADC persistence and IADC opens imported period", () => {
+  const analyzer = read("lib/analyzer.js");
+  const iadc = read("components/operations/IadcView.jsx");
+  assert.ok(analyzer.includes('granularity: bucket.granularity || "weekly"'));
+  assert.ok(iadc.includes('x.includes("iadc-daily")'));
+  assert.ok(iadc.includes('x.includes("iadc-weekly")'));
+  assert.ok(iadc.includes('setMode(hasDaily?"daily":hasWeekly?"weekly":mode)'));
+});
