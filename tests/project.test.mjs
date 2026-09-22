@@ -1317,3 +1317,16 @@ test("POD and DCR aliases cover common percentage headers", () => {
   assert.equal(clean("POD Compliance %"), "pod compliance");
   assert.equal(clean("DCR %"), "dcr");
 });
+
+
+test("IADC direct import stays on the IADC page and rejects invalid files with a centered modal", () => {
+  const view = read("components/operations/IadcView.jsx");
+  assert.ok(view.includes("Upload IADC Report"));
+  assert.ok(view.includes("Choose File"));
+  assert.ok(view.includes("Invalid file format"));
+  assert.ok(view.includes('role="alertdialog"'));
+  assert.ok(view.includes("setImportError"));
+  assert.ok(view.includes("onImported?.(result,[file])"));
+  assert.equal(view.includes("<th>Band</th>"), false);
+  assert.equal(view.includes("bandFilter"), false);
+});
