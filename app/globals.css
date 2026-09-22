@@ -1298,3 +1298,19 @@
 
 /* IADC/DWC mock-up parity: compact paginated driver table */
 .iadcv3-pagination{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px}.iadcv3-pagination>div{display:flex;align-items:center;gap:6px}.iadcv3-pagination button{min-width:34px;height:34px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;font-weight:800;color:#334155;cursor:pointer}.iadcv3-pagination button.active{background:#f1f5f9;color:#0f172a;border-color:#cbd5e1}.iadcv3-pagination button:disabled{opacity:.4;cursor:not-allowed}.iadcv3-pagination span{color:#64748b;font-size:12px}
+
+/* IADC direct-import workspace */
+.iadcv3-import-panel{display:grid;grid-template-columns:auto minmax(160px,220px) 1fr;gap:12px;align-items:center;margin:14px 0 18px}
+.iadcv3-import-panel .iadcv3-tabs{grid-column:1/2}
+.iadcv3-period select{width:100%}
+.iadcv3-dropzone{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:18px;border:1.5px dashed #9cc8f6;background:#f8fbff;border-radius:14px;padding:18px 20px}
+.iadcv3-dropzone div{display:flex;flex-direction:column;gap:4px}.iadcv3-dropzone strong{font-size:15px}.iadcv3-dropzone span{font-size:12px;color:#64748b}
+.iadcv3-import-actions{grid-column:1/-1;display:grid;grid-template-columns:minmax(220px,1fr) auto auto auto;gap:10px}.iadcv3-import-actions input{min-width:0}
+.iadcv3-modal-backdrop{position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.32);display:grid;place-items:center;padding:24px}
+.iadcv3-error-modal{position:relative;width:min(440px,calc(100vw - 32px));background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);padding:30px;text-align:center}
+.iadcv3-error-close{position:absolute;right:16px;top:12px;border:0;background:transparent;font-size:28px;cursor:pointer}
+.iadcv3-error-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;background:#ef4444;color:#fff;font-size:34px;font-weight:800}
+.iadcv3-error-modal h2{margin:0 0 8px;font-size:22px}.iadcv3-error-modal p{margin:0 0 22px;color:#475569;line-height:1.5}
+.iadcv3-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;font-weight:700;font-size:12px}
+.iadcv3-status.excellent,.iadcv3-status.target{background:#dcfce7;color:#15803d}.iadcv3-status.risk{background:#fef3c7;color:#b45309}.iadcv3-status.critical{background:#fee2e2;color:#b91c1c}
+@media (max-width:900px){.iadcv3-import-panel{grid-template-columns:1fr}.iadcv3-import-panel .iadcv3-tabs,.iadcv3-dropzone,.iadcv3-import-actions{grid-column:1}.iadcv3-import-actions{grid-template-columns:1fr 1fr}.iadcv3-import-actions input{grid-column:1/-1}}
