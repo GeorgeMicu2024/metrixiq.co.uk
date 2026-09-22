@@ -176,8 +176,11 @@ test("operational metric imports reload and query the correct metric column", ()
   const iadc = fs.readFileSync("components/operations/IadcView.jsx","utf8");
   const mentor = fs.readFileSync("components/operations/MentorView.jsx","utf8");
 
-  assert.ok(data.includes('["pod", "dcr", "cc"].includes(kind)'));
+  assert.ok(data.includes('["dcr", "cc"].includes(kind)'));
   assert.ok(data.includes('query.not(kind, "is", null)'));
+  assert.ok(data.includes('if (kind === "pod")'));
+  assert.ok(data.includes('row.pod != null ||'));
+  assert.ok(data.includes('row.raw_data?.pod_detail != null'));
   assert.ok(shared.includes("refreshKey = 0"));
   assert.ok(shared.includes("[organizationId, kind, refreshKey]"));
   assert.ok(dashboard.includes("setOperationalRefreshKey((value) => value + 1)"));
