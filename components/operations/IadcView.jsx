@@ -1,4 +1,5 @@
-"use client";\n// IADC/DWC workspace: daily + weekly compliance views, direct import, export, share, driver detail and pagination.
+"use client";
+// IADC/DWC workspace: daily + weekly compliance views, direct import, export, share, driver detail and pagination.
 
 import { useMemo, useRef, useState } from "react";
 import { analyseFiles } from "../../lib/analyzer";
@@ -41,7 +42,8 @@ export default function IadcView({organizationId,onOpenDriver,onImport,onImporte
   const dwcAvg=n(officialSummary?.dwc)??average(selected,dwcOf);
   const counts={excellent:selected.filter(r=>Number(metricValue(r))>=excellentCut).length,target:selected.filter(r=>Number(metricValue(r))>=targetCut&&Number(metricValue(r))<excellentCut).length,risk:selected.filter(r=>Number(metricValue(r))>=riskCut&&Number(metricValue(r))<targetCut).length,critical:selected.filter(r=>Number(metricValue(r))<riskCut).length};
   const filtered=selected.filter(r=>{const v=Number(metricValue(r));return(bandFilter==="all"||metricBand(v)===bandFilter)&&`${dname(r.drivers)} ${trid(r.drivers)}`.toLowerCase().includes(query.toLowerCase())});
-  const pageSize=10,totalPages=Math.max(1,Math.ceil(filtered.length/pageSize)),safePage=Math.min(page,totalPages);\n  const shown=filtered.slice((safePage-1)*pageSize,safePage*pageSize);
+  const pageSize=10,totalPages=Math.max(1,Math.ceil(filtered.length/pageSize)),safePage=Math.min(page,totalPages);
+  const shown=filtered.slice((safePage-1)*pageSize,safePage*pageSize);
   const trend=useMemo(()=>weeks.slice(0,4).reverse().map(w=>{const wr=rows.filter(r=>granularity(r)==="weekly"&&calendarWeek(r)===w);const summary=wr.find(r=>r.raw_data?.compliance_summary)?.raw_data?.compliance_summary;return {label:w,value:metric==="iadc"?(n(summary?.iadc)??average(wr,r=>r.iadc)):average(wr,metricValue)}}),[rows,weeks,metric]);
   const dwcErrors=useMemo(()=>Object.entries(errorLabels).map(([key,label])=>({key,label,value:selected.reduce((s,r)=>s+Number(r.raw_data?.dwc_detail?.errors?.[key]||0),0)})).filter(x=>x.value>0),[selected]);
   const maxTrend=Math.max(80,...trend.map(x=>x.value||0)),minTrend=Math.min(60,...trend.map(x=>x.value||100));
