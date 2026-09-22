@@ -1329,3 +1329,14 @@ test("IADC direct import stays on the IADC page and rejects invalid files with a
   assert.equal(view.includes("<th>Band</th>"), false);
   assert.equal(view.includes("bandFilter"), false);
 });
+
+
+test("IADC import is direct, validated, and keeps band out of the table", () => {
+  const iadc = read("components/operations/IadcView.jsx");
+  assert.ok(iadc.includes('const IADC_ACCEPT=".xlsx,.xls,.html,.htm,.pdf"'));
+  assert.ok(iadc.includes("iadcv3-error-modal"));
+  assert.ok(iadc.includes("This doesn’t look like a valid Amazon IADC report"));
+  assert.equal(iadc.includes("<th>Transporter ID</th>"), false);
+  assert.equal(iadc.includes('"Band"'), false);
+  assert.equal(iadc.includes('className="iadcv3-charts"'), false);
+});
