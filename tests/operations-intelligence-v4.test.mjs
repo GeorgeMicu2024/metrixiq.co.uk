@@ -116,7 +116,9 @@ test("V4 product surfaces are wired into the workspace without replacing source 
   assert.ok(dashboard.includes('./evidence/EvidenceIncidentCenter'));
   assert.ok(dashboard.includes('./sites/SiteOperationsCenter'));
   assert.ok(dashboard.includes("<Driver360V2"));
-  assert.ok(navigation.includes('["site-operations", "Site Operations"]'));
+  assert.equal(navigation.includes('["site-operations", "Site Operations"]'), false);
+  assert.equal(navigation.includes('["dwc", "DWC"]'), false);
+  assert.ok(navigation.includes('{ label: "OPERATION"'));
   assert.ok(navigation.includes('["evidence", "Evidence & Incidents"]'));
   assert.ok(driver.includes("Driver Root-Cause Engine"));
   assert.ok(driver.includes("Unified driver timeline"));
