@@ -1,4 +1,4 @@
-"use client";\n// IADC/DWC workspace: daily + weekly compliance views, direct import, export, share, detail and pagination.
+"use client";\n// IADC/DWC workspace: daily + weekly compliance views, direct import, export, share, driver detail and pagination.
 
 import { useMemo, useRef, useState } from "react";
 import { analyseFiles } from "../../lib/analyzer";
