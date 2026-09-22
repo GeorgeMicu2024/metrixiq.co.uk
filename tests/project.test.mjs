@@ -181,7 +181,7 @@ test("scorecard parser does not persist zero-opportunity DCR as a real 0%", () =
     [
       ["TRID", "Name", "Total Score", "Delivered", "DCR", "POD", "CC"],
       ["A123456789", "No Opportunity", 90, 0, "0%", "100%", "100%"],
-      ["B123456789", "Real Delivery", 90, 120, "99.5%", "100%", "100%"],
+      ["B123456780", "Real Delivery", 90, 120, "99.5%", "100%", "100%"],
     ],
     "Week38-DSP-Scorecard.xlsx",
     "Scorecard"
@@ -1158,7 +1158,7 @@ test("site-scoped operational views recover from stale week selections", () => {
   const cdf = read("components/customer-feedback/CdfView.jsx");
   const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(iadc.includes("week&&weeks.includes(week)?week"));
+  assert.ok(iadc.includes('availableWeeks.includes(week)?week'));
   assert.ok(cdf.includes("!weeks.includes(week)"));
   assert.equal(
     (dashboard.match(/aria-label="Filter workspace by site"/g) || []).length,
