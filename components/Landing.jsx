@@ -16,11 +16,11 @@ const features=[
 
 function ProductPreview(){
   return <div className="product-window">
-    <div className="window-top"><div className="window-brand"><span className="mini-mark">M</span><b>MetrixIQ</b></div><div className="window-search">Search drivers, reports, sites…</div><span className="avatar">GM</span></div>
+    <div className="window-top"><div className="window-brand"><span className="mini-mark">M</span><b>MetrixIQ</b></div><div className="window-search">Search drivers, reports, sites…</div><span className="avatar">MI</span></div>
     <div className="window-body">
       <aside className="preview-side"><b>Overview</b><span>Drivers</span><span>Performance</span><span>Coaching</span><span>Intelligence</span><span>Imports</span></aside>
       <section className="preview-main">
-        <div className="preview-head"><div><small>Fleet overview</small><h3>Good morning, George</h3></div><span className="status-dot">● Live</span></div>
+        <div className="preview-head"><div><small>Performance overview</small><h3>Fleet intelligence</h3></div><span className="status-dot">● Live</span></div>
         <div className="preview-metrics">{metrics.map((m)=><div className="preview-metric" key={m.k}><small>{m.k}</small><strong>{m.v}</strong><span className={m.s==="Watch"?"watch":"ok"}>{m.s}</span></div>)}</div>
         <div className="preview-grid">
           <div className="preview-card"><div className="card-head"><b>Performance trend</b><span>4 weeks</span></div><svg className="preview-chart" width="100%" height="150" viewBox="0 0 500 150" preserveAspectRatio="none"><path d="M0 118 C65 110 80 90 140 96 S235 70 290 75 S375 36 500 26" fill="none" stroke="#16a38f" strokeWidth="4"/><path d="M0 118 C65 110 80 90 140 96 S235 70 290 75 S375 36 500 26 L500 150 L0 150Z" fill="url(#g)" opacity=".7"/><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#b9eee4"/><stop offset="1" stopColor="#ffffff"/></linearGradient></defs></svg></div>
@@ -33,9 +33,9 @@ function ProductPreview(){
 
 export default function Landing(){
   return <main className="marketing">
-    <header className="site-header"><div className="site-header-inner"><Link href="/"><Brand/></Link><nav><a href="#platform">Platform</a><a href="#workflow">Workflow</a><a href="#intelligence">Intelligence</a><a href="#pricing">Pricing</a></nav><div className="header-actions"><Link className="text-btn" href="/login">App login</Link><Link className="primary-btn small" href="/login?mode=register">Get started free <span>→</span></Link></div></div></header>
+    <header className="site-header"><div className="site-header-inner"><Link href="/"><Brand/></Link><nav><a href="#platform">Features</a><a href="#workflow">Solutions</a><a href="#intelligence">Intelligence</a><a href="#pricing">Pricing</a></nav><div className="header-actions"><Link className="text-btn" href="/login">App login</Link><Link className="primary-btn small" href="/login?mode=register">Get started free <span>→</span></Link></div></div></header>
     <section className="hero"><div className="hero-grid">
-      <div className="hero-copy"><div className="eyebrow-pill">Operational intelligence for delivery fleets</div><h1>Turn fragmented fleet reports into clear daily action.</h1><p>MetrixIQ brings scorecards, compliance files and driver performance into one operating workspace — with TRID mapping, risk signals, coaching priorities and management reporting built in.</p><div className="hero-actions"><Link className="primary-btn" href="/login?mode=register">Start free <span>→</span></Link><a className="secondary-btn" href="#workflow">See how it works</a></div><div className="hero-proof"><span><b>10+</b> report types</span><span><b>1</b> driver view</span><span><b>24/7</b> visibility</span></div></div>
+      <div className="hero-copy"><div className="eyebrow-pill">FLEET PERFORMANCE INTELLIGENCE</div><h1>Smarter data.<br/>Stronger teams.<br/><span className="hero-accent">Better results.</span></h1><p>Turn operational data into real performance. MetrixIQ helps delivery operations monitor, analyse and improve driver and fleet performance with powerful intelligence.</p><div className="hero-actions"><Link className="primary-btn" href="/login?mode=register">Get started <span>→</span></Link><a className="secondary-btn" href="#workflow">See how it works</a></div><div className="hero-benefits"><span>✓ Improve compliance</span><span>↗ Boost driver performance</span><span>✓ Reduce operational risk</span></div></div>
       <div className="hero-product"><div className="product-glow"/><ProductPreview/></div>
     </div></section>
     <section className="trust-strip"><div><b>Built around real DSP operations</b><span>Excel / CSV / PDF</span><span>TRID → Driver mapping</span><span>DCR · POD · FICO · IADC</span><span>Risk & coaching</span></div></section>
