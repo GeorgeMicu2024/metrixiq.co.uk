@@ -243,9 +243,8 @@ export default function LoginClient() {
           <h2>{register ? (inviteMode ? "Create your invited account" : "Start your MetrixIQ workspace") : "Sign in to MetrixIQ"}</h2>
           <p className="auth-sub">{register ? (inviteMode ? "Register with the invited email. MetrixIQ will attach you to the existing workspace automatically." : "Create your secure fleet workspace.") : "Use your MetrixIQ account to continue."}</p>
 
-          <div className="provider-row">
+          <div className="provider-row provider-row-single">
             <button type="button" disabled={busy} onClick={() => social("google")}>Continue with Google</button>
-            <button type="button" disabled={busy} onClick={() => social("apple")}>Continue with Apple</button>
           </div>
           <div className="divider"><span />or email<span /></div>
 
