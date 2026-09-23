@@ -1181,10 +1181,13 @@ test("site-scoped operational views recover from stale week selections", () => {
   );
 });
 
-test("Performance recovers stale site and week filters", () => {
+test("Performance inherits workspace site scope and recovers stale week filters", () => {
   const performance = read("components/performance/PerformanceView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(performance.includes('if (site !== "all" && !sites.includes(site)) setSite("all")'));
+  assert.ok(performance.includes('siteFilter = "all"'));
+  assert.ok(dashboard.includes('siteFilter={siteFilter}'));
+  assert.equal(performance.includes('setSite('), false);
   assert.ok(performance.includes('focusWeek !== "latest"'));
   assert.ok(performance.includes('setFocusWeek("latest")'));
 });
@@ -1315,7 +1318,7 @@ test("daily eMentor supports multiple source accounts per driver and persistent 
   const migration = read("supabase/migrations/20260921154000_mentor_daily_persistent_visibility.sql");
 
   assert.ok(daily.includes('rowsBySource.set(sourceIdentityKey, row)'));
-  assert.ok(daily.includes('organization_id,report_date,source_identity_key'));
+  assert.ok(daily.includes('organization_id,site,report_date,source_identity_key'));
   assert.ok(view.includes('setMentorDailyVisibility'));
   assert.ok(view.includes('Show hidden rows'));
   assert.ok(view.includes('Restore'));
