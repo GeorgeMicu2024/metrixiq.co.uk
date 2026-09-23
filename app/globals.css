@@ -1527,3 +1527,7 @@
 .daily-dispatch .dcsl-sheet.font-medium .dcsl-wave h4{font-size:21px!important}
 .daily-dispatch .dcsl-sheet.font-large .dcsl-wave h4{font-size:24px!important}
 .daily-dispatch .waveplan-settings select{margin-top:7px;width:100%;max-width:180px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:8px 10px;font-weight:800;color:#17233a}
+
+
+/* ATLAS reusable message template */
+.daily-dispatch .atlas-template{display:grid;gap:7px;margin-top:14px}.daily-dispatch .atlas-template>span{font-weight:850;color:#17233a}.daily-dispatch .atlas-template textarea{width:100%;min-height:180px;resize:vertical;border:1px solid #cbd5e1;border-radius:12px;padding:13px;font:inherit;line-height:1.45;background:#fff;color:#17233a}.daily-dispatch .atlas-template small{color:#64748b}.daily-dispatch .atlas-grid textarea{min-height:260px}
