@@ -18,6 +18,7 @@ import SavedViewsBulkActions from "./management/SavedViewsBulkActions";
 import { DriverScorecardsView, SiteScorecardsView } from "./scorecards/ScorecardViews";
 import PerformanceView from "./performance/PerformanceView";
 import DriverDirectoryView from "./drivers/DriverDirectoryView";
+import DriverMasterView from "./drivers/DriverMasterView";
 import IadcView from "./operations/IadcView";
 import PodQualityView from "./operations/PodQualityView";
 import CustomerComplianceView from "./operations/CustomerComplianceView";
@@ -393,6 +394,7 @@ export default function DashboardClient() {
     case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
+    case "driver-master": view = <DriverMasterView organizationId={workspace?.organization?.id} sites={sites} legacyDrivers={dbDrivers} canManage={platformAdmin || ["owner","admin","manager"].includes(String(session?.role || "").toLowerCase())} onOpenDriver={openDriver} />; break;
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query="" />; break;
     case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
     case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onImported={imported} siteFilter={siteFilter} metric="iadc" initialComplianceTab="iadc" refreshKey={operationalRefreshKey} />; break;
