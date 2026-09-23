@@ -52,6 +52,7 @@ import PortfolioDashboard from "./enterprise/PortfolioDashboard";
 import EnterpriseSettings from "./enterprise/EnterpriseSettings";
 import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
+import { fetchOrganizationHierarchy, upsertOrganizationSiteProfile } from "../lib/data/enterpriseV7";
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -72,6 +73,11 @@ export default function DashboardClient() {
 
   const [favorites, setFavorites] = useState([]);
   const [siteFilter, setSiteFilter] = useState("all");
+  const [siteRegistry, setSiteRegistry] = useState([]);
+  const [siteCreateOpen, setSiteCreateOpen] = useState(false);
+  const [siteCreateBusy, setSiteCreateBusy] = useState(false);
+  const [siteCreateError, setSiteCreateError] = useState("");
+  const [siteDraft, setSiteDraft] = useState({ code: "", displayName: "", region: "", country: "United Kingdom" });
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [access, setAccess] = useState(null);
   const [commandCenter, setCommandCenter] = useState(null);
@@ -150,6 +156,7 @@ export default function DashboardClient() {
     setSelectedDriver(null);
     setDriverHistory([]);
     setSiteFilter("all");
+    setSiteRegistry([]);
   }
 
   async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null) {
@@ -247,7 +254,59 @@ export default function DashboardClient() {
   }, [access, platformAdmin, session?.role, permissions, selectedDriver]);
 
 
-  const sites = [...new Set(dbDrivers.map((d) => String(d.site || "").trim().toUpperCase()).filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site)))].sort();
+  useEffect(() => {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) return;
+    let cancelled = false;
+    fetchOrganizationHierarchy(getSupabaseBrowserClient(), organizationId)
+      .then((rows) => { if (!cancelled) setSiteRegistry(rows || []); })
+      .catch(() => { if (!cancelled) setSiteRegistry([]); });
+    return () => { cancelled = true; };
+  }, [workspace?.organization?.id]);
+
+  const legacySites = dbDrivers
+    .map((d) => String(d.site || "").trim().toUpperCase())
+    .filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site));
+  const registeredSites = siteRegistry
+    .filter((row) => row.active !== false)
+    .map((row) => String(row.site || "").trim().toUpperCase())
+    .filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site));
+  const sites = [...new Set([...legacySites, ...registeredSites])].sort();
+
+  async function createSiteFromDashboard() {
+    const organizationId = workspace?.organization?.id;
+    const code = String(siteDraft.code || "").trim().toUpperCase();
+    if (!organizationId) return;
+    if (!/^[A-Z]{2,5}\d{1,3}$/.test(code)) {
+      setSiteCreateError("Use a valid station code such as DLS2, DXM3 or DDN1.");
+      return;
+    }
+    if (sites.includes(code)) {
+      setSiteCreateError(code + " already exists in this workspace.");
+      return;
+    }
+    setSiteCreateBusy(true);
+    setSiteCreateError("");
+    try {
+      await upsertOrganizationSiteProfile(getSupabaseBrowserClient(), {
+        organizationId,
+        site: code,
+        displayName: siteDraft.displayName || code + " operations",
+        region: siteDraft.region || null,
+        country: siteDraft.country || "United Kingdom",
+        active: true,
+      });
+      const rows = await fetchOrganizationHierarchy(getSupabaseBrowserClient(), organizationId);
+      setSiteRegistry(rows || []);
+      setSiteFilter(code);
+      setSiteDraft({ code: "", displayName: "", region: "", country: "United Kingdom" });
+      setSiteCreateOpen(false);
+    } catch (error) {
+      setSiteCreateError(error?.message || "Could not create site.");
+    } finally {
+      setSiteCreateBusy(false);
+    }
+  }
   const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
   const visibleMetricHistoryRows = useMemo(
     () => siteFilter === "all"
@@ -378,5 +437,5 @@ export default function DashboardClient() {
   );
   const favoriteItems = nav.filter(([id]) => favorites.includes(id) && canAccessNav(id, access, platformAdmin, session?.role, permissions));
 
-  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-minimal"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="topbar-controls">{workspaceOptions.length>1?<select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select>:null}<select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}</select></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
+  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-minimal"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="topbar-controls">{workspaceOptions.length>1?<select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select>:null}<select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);}}><option value="all">All sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}<option value="__add_site__">＋ Add new site</option></select></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} />{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy)setSiteCreateOpen(false);}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">Add new site</h2><p>Create a station in this workspace. Existing DLS2 drivers and historical data are not changed.</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
 }
