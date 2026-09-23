@@ -495,7 +495,7 @@ function LegacyDriverScorecardsView({ organizationId, onOpenDriver, onImport, si
   };
 
   const siteForRow = (row) => {
-    const value = String(row?.drivers?.site || "").trim().toUpperCase();
+    const value = String(row?.site || row?.drivers?.site || "").trim().toUpperCase();
     return value || "UNASSIGNED";
   };
 
@@ -586,7 +586,7 @@ function LegacyDriverScorecardsView({ organizationId, onOpenDriver, onImport, si
 
     return enrichedRows
       .filter((row) => {
-        const text = `${row.drivers?.full_name || ""} ${row.drivers?.trid || ""} ${row.drivers?.site || ""}`.toLowerCase();
+        const text = `${row.drivers?.full_name || ""} ${row.drivers?.trid || ""} ${row.site || row.drivers?.site || ""}`.toLowerCase();
         return !q || text.includes(q);
       })
       .filter((row) => groupFilter === "all" || row.sourceRank.cls === groupFilter)
