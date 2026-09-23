@@ -1459,3 +1459,17 @@
 @media(max-width:760px){.waveplan-actions.clean{grid-template-columns:minmax(0,1fr) 108px!important}.waveplan-actions.clean .ready{grid-column:1/-1!important;min-height:52px}}
 
 /* deployment retry after Vercel plan upgrade */
+
+
+/* Premium Wave Plan export */
+.daily-dispatch .dcsl-sheet{background:#071425;border:2px solid #08111f}
+.daily-dispatch .dcsl-sheet>header{height:86px;display:grid;grid-template-columns:255px 1fr 125px;align-items:center;background:#0b1d34;color:white;border-bottom:3px solid #111;padding:0 18px;gap:18px}
+.daily-dispatch .dcsl-brand{display:grid;align-content:center;border-right:1px solid #8190a3;padding-right:18px}.daily-dispatch .dcsl-brand .dcsl-logo{font-size:40px!important;letter-spacing:-2px;color:white}.daily-dispatch .dcsl-brand small{font-size:8px;font-weight:900;color:white}
+.daily-dispatch .dcsl-title{display:grid;gap:2px}.daily-dispatch .dcsl-title h3{font-size:30px!important;line-height:1;color:white;margin:0}.daily-dispatch .dcsl-title span{font-size:14px;font-weight:800;color:white}
+.daily-dispatch .dcsl-site{display:grid;gap:2px;border-left:4px solid #e31d2b;padding-left:16px}.daily-dispatch .dcsl-site b{font-size:23px}.daily-dispatch .dcsl-site span{font-size:17px;font-weight:850}
+.daily-dispatch .dcsl-columns{background:#eef3f8;color:#14233a;border-bottom:2px solid #111}
+.daily-dispatch .dcsl-sheet section h4{color:white!important;font-size:20px!important;padding:6px 8px!important}
+.daily-dispatch .dcsl-sheet section>div{background:var(--wave);color:white}.daily-dispatch .dcsl-sheet section>div>*{color:white!important}
+.daily-dispatch .dcsl-sheet section[style*="00a651"]>div{background:#7fe18a;color:#07150c}.daily-dispatch .dcsl-sheet section[style*="00a651"]>div>*{color:#07150c!important}
+.daily-dispatch .dcsl-sheet section[style*="7030a0"]>div{background:#6f2598}.daily-dispatch .dcsl-sheet section[style*="0070c0"]>div{background:#086fc0}
+.daily-dispatch .dcsl-sheet>footer{background:#071425;color:white;min-height:42px}
