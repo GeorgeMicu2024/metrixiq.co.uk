@@ -312,7 +312,7 @@ export default function DashboardClient() {
   const visibleMetricHistoryRows = useMemo(
     () => siteFilter === "all"
       ? metricHistoryRows
-      : metricHistoryRows.filter((row) => String(row?.drivers?.site || "").trim().toUpperCase() === siteFilter),
+      : metricHistoryRows.filter((row) => String(row?.site || row?.drivers?.site || "").trim().toUpperCase() === siteFilter),
     [metricHistoryRows, siteFilter]
   );
   const visibleFleetHistory = useMemo(
