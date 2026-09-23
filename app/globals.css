@@ -1422,3 +1422,18 @@
 .command-center-driver-list button div b,.command-center-actions>button div b{font-size:11px!important}
 .command-center-driver-list button div small,.command-center-actions>button div small{font-size:9px!important}
 }
+
+
+/* Wave Plan export fidelity — keep all four operational columns visible */
+.daily-dispatch .dcsl-sheet{width:920px;max-width:920px;background:#05070a}
+.daily-dispatch .dcsl-sheet>header{height:78px;padding:0 18px;gap:28px}
+.daily-dispatch .dcsl-logo{font-size:38px!important}
+.daily-dispatch .dcsl-sheet>header h3{font-size:25px}
+.daily-dispatch .dcsl-columns{display:grid;grid-template-columns:130px minmax(0,1fr) 125px 190px;background:#e8eef8;color:#172033;border-bottom:2px solid #111;font-size:11px;font-weight:950;letter-spacing:.08em}
+.daily-dispatch .dcsl-columns>*{padding:5px 9px;text-align:center;border-right:1px solid #9aa8b8}
+.daily-dispatch .dcsl-sheet section>div{grid-template-columns:130px minmax(0,1fr) 125px 190px;min-height:30px}
+.daily-dispatch .dcsl-sheet section>div>*{font-size:13px;line-height:1.15;padding:4px 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.daily-dispatch .dcsl-sheet section>div em{font-size:12.5px;font-weight:950}
+.daily-dispatch .dcsl-sheet section h4{font-size:19px;padding:5px 6px}
+.daily-dispatch .dcsl-sheet>footer{padding:10px 14px}
+@media(max-width:760px){.daily-dispatch .dcsl-sheet{width:920px;min-width:920px;max-width:920px}.daily-dispatch .dcsl-columns,.daily-dispatch .dcsl-sheet section>div{grid-template-columns:130px minmax(0,1fr) 125px 190px}.daily-dispatch .dcsl-sheet section>div>*{font-size:13px}}
