@@ -326,7 +326,7 @@ export default function DashboardClient() {
   } : {};
   const kpis = { ...liveKpis };
 
-  async function imported(result, files) {
+  async function imported(result, files, activitySite = null) {
     const organizationId = workspace?.organization?.id;
     if (!organizationId) throw new Error("Workspace is not ready yet.");
 
@@ -335,6 +335,7 @@ export default function DashboardClient() {
       organizationId,
       analysis: result,
       files,
+      site: activitySite,
     });
 
     setAnalysis(result);
@@ -411,7 +412,7 @@ export default function DashboardClient() {
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
-    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
+    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
     case "management-views": view = <SavedViewsBulkActions organizationId={workspace?.organization?.id} siteFilter={siteFilter} canBulk={platformAdmin || permissions?.bulk_actions} />; break;
     case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
