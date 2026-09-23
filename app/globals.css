@@ -1531,3 +1531,9 @@
 
 /* ATLAS reusable message template */
 .daily-dispatch .atlas-template{display:grid;gap:7px;margin-top:14px}.daily-dispatch .atlas-template>span{font-weight:850;color:#17233a}.daily-dispatch .atlas-template textarea{width:100%;min-height:180px;resize:vertical;border:1px solid #cbd5e1;border-radius:12px;padding:13px;font:inherit;line-height:1.45;background:#fff;color:#17233a}.daily-dispatch .atlas-template small{color:#64748b}.daily-dispatch .atlas-grid textarea{min-height:260px}
+
+
+/* DDN1 numbered waves — source-faithful Wave 1 / Wave 2 */
+.daily-dispatch .dcsl-wave.wave-wave1 h4{background:#169b22!important;color:#fff!important}.daily-dispatch .dcsl-wave.wave-wave1>div{background:#72dd72!important}.daily-dispatch .dcsl-wave.wave-wave1>div>*{color:#07150c!important;font-weight:950!important}
+.daily-dispatch .dcsl-wave.wave-wave2 h4{background:#e98f00!important;color:#fff!important}.daily-dispatch .dcsl-wave.wave-wave2>div{background:#ffb11b!important}.daily-dispatch .dcsl-wave.wave-wave2>div>*{color:#161006!important;font-weight:950!important}
+.daily-dispatch .wave-choice.wave1{background:#bff1b9;color:#102315}.daily-dispatch .wave-choice.wave2{background:#ffd78b;color:#352208}
