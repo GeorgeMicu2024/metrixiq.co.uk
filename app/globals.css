@@ -1516,3 +1516,14 @@
 /* User-supplied DCSL mark — locked asset, do not redraw */
 .daily-dispatch .dcsl-brand:before,.daily-dispatch .dcsl-mark{display:none!important}
 .daily-dispatch .dcsl-mark-image{display:block!important;width:58px!important;height:58px!important;object-fit:contain!important;flex:0 0 58px!important;background:#fff!important}
+
+
+/* Wave Plan readability controls */
+.daily-dispatch .dcsl-sheet>footer,.daily-dispatch .dcsl-sheet>footer *{color:#fff!important;opacity:1!important}
+.daily-dispatch .dcsl-sheet.font-small .dcsl-wave>div>*{font-size:11px!important}
+.daily-dispatch .dcsl-sheet.font-medium .dcsl-wave>div>*{font-size:12.5px!important}
+.daily-dispatch .dcsl-sheet.font-large .dcsl-wave>div>*{font-size:14.5px!important}
+.daily-dispatch .dcsl-sheet.font-small .dcsl-wave h4{font-size:19px!important}
+.daily-dispatch .dcsl-sheet.font-medium .dcsl-wave h4{font-size:21px!important}
+.daily-dispatch .dcsl-sheet.font-large .dcsl-wave h4{font-size:24px!important}
+.daily-dispatch .waveplan-settings select{margin-top:7px;width:100%;max-width:180px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:8px 10px;font-weight:800;color:#17233a}
