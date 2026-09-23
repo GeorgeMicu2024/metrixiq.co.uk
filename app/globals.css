@@ -1457,3 +1457,5 @@
 /* Approved simplified Wave Plan actions */
 .waveplan-actions.clean{grid-template-columns:minmax(0,1fr) minmax(150px,.42fr)!important}.waveplan-actions.clean .ready{grid-column:1/-1!important}
 @media(max-width:760px){.waveplan-actions.clean{grid-template-columns:minmax(0,1fr) 108px!important}.waveplan-actions.clean .ready{grid-column:1/-1!important;min-height:52px}}
+
+/* deployment retry after Vercel plan upgrade */
