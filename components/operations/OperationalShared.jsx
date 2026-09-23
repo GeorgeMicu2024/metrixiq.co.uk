@@ -25,7 +25,7 @@ export function filterRowsBySite(rows, siteFilter = "all") {
   if (siteFilter === "all") return rows;
   return rows.filter(
     (row) =>
-      String(row?.drivers?.site || "").trim().toUpperCase() === siteFilter
+      String(row?.site || row?.drivers?.site || "").trim().toUpperCase() === String(siteFilter).trim().toUpperCase()
   );
 }
 
@@ -153,7 +153,7 @@ export function openShape(row, extra = {}) {
     id: trid(driver),
     dbId: row?.driver_id,
     name: dname(driver),
-    site: driver.site || "",
+    site: row?.site || driver.site || "",
     ...extra,
   };
 }
