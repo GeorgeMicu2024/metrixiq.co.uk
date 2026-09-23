@@ -1511,3 +1511,8 @@
 .daily-dispatch .dcsl-foot-brand{flex-direction:column!important;gap:3px!important}.daily-dispatch .dcsl-foot-brand strong{font-size:29px!important;line-height:1!important}.daily-dispatch .dcsl-foot-brand span{font-size:10px!important;letter-spacing:.04em!important}
 .daily-dispatch .dcsl-foot-site{flex-direction:column!important;gap:0!important}.daily-dispatch .dcsl-foot-site b{font-size:22px!important}.daily-dispatch .dcsl-foot-site span{font-family:cursive!important;font-size:17px!important;font-style:italic!important}
 @media(max-width:760px){.daily-dispatch .waveplan-preview{overflow-x:auto!important;overflow-y:visible!important;scrollbar-width:thin!important}.daily-dispatch .dcsl-sheet{width:920px!important;min-width:920px!important;transform:none!important}.daily-dispatch .waveplan-preview:after{content:"Swipe left / right to view full plan"!important}}
+
+
+/* User-supplied DCSL mark — locked asset, do not redraw */
+.daily-dispatch .dcsl-brand:before,.daily-dispatch .dcsl-mark{display:none!important}
+.daily-dispatch .dcsl-mark-image{display:block!important;width:58px!important;height:58px!important;object-fit:contain!important;flex:0 0 58px!important;background:#fff!important}
