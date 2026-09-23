@@ -28,6 +28,7 @@ import CoachingV3 from "./coaching/CoachingV3";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
 import { loadWorkspaceContext } from "../lib/data/workspace";
+import { fetchCommandCenterSummary } from "../lib/data/commandCenter";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
 import { persistWorkspaceImport } from "../lib/data/importWorkflow";
@@ -308,6 +309,16 @@ export default function DashboardClient() {
       setSiteCreateBusy(false);
     }
   }
+  useEffect(() => {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) return;
+    let cancelled = false;
+    fetchCommandCenterSummary(getSupabaseBrowserClient(), organizationId, siteFilter)
+      .then((summary) => { if (!cancelled) setCommandCenter(summary); })
+      .catch((error) => { if (!cancelled) console.error("Command Center site refresh failed", error); });
+    return () => { cancelled = true; };
+  }, [workspace?.organization?.id, siteFilter]);
+
   const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
   const visibleMetricHistoryRows = useMemo(
     () => siteFilter === "all"
