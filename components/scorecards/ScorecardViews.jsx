@@ -195,7 +195,7 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
       <button className="active">Overview</button><button>Safety</button><button>Quality</button><button>Drivers at Risk</button><button>Trends</button>
     </nav>
 
-    <section className="sitecmd-kpis">
+    <section className="sitecmd-kpis sitepro-health-grid">
       <article className="hero"><span>Overall score</span><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong><em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em><small className={scoreDelta != null && scoreDelta < 0 ? "negative" : "positive"}>{scoreDelta == null ? "No prior week" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta.toFixed(2)} vs previous week`}</small></article>
       <article><span>Site rank</span><strong>#{card.site_rank ?? "—"}</strong><small>{card.rank_delta != null ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW` : "Rank trend unavailable"}</small></article>
       <article><span>Safety</span><strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong><small>FICO · Speeding · Compliance</small></article>
@@ -219,7 +219,7 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
       </article>
 
       <article className="panel sitecmd-focus">
-        <div className="sitecmd-title"><div><span>ACTION CENTRE</span><h2>Priority focus</h2></div></div>
+        <div className="sitecmd-title"><div><span>RECOMMENDED FOCUS AREAS</span><h2>Priority focus</h2></div></div>
         <ol>{generatedFocus.length ? generatedFocus.map((focus,index)=><li key={index}><b>{String(index+1).padStart(2,"0")}</b><span>{focus}</span></li>) : <li><span>No immediate focus areas supplied.</span></li>}</ol>
       </article>
     </section>
