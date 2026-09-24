@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowserClient } from "../../../lib/supabase/client";
 
@@ -21,7 +21,6 @@ function safeInternalPath(value) {
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [message, setMessage] = useState("Completing secure sign in…");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
@@ -33,14 +32,14 @@ export default function AuthCallbackPage() {
       const { data, error } = await supabase.auth.getSession();
       if (!active) return;
       if (error) {
-        setMessage(error.message || "We could not complete sign in.");
+        router.replace(`/login?auth_error=${encodeURIComponent(error.message || "Authentication failed")}`);
         return;
       }
       if (data.session) {
         router.replace(next);
         return;
       }
-      setMessage("Waiting for authentication confirmation…");
+      window.setTimeout(() => { if (active) router.replace("/login?auth_error=Authentication%20confirmation%20timed%20out"); }, 2500);
     }
 
     complete();
@@ -55,13 +54,5 @@ export default function AuthCallbackPage() {
     };
   }, [router]);
 
-  return (
-    <main className="auth-callback-page">
-      <div className="auth-callback-card">
-        <div className="auth-spinner" />
-        <h1>MetrixIQ</h1>
-        <p>{message}</p>
-      </div>
-    </main>
-  );
+  return <main className="oauth-handoff" aria-label="Completing sign in" />;
 }
