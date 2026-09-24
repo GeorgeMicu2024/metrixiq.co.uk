@@ -407,7 +407,16 @@ export default function DashboardClient() {
     case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
     case "enterprise-settings": view = <EnterpriseSettings organization={workspace?.organization} sites={sites} canManageHierarchy={platformAdmin || permissions?.view_enterprise_settings} canManagePolicy={platformAdmin || permissions?.manage_kpi_policy} canManageBranding={platformAdmin || permissions?.manage_branding} onBrandingChanged={refreshBranding} />; break;
     case "mobile-manager": view = <MobileManagerMode organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} canManage={platformAdmin || permissions?.manage_coaching || permissions?.manage_incidents} onOpenDriver={openDriver} onNavigate={navigate} />; break;
-    case "daily-dispatch": view = <WavePlanView site={siteFilter!=="all"?siteFilter:(sites[0]||"DLS2")} drivers={dbDrivers} />; break;
+    case "daily-dispatch": view = siteFilter==="all"
+      ? <div className="panel dispatch-site-gate">
+          <span className="page-kicker">DAILY DISPATCH · ACTIVITY SITE REQUIRED</span>
+          <h1>Select the site for this Wave Plan</h1>
+          <p>Daily Dispatch will not guess an Activity Site. Choose the station where today's routes are operating before uploading route, wave or ATLAS data.</p>
+          <div className="dispatch-site-options">
+            {sites.map((site)=><button key={site} className="btn ghost" onClick={()=>setSiteFilter(site)}>{site}</button>)}
+          </div>
+        </div>
+      : <WavePlanView site={siteFilter} drivers={dbDrivers} />; break;
     case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
