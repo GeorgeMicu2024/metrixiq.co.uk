@@ -1714,3 +1714,27 @@
 @media(max-width:390px){
  .site-switcher.site-switcher-mockup{min-width:96px;max-width:104px}.topbar-notify{display:none}.homev2-greeting h1{font-size:24px}.homev2-kpis button{min-width:165px!important}.homev2-quick button{min-width:148px!important}.homev2-sitehead,.homev2-siterow{font-size:8px}
 }
+
+
+/* Responsive QA hardening — operational product views */
+@media(max-width:900px){
+ .page-heading{align-items:flex-start;flex-direction:column;gap:12px}.page-heading h1{font-size:25px}.page-actions{width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:3px}.page-actions .btn{flex:0 0 auto}
+ .summary-strip{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;border-radius:11px}.summary-strip>div{min-width:155px;scroll-snap-align:start}.metric-grid{display:flex;overflow-x:auto;gap:8px;padding-bottom:4px;scroll-snap-type:x mandatory}.metric-card{min-width:150px;scroll-snap-align:start}
+ .dashboard-grid,.dashboard-grid.lower{grid-template-columns:1fr}.panel{min-width:0}.table-wrap{max-width:100%;overflow:auto;-webkit-overflow-scrolling:touch}.data-table{font-size:10px}.data-table th,.data-table td{white-space:nowrap}
+ .scorecard-grid,.sitepro-grid,.sitecmd-grid,.ops-grid,.coaching-grid,.driver-grid{grid-template-columns:1fr!important}
+}
+@media(max-width:700px){
+ .page-heading{padding:15px 12px 0;margin-bottom:14px}.page-heading h1{font-size:23px;line-height:1.08}.page-heading p{font-size:10px;line-height:1.45}.page-kicker{font-size:8px}
+ .page-actions{gap:6px}.page-actions .btn{min-height:38px;padding:9px 11px}
+ .summary-strip{margin:0 10px 10px;border-radius:10px}.summary-strip>div{min-width:142px;padding:14px}.summary-strip strong{font-size:23px}
+ .metric-grid{margin:0 10px}.metric-card{min-width:142px;padding:13px;border-radius:10px}.metric-card>strong{font-size:20px}
+ .dashboard-grid,.dashboard-grid.lower{margin:9px 10px 0;gap:9px}.panel{padding:13px;border-radius:10px}.panel-head{gap:10px}.panel-head h2{font-size:12px}
+ .table-wrap{margin-left:-3px;margin-right:-3px;padding-bottom:4px}.data-table{min-width:650px}.data-table th,.data-table td{padding:8px 7px}
+ .sitecmd-kpis,.sitepro-health-grid{display:flex!important;overflow-x:auto;gap:8px;scroll-snap-type:x mandatory}.sitecmd-kpis>* ,.sitepro-health-grid>*{min-width:150px;scroll-snap-align:start}
+ .driver-directory-toolbar,.scorecard-toolbar,.ops-toolbar,.iadc-toolbar,.pod-toolbar,.coaching-toolbar{display:flex!important;overflow-x:auto;flex-wrap:nowrap!important;gap:7px}.driver-directory-toolbar>* ,.scorecard-toolbar>* ,.ops-toolbar>* ,.iadc-toolbar>* ,.pod-toolbar>* ,.coaching-toolbar>*{flex:0 0 auto}
+ .daily-dispatch{padding:10px!important}.daily-dispatch .dispatch-controls,.daily-dispatch .smart-upload-controls{grid-template-columns:1fr!important}.daily-dispatch .dcsl-preview-shell{overflow-x:auto!important;-webkit-overflow-scrolling:touch}.daily-dispatch .dcsl-sheet{min-width:920px}
+ input,select,textarea{max-width:100%}
+}
+@media(max-width:390px){
+ .page-heading h1{font-size:21px}.summary-strip>div{min-width:132px}.metric-card{min-width:132px}.panel{padding:11px}.data-table{min-width:610px}
+}
