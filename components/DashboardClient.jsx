@@ -68,6 +68,7 @@ export default function DashboardClient() {
   const [mobile, setMobile] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [commandCenterError, setCommandCenterError] = useState("");
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [driverHistory, setDriverHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -314,9 +315,10 @@ export default function DashboardClient() {
     const organizationId = workspace?.organization?.id;
     if (!organizationId) return;
     let cancelled = false;
+    setCommandCenterError("");
     fetchCommandCenterSummary(getSupabaseBrowserClient(), organizationId, siteFilter)
-      .then((summary) => { if (!cancelled) setCommandCenter(summary); })
-      .catch((error) => { if (!cancelled) console.error("Command Center site refresh failed", error); });
+      .then((summary) => { if (!cancelled) { setCommandCenter(summary); setCommandCenterError(""); } })
+      .catch(() => { if (!cancelled) setCommandCenterError("Live operational summary could not be refreshed. Some dashboard values may be stale."); });
     return () => { cancelled = true; };
   }, [workspace?.organization?.id, siteFilter]);
 
@@ -400,8 +402,8 @@ export default function DashboardClient() {
 
   let view;
   switch (routedActive) {
-    case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} onNavigate={navigate} />; break;
-    case "command-center": view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
+    case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} dataWarning={commandCenterError} onNavigate={navigate} />; break;
+    case "command-center": view = <><>{commandCenterError&&<div className="mgrv2-notice error">{commandCenterError}</div>}</><DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} /></>; break;
     case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
     case "enterprise-settings": view = <EnterpriseSettings organization={workspace?.organization} sites={sites} canManageHierarchy={platformAdmin || permissions?.view_enterprise_settings} canManagePolicy={platformAdmin || permissions?.manage_kpi_policy} canManageBranding={platformAdmin || permissions?.manage_branding} onBrandingChanged={refreshBranding} />; break;
     case "mobile-manager": view = <MobileManagerMode organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} canManage={platformAdmin || permissions?.manage_coaching || permissions?.manage_incidents} onOpenDriver={openDriver} onNavigate={navigate} />; break;
