@@ -482,7 +482,6 @@ export default function DashboardClient() {
         <div className="profile-menu-head"><b>{initials(session?.name||session?.email||"M")}</b><span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}{siteFilter!=="all"?` · ${siteFilter}`:""}</small></span></div>
         <div className="profile-menu-divider"/>
         <button onClick={()=>{setProfileMenuOpen(false);navigate("settings")}}><i>⚙</i><span><b>Settings</b><small>Account, password and preferences</small></span></button>
-        <button onClick={()=>{setProfileMenuOpen(false);navigate("notifications")}}><i>🔔</i><span><b>Notifications</b><small>Review your action feed</small></span></button>
         <div className="profile-menu-divider"/>
         <button className="profile-menu-logout" onClick={()=>{setProfileMenuOpen(false);logout()}}><i>↪</i><span><b>Log out</b><small>Sign out of MetrixIQ</small></span></button>
       </div>}
