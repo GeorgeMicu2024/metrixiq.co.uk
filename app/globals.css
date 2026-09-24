@@ -1827,3 +1827,12 @@
  .app-topbar .site-selector,.topbar-site-selector{min-height:52px!important;height:52px!important;align-items:center!important}
  .app-topbar .site-selector select,.topbar-site-selector select{line-height:1.2!important;padding-top:17px!important;padding-bottom:5px!important}
 }
+@media(max-width:700px){
+ .site-switcher.site-switcher-mockup{height:46px!important;min-height:46px!important;min-width:136px!important;max-width:150px!important;padding:4px 10px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;overflow:visible!important}
+ .site-switcher.site-switcher-mockup .site-switcher-mark{height:auto!important;line-height:1!important;margin-bottom:2px!important}
+ .site-switcher.site-switcher-mockup select{height:24px!important;line-height:24px!important;padding:0 18px 0 0!important;font-size:12px!important;overflow:visible!important}
+ .chat-compose.dm-compose{display:grid!important;grid-template-columns:34px minmax(0,1fr) 46px!important;gap:8px!important}
+ .chat-compose.dm-compose .chat-file-button{grid-column:1!important}
+ .chat-compose.dm-compose textarea{grid-column:2!important;min-height:46px!important;width:100%!important}
+ .chat-compose.dm-compose>button:last-child{grid-column:3!important;width:46px!important;height:46px!important;min-width:46px!important;padding:0!important}
+}
