@@ -1645,3 +1645,15 @@
 }
 .homev2-hero{height:176px}.homev2-greeting{padding-left:4px}.homev2-greeting h1{font-size:35px}.homev2-greeting p{font-size:15px}.homev2-kpis{gap:8px}.homev2-kpis button{min-height:104px}.homev2-grid{gap:8px}.homev2-quick>div{gap:7px}.homev2-bottom{gap:8px}
 @media(min-width:1440px){.app-shell{--mock-sidebar:232px}.homev2{padding-left:18px;padding-right:18px}.homev2-hero{margin-left:-18px;margin-right:-18px}.homev2-kpis button{min-height:108px}.homev2-grid{grid-template-columns:.9fr 1.1fr}}
+
+
+/* Approved mockup parity — desktop navigation rail */
+@media(min-width:901px){
+ .sidebar{width:218px;background:#081b2c;border-right:1px solid #183047;box-shadow:8px 0 26px rgba(3,13,23,.08)}
+ .sidebar-brand{height:72px;padding:0 15px;border-bottom:1px solid rgba(255,255,255,.075)}
+ .sidebar-brand .brand-mark{width:31px;height:31px;flex-basis:31px}.sidebar-brand .brand-word{font-size:17px}.sidebar-brand .sidebar-collapse{margin-left:auto;width:25px;height:25px;border:1px solid rgba(255,255,255,.1);border-radius:6px;background:#102b42;color:#91a5b6}
+ .app-nav{padding:10px 8px 18px}.nav-group{margin:0 0 5px}.nav-group-toggle{padding:7px 10px!important;margin:0!important;color:#60798e!important;font-size:8px!important;letter-spacing:.12em!important;border-radius:5px!important}.nav-group-toggle:hover{background:transparent!important}.nav-group-toggle b{font-weight:900}.nav-group-toggle span{margin-left:auto;font-size:9px}
+ .app-nav .nav-group>div>button{height:32px;padding:0 9px;margin:1px 0;border-radius:6px;font-size:10px;font-weight:700;color:#91a7b9;gap:8px}.app-nav .nav-group>div>button>span{width:18px;font-size:12px;color:#607f96}.app-nav .nav-group>div>button:hover{background:#102b41;color:#fff}.app-nav .nav-group>div>button.active{background:linear-gradient(90deg,#174361,#12354e);color:#fff;box-shadow:inset 2px 0 #63e0cc}.app-nav .nav-group>div>button.active>span{color:#66e3ce}
+ .app-body{margin-left:218px}.app-main{max-width:none;padding:28px 24px 68px}.topbar.topbar-mockup{padding-left:18px}
+ .sidebar.compact{width:72px}.sidebar.compact~.app-body{margin-left:72px}.sidebar.compact .sidebar-brand{padding:0 17px}.sidebar.compact .brand-word,.sidebar.compact .nav-group-toggle b,.sidebar.compact .nav-group-toggle span,.sidebar.compact .app-nav button i,.sidebar.compact .app-nav button em{display:none}.sidebar.compact .app-nav .nav-group>div>button{justify-content:center;padding:0}.sidebar.compact .app-nav .nav-group>div>button>span{width:auto}.sidebar.compact .sidebar-collapse{position:absolute;left:58px;top:23px;z-index:2}
+}
