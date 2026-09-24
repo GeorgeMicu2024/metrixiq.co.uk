@@ -67,11 +67,19 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
     if (!canManage || !driver?.dbId || statusBusy) return;
     setStatusBusy(driver.dbId); setError("");
     try {
-      const { error: updateError } = await getSupabaseBrowserClient().from("drivers").update({status:nextStatus,updated_at:new Date().toISOString()}).eq("organization_id",organizationId).eq("id",driver.dbId).select("id,status").single();
+      const { data, error: updateError } = await getSupabaseBrowserClient().rpc("set_driver_master_status", {
+        p_organization_id: organizationId,
+        p_driver_id: driver.dbId,
+        p_status: nextStatus,
+      });
       if (updateError) throw updateError;
-      setStatusOverrides((current) => ({...current,[driver.dbId]:nextStatus}));
-    } catch (e) { setError(e?.message || "Could not update driver status."); }
-    finally { setStatusBusy(""); }
+      if (data !== nextStatus) throw new Error("Status update was not confirmed by the database.");
+      setStatusOverrides((current) => ({ ...current, [driver.dbId]: nextStatus }));
+    } catch (e) {
+      setError(e?.message || "Could not update driver status.");
+    } finally {
+      setStatusBusy("");
+    }
   }
 
 
@@ -185,7 +193,7 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
         <span className="pro-filter-count">{rows.length} shown</span>
       </div>
       <div className="table-wrap"><table className="data-table pro-directory-table"><thead><tr><th>Driver</th>{showTridColumn&&<th>TRID</th>}<th>Home Site</th><th>Assigned Sites</th><th>Status</th><th /></tr></thead><tbody>
-        {rows.map((driver) => <tr key={driver.dbId || driver.id}><td><b>{driver.name || "Unresolved driver"}</b></td>{showTridColumn&&<td><code>{driver.id}</code></td>}<td>{canManage ? <select value={driver.homeSite||""} disabled={statusBusy===driver.dbId} onChange={e=>changeHomeSite(driver,e.target.value)}>{sites.map(site=><option key={site} value={site}>{site}</option>)}</select> : <span className="site-chip">{driver.homeSite||"Unassigned"}</span>}</td><td>{canManage ? <select value="" disabled={statusBusy===driver.dbId} onChange={e=>{if(e.target.value)toggleAssignedSite(driver,e.target.value);e.target.value="";}}><option value="">+ Assign site…</option>{sites.filter(site=>site!==driver.homeSite).map(site=><option key={site} value={site}>{driver.assignedSites.includes(site)?"Remove ":"Add "}{site}</option>)}</select> : null}<div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:5}}>{driver.assignedSites.map(site=><span className="site-chip" key={site}>{site}</span>)}</div></td><td>{canManage ? <select value={driver.status} disabled={statusBusy===driver.dbId} onChange={(e)=>changeStatus(driver,e.target.value)}>{STATUS_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select> : <span>{driver.status}</span>}</td><td><button className="profile-link" onClick={() => onOpenDriver?.(driver)}>Open →</button></td></tr>)}
+        {rows.map((driver) => <tr key={driver.dbId || driver.id}><td><b>{driver.name || "Unresolved driver"}</b></td>{showTridColumn&&<td><code>{driver.id}</code></td>}<td>{canManage ? <select value={driver.homeSite||""} disabled={statusBusy===driver.dbId} onChange={e=>changeHomeSite(driver,e.target.value)}>{sites.map(site=><option key={site} value={site}>{site}</option>)}</select> : <span className="site-chip">{driver.homeSite||"Unassigned"}</span>}</td><td>{canManage ? <select className="driver-site-select" value={driver.assignedSites.find(site=>site!==driver.homeSite)||driver.homeSite||""} disabled={statusBusy===driver.dbId} onChange={e=>{const site=e.target.value;if(site&&!driver.assignedSites.includes(site))toggleAssignedSite(driver,site);}}>{sites.map(site=><option key={site} value={site}>{site}</option>)}</select> : <span className="site-chip">{driver.assignedSites.join(", ")||"—"}</span>}</td><td>{canManage ? <select value={driver.status} disabled={statusBusy===driver.dbId} onChange={(e)=>changeStatus(driver,e.target.value)}>{STATUS_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select> : <span>{driver.status}</span>}</td><td><button className="profile-link" onClick={() => onOpenDriver?.(driver)}>Open →</button></td></tr>)}
         {!rows.length && <tr><td colSpan={showTridColumn?6:5}><div className="pro-empty-row">No drivers match the current filters.</div></td></tr>}
       </tbody></table></div>
     </section>
