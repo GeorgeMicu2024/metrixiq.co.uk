@@ -40,6 +40,7 @@ import ExecutiveAnalystV2 from "./intelligence/ExecutiveAnalystV2";
 import ImportCenterV2 from "./imports/ImportCenterV2";
 import NotificationsCenterV2 from "./notifications/NotificationsCenterV2";
 import ManagerChat from "./chat/ManagerChat";
+import ChatHeaderButton from "./chat/ChatHeaderButton";
 import NotificationsPageV2 from "./notifications/NotificationsPageV2";
 import ActionCenterV2 from "./automation/ActionCenterV2";
 import AutomationCenter from "./automation/AutomationCenter";
@@ -477,6 +478,7 @@ export default function DashboardClient() {
   <div className="topbar-controls">
     {workspaceOptions.length>1?<label className="workspace-switcher"><span>WORKSPACE</span><select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select></label>:null}
     <label className="site-switcher site-switcher-mockup" aria-label="Active site selector"><span className="site-switcher-mark">SITE</span><select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);}}><option value="all">All Sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}<option value="__add_site__">＋ Add new site</option></select><span className="site-switcher-chevron">⌄</span></label>
+    <ChatHeaderButton organizationId={workspace?.organization?.id} userId={session?.user?.id||session?.id} onOpen={()=>navigate("manager-chat")} />
     <NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={operationalRefreshKey} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate} />
     <div className="topbar-profile-wrap">
       <button className={profileMenuOpen?"topbar-profile active":"topbar-profile"} onClick={()=>setProfileMenuOpen(v=>!v)} aria-expanded={profileMenuOpen}><b>{initials(session?.name||session?.email||"M")}</b><span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}</small></span><em>⌄</em></button>
