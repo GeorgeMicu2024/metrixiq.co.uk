@@ -279,7 +279,18 @@ export default function MentorView({
   );
 
   const weeklyRows = useMemo(
-    () => filterRowsBySite(allWeeklyRows, siteFilter),
+    () => {
+      const selectedSite = String(siteFilter || "all").trim().toUpperCase();
+      if (selectedSite === "ALL") return allWeeklyRows;
+      // Activity Site is authoritative. Legacy null-site rows may only be
+      // attributed when the source evidence itself names the selected site.
+      return allWeeklyRows.filter((row) => {
+        const activitySite = String(row?.site || row?.raw_data?.activity_site || "").trim().toUpperCase();
+        if (activitySite) return activitySite === selectedSite;
+        const evidence = JSON.stringify(row?.raw_data?.source_files || []).toUpperCase();
+        return evidence.includes(selectedSite);
+      });
+    },
     [allWeeklyRows, siteFilter]
   );
   const dailyRows = useMemo(
