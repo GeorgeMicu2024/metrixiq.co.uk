@@ -178,7 +178,7 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
   return <div className="sitecmd-root">
     <header className="sitecmd-head">
       <div>
-        <span className="page-kicker">SCORECARDS · COMMAND VIEW</span>
+        <span className="page-kicker">DSP WEEKLY SCORECARD · COMMAND VIEW</span>
         <h1>{card.site || "Site"} performance</h1>
         <p>Weekly site scorecard, operational signals and trend evidence in one management view.</p>
       </div>
