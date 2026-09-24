@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import Brand from "./Brand";
+import { PLAN_CATALOG } from "../lib/config/plans";
 
 const benefits=["Improve compliance","Boost driver performance","Reduce operational risk"];
 const features=[
@@ -29,12 +30,13 @@ function SignInCard(){
 }
 
 export default function Landing(){
+ const plans=PLAN_CATALOG;
  return <main className="marketing mk-home">
   <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><a href="#solutions">Solutions</a><a href="#pricing">Pricing</a><a href="#resources">Resources</a><a href="#about">About</a></nav><div><Link href="/login">Sign in</Link><Link className="mk-get" href="/login?mode=register">Get started</Link></div></header>
   <section className="mk-hero"><div className="mk-hero-bg"/><div className="mk-hero-copy"><span>FLEET PERFORMANCE INTELLIGENCE</span><h1>Smarter data.<br/>Stronger teams.<br/><em>Better results.</em></h1><p>Turn operational data into real performance. MetrixIQ helps delivery operations monitor, analyse and improve driver and fleet performance with powerful AI-driven insights.</p><div className="mk-actions"><Link href="/login?mode=register">Get started <b>→</b></Link><a href="#solutions">▶ &nbsp; See how it works</a></div><div className="mk-benefits">{benefits.map((x,i)=><span key={x}>{i===1?"↗":"◇"} {x}</span>)}</div></div><div className="mk-script">Data<br/>People<br/>Performance<i/></div><SignInCard/></section>
   <section className="mk-stats">{[["↗","+25%","Driver performance"],["◷","-40%","Operational issues"],["◇","+30%","Compliance rate"],["♟","Happier","and more productive teams"]].map(x=><article key={x[1]}><i>{x[0]}</i><div><strong>{x[1]}</strong><span>{x[2]}</span></div></article>)}</section>
   <section id="solutions" className="mk-operations"><div className="mk-ops-copy"><small>TRUSTED BY FORWARD-THINKING DSPs</small><h2>Built for real operations.<br/><em>Designed for growth.</em></h2><p>From daily performance tracking to strategic decision-making, MetrixIQ gives you the tools to manage, coach and grow your fleet with confidence.</p><div className="mk-audience"><b>DELIVERY OPERATIONS</b><span>DSP OPERATORS</span><span>FLEET MANAGERS</span><span>OPERATIONS TEAMS</span></div></div><DashboardPreview/></section>
   <section id="features" className="mk-features">{features.map(x=><article key={x[1]}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</section>
-  <section className="mk-closing"><b>MetrixIQ.</b> More insight. A stronger tomorrow.</section>
+  <section id="pricing" className="mk-closing" data-plan-count={plans.length}><b>MetrixIQ.</b> More insight. A stronger tomorrow.</section>
  </main>
 }
