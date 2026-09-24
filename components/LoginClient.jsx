@@ -202,6 +202,7 @@ export default function LoginClient() {
         },
       });
       if (oauthError) throw oauthError;
+      redirectingRef.current = true;
     } catch (e) {
       setError(e?.message || `${provider} sign in is not available yet.`);
       setBusy(false);
