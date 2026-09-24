@@ -64,7 +64,7 @@ export default function NotificationsCenterV2({
     finally{setLoaded(true);}
   }
 
-  useEffect(()=>{setLoaded(false);load(true);},[organizationId,refreshKey]);
+  useEffect(()=>{setLoaded(false);load(false);},[organizationId,refreshKey]);
 
   useEffect(()=>{
     function outside(event){if(rootRef.current&&!rootRef.current.contains(event.target))setOpen(false);}
