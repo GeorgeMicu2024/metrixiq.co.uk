@@ -5,7 +5,7 @@ import { findIadcHeader } from "../lib/parsers/iadc.js";
 import { percentageMetric, rollingSeries } from "../lib/analyzer/html.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
-import { clean, inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
+import { clean, inferPeriod, normalizeSiteCode, numeric, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
 import { parseGenericMatrix, parseMentorAliasMatrix, parseMentorMatrix, parseScorecardMatrix } from "../lib/analyzer/spreadsheet.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
@@ -175,6 +175,16 @@ test("shared analyzer parsers remain runtime-safe across formats", () => {
 
   assert.equal(generic?.records?.length, 1);
   assert.equal(generic.records[0].metrics.dcr, 99.5);
+});
+
+test("canonical percentage normalization accepts fractions and rejects impossible KPI values", () => {
+  assert.equal(numeric("0.973", "dcr"), 97.3);
+  assert.equal(numeric("97.3%", "dcr"), 97.3);
+  assert.equal(numeric("0.82", "iadc"), 82);
+  assert.equal(numeric("82%", "iadc"), 82);
+  assert.equal(numeric("151", "iadc"), null);
+  assert.equal(numeric("-1", "dcr"), null);
+  assert.equal(numeric("151", "mentor_score"), 151);
 });
 
 test("DWC/IADC percentage parsing rejects impossible values and does not bleed into the next rolling chart", () => {
