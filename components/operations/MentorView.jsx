@@ -221,6 +221,7 @@ export default function MentorView({
   onImport,
   siteFilter = "all",
   onSiteFilterChange,
+  sites = [],
   refreshKey = 0,
 }) {
   const weeklyLoad = useOperationalRows(organizationId, "mentor", refreshKey);
@@ -277,17 +278,19 @@ export default function MentorView({
   const availableSites = useMemo(
     () =>
       [...new Set(
-        [...allDailyRows, ...allWeeklyRows]
-          .flatMap((row) => [
+        [
+          ...sites,
+          ...[...allDailyRows, ...allWeeklyRows].flatMap((row) => [
             row?.site,
             row?.drivers?.site,
             row?.raw_data?.activity_site,
             row?.raw_data?.mentor?.station,
-          ])
+          ]),
+        ]
           .map((value) => String(value || "").trim().toUpperCase())
-          .filter((value) => /^[A-Z]{2,5}\\d+$/.test(value))
+          .filter((value) => /^[A-Z]{2,5}\\d{1,3}$/.test(value))
       )].sort(),
-    [allDailyRows, allWeeklyRows]
+    [sites, allDailyRows, allWeeklyRows]
   );
 
   const weeklyRows = useMemo(
