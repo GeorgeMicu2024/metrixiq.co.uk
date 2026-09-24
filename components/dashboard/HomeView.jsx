@@ -8,7 +8,7 @@ function greet(){const h=new Date().getHours();return h<12?"Good morning":h<18?"
 function driverMetric(d,...keys){for(const k of keys){const n=safe(d?.[k]);if(n!=null)return n}return null}
 function mean(rows,...keys){const vals=rows.map(d=>driverMetric(d,...keys)).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
 
-export default function HomeView({session,drivers=[],kpis={},siteFilter="all",sites=[],commandCenter,dataWarning="",onNavigate}){
+export default function HomeView({session,drivers=[],kpis={},history=[],siteFilter="all",sites=[],commandCenter,dataWarning="",onNavigate}){
  const scope=siteFilter==="all"?"All Sites":siteFilter;
  const first=session?.name?.trim()?.split(/\s+/)?.[0]||"Manager";
  const mentorAvg=safe(kpis.ementor??kpis.fico);
@@ -29,6 +29,9 @@ export default function HomeView({session,drivers=[],kpis={},siteFilter="all",si
   ["gold","▤","Check recent incidents","Review new evidence and incident activity","evidence"],
  ];
  const siteRows=(siteFilter==="all"?sites:[siteFilter]).filter(Boolean).slice(0,5);
+ const mentorTrend=history.slice(-7).map((period)=>({label:period.weekLabel||period.key||"",value:safe(period.mentor)})).filter(x=>x.value!=null);
+ const mentorTrendMin=mentorTrend.length?Math.min(...mentorTrend.map(x=>x.value)):null;
+ const mentorTrendMax=mentorTrend.length?Math.max(...mentorTrend.map(x=>x.value)):null;
  const quick=[
   ["⇧","Daily Dispatch","Upload Wave Plan & Routes","daily-dispatch","blue"],
   ["▤","Import Reports","IADC, POD, DCR, eMentor","imports","green"],
@@ -47,7 +50,7 @@ export default function HomeView({session,drivers=[],kpis={},siteFilter="all",si
   <section className="panel homev2-quick"><h2>Quick Actions</h2><div>{quick.map(([icon,title,sub,to,tone])=><button className={tone} key={title} onClick={()=>onNavigate(to)}><i>{icon}</i><span><b>{title}</b><small>{sub}</small></span></button>)}</div></section>
   <section className="homev2-bottom">
    <article className="panel homev2-activity"><div className="homev2-title"><h2>Recent Activity</h2><button onClick={()=>onNavigate("audit")}>View All</button></div><div><span><i className="blue">⇧</i><b>Daily Dispatch ready</b><small>Wave Plan & ATLAS</small></span><span><i className="green">▤</i><b>Reports workspace</b><small>Import operational metrics</small></span><span><i className="purple">♟</i><b>Driver scorecards</b><small>{drivers.length} drivers in current scope</small></span><span><i className="orange">◇</i><b>Management actions</b><small>{belowMentor+iadcFail} metric exceptions detected</small></span></div></article>
-   <article className="panel homev2-trend"><div className="homev2-title"><h2>eMentor Snapshot ({scope})</h2><strong>{metric(mentorAvg,"fico")}</strong></div><div className="homev2-chart"><span style={{height:"52%"}}/><span style={{height:"67%"}}/><span style={{height:"45%"}}/><span style={{height:"73%"}}/><span style={{height:"63%"}}/><span style={{height:"58%"}}/><span style={{height:mentorAvg?Math.max(18,Math.min(88,(mentorAvg-700)/2))+"%":"25%"}}/></div><small>Target 815</small></article>
+   <article className="panel homev2-trend"><div className="homev2-title"><h2>eMentor Snapshot ({scope})</h2><strong>{metric(mentorAvg,"fico")}</strong></div><div className="homev2-chart">{mentorTrend.length?mentorTrend.map((point,index)=>{const range=Math.max(1,(mentorTrendMax??0)-(mentorTrendMin??0));const height=mentorTrend.length===1?65:30+((point.value-(mentorTrendMin??point.value))/range)*58;return <span key={`${point.label}-${index}`} title={`${point.label}: ${Math.round(point.value)}`} style={{height:`${height}%`}}/>}):<div className="homev2-trend-empty">No historical eMentor data yet</div>}</div><small>{mentorTrend.length?`${mentorTrend.length} reporting period${mentorTrend.length===1?"":"s"} · Target 815`:"Import weekly eMentor/FICO evidence to build the trend"}</small></article>
    <article className="panel homev2-compliance"><div className="homev2-title"><h2>IADC Compliance ({scope})</h2></div><div className="homev2-ring" style={{"--pct":Math.max(0,Math.min(100,iadcAvg||0))+"%"}}><div><strong>{metric(iadcAvg,"iadc")}</strong><small>Compliant</small></div></div><p><span><i className="ok"/>Target 80%+</span><span><i className="bad"/>{iadcFail} below target</span></p></article>
   </section>
  </div>;
