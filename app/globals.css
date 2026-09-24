@@ -1752,3 +1752,13 @@
 .topbar-mockup .notification-bell:hover,.topbar-mockup .notification-bell.active{border-color:#c7d3dc;background:#f7fafc}
 .topbar-mockup .notifications-popover{right:0;left:auto;top:50px;z-index:1200}
 @media(max-width:700px){.topbar-mockup .notification-bell{width:38px;height:38px}.topbar-mockup .notification-bell>span:before{font-size:17px}.topbar-mockup .notification-bell>b{right:-5px;top:-6px;min-width:18px;height:18px;font-size:7px}.topbar-mockup .notifications-popover{position:fixed;top:66px;right:8px;left:8px;width:auto;max-height:calc(100vh - 150px);overflow:auto}}
+
+
+/* Account profile dropdown */
+.topbar-profile-wrap{position:relative}
+.topbar-profile.active{background:#f5f8fa;border-radius:8px}
+.profile-menu{position:absolute;right:0;top:52px;width:310px;background:#fff;border:1px solid #dce4eb;border-radius:13px;box-shadow:0 18px 45px rgba(7,26,43,.2);padding:12px;z-index:1250}
+.profile-menu-head{display:grid;grid-template-columns:44px 1fr;gap:11px;align-items:center;padding:6px}.profile-menu-head>b{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#102f4d,#1e5a82);color:#fff;font-size:12px}.profile-menu-head>span{display:flex;flex-direction:column;min-width:0}.profile-menu-head strong{font-size:12px;color:#142b42;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.profile-menu-head small{font-size:9px;color:#7d8c9a;margin-top:3px;text-transform:capitalize}
+.profile-menu-divider{height:1px;background:#e7edf2;margin:9px 2px}
+.profile-menu>button{width:100%;border:0;background:transparent;border-radius:8px;padding:10px 8px;display:grid;grid-template-columns:30px 1fr;gap:7px;text-align:left;align-items:center;cursor:pointer}.profile-menu>button:hover{background:#f4f7f9}.profile-menu>button>i{font-style:normal;font-size:17px;color:#5d7082;text-align:center}.profile-menu>button>span{display:flex;flex-direction:column}.profile-menu>button b{font-size:11px;color:#20364b}.profile-menu>button small{font-size:8px;color:#8795a2;margin-top:2px}.profile-menu>button.profile-menu-logout b,.profile-menu>button.profile-menu-logout>i{color:#c73f4e}
+@media(max-width:700px){.profile-menu{position:fixed;top:66px;right:8px;width:min(330px,calc(100vw - 16px));border-radius:12px}.topbar-profile-wrap .topbar-profile{grid-template-columns:32px}.topbar-profile-wrap .topbar-profile>span,.topbar-profile-wrap .topbar-profile>em{display:none}}
