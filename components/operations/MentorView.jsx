@@ -579,9 +579,6 @@ export default function MentorView({
     );
   }
 
-  const top = [...scored].sort((a, b) => (b.score ?? -1) - (a.score ?? -1)).slice(0, 5);
-  const bottom = [...scored].sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity)).slice(0, 5);
-
   return (
     <>
       <div className="page-heading v10-heading">
@@ -619,29 +616,6 @@ export default function MentorView({
         <article className={below ? "warn" : ""}><span>Below target</span><strong>{below}</strong><small>{periodLabel}</small></article>
         <article><span>At / above target</span><strong>{passed}</strong><small>{TARGETS.mentor}+ required</small></article>
         <article><span>Driver records</span><strong>{activeRows.length}</strong><small>{siteLabel}</small></article>
-      </section>
-
-      <section className="dashboard-grid lower">
-        <article className="panel v10-rank-card">
-          <div className="panel-head"><div><h2>Top 5 eMentor</h2><p>Highest weekly FICO scores.</p></div></div>
-          {top.map((item, index) => (
-            <button key={item.id} onClick={() => onOpenDriver?.(openShape(item.row,{mentor_score:item.score,fico:item.score,ementor:item.score}))}>
-              <span className="rank-badge">{index + 1}</span>
-              <div><b>{dname(item.driver)}</b><small>{trid(item.driver)}</small></div>
-              <strong>{Math.round(item.score)}</strong>
-            </button>
-          ))}
-        </article>
-        <article className="panel v10-rank-card attention">
-          <div className="panel-head"><div><h2>Bottom 5 — attention</h2><p>Lowest weekly FICO scores.</p></div></div>
-          {bottom.map((item, index) => (
-            <button key={item.id} onClick={() => onOpenDriver?.(openShape(item.row,{mentor_score:item.score,fico:item.score,ementor:item.score,risk:"Medium",issue:"Mentor score below target"}))}>
-              <span className="rank-badge">{index + 1}</span>
-              <div><b>{dname(item.driver)}</b><small>{trid(item.driver)}</small></div>
-              <strong>{Math.round(item.score)}</strong>
-            </button>
-          ))}
-        </article>
       </section>
 
       <section className="panel mentor-weekly-table">
