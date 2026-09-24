@@ -342,12 +342,23 @@ export default function DashboardClient() {
     return () => { cancelled = true; };
   }, [workspace?.organization?.id, siteFilter]);
 
-  const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
+  const normalizedSiteFilter = validSiteCode(siteFilter);
+  const drivers = siteFilter === "all"
+    ? dbDrivers
+    : dbDrivers.filter((d) => validSiteCode(d.site) === normalizedSiteFilter);
   const visibleMetricHistoryRows = useMemo(
     () => siteFilter === "all"
       ? metricHistoryRows
-      : metricHistoryRows.filter((row) => String(row?.site || row?.drivers?.site || "").trim().toUpperCase() === siteFilter),
-    [metricHistoryRows, siteFilter]
+      : metricHistoryRows.filter((row) => {
+          const resolvedSite = [
+            row?.site,
+            row?.drivers?.site,
+            row?.raw_data?.activity_site,
+            row?.raw_data?.mentor?.station,
+          ].map(validSiteCode).find(Boolean);
+          return resolvedSite === normalizedSiteFilter;
+        }),
+    [metricHistoryRows, siteFilter, normalizedSiteFilter]
   );
   const visibleFleetHistory = useMemo(
     () => aggregateFleetHistory(visibleMetricHistoryRows),
@@ -449,7 +460,7 @@ export default function DashboardClient() {
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} />; break;
+    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} sites={sites} refreshKey={operationalRefreshKey} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
     case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
