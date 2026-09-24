@@ -1740,3 +1740,5 @@
 }
 
 .homev2-sites-empty{min-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px;color:#758697}.homev2-sites-empty b{font-size:11px;color:#31485e}.homev2-sites-empty small{font-size:9px;margin-top:4px}
+
+.homev2-trend-empty{height:100%;width:100%;display:flex;align-items:center;justify-content:center;text-align:center;color:#8796a4;font-size:9px;border:1px dashed #d9e3ea;border-radius:7px;background:#f8fafb;padding:10px}
