@@ -58,7 +58,7 @@ export default function NotificationsCenterV2({
     setError("");
     try{
       const supabase=getSupabaseBrowserClient();
-      if(refresh) await refreshNotificationsV2(supabase,organizationId);
+      if(refresh){try{await refreshNotificationsV2(supabase,organizationId);}catch(refreshError){console.warn("Notification refresh generator failed:",refreshError?.message);}}
       setRows(await fetchNotificationsV2(supabase,organizationId,80,null));
     }catch(e){setError(e?.message||"Could not load notifications.");}
     finally{setLoaded(true);}
