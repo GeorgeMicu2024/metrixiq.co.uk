@@ -198,7 +198,7 @@ export default function LoginClient() {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/app`,
+          redirectTo: `${window.location.origin}/app`,
         },
       });
       if (oauthError) throw oauthError;
