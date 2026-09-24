@@ -274,14 +274,28 @@ export default function DashboardClient() {
     return () => { cancelled = true; };
   }, [workspace?.organization?.id]);
 
+  const validSiteCode = (value) => {
+    const site = String(value || "").trim().toUpperCase();
+    return /^[A-Z]{2,5}\d{1,3}$/.test(site) ? site : "";
+  };
   const legacySites = dbDrivers
-    .map((d) => String(d.site || "").trim().toUpperCase())
-    .filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site));
+    .map((d) => validSiteCode(d.site))
+    .filter(Boolean);
   const registeredSites = siteRegistry
     .filter((row) => row.active !== false)
-    .map((row) => String(row.site || "").trim().toUpperCase())
-    .filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site));
-  const sites = [...new Set([...legacySites, ...registeredSites])].sort();
+    .flatMap((row) => [row.site, row.site_code, row.code, row.station_code])
+    .map(validSiteCode)
+    .filter(Boolean);
+  const evidenceSites = metricHistoryRows
+    .flatMap((row) => [
+      row?.site,
+      row?.drivers?.site,
+      row?.raw_data?.activity_site,
+      row?.raw_data?.mentor?.station,
+    ])
+    .map(validSiteCode)
+    .filter(Boolean);
+  const sites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])].sort();
 
   async function createSiteFromDashboard() {
     const organizationId = workspace?.organization?.id;
