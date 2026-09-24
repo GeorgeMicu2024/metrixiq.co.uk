@@ -151,6 +151,9 @@ export default function DashboardClient() {
     setWorkspaceOptions(resolved.workspaces || []);
     setBranding(brandingState || null);
     setSession({
+      id: user.id,
+      user_id: user.id,
+      user: { id: user.id, email: user.email || "" },
       name: profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "MetrixIQ User",
       email: profile?.email || user.email || "",
       organisation: resolved.organization.name,
