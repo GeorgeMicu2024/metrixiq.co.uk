@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Brand from "./Brand";
@@ -19,6 +19,7 @@ export default function LoginClient() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const redirectingRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -35,7 +36,7 @@ export default function LoginClient() {
       }
       const supabase = getSupabaseBrowserClient();
       supabase.auth.getSession().then(({ data }) => {
-        if (data.session) router.replace("/app");
+        if (data.session && !redirectingRef.current) { redirectingRef.current = true; router.replace("/app"); }
       });
     } catch (e) {
       setError(e?.message || "Authentication is not configured.");
@@ -108,6 +109,7 @@ export default function LoginClient() {
         if (signInError) throw signInError;
 
         setNotice(`Account created. Joining ${result?.organization_name || "your workspace"}…`);
+        redirectingRef.current = true;
         router.replace("/app");
         return;
       }
@@ -134,6 +136,7 @@ export default function LoginClient() {
 
         if (signUpError) throw signUpError;
         if (data.session) {
+          redirectingRef.current = true;
           router.replace("/app");
           return;
         }
@@ -147,11 +150,12 @@ export default function LoginClient() {
         "Sign-in timed out. Please try again."
       );
       if (signInError) throw signInError;
+      redirectingRef.current = true;
       router.replace("/app");
     } catch (e) {
       setError(e?.message || "Authentication failed. Please try again.");
     } finally {
-      setBusy(false);
+      if (!redirectingRef.current) setBusy(false);
     }
   }
 
