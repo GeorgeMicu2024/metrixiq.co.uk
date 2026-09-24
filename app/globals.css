@@ -1836,3 +1836,20 @@
  .chat-compose.dm-compose textarea{grid-column:2!important;min-height:46px!important;width:100%!important}
  .chat-compose.dm-compose>button:last-child{grid-column:3!important;width:46px!important;height:46px!important;min-width:46px!important;padding:0!important}
 }
+/* Driver Master — compact workforce overview */
+.driver-workforce-overview{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:18px 0 22px}
+.driver-stat-card{appearance:none;text-align:left;border:1px solid rgba(148,163,184,.2);border-radius:18px;background:#13263f;color:#fff;padding:17px 18px;min-height:126px;box-shadow:0 8px 24px rgba(15,23,42,.08);position:relative;overflow:hidden}
+button.driver-stat-card{cursor:pointer;font:inherit}
+.driver-stat-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:#64748b}
+.driver-stat-card span{display:block;font-size:11px;line-height:1.2;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#aebed1;margin-bottom:9px}
+.driver-stat-card strong{display:block;font-size:30px;line-height:1;font-weight:800;letter-spacing:-.04em}
+.driver-stat-card small{display:block;margin-top:10px;font-size:12px;line-height:1.25;color:#b9c7d7}
+.driver-stat-card.is-active:before{background:#22c55e}.driver-stat-card.is-active strong{color:#86efac}
+.driver-stat-card.is-inactive:before{background:#f59e0b}.driver-stat-card.is-inactive strong{color:#fcd34d}
+.driver-stat-card.is-offboarded:before{background:#ef4444}.driver-stat-card.is-offboarded strong{color:#fca5a5}
+.driver-stat-card.is-left:before{background:#a855f7}.driver-stat-card.is-left strong{color:#d8b4fe}
+.driver-stat-card.is-sites:before{background:#3b82f6}.driver-stat-card.is-sites strong{color:#93c5fd}
+.driver-stat-card.is-cross:before{background:#14b8a6}.driver-stat-card.is-cross strong{color:#99f6e4}
+button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,163,184,.38)}
+@media(max-width:1100px){.driver-workforce-overview{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.driver-workforce-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 18px}.driver-stat-card{min-height:105px;padding:14px;border-radius:16px}.driver-stat-card strong{font-size:27px}.driver-stat-card small{font-size:11px;margin-top:8px}}
