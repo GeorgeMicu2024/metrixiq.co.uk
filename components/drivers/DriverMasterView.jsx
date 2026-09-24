@@ -10,6 +10,8 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
   const [assignments, setAssignments] = useState([]);
   const [query, setQuery] = useState("");
   const [homeFilter, setHomeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("active");
+  const [statusBusy, setStatusBusy] = useState("");
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,12 +45,26 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
     const assigned = assignmentByDriver.get(driver.dbId) || { home: "", sites: [] };
     const homeSite = assigned.home || upper(driver.site);
     const assignedSites = assigned.sites.length ? assigned.sites : (homeSite ? [homeSite] : []);
-    return { ...driver, homeSite, assignedSites };
+    return { ...driver, status: clean(driver.status || "active").toLowerCase(), homeSite, assignedSites };
   }).filter((driver) => {
     const haystack = [driver.name, driver.id, driver.homeSite, ...(driver.assignedSites || [])].join(" ").toLowerCase();
     if (!haystack.includes(query.toLowerCase())) return false;
+    if (statusFilter !== "all" && driver.status !== statusFilter) return false;
     return homeFilter === "all" || driver.homeSite === homeFilter;
-  }), [legacyDrivers, assignmentByDriver, query, homeFilter]);
+  }), [legacyDrivers, assignmentByDriver, query, homeFilter, statusFilter]);
+
+  async function changeStatus(driver, nextStatus) {
+    if (!canManage || !driver?.dbId || statusBusy) return;
+    setStatusBusy(driver.dbId); setError("");
+    try {
+      const { error: updateError } = await getSupabaseBrowserClient().from("drivers")
+        .update({ status: nextStatus, updated_at: new Date().toISOString() })
+        .eq("organization_id", organizationId).eq("id", driver.dbId);
+      if (updateError) throw updateError;
+      window.location.reload();
+    } catch (e) { setError(e?.message || "Could not update driver status."); }
+    finally { setStatusBusy(""); }
+  }
 
   function toggleAdditional(site) {
     setDraft((current) => ({
@@ -115,7 +131,7 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
     </div>
 
     <section className="pro-kpi-grid">
-      <article><span>Master identities</span><strong>{legacyDrivers.length}</strong><small>Unique workspace drivers</small></article>
+      <article><span>Active drivers</span><strong>{legacyDrivers.filter((d) => clean(d.status || "active").toLowerCase() === "active").length}</strong><small>Current active workforce</small></article>
       <article><span>Explicit assignments</span><strong>{new Set(assignments.map((x) => x.driver_id)).size}</strong><small>Driver Master V1 records</small></article>
       <article><span>Sites</span><strong>{sites.length}</strong><small>Available stations</small></article>
       <article><span>Cross-site</span><strong>{[...assignmentByDriver.values()].filter((x) => x.sites.length > 1).length}</strong><small>Drivers assigned to 2+ sites</small></article>
@@ -125,10 +141,11 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
       <div className="pro-filterbar">
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, TRID or site…" />
         <select value={homeFilter} onChange={(e) => setHomeFilter(e.target.value)}><option value="all">All home sites</option>{sites.map((site) => <option key={site}>{site}</option>)}</select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option><option value="offboarded">Offboarded</option><option value="all">All statuses</option></select>
         <span className="pro-filter-count">{rows.length} shown</span>
       </div>
       <div className="table-wrap"><table className="data-table pro-directory-table"><thead><tr><th>Driver</th><th>TRID</th><th>Home Site</th><th>Assigned Sites</th><th>Status</th><th /></tr></thead><tbody>
-        {rows.map((driver) => <tr key={driver.dbId || driver.id}><td><b>{driver.name || "Unresolved driver"}</b></td><td><code>{driver.id}</code></td><td><span className="site-chip">{driver.homeSite || "Unassigned"}</span></td><td>{driver.assignedSites.length ? driver.assignedSites.map((site) => <span className="site-chip" key={site} style={{marginRight:6}}>{site}</span>) : "—"}</td><td>{driver.status || "active"}</td><td><button className="profile-link" onClick={() => onOpenDriver?.(driver)}>Open →</button></td></tr>)}
+        {rows.map((driver) => <tr key={driver.dbId || driver.id}><td><b>{driver.name || "Unresolved driver"}</b></td><td><code>{driver.id}</code></td><td><span className="site-chip">{driver.homeSite || "Unassigned"}</span></td><td>{driver.assignedSites.length ? driver.assignedSites.map((site) => <span className="site-chip" key={site} style={{marginRight:6}}>{site}</span>) : "—"}</td><td>{canManage ? <select value={driver.status} disabled={statusBusy===driver.dbId} onChange={(e)=>changeStatus(driver,e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option><option value="offboarded">Offboarded</option></select> : <span>{driver.status}</span>}</td><td><button className="profile-link" onClick={() => onOpenDriver?.(driver)}>Open →</button></td></tr>)}
         {!rows.length && <tr><td colSpan={6}><div className="pro-empty-row">No drivers match the current filters.</div></td></tr>}
       </tbody></table></div>
     </section>
