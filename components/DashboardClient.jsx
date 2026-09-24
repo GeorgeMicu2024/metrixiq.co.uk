@@ -39,6 +39,7 @@ import ReportBuilderV2 from "./reports/ReportBuilderV2";
 import ExecutiveAnalystV2 from "./intelligence/ExecutiveAnalystV2";
 import ImportCenterV2 from "./imports/ImportCenterV2";
 import NotificationsCenterV2 from "./notifications/NotificationsCenterV2";
+import ManagerChat from "./chat/ManagerChat";
 import NotificationsPageV2 from "./notifications/NotificationsPageV2";
 import ActionCenterV2 from "./automation/ActionCenterV2";
 import AutomationCenter from "./automation/AutomationCenter";
@@ -404,6 +405,7 @@ export default function DashboardClient() {
   let view;
   switch (routedActive) {
     case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} dataWarning={commandCenterError} onNavigate={navigate} />; break;
+    case "manager-chat": view = <ManagerChat organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} session={session} />; break;
     case "command-center": view = <><>{commandCenterError&&<div className="mgrv2-notice error">{commandCenterError}</div>}</><DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} /></>; break;
     case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
     case "enterprise-settings": view = <EnterpriseSettings organization={workspace?.organization} sites={sites} canManageHierarchy={platformAdmin || permissions?.view_enterprise_settings} canManagePolicy={platformAdmin || permissions?.manage_kpi_policy} canManageBranding={platformAdmin || permissions?.manage_branding} onBrandingChanged={refreshBranding} />; break;
