@@ -34,6 +34,7 @@ import { mapScorecardRow } from "../lib/data/scorecards";
 import { persistWorkspaceImport } from "../lib/data/importWorkflow";
 import { autoReassessAiInterventions, refreshSlaEscalations, runAutomationEngine } from "../lib/data/automationV8";
 import { DashboardView } from "./dashboard/DashboardViews";
+import HomeView from "./dashboard/HomeView";
 import ReportBuilderV2 from "./reports/ReportBuilderV2";
 import ExecutiveAnalystV2 from "./intelligence/ExecutiveAnalystV2";
 import ImportCenterV2 from "./imports/ImportCenterV2";
@@ -399,6 +400,8 @@ export default function DashboardClient() {
 
   let view;
   switch (routedActive) {
+    case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} onNavigate={navigate} />; break;
+    case "command-center": view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
     case "enterprise-settings": view = <EnterpriseSettings organization={workspace?.organization} sites={sites} canManageHierarchy={platformAdmin || permissions?.view_enterprise_settings} canManagePolicy={platformAdmin || permissions?.manage_kpi_policy} canManageBranding={platformAdmin || permissions?.manage_branding} onBrandingChanged={refreshBranding} />; break;
     case "mobile-manager": view = <MobileManagerMode organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} canManage={platformAdmin || permissions?.manage_coaching || permissions?.manage_incidents} onOpenDriver={openDriver} onNavigate={navigate} />; break;
