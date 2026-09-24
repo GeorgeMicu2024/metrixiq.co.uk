@@ -18,7 +18,7 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
   const [query, setQuery] = useState("");
   const [homeFilter, setHomeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("active");
-  const [tridFilter, setTridFilter] = useState("");
+  const [hideTridColumn, setHideTridColumn] = useState(false);
   const [statusOverrides, setStatusOverrides] = useState({});
   const [statusBusy, setStatusBusy] = useState("");
   const [showTridColumn, setShowTridColumn] = useState(true);
@@ -58,11 +58,10 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
     return { ...driver, status: statusOverrides[driver.dbId] || clean(driver.status || "active").toLowerCase(), homeSite, assignedSites };
   }).filter((driver) => {
     const haystack = [driver.name, driver.id, driver.homeSite, ...(driver.assignedSites || [])].join(" ").toLowerCase();
-    if (tridFilter && !clean(driver.id).toLowerCase().includes(tridFilter.toLowerCase())) return false;
     if (!haystack.includes(query.toLowerCase())) return false;
     if (statusFilter !== "all" && driver.status !== statusFilter) return false;
     return homeFilter === "all" || driver.homeSite === homeFilter;
-  }), [legacyDrivers, assignmentByDriver, query, homeFilter, statusFilter, tridFilter, statusOverrides]);
+  }), [legacyDrivers, assignmentByDriver, query, homeFilter, statusFilter, statusOverrides]);
 
   async function changeStatus(driver, nextStatus) {
     if (!canManage || !driver?.dbId || statusBusy) return;
