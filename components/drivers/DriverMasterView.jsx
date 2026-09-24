@@ -18,6 +18,8 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
   const [query, setQuery] = useState("");
   const [homeFilter, setHomeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("active");
+  const [tridFilter, setTridFilter] = useState("");
+  const [statusOverrides, setStatusOverrides] = useState({});
   const [statusBusy, setStatusBusy] = useState("");
   const [hiddenTrids, setHiddenTrids] = useState(() => new Set());
   const [open, setOpen] = useState(false);
@@ -53,25 +55,23 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
     const assigned = assignmentByDriver.get(driver.dbId) || { home: "", sites: [] };
     const homeSite = assigned.home || upper(driver.site);
     const assignedSites = assigned.sites.length ? assigned.sites : (homeSite ? [homeSite] : []);
-    return { ...driver, status: clean(driver.status || "active").toLowerCase(), homeSite, assignedSites };
+    return { ...driver, status: statusOverrides[driver.dbId] || clean(driver.status || "active").toLowerCase(), homeSite, assignedSites };
   }).filter((driver) => {
     const haystack = [driver.name, driver.id, driver.homeSite, ...(driver.assignedSites || [])].join(" ").toLowerCase();
     if (hiddenTrids.has(driver.dbId)) return false;
+    if (tridFilter && !clean(driver.id).toLowerCase().includes(tridFilter.toLowerCase())) return false;
     if (!haystack.includes(query.toLowerCase())) return false;
     if (statusFilter !== "all" && driver.status !== statusFilter) return false;
     return homeFilter === "all" || driver.homeSite === homeFilter;
-  }), [legacyDrivers, assignmentByDriver, query, homeFilter, statusFilter, hiddenTrids]);
+  }), [legacyDrivers, assignmentByDriver, query, homeFilter, statusFilter, hiddenTrids, tridFilter, statusOverrides]);
 
   async function changeStatus(driver, nextStatus) {
     if (!canManage || !driver?.dbId || statusBusy) return;
     setStatusBusy(driver.dbId); setError("");
     try {
-      const { error: updateError } = await getSupabaseBrowserClient().from("drivers")
-        .update({ status: nextStatus, updated_at: new Date().toISOString() })
-        .eq("organization_id", organizationId).eq("id", driver.dbId);
+      const { error: updateError } = await getSupabaseBrowserClient().rpc("update_driver_master", { p_organization_id: organizationId, p_driver_id: driver.dbId, p_status: nextStatus, p_home_site: null });
       if (updateError) throw updateError;
-      driver.status = nextStatus;
-      setStatusFilter((current) => current);
+      setStatusOverrides((current) => ({...current,[driver.dbId]:nextStatus}));
     } catch (e) { setError(e?.message || "Could not update driver status."); }
     finally { setStatusBusy(""); }
   }
@@ -82,7 +82,7 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
     setStatusBusy(driver.dbId); setError("");
     const supabase = getSupabaseBrowserClient();
     try {
-      const { error: driverError } = await supabase.from("drivers").update({ site: nextSite, updated_at: new Date().toISOString() }).eq("organization_id", organizationId).eq("id", driver.dbId);
+      const { error: driverError } = await supabase.rpc("update_driver_master",{p_organization_id:organizationId,p_driver_id:driver.dbId,p_status:null,p_home_site:nextSite});
       if (driverError) throw driverError;
       await supabase.from("driver_site_assignments").update({ is_home:false }).eq("organization_id",organizationId).eq("driver_id",driver.dbId);
       const { error: assignError } = await supabase.from("driver_site_assignments").upsert({ organization_id:organizationId,driver_id:driver.dbId,site:nextSite,is_home:true,active:true,valid_from:new Date().toISOString().slice(0,10) }, { onConflict:"organization_id,driver_id,site" });
@@ -170,7 +170,9 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
     </div>
 
     <section className="pro-kpi-grid">
-      <article><span>Active drivers</span><strong>{legacyDrivers.filter((d) => clean(d.status || "active").toLowerCase() === "active").length}</strong><small>Current active workforce</small></article>
+      <article><span>Active</span><strong>{legacyDrivers.filter((d) => (statusOverrides[d.dbId] || clean(d.status || "active").toLowerCase()) === "active").length}</strong><small>Current workforce</small></article>
+      <article><span>Inactive</span><strong>{legacyDrivers.filter((d) => (statusOverrides[d.dbId] || clean(d.status || "active").toLowerCase()) === "inactive").length}</strong><small>Temporarily inactive</small></article>
+      <article><span>Offboarded</span><strong>{legacyDrivers.filter((d) => ["offboarded","terminated","resigned"].includes(statusOverrides[d.dbId] || clean(d.status || "active").toLowerCase())).length}</strong><small>Left workforce</small></article>
       <article><span>Explicit assignments</span><strong>{new Set(assignments.map((x) => x.driver_id)).size}</strong><small>Driver Master V1 records</small></article>
       <article><span>Sites</span><strong>{sites.length}</strong><small>Available stations</small></article>
       <article><span>Cross-site</span><strong>{[...assignmentByDriver.values()].filter((x) => x.sites.length > 1).length}</strong><small>Drivers assigned to 2+ sites</small></article>
@@ -178,7 +180,8 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
 
     <section className="panel pro-table-panel">
       <div className="pro-filterbar">
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name, TRID or site…" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search name or site…" />
+        <input value={tridFilter} onChange={(e)=>setTridFilter(e.target.value)} placeholder="Filter TRID…" />
         <select value={homeFilter} onChange={(e) => setHomeFilter(e.target.value)}><option value="all">All home sites</option>{sites.map((site) => <option key={site}>{site}</option>)}</select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>{STATUS_OPTIONS.map(([value,label]) => <option key={value} value={value}>{label}</option>)}<option value="all">All statuses</option></select>
         <span className="pro-filter-count">{rows.length} shown</span>
