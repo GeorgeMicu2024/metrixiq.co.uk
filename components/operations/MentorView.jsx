@@ -278,8 +278,14 @@ export default function MentorView({
     () =>
       [...new Set(
         [...allDailyRows, ...allWeeklyRows]
-          .map((row) => String(row?.drivers?.site || "").trim().toUpperCase())
-          .filter(Boolean)
+          .flatMap((row) => [
+            row?.site,
+            row?.drivers?.site,
+            row?.raw_data?.activity_site,
+            row?.raw_data?.mentor?.station,
+          ])
+          .map((value) => String(value || "").trim().toUpperCase())
+          .filter((value) => /^[A-Z]{2,5}\\d+$/.test(value))
       )].sort(),
     [allDailyRows, allWeeklyRows]
   );
@@ -587,11 +593,11 @@ export default function MentorView({
 
   return (
     <>
-      <div className="page-heading v10-heading">
+      <div className="page-heading v10-heading mentor-weekly-heading">
         <div>
-          <span className="page-kicker">SCORECARD</span>
-          <h1>Weekly eMentor / FICO</h1>
-          <p>Weekly eMentor evidence stored in the FICO position of the Driver Scorecard.</p>
+          <span className="page-kicker">EMENTOR SAFETY · WEEKLY</span>
+          <h1>Weekly eMentor Performance</h1>
+          <p>{siteLabel} · {periodLabel} · minimum required score {TARGETS.mentor}+</p>
         </div>
         <div className="mentor-view-actions">
           <div className="mentor-mode-tabs">
@@ -617,7 +623,7 @@ export default function MentorView({
         </div>
       </div>
 
-      <section className="v10-kpi-grid">
+      <section className="v10-kpi-grid mentor-weekly-kpis">
         <article><span>Average score</span><strong>{average == null ? "—" : Math.round(average)}</strong><small>{targetLabel("mentor")}</small></article>
         <article className={below ? "warn" : ""}><span>Below target</span><strong>{below}</strong><small>{periodLabel}</small></article>
         <article><span>At / above target</span><strong>{passed}</strong><small>{TARGETS.mentor}+ required</small></article>
@@ -626,7 +632,7 @@ export default function MentorView({
 
       <section className="panel mentor-weekly-table">
         <div className="panel-head">
-          <div><h2>Weekly FICO register</h2><p>{periodLabel} · {siteLabel}</p></div>
+          <div><span className="page-kicker">DRIVER RANKING</span><h2>Weekly eMentor leaderboard</h2><p>{periodLabel} · {siteLabel} · sorted by your selected column</p></div>
         </div>
         <MentorReportTable rows={visibleRows} sort={sort} onSort={toggleSort} onOpenDriver={onOpenDriver} />
       </section>
