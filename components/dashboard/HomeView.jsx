@@ -5,7 +5,7 @@ import { avg, fmt } from "./utils";
 function value(v, metric){ return v==null||Number.isNaN(Number(v))?"—":fmt(v,metric); }
 function greeting(){ const h=new Date().getHours(); return h<12?"Good morning":h<18?"Good afternoon":"Good evening"; }
 
-export default function HomeView({session,drivers=[],kpis={},siteFilter="all",sites=[],commandCenter,onNavigate}){
+export default function HomeView({session,drivers=[],kpis={},siteFilter="all",sites=[],commandCenter,dataWarning="",onNavigate}){
   const siteLabel=siteFilter==="all"?"All Sites":siteFilter;
   const belowMentor=drivers.filter(d=>Number(d.mentor_score??d.ementor??d.fico)<815).length;
   const iadcFail=drivers.filter(d=>Number(d.iadc)<80).length;
@@ -31,7 +31,7 @@ export default function HomeView({session,drivers=[],kpis={},siteFilter="all",si
     ["ATLAS","Process tracking IDs & drivers","daily-dispatch","cyan"],
   ];
   const siteRows=(sites.length?sites:[siteFilter!=="all"?siteFilter:"DLS2"]).slice(0,5);
-  return <div className="homev1">
+  return <div className="homev1">{dataWarning&&<div className="mgrv2-notice error">{dataWarning}</div>}
     <section className="homev1-hero"><div><span className="page-kicker">HOME · {siteLabel.toUpperCase()}</span><h1>{greeting()}, {session?.name?.split(" ")[0]||"Manager"}</h1><p>Here’s today’s operational overview for {siteLabel}.</p></div><button className="btn primary" onClick={()=>onNavigate("command-center")}>Open Command Center →</button></section>
     <section className="homev1-kpis">{cards.map(([label,val,note,key])=><button key={key} onClick={()=>onNavigate(key==="people"?"drivers":key)}><span>{label}</span><strong>{val}</strong><small>{note}</small></button>)}</section>
     <section className="homev1-main">
