@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+
 import { getSupabaseBrowserClient } from "../../../lib/supabase/client";
 
 function safeInternalPath(value) {
@@ -20,8 +20,6 @@ function safeInternalPath(value) {
 }
 
 export default function AuthCallbackPage() {
-  const router = useRouter();
-
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     const requestedNext = new URLSearchParams(window.location.search).get("next");
@@ -32,27 +30,27 @@ export default function AuthCallbackPage() {
       const { data, error } = await supabase.auth.getSession();
       if (!active) return;
       if (error) {
-        router.replace(`/login?auth_error=${encodeURIComponent(error.message || "Authentication failed")}`);
+        window.location.replace(`/login?auth_error=${encodeURIComponent(error.message || "Authentication failed")}`);
         return;
       }
       if (data.session) {
-        router.replace(next);
+        window.location.replace(next);
         return;
       }
-      window.setTimeout(() => { if (active) router.replace("/login?auth_error=Authentication%20confirmation%20timed%20out"); }, 2500);
+      window.setTimeout(() => { if (active) window.location.replace("/login?auth_error=Authentication%20confirmation%20timed%20out"); }, 2500);
     }
 
     complete();
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
-      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) router.replace(next);
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session) window.location.replace(next);
     });
 
     return () => {
       active = false;
       listener.subscription.unsubscribe();
     };
-  }, [router]);
+  }, []);
 
   return <main className="oauth-handoff" aria-label="Completing sign in" />;
 }
