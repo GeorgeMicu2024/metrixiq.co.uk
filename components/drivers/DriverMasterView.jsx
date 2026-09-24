@@ -169,13 +169,13 @@ export default function DriverMasterView({ organizationId, sites = [], legacyDri
       {canManage && <button className="btn primary" onClick={() => { setError(""); setOpen(true); }}>＋ Add driver</button>}
     </div>
 
-    <section className="pro-kpi-grid">
-      <article><span>Active</span><strong>{legacyDrivers.filter((d) => (statusOverrides[d.dbId] || clean(d.status || "active").toLowerCase()) === "active").length}</strong><small>Current workforce</small></article>
-      <article><span>Inactive</span><strong>{legacyDrivers.filter((d) => (statusOverrides[d.dbId] || clean(d.status || "active").toLowerCase()) === "inactive").length}</strong><small>Temporarily inactive</small></article>
-      <article><span>Offboarded</span><strong>{legacyDrivers.filter((d) => ["offboarded","terminated","resigned"].includes(statusOverrides[d.dbId] || clean(d.status || "active").toLowerCase())).length}</strong><small>Left workforce</small></article>
-      <article><span>Explicit assignments</span><strong>{new Set(assignments.map((x) => x.driver_id)).size}</strong><small>Driver Master V1 records</small></article>
-      <article><span>Sites</span><strong>{sites.length}</strong><small>Available stations</small></article>
-      <article><span>Cross-site</span><strong>{[...assignmentByDriver.values()].filter((x) => x.sites.length > 1).length}</strong><small>Drivers assigned to 2+ sites</small></article>
+    <section className="driver-workforce-overview" aria-label="Workforce overview">
+      <button className="driver-stat-card is-active" onClick={()=>setStatusFilter("active")}><span>Active</span><strong>{legacyDrivers.filter((d)=>(statusOverrides[d.dbId]||clean(d.status||"active").toLowerCase())==="active").length}</strong><small>Current workforce</small></button>
+      <button className="driver-stat-card is-inactive" onClick={()=>setStatusFilter("inactive")}><span>Inactive</span><strong>{legacyDrivers.filter((d)=>(statusOverrides[d.dbId]||clean(d.status||"active").toLowerCase())==="inactive").length}</strong><small>Temporarily inactive</small></button>
+      <button className="driver-stat-card is-offboarded" onClick={()=>setStatusFilter("offboarded")}><span>Offboarded</span><strong>{legacyDrivers.filter((d)=>(statusOverrides[d.dbId]||clean(d.status||"active").toLowerCase())==="offboarded").length}</strong><small>Offboarded drivers</small></button>
+      <button className="driver-stat-card is-left" onClick={()=>setStatusFilter("all")}><span>Fired / Resigned</span><strong>{legacyDrivers.filter((d)=>["terminated","resigned"].includes(statusOverrides[d.dbId]||clean(d.status||"active").toLowerCase())).length}</strong><small>Left workforce</small></button>
+      <div className="driver-stat-card is-sites"><span>Sites</span><strong>{sites.length}</strong><small>Available stations</small></div>
+      <div className="driver-stat-card is-cross"><span>Cross-site</span><strong>{[...assignmentByDriver.values()].filter((x)=>x.sites.length>1).length}</strong><small>Assigned to 2+ sites</small></div>
     </section>
 
     <section className="panel pro-table-panel">
