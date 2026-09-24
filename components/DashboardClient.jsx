@@ -433,7 +433,7 @@ export default function DashboardClient() {
 
   let view;
   switch (routedActive) {
-    case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} dataWarning={commandCenterError} onNavigate={navigate} />; break;
+    case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} history={visibleFleetHistory} metricRows={visibleMetricHistoryRows} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} dataWarning={commandCenterError} onNavigate={navigate} />; break;
     case "manager-chat": view = <ManagerChat organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} session={session} />; break;
     case "command-center": view = <><>{commandCenterError&&<div className="mgrv2-notice error">{commandCenterError}</div>}</><DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} /></>; break;
     case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
