@@ -43,7 +43,13 @@ function formatDate(value) {
 }
 
 function splitDriverName(driver) {
-  const fullName = String(dname(driver) || "").trim();
+  // Some identity sources append the activity station to full_name
+  // (for example "Nicholas Elliott Ormerod • DLS2"). Station codes are
+  // metadata, never a surname, so strip only the explicit bullet suffix.
+  const rawName = String(dname(driver) || "").trim();
+  const fullName = rawName
+    .replace(/\s*[•·]\s*[A-Z]{2,5}\d+\s*$/i, "")
+    .trim();
   const parts = fullName.split(/\s+/).filter(Boolean);
   if (parts.length <= 1) return { firstName: fullName || "Unresolved", lastName: "—" };
   return {
