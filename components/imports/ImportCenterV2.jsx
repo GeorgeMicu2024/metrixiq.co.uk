@@ -82,12 +82,23 @@ async function reconcileMentorPreview(result,organizationId,activitySite){
   const siteDriverIds=new Set(siteDrivers.map((driver)=>driver.id));
   const siteAliases=(aliases||[]).filter((alias)=>siteDriverIds.has(alias.driver_id));
   const indexes=buildIdentityIndexes(siteDrivers,siteAliases);
+  const mentorAliasDriverByHash=new Map();
+  for(const alias of siteAliases){
+    if(alias.alias_type!=="mentor_hash")continue;
+    const key=String(alias.alias_normalized||alias.alias_value||"").replace(/^MENTOR:/,"").trim();
+    if(!key)continue;
+    const driver=siteDrivers.find((item)=>item.id===alias.driver_id);
+    if(!driver)continue;
+    if(!mentorAliasDriverByHash.has(key))mentorAliasDriverByHash.set(key,driver);
+    else if(mentorAliasDriverByHash.get(key)?.id!==driver.id)mentorAliasDriverByHash.set(key,null);
+  }
   let unresolved=0;
   const periods=(result.periods||[]).map((period)=>({...period,drivers:(period.drivers||[]).map((driver)=>{
     const rawId=String(driver.id||"");
     const embeddedHash=rawId.startsWith("MENTOR:")?rawId.slice(7):"";
     const mentorHash=String(embeddedHash||driver.mentorHash||driver?.details?.mentor?.identityKey||"").replace(/^MENTOR:/,"").trim();
-    const resolved=resolveIdentity({trid:driver.id,name:driver.name,mentorHash},indexes);
+    const directMentorDriver=mentorHash?mentorAliasDriverByHash.get(mentorHash):null;
+    const resolved=directMentorDriver?{driver:directMentorDriver,method:"mentor_hash",confidence:1}:resolveIdentity({trid:driver.id,name:driver.name,mentorHash},indexes);
     if(!resolved.driver){unresolved+=1;return {...driver,site:activitySite};}
     return {...driver,id:resolved.driver.trid||driver.id,name:resolved.driver.full_name||driver.name,site:activitySite,mentorHash};
   })}));
