@@ -1855,3 +1855,25 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 @media(max-width:640px){.driver-workforce-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 18px}.driver-stat-card{min-height:105px;padding:14px;border-radius:16px}.driver-stat-card strong{font-size:27px}.driver-stat-card small{font-size:11px;margin-top:8px}}
 
 .driver-site-select{min-width:112px;max-width:145px;font:inherit;font-weight:700;color:#263b54;background:#fff;border:1px solid #d7e0e8;border-radius:14px;padding:11px 34px 11px 14px;min-height:48px}
+
+/* Approved Site Performance mockup — last weekly DSP scorecard */
+.homev2-sites-scorecard{grid-column:1/-1;overflow:hidden}
+.homev2-sites-scorecard .homev2-title{padding:14px 18px 10px}
+.homev2-sites-scorecard .homev2-title h2{font-size:17px}
+.homev2-sites-scorecard .homev2-title h2 small{font-size:14px;font-weight:850}
+.homev2-site-scroll{overflow-x:auto;padding:0 14px 14px}
+.homev2-site-table{min-width:1040px}
+.homev2-sites-scorecard .homev2-sitehead,.homev2-sites-scorecard .homev2-siterow{grid-template-columns:1.05fr 1.15fr .8fr 1fr 1fr 1fr 1.2fr 1.05fr;gap:10px}
+.homev2-sites-scorecard .homev2-sitehead{margin:0;width:100%;padding:10px 12px;border-radius:7px;background:#f5f8fa;color:#566b80;text-align:center}
+.homev2-sites-scorecard .homev2-sitehead span:first-child{text-align:left}
+.homev2-sites-scorecard .homev2-sitehead span{font-size:10px;font-weight:900}
+.homev2-sites-scorecard .homev2-sitehead small{display:block;font-size:8px;margin-top:2px;color:#6d8092}
+.homev2-sites-scorecard .homev2-siterow{width:100%;margin:0;padding:7px 12px;min-height:46px;text-align:center;align-items:center}
+.homev2-sites-scorecard .homev2-siterow>b{text-align:left;font-size:11px}
+.homev2-sites-scorecard .homev2-siterow .dot{width:12px;height:12px;box-shadow:0 0 0 4px rgba(49,136,239,.1)}
+.homev2-sites-scorecard .score-pill,.homev2-sites-scorecard .metric-pill{min-height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:900}
+.homev2-sites-scorecard .score-pill{gap:14px}.homev2-sites-scorecard .score-pill strong{font-size:12px}.homev2-sites-scorecard .score-pill em{font-size:10px;font-style:normal}
+.homev2-sites-scorecard .metric-pill{font-size:11px}
+.homev2-sites-scorecard .good{background:#e2f7e9;color:#12662e}.homev2-sites-scorecard .bad{background:#fde5e5;color:#a82d32}.homev2-sites-scorecard .na{background:#f3f6f8;color:#748494}
+.homev2-sites-scorecard .rank-cell{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;font-weight:900}.homev2-sites-scorecard .rank-cell em{font-style:normal;border-radius:6px;padding:4px 6px;font-size:9px}.homev2-sites-scorecard .rank-cell .up{background:#e0f7e8;color:#149044}.homev2-sites-scorecard .rank-cell .down{background:#fde7e7;color:#df4248}
+@media(max-width:700px){.homev2-sites-scorecard .homev2-title{align-items:flex-start}.homev2-sites-scorecard .homev2-title h2{font-size:15px;line-height:1.25}.homev2-sites-scorecard .homev2-title h2 small{display:block;font-size:11px;margin-top:3px}.homev2-site-scroll{padding-left:10px;padding-right:10px}.homev2-site-table{min-width:980px}.homev2-sites-scorecard .homev2-sitehead span:last-child,.homev2-sites-scorecard .homev2-siterow span:last-child{display:flex}}
