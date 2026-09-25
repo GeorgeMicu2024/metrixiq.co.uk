@@ -431,6 +431,16 @@ export default function MentorView({
     : null;
   const below = scored.filter((item) => item.score < TARGETS.mentor).length;
   const passed = scored.filter((item) => item.score >= TARGETS.mentor).length;
+  const noScore = activeRows.filter((item) => item.score == null).length;
+  const highest = scored.length ? [...scored].sort((a,b)=>b.score-a.score)[0] : null;
+  const lowest = scored.length ? [...scored].sort((a,b)=>a.score-b.score)[0] : null;
+  const distribution = [
+    { label: "< 700", count: scored.filter((item)=>item.score<700).length, tone: "critical" },
+    { label: "700 – 814", count: scored.filter((item)=>item.score>=700&&item.score<TARGETS.mentor).length, tone: "warning" },
+    { label: "815 – 850", count: scored.filter((item)=>item.score>=TARGETS.mentor&&item.score<=850).length, tone: "target" },
+    { label: "> 850", count: scored.filter((item)=>item.score>850).length, tone: "strong" },
+  ];
+  const passRate = activeRows.length ? (passed / activeRows.length) * 100 : 0;
   const siteLabel = siteFilter === "all" ? "All sites" : siteFilter;
   const periodLabel =
     mode === "daily"
@@ -581,49 +591,40 @@ export default function MentorView({
 
   return (
     <>
-      <div className="page-heading v10-heading mentor-weekly-heading">
-        <div>
-          <span className="page-kicker">EMENTOR SAFETY · WEEKLY</span>
-          <h1>Weekly eMentor Performance</h1>
-          <p>{siteLabel} · {periodLabel} · minimum required score {TARGETS.mentor}+</p>
-        </div>
-        <div className="mentor-view-actions">
-          <div className="mentor-mode-tabs">
-            <button type="button" onClick={() => setMode("daily")}>Daily</button>
-            <button type="button" className="active">Weekly</button>
-          </div>
-          <select
-            className="mentor-period-select"
-            aria-label="Select weekly eMentor scorecard"
-            value={selectedWeek}
-            onChange={(event) => setSelectedWeek(event.target.value)}
-          >
-            {weeks.length ? weeks.map((week) => <option key={week} value={week}>{week}</option>) : <option value="">No weekly scorecards</option>}
-          </select>
-          <input
-            className="v10-search"
-            aria-label="Search Mentor drivers"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search driver…"
-          />
-          {onImport && <button type="button" className="btn primary" onClick={onImport}>Import eMentor</button>}
-        </div>
-      </div>
+      <section className="mentor-weekly-v3">
+        <header className="mentor-weekly-hero">
+          <img src="/ementor-ddp.svg" alt="" className="mentor-weekly-logo" />
+          <div><span className="page-kicker">EMENTOR SAFETY</span><h1>Weekly eMentor Performance</h1><p>{siteLabel} <b>•</b> {periodLabel} <b>•</b> Minimum required score {TARGETS.mentor}+</p></div>
+        </header>
 
-      <section className="v10-kpi-grid mentor-weekly-kpis">
-        <article><span>Average score</span><strong>{average == null ? "—" : Math.round(average)}</strong><small>{targetLabel("mentor")}</small></article>
-        <article className={below ? "warn" : ""}><span>Below target</span><strong>{below}</strong><small>{periodLabel}</small></article>
-        <article><span>At / above target</span><strong>{passed}</strong><small>{TARGETS.mentor}+ required</small></article>
-        <article><span>Driver records</span><strong>{activeRows.length}</strong><small>{siteLabel}</small></article>
-      </section>
-
-      <section className="panel mentor-weekly-table">
-        <div className="panel-head">
-          <div><span className="page-kicker">DRIVER RANKING</span><h2>Weekly eMentor leaderboard</h2><p>{periodLabel} · {siteLabel} · sorted by your selected column</p></div>
+        <div className="mentor-weekly-controls">
+          <div className="mentor-mode-tabs mentor-v3-tabs"><button type="button" onClick={()=>setMode("daily")}>Daily</button><button type="button" className="active">Weekly</button></div>
+          <select className="mentor-period-select" aria-label="Select weekly eMentor scorecard" value={selectedWeek} onChange={(event)=>setSelectedWeek(event.target.value)}>{weeks.length?weeks.map((week)=><option key={week} value={week}>{week}</option>):<option value="">No weekly scorecards</option>}</select>
+          <input className="v10-search" aria-label="Search Mentor drivers" value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search driver name…" />
+          {onImport&&<button type="button" className="btn primary mentor-v3-import" onClick={onImport}>⇧ &nbsp; Import eMentor</button>}
         </div>
-        <MentorReportTable rows={visibleRows} sort={sort} onSort={toggleSort} onOpenDriver={onOpenDriver} />
+
+        <section className="mentor-v3-primary-kpis">
+          <article className="average"><span>🏆 <b>Average Score</b></span><strong>{average==null?"—":Math.round(average)}</strong><small>Target ≥ {TARGETS.mentor}</small><i><em style={{width:`${Math.min(100,average?average/TARGETS.mentor*100:0)}%`}} /></i></article>
+          <article className="below"><span>⚠ <b>Below Target</b></span><strong>{below}</strong><small>Out of {activeRows.length} drivers</small><i><em style={{width:`${activeRows.length?below/activeRows.length*100:0}%`}} /></i><b>{activeRows.length?(below/activeRows.length*100).toFixed(1):"0.0"}% below {TARGETS.mentor}</b></article>
+          <article className="passed"><span>●● <b>At / Above Target</b></span><strong>{passed}</strong><small>Out of {activeRows.length} drivers</small><i><em style={{width:`${passRate}%`}} /></i><b>{passRate.toFixed(1)}% meeting target</b></article>
+        </section>
+
+        <section className="mentor-v3-secondary-kpis">
+          <article><span>🏅</span><div><small>Highest Score</small><strong>{highest?.score??"—"}</strong><p>{highest?`${highest.firstName} ${highest.lastName}`:"No score"}</p></div></article>
+          <article><span>↓</span><div><small>Lowest Score</small><strong>{lowest?.score??"—"}</strong><p>{lowest?`${lowest.firstName} ${lowest.lastName}`:"No score"}</p></div></article>
+          <article><span>👥</span><div><small>Drivers with No Score</small><strong>{noScore}</strong><p>Check import / mapping</p></div></article>
+        </section>
+
+        <section className="mentor-v3-distribution">
+          <div className="mentor-v3-dist-main"><h2>Score Distribution <small>({activeRows.length} drivers)</small></h2><div className="mentor-v3-dist-bar">{distribution.map((d)=><i key={d.label} className={d.tone} style={{flex:Math.max(d.count,0.35)}} />)}</div><div className="mentor-v3-dist-labels">{distribution.map((d)=><span key={d.label}><b>{d.count}</b><small>{d.label}</small></span>)}</div></div>
+          <div className="mentor-v3-donut" style={{"--rate":`${passRate*3.6}deg`}}><div><strong>{passRate.toFixed(1)}%</strong><small>At/Above Target</small></div></div>
+        </section>
+
+        <section className="panel mentor-weekly-table mentor-v3-table">
+          <div className="mentor-v3-table-tools"><div><button className="active">All Drivers</button><button>Below {TARGETS.mentor} ({below})</button><button>No Score ({noScore})</button><button>At/Above {TARGETS.mentor} ({passed})</button></div><button type="button" onClick={()=>window.print()}>⇩ &nbsp; Export</button></div>
+          <MentorReportTable rows={visibleRows} sort={sort} onSort={toggleSort} onOpenDriver={onOpenDriver} />
+        </section>
       </section>
-    </>
-  );
+    </>  );
 }
