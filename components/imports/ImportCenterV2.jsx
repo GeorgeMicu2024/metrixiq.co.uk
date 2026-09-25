@@ -11,6 +11,7 @@ import {
 import { buildImportIntelligence } from "../../lib/imports/analysisSummary";
 import { isoWeekDetails, isoWeekFromDate } from "../../lib/analyzer/core";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { buildIdentityIndexes, resolveIdentity } from "../../lib/identity";
 import {
   duplicateMatchesForFile,
   fetchImportChangePreview,
@@ -65,6 +66,34 @@ function prepareMentorAnalysis(result,mode,reportDate,targetWeek){
     periods:(result.periods||[]).map((item)=>({...item,...period})),
     importContext,
   };
+}
+
+async function reconcileMentorPreview(result,organizationId,activitySite){
+  if(!organizationId||!activitySite)return result;
+  const supabase=getSupabaseBrowserClient();
+  const [{data:drivers,error:driversError},{data:aliases,error:aliasesError}]=await Promise.all([
+    supabase.from("drivers").select("id,organization_id,trid,full_name,site,status").eq("organization_id",organizationId),
+    supabase.from("driver_aliases").select("id,driver_id,alias_type,alias_value,alias_normalized,confidence,source").eq("organization_id",organizationId),
+  ]);
+  if(driversError)throw driversError;
+  if(aliasesError)throw aliasesError;
+  const site=String(activitySite).trim().toUpperCase();
+  const siteDrivers=(drivers||[]).filter((driver)=>String(driver.site||"").trim().toUpperCase()===site);
+  const siteDriverIds=new Set(siteDrivers.map((driver)=>driver.id));
+  const siteAliases=(aliases||[]).filter((alias)=>siteDriverIds.has(alias.driver_id));
+  const indexes=buildIdentityIndexes(siteDrivers,siteAliases);
+  let unresolved=0;
+  const periods=(result.periods||[]).map((period)=>({...period,drivers:(period.drivers||[]).map((driver)=>{
+    const rawId=String(driver.id||"");
+    const mentorHash=String(driver.mentorHash||driver?.details?.mentor?.identityKey||(rawId.startsWith("MENTOR:")?rawId.slice(7):"")).trim();
+    const resolved=resolveIdentity({trid:driver.id,name:driver.name,mentorHash},indexes);
+    if(!resolved.driver){unresolved+=1;return {...driver,site:activitySite};}
+    return {...driver,id:resolved.driver.trid||driver.id,name:resolved.driver.full_name||driver.name,site:activitySite,mentorHash};
+  })}));
+  const latest=new Map();
+  periods.forEach((period)=>(period.drivers||[]).forEach((driver)=>latest.set(driver.id,driver)));
+  const previewDrivers=[...latest.values()];
+  return {...result,periods,drivers:previewDrivers,driverCount:previewDrivers.length,unmatchedDrivers:unresolved};
 }
 
 function phaseLabel(phase){
@@ -159,7 +188,7 @@ export default function ImportCenterV2({
     try{
       let result=await analyseFiles(importableFiles);
       if(!result.recognizedFiles)throw new Error("No supported report structure was detected in the selected files.");
-      if(mentorCandidate)result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);
+      if(mentorCandidate){result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);result=await reconcileMentorPreview(result,organizationId,activitySite);}
       const dup=await findPotentialDuplicateImports(getSupabaseBrowserClient(),organizationId,importableFiles);
       const nextActions={};
       for(const file of importableFiles){
@@ -193,6 +222,7 @@ export default function ImportCenterV2({
       let result=await analyseFiles(accepted);
       if(mentorCandidate&&accepted.some((file)=>MENTOR_FILE_HINT.test(file.name))){
         result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);
+        result=await reconcileMentorPreview(result,organizationId,activitySite);
       }
       result={...result,importContext:{...(result.importContext||{}),activitySite}};
       const saved=await onImported(result,accepted,activitySite);
