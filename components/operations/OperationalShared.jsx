@@ -30,7 +30,7 @@ export function resolveRowSite(row) {
   ];
   for (const value of candidates) {
     const site = String(value || "").trim().toUpperCase();
-    if (/^[A-Z]{2,5}\\d{1,3}$/.test(site)) return site;
+    if (/^[A-Z]{2,5}\d{1,3}$/.test(site)) return site;
   }
   return "";
 }
