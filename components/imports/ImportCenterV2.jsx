@@ -85,7 +85,8 @@ async function reconcileMentorPreview(result,organizationId,activitySite){
   let unresolved=0;
   const periods=(result.periods||[]).map((period)=>({...period,drivers:(period.drivers||[]).map((driver)=>{
     const rawId=String(driver.id||"");
-    const mentorHash=String(driver.mentorHash||driver?.details?.mentor?.identityKey||(rawId.startsWith("MENTOR:")?rawId.slice(7):"")).trim();
+    const embeddedHash=rawId.startsWith("MENTOR:")?rawId.slice(7):"";
+    const mentorHash=String(driver.mentorHash||driver?.details?.mentor?.identityKey||embeddedHash).replace(/^MENTOR:/,"").trim();
     const resolved=resolveIdentity({trid:driver.id,name:driver.name,mentorHash},indexes);
     if(!resolved.driver){unresolved+=1;return {...driver,site:activitySite};}
     return {...driver,id:resolved.driver.trid||driver.id,name:resolved.driver.full_name||driver.name,site:activitySite,mentorHash};
