@@ -1855,3 +1855,43 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 @media(max-width:640px){.driver-workforce-overview{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0 18px}.driver-stat-card{min-height:105px;padding:14px;border-radius:16px}.driver-stat-card strong{font-size:27px}.driver-stat-card small{font-size:11px;margin-top:8px}}
 
 .driver-site-select{min-width:112px;max-width:145px;font:inherit;font-weight:700;color:#263b54;background:#fff;border:1px solid #d7e0e8;border-radius:14px;padding:11px 34px 11px 14px;min-height:48px}
+
+
+/* Home · weekly site performance source card */
+.siteperf-card{overflow:hidden}
+.siteperf-title h2{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap}
+.siteperf-title h2 small{font-size:.72em;color:#61758a;font-weight:800}
+.siteperf-scroll{width:100%;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-inline:contain;scrollbar-gutter:stable;padding:0 0 8px;outline:none}
+.siteperf-scroll:focus-visible{box-shadow:inset 0 0 0 2px #2d83ea;border-radius:8px}
+.siteperf-table{min-width:1120px;padding:0 14px 10px}
+.siteperf-head,.siteperf-row{display:grid;grid-template-columns:1.05fr 1.25fr 1.08fr 1.08fr 1.08fr 1.18fr;gap:10px;align-items:center}
+.siteperf-head{background:#f2f6f9;border-radius:8px;padding:12px 10px;color:#526b82;font-size:10px;font-weight:900;letter-spacing:.02em}
+.siteperf-head>span:not(:first-child){text-align:center}.siteperf-head small{display:block;margin-top:2px;font-size:8px}
+.siteperf-row{width:100%;border:0;border-bottom:1px solid #e4ebf0;background:transparent;padding:8px 10px;text-align:left;cursor:pointer}
+.siteperf-row:hover{background:#f9fbfc}
+.siteperf-site{display:flex;align-items:center;gap:9px;color:#142d45;font-size:11px}
+.siteperf-site .dot{flex:0 0 auto;width:13px;height:13px;border-radius:50%;box-shadow:0 0 0 4px #eaf1f7}
+.siteperf-score,.siteperf-metric{min-height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900}
+.siteperf-score{gap:10px}.siteperf-score strong{font-size:15px}.siteperf-score em{font-style:normal;border-radius:999px;padding:5px 10px;font-size:9px;color:#fff}
+.siteperf-score.great{background:#e0f6e8;color:#116c39}.siteperf-score.great em{background:#18a85b}
+.siteperf-score.fantastic{background:#e3efff;color:#1268d6}.siteperf-score.fantastic em{background:#247de4}
+.siteperf-score.fair{background:#fff0d7;color:#b85a00}.siteperf-score.fair em{background:#f28a00}
+.siteperf-score.poor{background:#ffe2e2;color:#b3262e}.siteperf-score.poor em{background:#dc3038}
+.siteperf-score.neutral{background:#f1f4f6;color:#617487}.siteperf-score.neutral em{background:#718395}
+.siteperf-metric{font-size:12px}.siteperf-metric.good{background:#e0f6e8;color:#126b39}.siteperf-metric.bad{background:#ffe3e3;color:#bd2c32}
+.siteperf-metric:has(> :only-child){background:#f1f4f6;color:#718395}
+@media(max-width:900px){
+ .siteperf-card{padding-left:0!important;padding-right:0!important}
+ .siteperf-title{padding-left:13px;padding-right:13px}
+ .siteperf-scroll{cursor:grab;touch-action:pan-x pan-y}
+ .siteperf-scroll:active{cursor:grabbing}
+ .siteperf-table{min-width:980px;padding-left:10px;padding-right:10px}
+ .siteperf-head,.siteperf-row{grid-template-columns:140px 190px 155px 155px 155px 180px}
+}
+@media(max-width:700px){
+ .homev2-sites.siteperf-card{overflow:hidden}
+ .siteperf-title h2{font-size:14px}.siteperf-title h2 small{font-size:9px}
+ .siteperf-table{min-width:960px}
+ .siteperf-head{font-size:9px}.siteperf-row{padding-top:7px;padding-bottom:7px}
+ .siteperf-scroll{scrollbar-width:thin}
+}
