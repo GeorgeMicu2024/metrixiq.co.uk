@@ -37,6 +37,13 @@ export default function IadcView({organizationId,onOpenDriver,onImport,onImporte
   const dailyRows=useMemo(()=>rows.filter(r=>granularity(r)==="daily"&&calendarWeek(r)===selectedWeek),[rows,selectedWeek]);
   const days=useMemo(()=>[...new Set(dailyRows.map(rowDate).filter(Boolean))].sort().reverse(),[dailyRows]);
   const selectedDay=day&&days.includes(day)?day:(days[0]||"");
+  const dwcDailyWeeks=useMemo(()=>[...new Set(rows.filter(r=>granularity(r)==="daily"&&dwcOf(r)!=null).map(calendarWeek).filter(w=>/^W\d+$/i.test(w)))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
+  const dwcWeeklyWeeks=useMemo(()=>[...new Set(rows.filter(r=>granularity(r)==="weekly"&&dwcOf(r)!=null).map(calendarWeek).filter(w=>/^W\d+$/i.test(w)))].sort((a,b)=>weekNo(b)-weekNo(a)),[rows]);
+  const dwcSelectedWeek=(mode==="daily"?dwcDailyWeeks:dwcWeeklyWeeks).includes(selectedWeek)?selectedWeek:((mode==="daily"?dwcDailyWeeks:dwcWeeklyWeeks)[0]||selectedWeek);
+  const dwcDailyRows=useMemo(()=>rows.filter(r=>granularity(r)==="daily"&&calendarWeek(r)===dwcSelectedWeek&&dwcOf(r)!=null),[rows,dwcSelectedWeek]);
+  const dwcWeekRows=useMemo(()=>rows.filter(r=>granularity(r)==="weekly"&&calendarWeek(r)===dwcSelectedWeek&&dwcOf(r)!=null),[rows,dwcSelectedWeek]);
+  const dwcDays=useMemo(()=>[...new Set(dwcDailyRows.map(rowDate).filter(Boolean))].sort().reverse(),[dwcDailyRows]);
+  const dwcSelectedDay=selectedDay&&dwcDays.includes(selectedDay)?selectedDay:(dwcDays[0]||"");
   const selected=useMemo(()=>{
     const base=mode==="daily"?dailyRows.filter(r=>rowDate(r)===selectedDay):weekRows;
     // A scorecard row with delivered=0 and DCR=0 means no DCR opportunity,
@@ -53,9 +60,9 @@ export default function IadcView({organizationId,onOpenDriver,onImport,onImporte
   const trend=useMemo(()=>weeks.slice(0,4).reverse().map(w=>{const wr=rows.filter(r=>granularity(r)==="weekly"&&calendarWeek(r)===w);const summary=wr.find(r=>r.raw_data?.compliance_summary)?.raw_data?.compliance_summary;return {label:w,value:metric==="iadc"?(n(summary?.iadc)??average(wr,r=>r.iadc)):average(wr,metricValue)}}),[rows,weeks,metric]);
   const dwcPeriodRows=useMemo(()=>{
     if(metric!=="iadc")return selected;
-    const base=mode==="daily"?dailyRows.filter(r=>rowDate(r)===selectedDay):weekRows;
-    return base.filter(r=>dwcOf(r)!=null);
-  },[metric,mode,dailyRows,weekRows,selectedDay]);
+    const base=mode==="daily"?dwcDailyRows.filter(r=>rowDate(r)===dwcSelectedDay):dwcWeekRows;
+    return base;
+  },[metric,mode,dwcDailyRows,dwcWeekRows,dwcSelectedDay]);
   const dwcPeriodAvg=average(dwcPeriodRows,dwcOf);
   const dwcErrors=useMemo(()=>Object.entries(errorLabels).map(([key,label])=>({key,label,value:dwcPeriodRows.reduce((s,r)=>s+Number(r.raw_data?.dwc_detail?.errors?.[key]||0),0)})).filter(x=>x.value>0),[dwcPeriodRows]);
   const maxTrend=Math.max(80,...trend.map(x=>x.value||0)),minTrend=Math.min(60,...trend.map(x=>x.value||100));
@@ -132,14 +139,14 @@ export default function IadcView({organizationId,onOpenDriver,onImport,onImporte
       {(()=>{const dwcRows=dwcPeriodRows.filter(r=>dname(r.drivers).toLowerCase().includes(query.toLowerCase())).sort((a,b)=>sortDir==="asc"?Number(dwcOf(a))-Number(dwcOf(b)):Number(dwcOf(b))-Number(dwcOf(a)));const compliant=dwcRows.filter(r=>Number(dwcOf(r))>=85).length;const below=dwcRows.length-compliant;const dwcActive=(detail&&dwcOf(detail)!=null)?detail:(dwcRows[0]||null);const issues=r=>Object.entries(errorLabels).filter(([k])=>Number(r.raw_data?.dwc_detail?.errors?.[k]||0)>0).map(([,l])=>l);return <>
       <div className="iadcv3-dwc-toolbar">
         <div className="iadcv3-tabs"><button className={mode==="daily"?"active":""} onClick={()=>setMode("daily")}>Daily</button><button className={mode==="weekly"?"active":""} onClick={()=>setMode("weekly")}>Weekly</button></div>
-        {mode==="daily"?<select value={selectedDay} onChange={e=>setDay(e.target.value)}>{days.map(d=><option key={d}>{d}</option>)}</select>:<select value={selectedWeek} onChange={e=>setWeek(e.target.value)}>{weeks.map(w=><option key={w}>{w}</option>)}</select>}
+        {mode==="daily"?<select value={dwcSelectedDay} onChange={e=>setDay(e.target.value)}>{dwcDays.map(d=><option key={d}>{d}</option>)}</select>:<select value={dwcSelectedWeek} onChange={e=>setWeek(e.target.value)}>{dwcWeeklyWeeks.map(w=><option key={w}>{w}</option>)}</select>}
         <input aria-label="Search DWC drivers" value={query} onChange={e=>setQuery(e.target.value)} placeholder="⌕  Search driver…"/>
         <select className="iadcv3-sort" value={sortDir} onChange={e=>setSortDir(e.target.value)}><option value="desc">DWC ↓ High to Low</option><option value="asc">DWC ↑ Low to High</option></select>
         <button className="btn ghost" onClick={exportCsv}>⇩ Export</button><button className="btn ghost danger" onClick={reset}>↻ Clear</button>
       </div>
       <div className="iadcv3-kpis iadcv3-dwc-kpis">
         <article><i>♟</i><div><span>Total Drivers</span><strong>{dwcRows.length}</strong><small>{siteFilter==="all"?"All sites":siteFilter}</small></div></article>
-        <article className="mint"><i>◫</i><div><span>DWC (Average)</span><strong>{dwcPeriodRows.length?pct(dwcPeriodAvg,1):"No data"}</strong><small>{mode==="daily"?selectedDay:selectedWeek}</small></div></article>
+        <article className="mint"><i>◫</i><div><span>DWC (Average)</span><strong>{dwcPeriodRows.length?pct(dwcPeriodAvg,1):"No data"}</strong><small>{mode==="daily"?dwcSelectedDay:dwcSelectedWeek}</small></div></article>
         <article className="mint"><i>✓</i><div><span>Compliant (≥85%)</span><strong>{compliant}</strong><small>{dwcRows.length?pct(compliant/dwcRows.length*100,1):"—"} of drivers</small></div></article>
         <article className="dwc-alert"><i>!</i><div><span>Below 85%</span><strong>{below}</strong><small>{dwcRows.length?pct(below/dwcRows.length*100,1):"—"} of drivers</small></div></article>
       </div>
