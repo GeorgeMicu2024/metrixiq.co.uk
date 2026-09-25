@@ -79,7 +79,12 @@ export default function IadcView({organizationId,onOpenDriver,onImport,onImporte
         return type.includes("iadc")||rows.some(r=>n(r?.iadc)!=null||n(r?.metrics?.iadc)!=null);
       });
       if(!result?.recognizedFiles||!iadcLike)throw new Error("This doesn’t look like a valid Amazon IADC report. Please upload the correct IADC file.");
-      await onImported?.(result,[file]);
+      const importSite=String(siteFilter||"").toLowerCase()==="all"?null:String(siteFilter||"").trim().toUpperCase();
+      const saved=await onImported?.(result,[file],importSite);
+      if(saved&&Number(saved.savedMetrics||0)===0){
+        const unmatched=Number(saved?.reconciliation?.unmatchedRows??saved?.unmatched??0);
+        throw new Error(unmatched>0?`IADC report was recognised, but ${unmatched} driver row${unmatched===1?"":"s"} could not be matched to the driver directory. No IADC data was saved.`:"IADC report was recognised, but no driver metrics were saved. Please check the report and selected site.");
+      }
       const importedTypes=recognized.flatMap(x=>String(x.reportType||"").toLowerCase().split(",").map(v=>v.trim()));
       const hasDaily=importedTypes.some(x=>x.includes("iadc-daily"));
       const hasWeekly=importedTypes.some(x=>x.includes("iadc-weekly"));
