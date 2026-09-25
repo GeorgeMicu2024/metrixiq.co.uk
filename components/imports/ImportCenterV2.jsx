@@ -92,6 +92,8 @@ function importDate(value){
 
 export default function ImportCenterV2({
   organizationId,
+  sites = [],
+  siteFilter = "all",
   onImported,
   analysis:latestAnalysis,
   canManage=true,
@@ -111,8 +113,10 @@ export default function ImportCenterV2({
   const [busyImport,setBusyImport]=useState("");
   const [mentorMode,setMentorMode]=useState("daily");
   const [mentorDate,setMentorDate]=useState(()=>new Date().toISOString().slice(0,10));
+  const [activitySite,setActivitySite]=useState(()=>siteFilter!=="all"?siteFilter:"");
   const [mentorWeek,setMentorWeek]=useState(()=>weekInputFromDate(new Date().toISOString().slice(0,10)));
 
+  useEffect(()=>{if(siteFilter!=="all")setActivitySite(siteFilter);},[siteFilter]);
   const busy=["analysing","saving"].includes(phase);
   const preflight=useMemo(()=>summarizePreflight(files),[files]);
   const analysis=preview||latestAnalysis;
@@ -150,6 +154,7 @@ export default function ImportCenterV2({
 
   async function analyseQueue(){
     if(!importableFiles.length||busy)return;
+    if(!activitySite){setMessage("Choose the Activity Site before analysing this import.");setPhase("error");return;}
     setPhase("analysing");setMessage("");
     try{
       let result=await analyseFiles(importableFiles);
@@ -169,6 +174,7 @@ export default function ImportCenterV2({
 
   async function saveQueue(){
     if(!preview||busy||!canManage)return;
+    if(!activitySite){setMessage("Activity Site is required. MetrixIQ will not guess where operational evidence belongs.");setPhase("error");return;}
     const accepted=importableFiles.filter((file)=>actions[fileFingerprint(file)]!=="ignore");
     if(!accepted.length){setMessage("All files are set to Ignore.");return;}
     setPhase("saving");setMessage("");
@@ -188,7 +194,8 @@ export default function ImportCenterV2({
       if(mentorCandidate&&accepted.some((file)=>MENTOR_FILE_HINT.test(file.name))){
         result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);
       }
-      const saved=await onImported(result,accepted);
+      result={...result,importContext:{...(result.importContext||{}),activitySite}};
+      const saved=await onImported(result,accepted,activitySite);
       setPreview(result);
       setPhase("done");
       const rec=saved?.reconciliation;
@@ -232,6 +239,7 @@ export default function ImportCenterV2({
       <div><button className="btn ghost" onClick={()=>setTab("history")}>Import history</button><button className="btn primary" onClick={()=>input.current?.click()} disabled={busy}>Add files</button></div>
     </div>
     <div className="importv2-tabs"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Import Queue</button><button className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History & Rollback</button></div>
+    {tab==="queue"&&<section className="panel" style={{marginBottom:16}}><div className="panel-head"><div><span className="page-kicker">SITE ISOLATION</span><h2>Activity Site</h2><p>Every saved import and driver metric is attributed to this station. Home Site does not override operational evidence.</p></div><select aria-label="Activity Site" value={activitySite} onChange={(e)=>{setActivitySite(e.target.value);setPreview(null);setPhase("idle");setMessage("");}} disabled={busy}><option value="">Choose site…</option>{sites.map((site)=><option key={site} value={site}>{site}</option>)}</select></div>{!activitySite&&<div className="importv2-notice">Select a site before analysis. MetrixIQ will not infer a station from the driver's Home Site.</div>}</section>}
     <input ref={input} type="file" multiple hidden accept={IMPORT_ACCEPT} onChange={(event)=>{addFiles(event.target.files||[]);event.target.value="";}}/>
 
     {tab==="queue"&&<>

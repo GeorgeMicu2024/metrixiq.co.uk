@@ -17,10 +17,9 @@ import {
 } from "../../lib/performance/metrics";
 import { EmptyRow, ProTrendChart, RangeTabs } from "./PerformancePrimitives";
 
-export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) {
+export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver, siteFilter = "all" }) {
   const [range,setRange]=useState(8);
   const [metric,setMetric]=useState("performance");
-  const [site,setSite]=useState("all");
   const [focusWeek,setFocusWeek]=useState("latest");
   const [rankScope,setRankScope]=useState("week");
   const [query,setQuery]=useState("");
@@ -28,20 +27,7 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
   const [sortBy,setSortBy]=useState("index");
   const [sortDir,setSortDir]=useState("desc");
 
-  const sites=useMemo(()=>
-    [...new Set(rows.map((row)=>row.drivers?.site).filter(Boolean))]
-      .sort((a,b)=>String(a).localeCompare(String(b)))
-  ,[rows]);
-
-  useEffect(() => {
-    if (site !== "all" && !sites.includes(site)) setSite("all");
-  }, [site, sites]);
-
-  const scopedRows=useMemo(()=>
-    site==="all"
-      ?rows
-      :rows.filter((row)=>String(row.drivers?.site||"").toLowerCase()===String(site).toLowerCase())
-  ,[rows,site]);
+  const scopedRows=useMemo(()=>rows,[rows]);
 
   const aggregateDrivers=(sourceRows,labels)=>{
     const weekSet=new Set(labels);
@@ -447,15 +433,6 @@ export default function PerformanceView({ rows = [], kpis = {}, onOpenDriver }) 
       </div>
 
       <div className="pfp-heading-controls">
-        {sites.length>1&&
-          <label>
-            <span>Site</span>
-            <select aria-label="Filter performance by site" value={site} onChange={(event)=>setSite(event.target.value)}>
-              <option value="all">All sites</option>
-              {sites.map((item)=><option key={item} value={item}>{item}</option>)}
-            </select>
-          </label>
-        }
 
         <label>
           <span>Focus week</span>

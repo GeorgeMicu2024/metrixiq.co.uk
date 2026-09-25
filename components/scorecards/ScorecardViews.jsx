@@ -160,195 +160,81 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
       ? Number(card.overall_score) - Number(previousCard.overall_score)
       : null;
 
-  return <div className="sitepro-root">
-    <div className="page-heading sitepro-page-heading">
-      <div>
-        <span className="page-kicker">SCORECARDS</span>
-        <h1>Site scorecard</h1>
-        <p>Source-faithful weekly DSP performance with MetrixIQ operational context.</p>
-      </div>
+  const trendCards = sortedCards.filter((item) => item.site === card.site).slice(0, 8).reverse();
+  const latestMetrics = [
+    ["Overall", card.overall_score, ""],
+    ["DCR", rawItemValue(metrics.dcr), "%"],
+    ["POD", rawItemValue(metrics.pod), "%"],
+    ["eMentor", rawItemValue(metrics.mentor_score), ""],
+    ["CC", rawItemValue(metrics.cc), "%"],
+  ];
+  const trendDelta = (value, previous) => {
+    const a = num(value), b = num(previous);
+    if (a == null || b == null) return "No prior data";
+    const d = a - b;
+    return `${d >= 0 ? "↑" : "↓"} ${Math.abs(d).toFixed(2)} WoW`;
+  };
 
-      <div className="sitepro-controls">
-        <select aria-label="Select scorecard driver" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
-          {sortedCards.map((item) =>
-            <option key={item.id} value={item.id}>
-              {item.site} · {item.year} · {item.week_label}
-            </option>
-          )}
+  return <div className="sitecmd-root">
+    <header className="sitecmd-head">
+      <div>
+        <span className="page-kicker">DSP WEEKLY SCORECARD · COMMAND VIEW</span>
+        <h1>{card.site || "Site"} performance</h1>
+        <p>Weekly site scorecard, operational signals and trend evidence in one management view.</p>
+      </div>
+      <div className="sitecmd-actions">
+        <select aria-label="Select scorecard period" value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+          {sortedCards.map((item) => <option key={item.id} value={item.id}>{item.site} · {item.year} · {item.week_label}</option>)}
         </select>
-        <button className="btn ghost" onClick={() => window.print()}>Export / print</button>
+        <button className="btn ghost" onClick={() => window.print()}>Export</button>
         <button className="btn primary" onClick={onImport}>Import scorecard</button>
       </div>
-    </div>
+    </header>
 
-    <section className="sitepro-report">
-      <header className="sitepro-report-head">
-        <div>
-          <span className="sitepro-eyebrow">DSP WEEKLY SCORECARD</span>
-          <h2>{card.site || "Site"} · Week {card.week || String(card.week_label || "").replace(/\D/g, "")} — {card.year}</h2>
-        </div>
+    <nav className="sitecmd-tabs" aria-label="Scorecard sections">
+      <button className="active">Overview</button><button>Safety</button><button>Quality</button><button>Drivers at Risk</button><button>Trends</button>
+    </nav>
 
-        <div className="sitepro-rank">
-          <span>Rank at {card.site || "site"}</span>
-          <strong>{card.site_rank ?? "—"}</strong>
-          <small>
-            {card.rank_delta != null
-              ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW`
-              : "WoW unavailable"}
-          </small>
-        </div>
-      </header>
+    <section className="sitecmd-kpis sitepro-health-grid">
+      <article className="hero"><span>Overall score</span><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong><em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em><small className={scoreDelta != null && scoreDelta < 0 ? "negative" : "positive"}>{scoreDelta == null ? "No prior week" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta.toFixed(2)} vs previous week`}</small></article>
+      <article><span>Site rank</span><strong>#{card.site_rank ?? "—"}</strong><small>{card.rank_delta != null ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW` : "Rank trend unavailable"}</small></article>
+      <article><span>Safety</span><strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong><small>FICO · Speeding · Compliance</small></article>
+      <article><span>Delivery quality</span><strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong><small>DCR · POD · CC · Customer</small></article>
+      <article><span>Capacity</span><strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong><small>Weekly reliability</small></article>
+    </section>
 
-      <section className="sitepro-overall">
-        <div className="sitepro-overall-copy">
-          <span>Overall Score</span>
-          <div>
-            <strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong>
-            <em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em>
-          </div>
-          {scoreDelta != null &&
-            <small className={scoreDelta >= 0 ? "positive" : "negative"}>
-              {scoreDelta >= 0 ? "+" : ""}{scoreDelta.toFixed(2)} vs previous stored week
-            </small>
-          }
-        </div>
-
-        <div className="sitepro-overall-track">
-          <ScoreSegments standing={card.standing} score={card.overall_score} />
-          <div className="sitepro-scale">
-            <span>Poor</span><span>Fair</span><span>Great</span><span>Fantastic</span><span>Fantastic+</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="sitepro-section">
-        <div className="sitepro-section-title">
-          <div>
-            <span>COMPLIANCE AND SAFETY</span>
-            <ScoreSegments standing={card.safety_standing} />
-          </div>
-          <strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong>
-        </div>
-
-        <p className="sitepro-note">
-          You need to achieve Fantastic in Safety to qualify for Scorecard incentives.
-        </p>
-
-        <div className="sitepro-two-col">
-          <div className="sitepro-metric-group">
-            <h3>Safety</h3>
-            <MetricLine label="Safe Driving Metric (FICO)" item={metrics.mentor_score} format="score" />
-            <MetricLine label="Speeding Event Rate (Per 100 Trips)" item={metrics.speeding_event_rate} />
-            <MetricLine label="Mentor Adoption Rate" item={metrics.mentor_adoption_rate} format="pct" />
-          </div>
-
-          <div className="sitepro-metric-group">
-            <h3>Compliance</h3>
-            <MetricLine label="Vehicle Audit (VSA) Compliance" item={metrics.vsa} format="pct" />
-            <MetricLine label="Breach of Contract (BOC)" item={metrics.boc} />
-            <MetricLine label="Working Hours Compliance (WHC)" item={metrics.whc} format="pct" />
-            <MetricLine label="Comprehensive Audit Score (CAS)" item={metrics.cas} />
-          </div>
-        </div>
-      </section>
-
-      <section className="sitepro-section">
-        <div className="sitepro-section-title">
-          <div>
-            <span>DELIVERY QUALITY &amp; SWC</span>
-            <ScoreSegments standing={card.delivery_quality_standing} />
-          </div>
-          <strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong>
-        </div>
-
-        <div className="sitepro-two-col quality">
-          <div>
-            <div className="sitepro-metric-group">
-              <h3>Customer Delivery Experience</h3>
-              <MetricLine label="Customer Escalation DPMO" item={metrics.ce_dpmo} format="dpmo" />
-              <MetricLine label="Customer Delivery Feedback" item={metrics.cdf_dpmo} format="dpmo" />
-            </div>
-
-            <div className="sitepro-metric-group sitepro-subgroup">
-              <h3>Standard Work Compliance</h3>
-              <MetricLine label="Photo-On-Delivery" item={metrics.pod} format="pct" />
-              <MetricLine label="Contact Compliance" item={metrics.cc} format="pct" />
-            </div>
-          </div>
-
-          <div className="sitepro-metric-group">
-            <h3>Quality</h3>
-            <MetricLine label="Delivery Completion Rate (DCR)" item={metrics.dcr} format="pct" />
-            <MetricLine label="Delivered Not Received (DNR DPMO)" item={metrics.dnr_dpmo} format="dpmo" accent />
-            <MetricLine label="Lost on Road (LoR) DPMO" item={metrics.lor} format="dpmo" />
-            <MetricLine label="Delivery Success Conditions (DSC DPMO)" item={metrics.dsc_dpmo} format="dpmo" />
-            <p className="sitepro-quality-note">Metrics highlighted in red are for visibility only and do not impact final DSP Scores / Tiers.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="sitepro-section compact">
-        <div className="sitepro-section-title">
-          <div>
-            <span>CAPACITY</span>
-            <ScoreSegments standing={card.capacity_standing} />
-          </div>
-          <strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong>
-        </div>
-
-        <div className="sitepro-single-metric">
-          <MetricLine label="Capacity Reliability" item={metrics.capacity_reliability} format="pct" />
-        </div>
-      </section>
-
-      <section className="sitepro-section compact">
-        <div className="sitepro-section-title">
-          <div>
-            <span>PICKUP QUALITY</span>
-            <ScoreSegments standing={card.pickup_quality_standing} />
-          </div>
-          <strong className={standingClass(card.pickup_quality_standing)}>{card.pickup_quality_standing || "—"}</strong>
-        </div>
-
-        <div className="sitepro-single-metric">
+    <section className="sitecmd-grid">
+      <article className="panel sitecmd-metrics">
+        <div className="sitecmd-title"><div><span>WEEK {card.week || String(card.week_label || "").replace(/\D/g, "")} · {card.year}</span><h2>Performance signals</h2></div><b>{card.site}</b></div>
+        <div className="sitecmd-metric-grid">
+          <MetricLine label="Safe Driving Metric (FICO)" item={metrics.mentor_score} format="score" />
+          <MetricLine label="Speeding Event Rate" item={metrics.speeding_event_rate} />
+          <MetricLine label="Delivery Completion Rate" item={metrics.dcr} format="pct" />
+          <MetricLine label="Photo-On-Delivery" item={metrics.pod} format="pct" />
+          <MetricLine label="Contact Compliance" item={metrics.cc} format="pct" />
+          <MetricLine label="Customer Delivery Feedback" item={metrics.cdf_dpmo} format="dpmo" />
+          <MetricLine label="DSC DPMO" item={metrics.dsc_dpmo} format="dpmo" />
           <MetricLine label="Pickup Success Behaviours" item={metrics.psb} />
         </div>
-      </section>
+      </article>
 
-      <section className="sitepro-health-grid">
-        <article><span>Safety</span><strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong><small>FICO, speeding, adoption & compliance</small></article>
-        <article><span>Delivery quality</span><strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong><small>DCR, POD, CC, DNR & customer experience</small></article>
-        <article><span>Capacity</span><strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong><small>Capacity reliability for the selected week</small></article>
-        <article><span>Pickup quality</span><strong className={standingClass(card.pickup_quality_standing)}>{card.pickup_quality_standing || "—"}</strong><small>Pickup success behaviours</small></article>
-      </section>
-
-      <section className="sitepro-focus">
-        <span>RECOMMENDED FOCUS AREAS</span>
-        <ol>
-          {generatedFocus.length
-            ? generatedFocus.map((focus, index) => <li key={`${focus}-${index}`}>{focus}</li>)
-            : <li>No focus areas were supplied in this scorecard.</li>
-          }
-        </ol>
-      </section>
+      <article className="panel sitecmd-focus">
+        <div className="sitecmd-title"><div><span>RECOMMENDED FOCUS AREAS</span><h2>Priority focus</h2></div></div>
+        <ol>{generatedFocus.length ? generatedFocus.map((focus,index)=><li key={index}><b>{String(index+1).padStart(2,"0")}</b><span>{focus}</span></li>) : <li><span>No immediate focus areas supplied.</span></li>}</ol>
+      </article>
     </section>
 
-    <section className="sitepro-summary-band">
-      <div>
-        <span>WEEKLY SCORECARD DETAIL</span>
-        <strong>{card.site || "Site"} · {card.week_label || `W${card.week || "—"}`}</strong>
-        <small>Amazon source metrics shown exactly for the selected reporting week.</small>
+    <section className="panel sitecmd-trends">
+      <div className="sitecmd-title"><div><span>SITE TREND</span><h2>{card.site} · weekly performance</h2></div><small>{trendCards.length} stored periods</small></div>
+      <div className="sitecmd-trend-kpis">
+        {latestMetrics.map(([label,value,suffix]) => {
+          const previousValue = label === "Overall" ? previousCard?.overall_score : label === "DCR" ? rawItemValue(previousCard?.metrics?.dcr) : label === "POD" ? rawItemValue(previousCard?.metrics?.pod) : label === "eMentor" ? rawItemValue(previousCard?.metrics?.mentor_score) : rawItemValue(previousCard?.metrics?.cc);
+          return <article key={label}><span>{label}</span><strong>{num(value)==null ? "—" : `${Number(value).toFixed(label==="eMentor"?0:2)}${suffix}`}</strong><small>{trendDelta(value,previousValue)}</small></article>
+        })}
       </div>
-      <div className="sitepro-summary-result">
-        <span>Overall result</span>
-        <strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong>
-        <em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em>
-      </div>
+      <div className="sitecmd-bars">{trendCards.map((item,index)=>{const v=Math.max(5,Math.min(100,Number(item.overall_score)||0));return <div key={item.id}><span style={{height:`${v}%`}}/><small>{item.week_label}</small></div>})}</div>
     </section>
-
-    
-  </div>;
-}
+  </div>;}
 
 
 
@@ -495,7 +381,7 @@ function LegacyDriverScorecardsView({ organizationId, onOpenDriver, onImport, si
   };
 
   const siteForRow = (row) => {
-    const value = String(row?.drivers?.site || "").trim().toUpperCase();
+    const value = String(row?.site || row?.drivers?.site || "").trim().toUpperCase();
     return value || "UNASSIGNED";
   };
 
@@ -586,7 +472,7 @@ function LegacyDriverScorecardsView({ organizationId, onOpenDriver, onImport, si
 
     return enrichedRows
       .filter((row) => {
-        const text = `${row.drivers?.full_name || ""} ${row.drivers?.trid || ""} ${row.drivers?.site || ""}`.toLowerCase();
+        const text = `${row.drivers?.full_name || ""} ${row.drivers?.trid || ""} ${row.site || row.drivers?.site || ""}`.toLowerCase();
         return !q || text.includes(q);
       })
       .filter((row) => groupFilter === "all" || row.sourceRank.cls === groupFilter)

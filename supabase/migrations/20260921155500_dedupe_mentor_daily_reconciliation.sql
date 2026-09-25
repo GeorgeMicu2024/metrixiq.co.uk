@@ -37,3 +37,22 @@ on public.unmatched_driver_records (
 where report_type='mentor_daily'
   and reconciliation_key is not null
   and nullif(payload->>'reportDate','') is not null;
+
+-- 2026-09-24: harden current driver scorecard snapshot selection.
+-- Prefer the latest non-daily evidence that is either canonical-site or legacy site-null.
+-- Explicit cross-site evidence remains historical and cannot become the primary scorecard.
+create or replace view public.driver_scorecards as
+select d.id as driver_id,d.organization_id,d.trid,d.full_name,d.site,d.status,m.period_start,m.period_end,m.week_label,m.performance,m.dcr,m.pod,m.iadc,m.cc,m.fico,m.ementor,m.mentor_score,m.psb,m.reattempts,m.concessions,m.lor,m.delivered,m.dnr_dpmo,m.dsc_dpmo,m.ce_dpmo,m.cdf_dpmo,m.scorecard_score,m.tier,m.risk,m.issue,m.data_confidence,m.raw_data,m.created_at as metrics_created_at
+from public.drivers d
+left join lateral (
+ select dm.* from public.driver_metrics dm
+ where dm.driver_id=d.id and dm.organization_id=d.organization_id
+   and coalesce(dm.raw_data->>'metric_granularity','weekly')<>'daily'
+   and (dm.site is null or d.site is null or upper(btrim(dm.site))=upper(btrim(d.site)))
+ order by
+   dm.period_end desc nulls last,
+   case when d.site is not null and upper(btrim(dm.site))=upper(btrim(d.site)) then 0 else 1 end,
+   ((dm.performance is not null)::int+(dm.dcr is not null)::int+(dm.pod is not null)::int+(dm.iadc is not null)::int+(dm.cc is not null)::int+(coalesce(dm.mentor_score,dm.ementor,dm.fico) is not null)::int+(dm.psb is not null)::int+(dm.reattempts is not null)::int+(dm.concessions is not null)::int+(dm.lor is not null)::int) desc,
+   dm.created_at desc
+ limit 1
+) m on true;

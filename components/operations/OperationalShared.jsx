@@ -21,12 +21,24 @@ export const dname = (driver) =>
 export const trid = (driver) =>
   driver?.trid || driver?.id || "—";
 
+export function resolveRowSite(row) {
+  const candidates = [
+    row?.site,
+    row?.drivers?.site,
+    row?.raw_data?.activity_site,
+    row?.raw_data?.mentor?.station,
+  ];
+  for (const value of candidates) {
+    const site = String(value || "").trim().toUpperCase();
+    if (/^[A-Z]{2,5}\\d{1,3}$/.test(site)) return site;
+  }
+  return "";
+}
+
 export function filterRowsBySite(rows, siteFilter = "all") {
-  if (siteFilter === "all") return rows;
-  return rows.filter(
-    (row) =>
-      String(row?.drivers?.site || "").trim().toUpperCase() === siteFilter
-  );
+  if (String(siteFilter).toLowerCase() === "all") return rows;
+  const wanted = String(siteFilter || "").trim().toUpperCase();
+  return rows.filter((row) => resolveRowSite(row) === wanted);
 }
 
 export function useOperationalRows(organizationId, kind, refreshKey = 0) {
@@ -153,7 +165,7 @@ export function openShape(row, extra = {}) {
     id: trid(driver),
     dbId: row?.driver_id,
     name: dname(driver),
-    site: driver.site || "",
+    site: resolveRowSite(row) || "",
     ...extra,
   };
 }

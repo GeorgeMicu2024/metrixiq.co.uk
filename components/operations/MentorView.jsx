@@ -43,7 +43,13 @@ function formatDate(value) {
 }
 
 function splitDriverName(driver) {
-  const fullName = String(dname(driver) || "").trim();
+  // Some identity sources append the activity station to full_name
+  // (for example "Nicholas Elliott Ormerod • DLS2"). Station codes are
+  // metadata, never a surname, so strip only the explicit bullet suffix.
+  const rawName = String(dname(driver) || "").trim();
+  const fullName = rawName
+    .replace(/\s*[•·]\s*[A-Z]{2,5}\d+\s*$/i, "")
+    .trim();
   const parts = fullName.split(/\s+/).filter(Boolean);
   if (parts.length <= 1) return { firstName: fullName || "Unresolved", lastName: "—" };
   return {
@@ -215,6 +221,7 @@ export default function MentorView({
   onImport,
   siteFilter = "all",
   onSiteFilterChange,
+  sites = [],
   refreshKey = 0,
 }) {
   const weeklyLoad = useOperationalRows(organizationId, "mentor", refreshKey);
@@ -271,15 +278,34 @@ export default function MentorView({
   const availableSites = useMemo(
     () =>
       [...new Set(
-        [...allDailyRows, ...allWeeklyRows]
-          .map((row) => String(row?.drivers?.site || "").trim().toUpperCase())
-          .filter(Boolean)
+        [
+          ...sites,
+          ...[...allDailyRows, ...allWeeklyRows].flatMap((row) => [
+            row?.site,
+            row?.drivers?.site,
+            row?.raw_data?.activity_site,
+            row?.raw_data?.mentor?.station,
+          ]),
+        ]
+          .map((value) => String(value || "").trim().toUpperCase())
+          .filter((value) => /^[A-Z]{2,5}\\d{1,3}$/.test(value))
       )].sort(),
-    [allDailyRows, allWeeklyRows]
+    [sites, allDailyRows, allWeeklyRows]
   );
 
   const weeklyRows = useMemo(
-    () => filterRowsBySite(allWeeklyRows, siteFilter),
+    () => {
+      const selectedSite = String(siteFilter || "all").trim().toUpperCase();
+      if (selectedSite === "ALL") return allWeeklyRows;
+      // Activity Site is authoritative. Legacy null-site rows may only be
+      // attributed when the source evidence itself names the selected site.
+      return allWeeklyRows.filter((row) => {
+        const activitySite = String(row?.site || row?.raw_data?.activity_site || "").trim().toUpperCase();
+        if (activitySite) return activitySite === selectedSite;
+        const evidence = JSON.stringify(row?.raw_data?.source_files || []).toUpperCase();
+        return evidence.includes(selectedSite);
+      });
+    },
     [allWeeklyRows, siteFilter]
   );
   const dailyRows = useMemo(
@@ -568,16 +594,13 @@ export default function MentorView({
     );
   }
 
-  const top = [...scored].sort((a, b) => (b.score ?? -1) - (a.score ?? -1)).slice(0, 5);
-  const bottom = [...scored].sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity)).slice(0, 5);
-
   return (
     <>
-      <div className="page-heading v10-heading">
+      <div className="page-heading v10-heading mentor-weekly-heading">
         <div>
-          <span className="page-kicker">SCORECARD</span>
-          <h1>Weekly eMentor / FICO</h1>
-          <p>Weekly eMentor evidence stored in the FICO position of the Driver Scorecard.</p>
+          <span className="page-kicker">EMENTOR SAFETY · WEEKLY</span>
+          <h1>Weekly eMentor Performance</h1>
+          <p>{siteLabel} · {periodLabel} · minimum required score {TARGETS.mentor}+</p>
         </div>
         <div className="mentor-view-actions">
           <div className="mentor-mode-tabs">
@@ -603,39 +626,16 @@ export default function MentorView({
         </div>
       </div>
 
-      <section className="v10-kpi-grid">
+      <section className="v10-kpi-grid mentor-weekly-kpis">
         <article><span>Average score</span><strong>{average == null ? "—" : Math.round(average)}</strong><small>{targetLabel("mentor")}</small></article>
         <article className={below ? "warn" : ""}><span>Below target</span><strong>{below}</strong><small>{periodLabel}</small></article>
         <article><span>At / above target</span><strong>{passed}</strong><small>{TARGETS.mentor}+ required</small></article>
         <article><span>Driver records</span><strong>{activeRows.length}</strong><small>{siteLabel}</small></article>
       </section>
 
-      <section className="dashboard-grid lower">
-        <article className="panel v10-rank-card">
-          <div className="panel-head"><div><h2>Top 5 eMentor</h2><p>Highest weekly FICO scores.</p></div></div>
-          {top.map((item, index) => (
-            <button key={item.id} onClick={() => onOpenDriver?.(openShape(item.row,{mentor_score:item.score,fico:item.score,ementor:item.score}))}>
-              <span className="rank-badge">{index + 1}</span>
-              <div><b>{dname(item.driver)}</b><small>{trid(item.driver)}</small></div>
-              <strong>{Math.round(item.score)}</strong>
-            </button>
-          ))}
-        </article>
-        <article className="panel v10-rank-card attention">
-          <div className="panel-head"><div><h2>Bottom 5 — attention</h2><p>Lowest weekly FICO scores.</p></div></div>
-          {bottom.map((item, index) => (
-            <button key={item.id} onClick={() => onOpenDriver?.(openShape(item.row,{mentor_score:item.score,fico:item.score,ementor:item.score,risk:"Medium",issue:"Mentor score below target"}))}>
-              <span className="rank-badge">{index + 1}</span>
-              <div><b>{dname(item.driver)}</b><small>{trid(item.driver)}</small></div>
-              <strong>{Math.round(item.score)}</strong>
-            </button>
-          ))}
-        </article>
-      </section>
-
       <section className="panel mentor-weekly-table">
         <div className="panel-head">
-          <div><h2>Weekly FICO register</h2><p>{periodLabel} · {siteLabel}</p></div>
+          <div><span className="page-kicker">DRIVER RANKING</span><h2>Weekly eMentor leaderboard</h2><p>{periodLabel} · {siteLabel} · sorted by your selected column</p></div>
         </div>
         <MentorReportTable rows={visibleRows} sort={sort} onSort={toggleSort} onOpenDriver={onOpenDriver} />
       </section>

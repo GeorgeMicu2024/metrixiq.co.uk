@@ -41,6 +41,8 @@ export default function CommandCenterPanel({
   summary,
   intelligence,
   drivers,
+  history = [],
+  siteFilter = "all",
   onCoaching,
   onConcessions,
   onImport,
@@ -53,6 +55,32 @@ export default function CommandCenterPanel({
   const priorityAlerts = n(alerts.critical) + n(alerts.high);
   const deterioration = n(alerts.dcr_drop) + n(alerts.deteriorating);
   const priorities = mapPriorityDrivers(summary, drivers, intelligence.priorityDrivers);
+  const trendMetrics = [
+    ["IADC", ["iadc", "iadc_score"]],
+    ["DCR", ["dcr"]],
+    ["POD", ["pod"]],
+    ["eMentor", ["fico", "mentor_score", "ementor"]],
+    ["Concessions", ["concessions"]],
+  ];
+  const metricValue = (row, keys) => {
+    for (const key of Array.isArray(keys) ? keys : [keys]) {
+      const raw = row?.[key];
+      if (raw === null || raw === undefined || raw === "") continue;
+      const value = Number(raw);
+      if (Number.isFinite(value)) return value;
+    }
+    return null;
+  };
+  const trendRows = (Array.isArray(history) ? history : [])
+    .filter((row) => trendMetrics.some(([, keys]) => metricValue(row, keys) != null))
+    .slice(-8);
+  const latestForMetric = (keys) => {
+    const rows = trendRows.filter((row) => metricValue(row, keys) != null);
+    return {
+      current: rows.length ? metricValue(rows[rows.length - 1], keys) : null,
+      previous: rows.length > 1 ? metricValue(rows[rows.length - 2], keys) : null,
+    };
+  };
 
   const cards = [
     {
@@ -121,6 +149,25 @@ export default function CommandCenterPanel({
             <small>{card.note}</small>
           </button>
         ))}
+      </div>
+
+      <div className="command-center-trends" style={{marginTop:16}}>
+        <div className="command-center-section-head">
+          <div><b>{siteFilter === "all" ? "All Sites performance trend" : `${siteFilter} performance trend`}</b><span>Last {trendRows.length || 0} reporting periods · Activity Site evidence.</span></div>
+        </div>
+        <div className="command-center-grid">
+          {trendMetrics.map(([label,keys]) => {
+            const { current, previous } = latestForMetric(keys);
+            const delta = current != null && previous != null ? current - previous : null;
+            return <div key={label} className="command-center-card">
+              <span>{label}</span><strong>{current == null ? "—" : (label === "eMentor" ? Math.round(current) : current.toFixed(1))}</strong>
+              <small>{current == null ? "No valid evidence" : delta == null ? "No comparison yet" : `${delta >= 0 ? "↑" : "↓"} ${Math.abs(delta).toFixed(1)} vs previous period`}</small>
+            </div>;
+          })}
+        </div>
+        {trendRows.length > 1 ? <div style={{display:"grid",gridTemplateColumns:`repeat(${trendRows.length},minmax(0,1fr))`,gap:6,alignItems:"end",height:92,marginTop:14}}>
+          {trendRows.map((row,index) => { const value=metricValue(row,["performance","iadc","dcr","pod"]); return <div key={row.week||row.week_label||index} title={String(row.week||row.week_label||index+1)} style={{height:`${value == null ? 8 : Math.max(8,Math.min(100,value))}%`,borderRadius:"6px 6px 2px 2px",background:"var(--miq-accent)",opacity:value == null ? .15 : .45+index/(trendRows.length*2)}} />; })}
+        </div> : null}
       </div>
 
       <div className="command-center-lower">

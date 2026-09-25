@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { findIadcHeader } from "../lib/parsers/iadc.js";
+import { percentageMetric, rollingSeries } from "../lib/analyzer/html.js";
 import { classifyImportFile, prepareImportFiles, summarizePreflight } from "../lib/imports/preflight.js";
 import { buildImportIntelligence } from "../lib/imports/analysisSummary.js";
-import { clean, inferPeriod, normalizeSiteCode, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
-import { parseGenericMatrix, parseMentorAliasMatrix, parseMentorMatrix } from "../lib/analyzer/spreadsheet.js";
+import { clean, inferPeriod, normalizeSiteCode, numeric, riskFor, scorecardTierFromTotal } from "../lib/analyzer/core.js";
+import { parseGenericMatrix, parseMentorAliasMatrix, parseMentorMatrix, parseScorecardMatrix } from "../lib/analyzer/spreadsheet.js";
 import { buildFleetIntelligence } from "../lib/intelligence/fleet.js";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans.js";
 import { issueFrom as persistenceIssue, riskFrom as persistenceRisk } from "../lib/persistence/metrics.js";
@@ -174,6 +175,48 @@ test("shared analyzer parsers remain runtime-safe across formats", () => {
 
   assert.equal(generic?.records?.length, 1);
   assert.equal(generic.records[0].metrics.dcr, 99.5);
+});
+
+test("canonical percentage normalization accepts fractions and rejects impossible KPI values", () => {
+  assert.equal(numeric("0.973", "dcr"), 97.3);
+  assert.equal(numeric("97.3%", "dcr"), 97.3);
+  assert.equal(numeric("0.82", "iadc"), 82);
+  assert.equal(numeric("82%", "iadc"), 82);
+  assert.equal(numeric("151", "iadc"), null);
+  assert.equal(numeric("-1", "dcr"), null);
+  assert.equal(numeric("151", "mentor_score"), 151);
+});
+
+test("DWC/IADC percentage parsing rejects impossible values and does not bleed into the next rolling chart", () => {
+  assert.equal(percentageMetric("95.15%", "dwc"), 95.15);
+  assert.equal(percentageMetric("1973.36%", "dwc"), null);
+  assert.equal(percentageMetric("", "dwc"), null);
+
+  const text = "7 Day Rolling DWC 2026-09-13 2026-09-14 2026-09-15 2026-09-16 2026-09-17 2026-09-18 2026-09-19 96.61% 93.85% 95.07% 94.81% Unable to display chart 7 Week Rolling DWC 2026-32 93.88%";
+  assert.deepEqual(rollingSeries(text, "7 Day Rolling DWC", /\d{4}-\d{2}-\d{2}/g), {
+    "2026-09-13": 96.61,
+    "2026-09-14": 93.85,
+    "2026-09-15": 95.07,
+    "2026-09-16": 94.81,
+  });
+});
+
+test("scorecard parser does not persist zero-opportunity DCR as a real 0%", () => {
+  const parsed = parseScorecardMatrix(
+    [
+      ["TRID", "Name", "Total Score", "Delivered", "DCR", "POD", "CC"],
+      ["A123456789", "No Opportunity", 90, 0, "0%", "100%", "100%"],
+      ["A987654321", "Real Delivery", 90, 120, "99.5%", "100%", "100%"],
+    ],
+    "Week38-DSP-Scorecard.xlsx",
+    "Scorecard"
+  );
+
+  assert.equal(parsed?.records?.length, 2);
+  assert.equal(parsed.records[0].metrics.delivered, 0);
+  assert.equal(parsed.records[0].metrics.dcr, undefined);
+  assert.equal(parsed.records[1].metrics.delivered, 120);
+  assert.equal(parsed.records[1].metrics.dcr, 99.5);
 });
 
 test("analyzer delegates HTML and PDF parsing to dedicated engines", () => {
@@ -480,7 +523,6 @@ test("Notifications V2 uses the auditable notification feed", () => {
   const data = read("lib/data/notificationsV2.js");
 
   assert.ok(dashboard.includes('import NotificationsCenterV2 from "./notifications/NotificationsCenterV2"'));
-  assert.ok(dashboard.includes("<NotificationsCenterV2"));
   assert.ok(data.includes('supabase.rpc("list_notification_events"'));
   assert.ok(data.includes('supabase.rpc("refresh_notification_events"'));
   assert.ok(notifications.includes("NOTIFICATIONS V2"));
@@ -674,7 +716,7 @@ test("active product controls keep accessible names", () => {
   const mentor = read("components/operations/MentorView.jsx");
   const cdf = read("components/customer-feedback/CdfView.jsx");
 
-  assert.ok(dashboard.includes('aria-label="Sign out"'));
+  assert.equal(dashboard.includes('aria-label="Sign out"'), false);
   assert.ok(dashboard.includes('aria-label="Filter workspace by site"'));
   assert.ok(performance.includes('aria-label="Search performance drivers"'));
   assert.ok(scorecards.includes('aria-label="Search scorecards"'));
@@ -859,15 +901,14 @@ test("dashboard delegates Smart Import persistence workflow", () => {
   assert.ok(workflow.includes("refreshWorkspacePerformance"));
 });
 
-test("workspace search keyboard hint is functional", () => {
+test("workspace topbar has no global Ctrl K search", () => {
   const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(dashboard.includes("useRef"));
-  assert.ok(dashboard.includes('key === "k"'));
-  assert.ok(dashboard.includes("event.ctrlKey || event.metaKey"));
-  assert.ok(dashboard.includes("searchRef.current?.focus()"));
-  assert.ok(dashboard.includes('key === "escape"'));
-  assert.ok(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"));
+  assert.equal(dashboard.includes('key === "k"'), false);
+  assert.equal(dashboard.includes("event.ctrlKey || event.metaKey"), false);
+  assert.equal(dashboard.includes("searchRef.current?.focus()"), false);
+  assert.equal(dashboard.includes("<kbd>⌘ / Ctrl K</kbd>"), false);
+  assert.equal(dashboard.includes('aria-label="Search workspace"'), false);
 });
 
 test("Driver 360 calculates recent trajectory and evidence correctly", () => {
@@ -1142,7 +1183,7 @@ test("site-scoped operational views recover from stale week selections", () => {
   const cdf = read("components/customer-feedback/CdfView.jsx");
   const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(iadc.includes("week&&weeks.includes(week)?week"));
+  assert.ok(iadc.includes('availableWeeks.includes(week)?week'));
   assert.ok(cdf.includes("!weeks.includes(week)"));
   assert.equal(
     (dashboard.match(/aria-label="Filter workspace by site"/g) || []).length,
@@ -1150,10 +1191,13 @@ test("site-scoped operational views recover from stale week selections", () => {
   );
 });
 
-test("Performance recovers stale site and week filters", () => {
+test("Performance inherits workspace site scope and recovers stale week filters", () => {
   const performance = read("components/performance/PerformanceView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(performance.includes('if (site !== "all" && !sites.includes(site)) setSite("all")'));
+  assert.ok(performance.includes('siteFilter = "all"'));
+  assert.ok(dashboard.includes('siteFilter={siteFilter}'));
+  assert.equal(performance.includes('setSite('), false);
   assert.ok(performance.includes('focusWeek !== "latest"'));
   assert.ok(performance.includes('setFocusWeek("latest")'));
 });
@@ -1284,7 +1328,7 @@ test("daily eMentor supports multiple source accounts per driver and persistent 
   const migration = read("supabase/migrations/20260921154000_mentor_daily_persistent_visibility.sql");
 
   assert.ok(daily.includes('rowsBySource.set(sourceIdentityKey, row)'));
-  assert.ok(daily.includes('organization_id,report_date,source_identity_key'));
+  assert.ok(daily.includes('organization_id,site,report_date,source_identity_key'));
   assert.ok(view.includes('setMentorDailyVisibility'));
   assert.ok(view.includes('Show hidden rows'));
   assert.ok(view.includes('Restore'));
@@ -1317,4 +1361,47 @@ test("POD and DCR aliases cover common percentage headers", () => {
   assert.ok(definitions.includes('"delivery completion rate %"'));
   assert.equal(clean("POD Compliance %"), "pod compliance");
   assert.equal(clean("DCR %"), "dcr");
+});
+
+
+test("IADC direct import stays on the IADC page and rejects invalid files with a centered modal", () => {
+  const view = read("components/operations/IadcView.jsx");
+  assert.ok(view.includes("Upload IADC Report"));
+  assert.ok(view.includes("Choose File"));
+  assert.ok(view.includes("Invalid file format"));
+  assert.ok(view.includes('role="alertdialog"'));
+  assert.ok(view.includes("setImportError"));
+  assert.ok(view.includes("onImported?.(result,[file],importSite)"))
+  assert.ok(view.includes("savedMetrics||0"));
+  assert.equal(view.includes("<th>Band</th>"), false);
+  assert.equal(view.includes("bandFilter"), false);
+});
+
+
+test("IADC import is direct, validated, and keeps band out of the table", () => {
+  const iadc = read("components/operations/IadcView.jsx");
+  assert.ok(iadc.includes('const IADC_ACCEPT=".xlsx,.xls,.html,.htm,.pdf"'));
+  assert.ok(iadc.includes("iadcv3-error-modal"));
+  assert.ok(iadc.includes("This doesn’t look like a valid Amazon IADC report"));
+  assert.equal(iadc.includes("<th>Transporter ID</th>"), false);
+  assert.equal(iadc.includes('"Band"'), false);
+  assert.equal(iadc.includes('className="iadcv3-charts"'), false);
+});
+
+
+test("analysis preserves daily granularity for IADC persistence and IADC opens imported period", () => {
+  const analyzer = read("lib/analyzer.js");
+  const iadc = read("components/operations/IadcView.jsx");
+  assert.ok(analyzer.includes('granularity: bucket.granularity || "weekly"'));
+  assert.ok(iadc.includes('x.includes("iadc-daily")'));
+  assert.ok(iadc.includes('x.includes("iadc-weekly")'));
+  assert.ok(iadc.includes('setMode(hasDaily?"daily":hasWeekly?"weekly":mode)'));
+});
+
+
+test("concessions week window ignores unrelated daily operational rows", () => {
+  const view = read("components/operations/ConcessionsView.jsx");
+  assert.ok(view.includes("const concessionRows=rows.filter(r=>n(r.concessions)!=null)"));
+  assert.ok(view.includes("const weeks=contiguousWeeks(concessionRows,range)"));
+  assert.equal(view.includes("const weeks=contiguousWeeks(rows,range)"), false);
 });

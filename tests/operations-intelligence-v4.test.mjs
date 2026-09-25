@@ -116,7 +116,9 @@ test("V4 product surfaces are wired into the workspace without replacing source 
   assert.ok(dashboard.includes('./evidence/EvidenceIncidentCenter'));
   assert.ok(dashboard.includes('./sites/SiteOperationsCenter'));
   assert.ok(dashboard.includes("<Driver360V2"));
-  assert.ok(navigation.includes('["site-operations", "Site Operations"]'));
+  assert.equal(navigation.includes('["site-operations", "Site Operations"]'), false);
+  assert.equal(navigation.includes('["dwc", "DWC"]'), false);
+  assert.ok(navigation.includes('{ label: "OPERATION"'));
   assert.ok(navigation.includes('["evidence", "Evidence & Incidents"]'));
   assert.ok(driver.includes("Driver Root-Cause Engine"));
   assert.ok(driver.includes("Unified driver timeline"));
@@ -136,6 +138,16 @@ test('IADC DWC V4 keeps daily snapshots separate from weekly metrics', () => {
   assert.ok(view.includes('.sort((a,b)=>Number(metricValue(b))-Number(metricValue(a)))'));
 });
 
+
+test("IADC daily selector is scoped to daily weeks and explicit dates", () => {
+  const view = fs.readFileSync("components/operations/IadcView.jsx","utf8");
+  assert.ok(view.includes('const dailyWeeks=useMemo'));
+  assert.ok(view.includes('const weeklyWeeks=useMemo'));
+  assert.ok(view.includes('const availableWeeks=mode==="daily"?dailyWeeks:weeklyWeeks'));
+  assert.ok(view.includes('aria-label="Daily IADC week"'));
+  assert.ok(view.includes('aria-label="Daily IADC date"'));
+  assert.ok(view.includes('setWeek(e.target.value);setDay("")'));
+});
 
 test("POD DCR CC operations views use their own metric and targets", () => {
   const view = fs.readFileSync("components/operations/IadcView.jsx","utf8");
@@ -164,8 +176,11 @@ test("operational metric imports reload and query the correct metric column", ()
   const iadc = fs.readFileSync("components/operations/IadcView.jsx","utf8");
   const mentor = fs.readFileSync("components/operations/MentorView.jsx","utf8");
 
-  assert.ok(data.includes('["pod", "dcr", "cc"].includes(kind)'));
+  assert.ok(data.includes('["dcr", "cc"].includes(kind)'));
   assert.ok(data.includes('query.not(kind, "is", null)'));
+  assert.ok(data.includes('if (kind === "pod")'));
+  assert.ok(data.includes('row.pod != null ||'));
+  assert.ok(data.includes('row.raw_data?.pod_detail != null'));
   assert.ok(shared.includes("refreshKey = 0"));
   assert.ok(shared.includes("[organizationId, kind, refreshKey]"));
   assert.ok(dashboard.includes("setOperationalRefreshKey((value) => value + 1)"));

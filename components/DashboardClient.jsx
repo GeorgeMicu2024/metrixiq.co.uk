@@ -18,6 +18,7 @@ import SavedViewsBulkActions from "./management/SavedViewsBulkActions";
 import { DriverScorecardsView, SiteScorecardsView } from "./scorecards/ScorecardViews";
 import PerformanceView from "./performance/PerformanceView";
 import DriverDirectoryView from "./drivers/DriverDirectoryView";
+import DriverMasterView from "./drivers/DriverMasterView";
 import IadcView from "./operations/IadcView";
 import PodQualityView from "./operations/PodQualityView";
 import CustomerComplianceView from "./operations/CustomerComplianceView";
@@ -27,15 +28,19 @@ import CoachingV3 from "./coaching/CoachingV3";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
 import { loadWorkspaceContext } from "../lib/data/workspace";
+import { fetchCommandCenterSummary } from "../lib/data/commandCenter";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
 import { persistWorkspaceImport } from "../lib/data/importWorkflow";
 import { autoReassessAiInterventions, refreshSlaEscalations, runAutomationEngine } from "../lib/data/automationV8";
 import { DashboardView } from "./dashboard/DashboardViews";
+import HomeView from "./dashboard/HomeView";
 import ReportBuilderV2 from "./reports/ReportBuilderV2";
 import ExecutiveAnalystV2 from "./intelligence/ExecutiveAnalystV2";
 import ImportCenterV2 from "./imports/ImportCenterV2";
 import NotificationsCenterV2 from "./notifications/NotificationsCenterV2";
+import ManagerChat from "./chat/ManagerChat";
+import ChatHeaderButton from "./chat/ChatHeaderButton";
 import NotificationsPageV2 from "./notifications/NotificationsPageV2";
 import ActionCenterV2 from "./automation/ActionCenterV2";
 import AutomationCenter from "./automation/AutomationCenter";
@@ -52,6 +57,7 @@ import PortfolioDashboard from "./enterprise/PortfolioDashboard";
 import EnterpriseSettings from "./enterprise/EnterpriseSettings";
 import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
+import { fetchOrganizationHierarchy, upsertOrganizationSiteProfile } from "../lib/data/enterpriseV7";
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -64,15 +70,20 @@ export default function DashboardClient() {
   const [mobile, setMobile] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [commandCenterError, setCommandCenterError] = useState("");
   const [selectedDriver, setSelectedDriver] = useState(null);
   const [driverHistory, setDriverHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [metricHistoryRows, setMetricHistoryRows] = useState([]);
   const [globalSearch, setGlobalSearch] = useState("");
-  const [commandOpen, setCommandOpen] = useState(false);
 
   const [favorites, setFavorites] = useState([]);
   const [siteFilter, setSiteFilter] = useState("all");
+  const [siteRegistry, setSiteRegistry] = useState([]);
+  const [siteCreateOpen, setSiteCreateOpen] = useState(false);
+  const [siteCreateBusy, setSiteCreateBusy] = useState(false);
+  const [siteCreateError, setSiteCreateError] = useState("");
+  const [siteDraft, setSiteDraft] = useState({ code: "", displayName: "", region: "", country: "United Kingdom" });
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [access, setAccess] = useState(null);
   const [commandCenter, setCommandCenter] = useState(null);
@@ -85,8 +96,6 @@ export default function DashboardClient() {
   const [sidebarCompact,setSidebarCompact]=useState(false);
   const [profileMenuOpen,setProfileMenuOpen]=useState(false);
   const [now,setNow]=useState(()=>new Date());
-  const searchRef = useRef(null);
-  const profileMenuRef = useRef(null);
 
   useEffect(() => {
     try { setFavorites(JSON.parse(localStorage.getItem("metrixiq.navFavorites") || "[]")); } catch { setFavorites([]); }
@@ -97,20 +106,6 @@ export default function DashboardClient() {
     return () => window.clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    function closeProfileMenu(event) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) setProfileMenuOpen(false);
-    }
-    function closeProfileMenuOnEscape(event) {
-      if (event.key === "Escape") setProfileMenuOpen(false);
-    }
-    document.addEventListener("pointerdown", closeProfileMenu);
-    window.addEventListener("keydown", closeProfileMenuOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeProfileMenu);
-      window.removeEventListener("keydown", closeProfileMenuOnEscape);
-    };
-  }, []);
 
   function toggleFavorite(id) {
     setFavorites((current) => {
@@ -156,6 +151,9 @@ export default function DashboardClient() {
     setWorkspaceOptions(resolved.workspaces || []);
     setBranding(brandingState || null);
     setSession({
+      id: user.id,
+      user_id: user.id,
+      user: { id: user.id, email: user.email || "" },
       name: profile?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "MetrixIQ User",
       email: profile?.email || user.email || "",
       organisation: resolved.organization.name,
@@ -168,6 +166,7 @@ export default function DashboardClient() {
     setSelectedDriver(null);
     setDriverHistory([]);
     setSiteFilter("all");
+    setSiteRegistry([]);
   }
 
   async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null) {
@@ -264,37 +263,102 @@ export default function DashboardClient() {
     return () => window.removeEventListener("popstate", syncViewFromHistory);
   }, [access, platformAdmin, session?.role, permissions, selectedDriver]);
 
+
   useEffect(() => {
-    function handleWorkspaceShortcut(event) {
-      const key = String(event.key || "").toLowerCase();
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) return;
+    let cancelled = false;
+    fetchOrganizationHierarchy(getSupabaseBrowserClient(), organizationId)
+      .then((rows) => { if (!cancelled) setSiteRegistry(rows || []); })
+      .catch(() => { if (!cancelled) setSiteRegistry([]); });
+    return () => { cancelled = true; };
+  }, [workspace?.organization?.id]);
 
-      if ((event.ctrlKey || event.metaKey) && key === "k") {
-        event.preventDefault();
-        setCommandOpen(true);
-        searchRef.current?.focus();
-        searchRef.current?.select();
-        return;
-      }
+  const validSiteCode = (value) => {
+    const site = String(value || "").trim().toUpperCase();
+    return /^[A-Z]{2,5}\d{1,3}$/.test(site) ? site : "";
+  };
+  const legacySites = dbDrivers
+    .map((d) => validSiteCode(d.site))
+    .filter(Boolean);
+  const registeredSites = siteRegistry
+    .filter((row) => row.active !== false)
+    .flatMap((row) => [row.site, row.site_code, row.code, row.station_code])
+    .map(validSiteCode)
+    .filter(Boolean);
+  const evidenceSites = metricHistoryRows
+    .flatMap((row) => [
+      row?.site,
+      row?.drivers?.site,
+      row?.raw_data?.activity_site,
+      row?.raw_data?.mentor?.station,
+    ])
+    .map(validSiteCode)
+    .filter(Boolean);
+  const sites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])].sort();
 
-      if (key === "escape" && commandOpen) {
-        event.preventDefault();
-        setCommandOpen(false);
-        setGlobalSearch("");
-        searchRef.current?.blur();
-      }
+  async function createSiteFromDashboard() {
+    const organizationId = workspace?.organization?.id;
+    const code = String(siteDraft.code || "").trim().toUpperCase();
+    if (!organizationId) return;
+    if (!/^[A-Z]{2,5}\d{1,3}$/.test(code)) {
+      setSiteCreateError("Use a valid station code such as DLS2, DXM3 or DDN1.");
+      return;
     }
+    if (sites.includes(code)) {
+      setSiteCreateError(code + " already exists in this workspace.");
+      return;
+    }
+    setSiteCreateBusy(true);
+    setSiteCreateError("");
+    try {
+      await upsertOrganizationSiteProfile(getSupabaseBrowserClient(), {
+        organizationId,
+        site: code,
+        displayName: siteDraft.displayName || code + " operations",
+        region: siteDraft.region || null,
+        country: siteDraft.country || "United Kingdom",
+        active: true,
+      });
+      const rows = await fetchOrganizationHierarchy(getSupabaseBrowserClient(), organizationId);
+      setSiteRegistry(rows || []);
+      setSiteFilter(code);
+      setSiteDraft({ code: "", displayName: "", region: "", country: "United Kingdom" });
+      setSiteCreateOpen(false);
+    } catch (error) {
+      setSiteCreateError(error?.message || "Could not create site.");
+    } finally {
+      setSiteCreateBusy(false);
+    }
+  }
+  useEffect(() => {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) return;
+    let cancelled = false;
+    setCommandCenterError("");
+    fetchCommandCenterSummary(getSupabaseBrowserClient(), organizationId, siteFilter)
+      .then((summary) => { if (!cancelled) { setCommandCenter(summary); setCommandCenterError(""); } })
+      .catch(() => { if (!cancelled) setCommandCenterError("Live operational summary could not be refreshed. Some dashboard values may be stale."); });
+    return () => { cancelled = true; };
+  }, [workspace?.organization?.id, siteFilter]);
 
-    window.addEventListener("keydown", handleWorkspaceShortcut);
-    return () => window.removeEventListener("keydown", handleWorkspaceShortcut);
-  }, [commandOpen]);
-
-  const sites = [...new Set(dbDrivers.map((d) => String(d.site || "").trim().toUpperCase()).filter((site) => /^[A-Z]{2,5}\d{1,3}$/.test(site)))].sort();
-  const drivers = siteFilter === "all" ? dbDrivers : dbDrivers.filter((d) => d.site === siteFilter);
+  const normalizedSiteFilter = validSiteCode(siteFilter);
+  const drivers = siteFilter === "all"
+    ? dbDrivers
+    : dbDrivers.filter((d) => validSiteCode(d.site) === normalizedSiteFilter);
   const visibleMetricHistoryRows = useMemo(
     () => siteFilter === "all"
       ? metricHistoryRows
-      : metricHistoryRows.filter((row) => String(row?.drivers?.site || "").trim().toUpperCase() === siteFilter),
-    [metricHistoryRows, siteFilter]
+      : metricHistoryRows.filter((row) => {
+          const resolvedSite = [
+            row?.site,
+            row?.drivers?.site,
+            row?.raw_data?.activity_site,
+            row?.raw_data?.mentor?.station,
+          ].map(validSiteCode).find(Boolean);
+          return resolvedSite === normalizedSiteFilter;
+        }),
+    [metricHistoryRows, siteFilter, normalizedSiteFilter]
   );
   const visibleFleetHistory = useMemo(
     () => aggregateFleetHistory(visibleMetricHistoryRows),
@@ -307,7 +371,7 @@ export default function DashboardClient() {
   } : {};
   const kpis = { ...liveKpis };
 
-  async function imported(result, files) {
+  async function imported(result, files, activitySite = null) {
     const organizationId = workspace?.organization?.id;
     if (!organizationId) throw new Error("Workspace is not ready yet.");
 
@@ -316,6 +380,7 @@ export default function DashboardClient() {
       organizationId,
       analysis: result,
       files,
+      site: activitySite,
     });
 
     setAnalysis(result);
@@ -368,22 +433,34 @@ export default function DashboardClient() {
 
   let view;
   switch (routedActive) {
+    case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} history={visibleFleetHistory} metricRows={visibleMetricHistoryRows} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} dataWarning={commandCenterError} onNavigate={navigate} />; break;
+    case "manager-chat": view = <ManagerChat organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} session={session} />; break;
+    case "command-center": view = <><>{commandCenterError&&<div className="mgrv2-notice error">{commandCenterError}</div>}</><DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} /></>; break;
     case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
     case "enterprise-settings": view = <EnterpriseSettings organization={workspace?.organization} sites={sites} canManageHierarchy={platformAdmin || permissions?.view_enterprise_settings} canManagePolicy={platformAdmin || permissions?.manage_kpi_policy} canManageBranding={platformAdmin || permissions?.manage_branding} onBrandingChanged={refreshBranding} />; break;
     case "mobile-manager": view = <MobileManagerMode organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} canManage={platformAdmin || permissions?.manage_coaching || permissions?.manage_incidents} onOpenDriver={openDriver} onNavigate={navigate} />; break;
-    case "daily-dispatch": view = <WavePlanView site={siteFilter!=="all"?siteFilter:(sites[0]||"DLS2")} drivers={dbDrivers} />; break;
+    case "daily-dispatch": view = siteFilter==="all"
+      ? <div className="panel dispatch-site-gate">
+          <span className="page-kicker">DAILY DISPATCH · ACTIVITY SITE REQUIRED</span>
+          <h1>Select the site for this Wave Plan</h1>
+          <p>Daily Dispatch will not guess an Activity Site. Choose the station where today's routes are operating before uploading route, wave or ATLAS data.</p>
+          <div className="dispatch-site-options">
+            {sites.map((site)=><button key={site} className="btn ghost" onClick={()=>setSiteFilter(site)}>{site}</button>)}
+          </div>
+        </div>
+      : <WavePlanView site={siteFilter} drivers={dbDrivers} />; break;
     case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
-    case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} onOpenDriver={openDriver} />; break;
+    case "driver-master": view = <DriverMasterView organizationId={workspace?.organization?.id} sites={sites} legacyDrivers={dbDrivers} canManage={platformAdmin || ["owner","admin","manager"].includes(String(session?.role || "").toLowerCase())} onOpenDriver={openDriver} />; break;
+    case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query="" />; break;
+    case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} siteFilter={siteFilter} onOpenDriver={openDriver} />; break;
     case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onImported={imported} siteFilter={siteFilter} metric="iadc" initialComplianceTab="iadc" refreshKey={operationalRefreshKey} />; break;
-    case "dwc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onImported={imported} siteFilter={siteFilter} metric="iadc" initialComplianceTab="dwc" refreshKey={operationalRefreshKey} />; break;
     case "pod": view = <PodQualityView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} />; break;
+    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} sites={sites} refreshKey={operationalRefreshKey} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
     case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
@@ -392,7 +469,7 @@ export default function DashboardClient() {
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
-    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
+    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
     case "management-views": view = <SavedViewsBulkActions organizationId={workspace?.organization?.id} siteFilter={siteFilter} canBulk={platformAdmin || permissions?.bulk_actions} />; break;
     case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
@@ -404,11 +481,11 @@ export default function DashboardClient() {
     case "team": view = <TeamAccessHub organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <AccountSettingsView platformAdmin={platformAdmin} />; break;
     case "admin": view = platformAdmin ? <PlatformAdminView /> : <AccountSettingsView platformAdmin={false} />; break;
-    case "driver-profile": view = selectedDriver ? <Driver360V2 organizationId={workspace?.organization?.id} driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} canManage={platformAdmin || permissions?.manage_incidents || permissions?.manage_coaching} onBack={backFromDriver} onOpenCoaching={() => navigate("coaching")} onOpenSimulator={() => navigate("simulator")} onOpenEvidence={() => navigate("evidence")} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query={globalSearch} />; break;
-    default: view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
+    case "driver-profile": view = selectedDriver ? <Driver360V2 organizationId={workspace?.organization?.id} driver={selectedDriver} history={driverHistory} historyLoading={historyLoading} canManage={platformAdmin || permissions?.manage_incidents || permissions?.manage_coaching} onBack={backFromDriver} onOpenCoaching={() => navigate("coaching")} onOpenSimulator={() => navigate("simulator")} onOpenEvidence={() => navigate("evidence")} /> : <DriverDirectoryView drivers={drivers} onOpen={openDriver} query="" />; break;
+    default: view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
   }
 
-  if (authLoading) return <main className="app-loading"><div className="auth-spinner" /><h1>MetrixIQ</h1><p>Loading secure workspace…</p></main>;
+  if (authLoading) return null;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
@@ -420,18 +497,27 @@ export default function DashboardClient() {
   );
   const favoriteItems = nav.filter(([id]) => favorites.includes(id) && canAccessNav(id, access, platformAdmin, session?.role, permissions));
 
-  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><div className="workspace-chip"><span>{initials(session.organisation)}</span><div><b>{session.organisation || "My Fleet"}</b><small>{platformAdmin ? "Platform Owner" : access?.subscription_status === "trialing" ? "Full trial" : `${String(access?.effective_plan || "free").toUpperCase()} plan`}</small></div></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav><div className="sidebar-context">
-  {profileMenuOpen&&<div className="sidebar-profile-menu">
-    <button onClick={()=>{navigate("settings");setProfileMenuOpen(false)}}><span>⚙</span><div><b>Account settings</b><small>Profile, security & preferences</small></div></button>
-    <button onClick={()=>{navigate("notifications");setProfileMenuOpen(false)}}><span>◉</span><div><b>Notifications</b><small>Alerts & activity</small></div></button>
-    {platformAdmin&&<button onClick={()=>{navigate("admin");setProfileMenuOpen(false)}}><span>◇</span><div><b>Super Admin</b><small>Platform administration</small></div></button>}
-    <div className="sidebar-profile-menu-sep" />
-    <button className="logout" onClick={logout}><span>↪</span><div><b>Log out</b><small>Sign out of MetrixIQ</small></div></button>
-  </div>}
-  <button className={"sidebar-profile "+(profileMenuOpen?"open":"")} onClick={()=>setProfileMenuOpen(v=>!v)} title="Account menu">
-    <span className="sidebar-profile-avatar">{session.avatar_url?<img src={session.avatar_url} alt="" />:initials(session.name)}</span>
-    <span className="sidebar-profile-copy"><b>{session.name||"Manager"}</b><small>{platformAdmin?"Super Admin":session.role||"Manager"}</small></span>
-    <span className="sidebar-profile-chevron">{profileMenuOpen?"⌄":"⌃"}</span>
-  </button>
-</div></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-minimal"><button className="menu-btn" onClick={() => setMobile(true)}>☰</button><div className="topbar-controls">{workspaceOptions.length>1?<select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select>:null}<select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}</select><div className="workspace-search"><input ref={searchRef} value={globalSearch} onChange={e=>setGlobalSearch(e.target.value)} placeholder="Search workspace…" aria-label="Search workspace"/><kbd>⌘ / Ctrl K</kbd></div><NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin||permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate}/><button className="btn ghost" aria-label="Sign out" onClick={logout}>Sign out</button></div></header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} /></div>;
+  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-mockup">
+  <button className="menu-btn" onClick={() => setMobile(true)}>☰</button>
+  <div className="topbar-context">
+    <span className="topbar-page-label">{routedActive==="dashboard"?"Home":(nav.find(([id])=>id===routedActive)?.[1]||"MetrixIQ")}</span>
+    <small>{workspace?.organization?.name||workspace?.organization_name||"Workspace"}</small>
+  </div>
+  <div className="topbar-controls">
+    {workspaceOptions.length>1?<label className="workspace-switcher"><span>WORKSPACE</span><select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select></label>:null}
+    <label className="site-switcher site-switcher-mockup" aria-label="Active site selector"><span className="site-switcher-mark">SITE</span><select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);}}><option value="all">All Sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}<option value="__add_site__">＋ Add new site</option></select><span className="site-switcher-chevron">⌄</span></label>
+    <ChatHeaderButton organizationId={workspace?.organization?.id} userId={session?.user?.id||session?.id} onOpen={()=>{if(active==="manager-chat"){if(!navigate(previousActive||"dashboard"))navigate("dashboard");}else{setPreviousActive(active);navigate("manager-chat");}}} />
+    <NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={operationalRefreshKey} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate} />
+    <div className="topbar-profile-wrap">
+      <button className={profileMenuOpen?"topbar-profile active":"topbar-profile"} onClick={()=>setProfileMenuOpen(v=>!v)} aria-expanded={profileMenuOpen}><b>{initials(session?.name||session?.email||"M")}</b><span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}</small></span><em>⌄</em></button>
+      {profileMenuOpen&&<div className="profile-menu">
+        <div className="profile-menu-head"><b>{initials(session?.name||session?.email||"M")}</b><span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}{siteFilter!=="all"?` · ${siteFilter}`:""}</small></span></div>
+        <div className="profile-menu-divider"/>
+        <button onClick={()=>{setProfileMenuOpen(false);navigate("settings")}}><i>⚙</i><span><b>Settings</b><small>Account, password and preferences</small></span></button>
+        <div className="profile-menu-divider"/>
+        <button className="profile-menu-logout" onClick={()=>{setProfileMenuOpen(false);logout()}}><i>↪</i><span><b>Log out</b><small>Sign out of MetrixIQ</small></span></button>
+      </div>}
+    </div>
+  </div>
+</header><main className="app-main">{view}</main></div><MobileCommandDock active={routedActive} onNavigate={(id)=>{navigate(id);setSelectedDriver(null);}} />{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy)setSiteCreateOpen(false);}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">Add new site</h2><p>Create a station in this workspace. Existing DLS2 drivers and historical data are not changed.</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
 }
