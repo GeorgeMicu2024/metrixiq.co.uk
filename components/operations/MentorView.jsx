@@ -461,21 +461,6 @@ export default function MentorView({
 
             <div className="mentor-report-controls">
               <label className="mentor-control">
-                <span>Site</span>
-                <select
-                  value={siteFilter}
-                  onChange={(event) => onSiteFilterChange?.(event.target.value)}
-                  disabled={!onSiteFilterChange}
-                  aria-label="Filter eMentor report by site"
-                >
-                  <option value="all">All sites</option>
-                  {availableSites.map((site) => (
-                    <option key={site} value={site}>{site}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="mentor-control">
                 <span>Date</span>
                 <select
                   value={selectedDate}
