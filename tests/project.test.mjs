@@ -1371,7 +1371,8 @@ test("IADC direct import stays on the IADC page and rejects invalid files with a
   assert.ok(view.includes("Invalid file format"));
   assert.ok(view.includes('role="alertdialog"'));
   assert.ok(view.includes("setImportError"));
-  assert.ok(view.includes("onImported?.(result,[file])"));
+  assert.ok(view.includes("onImported?.(result,[file],importSite)"))
+  assert.ok(view.includes("savedMetrics||0"));
   assert.equal(view.includes("<th>Band</th>"), false);
   assert.equal(view.includes("bandFilter"), false);
 });
