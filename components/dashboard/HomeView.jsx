@@ -66,7 +66,42 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
   if(value.includes("poor"))return {label:"Poor",cls:"poor"};
   return {label:standing||"—",cls:"neutral"};
  };
- const sourceMetric=(card,key)=>card?.metrics?.[key]&&typeof card.metrics[key]==="object"?card.metrics[key].value:card?.metrics?.[key];
+ const normalizeSite=(value)=>String(value||"").trim().toUpperCase();
+ const weekLabelForCard=(card)=>`W${Number(card?.week)||String(card?.week_label||"").replace(/\D/g,"")}`;
+ const scorecardRowsFor=(card)=>metricRows.filter(row=>{
+  const rowSite=normalizeSite(row?.site||row?.drivers?.site||row?.raw_data?.activity_site);
+  const rowWeek=String(row?.week_label||"").trim().toUpperCase();
+  const cardWeek=weekLabelForCard(card).toUpperCase();
+  if(rowSite!==normalizeSite(card?.site))return false;
+  if(rowWeek===cardWeek)return true;
+  const endYear=String(row?.period_end||"").slice(0,4);
+  return Number(endYear)===Number(card?.year)&&Number(String(rowWeek).replace(/\D/g,""))===Number(card?.week);
+ });
+ const metricAliases={
+  dcr:["dcr"],
+  dsc_dpmo:["dsc_dpmo","dsc"],
+  lor:["lor","lor_dpmo"],
+  cc:["cc","contact_compliance"],
+ };
+ const sourceMetric=(card,key)=>{
+  const direct=card?.metrics?.[key]&&typeof card.metrics[key]==="object"?card.metrics[key].value:card?.metrics?.[key];
+  if(safe(direct)!=null)return safe(direct);
+  const rows=scorecardRowsFor(card);
+  const aliases=metricAliases[key]||[key];
+  const values=[];
+  for(const row of rows){
+   for(const alias of aliases){
+    const value=safe(row?.[alias]??row?.raw_data?.[alias]??row?.raw_data?.scorecard?.[alias]);
+    if(value!=null){values.push(value);break;}
+   }
+  }
+  if(!values.length)return null;
+  // Site scorecard driver rows repeat site-level values in some imports. Median
+  // avoids multiplying/re-averaging DPMO fields while remaining stable on legacy rows.
+  const sorted=values.slice().sort((a,b)=>a-b);
+  const mid=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+ };
  const siteMetric=(card,key,format="plain")=>{
   const value=safe(sourceMetric(card,key));
   if(value==null)return "—";
