@@ -71,16 +71,11 @@ function prepareMentorAnalysis(result,mode,reportDate,targetWeek){
 async function reconcileMentorPreview(result,organizationId,activitySite){
   if(!organizationId||!activitySite)return result;
   const supabase=getSupabaseBrowserClient();
-  const [{data:drivers,error:driversError},{data:aliases,error:aliasesError}]=await Promise.all([
-    supabase.from("drivers").select("id,organization_id,trid,full_name,site,status").eq("organization_id",organizationId),
-    supabase.from("driver_aliases").select("id,driver_id,alias_type,alias_value,alias_normalized,confidence,source").eq("organization_id",organizationId),
-  ]);
-  if(driversError)throw driversError;
-  if(aliasesError)throw aliasesError;
   const site=String(activitySite).trim().toUpperCase();
-  const siteDrivers=(drivers||[]).filter((driver)=>String(driver.site||"").trim().toUpperCase()===site);
-  const siteDriverIds=new Set(siteDrivers.map((driver)=>driver.id));
-  const siteAliases=(aliases||[]).filter((alias)=>siteDriverIds.has(alias.driver_id));
+  const {data:master,error:masterError}=await supabase.rpc("get_mentor_alias_map",{p_organization_id:organizationId,p_site:site});
+  if(masterError)throw masterError;
+  const siteDrivers=(master||[]).map((row)=>({id:row.driver_id,trid:row.trid,full_name:row.full_name,site:row.site,status:"active"}));
+  const siteAliases=(master||[]).map((row,index)=>({id:"master-"+index,driver_id:row.driver_id,alias_type:"mentor_hash",alias_value:row.alias_value,alias_normalized:row.alias_value,confidence:1,source:"site master"}));
   const indexes=buildIdentityIndexes(siteDrivers,siteAliases);
   const mentorAliasDriverByHash=new Map();
   for(const alias of siteAliases){
