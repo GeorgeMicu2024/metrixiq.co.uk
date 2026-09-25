@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { avg, fmt } from "./utils";
+import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { fetchSiteScorecardData } from "../../lib/data/scorecardData";
 
 const safe=(n)=>Number.isFinite(Number(n))?Number(n):null;
 function metric(v,type){return v==null||Number.isNaN(Number(v))?"—":fmt(v,type)}
@@ -13,7 +16,7 @@ function historyMetric(rows,site,key){
  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
 }
 
-export default function HomeView({session,drivers=[],kpis={},history=[],metricRows=[],siteFilter="all",sites=[],commandCenter,dataWarning="",onNavigate}){
+export default function HomeView({organizationId,session,drivers=[],kpis={},history=[],metricRows=[],siteFilter="all",sites=[],commandCenter,dataWarning="",onNavigate}){
  const scope=siteFilter==="all"?"All Sites":siteFilter;
  const first=session?.name?.trim()?.split(/\s+/)?.[0]||"Manager";
  const mentorAvg=safe(kpis.ementor??kpis.fico);
@@ -34,6 +37,43 @@ export default function HomeView({session,drivers=[],kpis={},history=[],metricRo
   ["gold","▤","Check recent incidents","Review new evidence and incident activity","evidence"],
  ];
  const siteRows=(siteFilter==="all"?sites:[siteFilter]).filter(Boolean);
+ const [siteScorecards,setSiteScorecards]=useState([]);
+ useEffect(()=>{
+  let active=true;
+  if(!organizationId){setSiteScorecards([]);return ()=>{active=false};}
+  fetchSiteScorecardData(getSupabaseBrowserClient(),organizationId)
+   .then(({cards})=>{if(active)setSiteScorecards(cards||[]);})
+   .catch(()=>{if(active)setSiteScorecards([]);});
+  return ()=>{active=false};
+ },[organizationId]);
+ const latestSitePerformance=useMemo(()=>{
+  const scoped=siteFilter==="all"?siteScorecards:siteScorecards.filter(card=>String(card?.site||"").trim().toUpperCase()===String(siteFilter).trim().toUpperCase());
+  const dated=scoped.filter(card=>Number.isFinite(Number(card?.year))&&Number.isFinite(Number(card?.week)));
+  if(!dated.length)return {label:"Last week with data",rows:[]};
+  const latest=dated.reduce((best,card)=>{
+   const key=Number(card.year)*100+Number(card.week);
+   return !best||key>best.key?{key,year:Number(card.year),week:Number(card.week)}:best;
+  },null);
+  const rows=dated.filter(card=>Number(card.year)===latest.year&&Number(card.week)===latest.week)
+   .sort((a,b)=>String(a.site||"").localeCompare(String(b.site||"")));
+  return {label:`Last week with data – Week ${latest.week}, ${latest.year}`,rows};
+ },[siteScorecards,siteFilter]);
+ const siteTier=(standing)=>{
+  const value=String(standing||"").trim().toLowerCase();
+  if(value.includes("fantastic"))return {label:"Fantastic",cls:"fantastic"};
+  if(value.includes("great"))return {label:"Great",cls:"great"};
+  if(value.includes("fair"))return {label:"Fair",cls:"fair"};
+  if(value.includes("poor"))return {label:"Poor",cls:"poor"};
+  return {label:standing||"—",cls:"neutral"};
+ };
+ const sourceMetric=(card,key)=>card?.metrics?.[key]&&typeof card.metrics[key]==="object"?card.metrics[key].value:card?.metrics?.[key];
+ const siteMetric=(card,key,format="plain")=>{
+  const value=safe(sourceMetric(card,key));
+  if(value==null)return "—";
+  if(format==="pct")return `${value.toFixed(2)}%`;
+  if(format==="dpmo")return Math.round(value).toLocaleString();
+  return String(value);
+ };
  const mentorTrend=history.slice(-7).map((period)=>({label:period.weekLabel||period.key||"",value:safe(period.mentor)})).filter(x=>x.value!=null);
  const mentorTrendMin=mentorTrend.length?Math.min(...mentorTrend.map(x=>x.value)):null;
  const mentorTrendMax=mentorTrend.length?Math.max(...mentorTrend.map(x=>x.value)):null;
@@ -50,7 +90,7 @@ export default function HomeView({session,drivers=[],kpis={},history=[],metricRo
   <section className="homev2-kpis">{kpiCards.map(x=><button key={x.label} className={x.tone} onClick={()=>onNavigate(x.to)}><i>{x.icon}</i><span><small>{x.label}</small><strong>{x.value}</strong><em>{x.delta}</em><u>{x.target}</u></span></button>)}</section>
   <section className="homev2-grid">
    <article className="panel homev2-priorities"><div className="homev2-title"><h2>Today’s Priorities <b>{priorities.length}</b></h2><button onClick={()=>onNavigate("command-center")}>View All</button></div>{priorities.map(([tone,icon,title,detail,to])=><button className={"homev2-priority "+tone} key={title} onClick={()=>onNavigate(to)}><i>{icon}</i><span><b>{title}</b><small>{detail}</small></span><em>›</em></button>)}</article>
-   <article className="panel homev2-sites"><div className="homev2-title"><h2>Site Performance <small>(Current)</small></h2><button onClick={()=>onNavigate("site-scorecards")}>View Details</button></div><div className="homev2-sitehead"><span>Site</span><span>eMentor</span><span>IADC</span><span>DCR</span><span>FICO</span></div>{siteRows.length===0?<div className="homev2-sites-empty"><b>No sites configured</b><small>Add a site before viewing site-level performance.</small></div>:siteRows.map((site,i)=>{const ds=siteFilter==="all"?drivers.filter(d=>String(d.site||"").trim().toUpperCase()===String(site).trim().toUpperCase()):drivers;const mentor=mean(ds,"mentor_score","ementor","fico")??historyMetric(metricRows,site,"mentor_score"),iadc=mean(ds,"iadc")??historyMetric(metricRows,site,"iadc"),dcr=mean(ds,"dcr")??historyMetric(metricRows,site,"dcr");return <button className="homev2-siterow" key={site} onClick={()=>onNavigate("site-scorecards")}><b><i className={"dot d"+i}/>{site}</b><span>{metric(mentor,"fico")}</span><span>{metric(iadc,"iadc")}</span><span>{metric(dcr,"dcr")}</span><span>{metric(mentor,"fico")}</span></button>})}</article>
+   <article className="panel homev2-sites siteperf-card"><div className="homev2-title siteperf-title"><h2>Site Performance <small>({latestSitePerformance.label})</small></h2><button onClick={()=>onNavigate("site-scorecards")}>View Details</button></div><div className="siteperf-scroll" role="region" aria-label="Site performance table" tabIndex="0"><div className="siteperf-table"><div className="siteperf-head"><span>Site</span><span>Overall Score</span><span>DCR <small>(≥ 98.6%)</small></span><span>DSC DPMO <small>(≤ 1,363.69)</small></span><span>LoR DPMO <small>(≤ 130)</small></span><span>Contact Compliance <small>(≥ 95%)</small></span></div>{latestSitePerformance.rows.length===0?<div className="homev2-sites-empty"><b>No weekly site scorecard data</b><small>Import a DSP Scorecard PDF to populate site performance.</small></div>:latestSitePerformance.rows.map((card,i)=>{const tier=siteTier(card.standing);return <button className="siteperf-row" key={card.id||`${card.site}-${card.year}-${card.week}`} onClick={()=>onNavigate("site-scorecards")}><b className="siteperf-site"><i className={"dot d"+i}/>{card.site||"—"}</b><span className={`siteperf-score ${tier.cls}`}><strong>{safe(card.overall_score)==null?"—":Number(card.overall_score).toFixed(2)}</strong>{tier.label!=="—"&&<em>{tier.label}</em>}</span><span className={`siteperf-metric ${safe(sourceMetric(card,"dcr"))!=null&&safe(sourceMetric(card,"dcr"))>=98.6?"good":"bad"}`}>{siteMetric(card,"dcr","pct")}</span><span className={`siteperf-metric ${safe(sourceMetric(card,"dsc_dpmo"))!=null&&safe(sourceMetric(card,"dsc_dpmo"))<=1363.69?"good":"bad"}`}>{siteMetric(card,"dsc_dpmo","dpmo")}</span><span className={`siteperf-metric ${safe(sourceMetric(card,"lor"))!=null&&safe(sourceMetric(card,"lor"))<=130?"good":"bad"}`}>{siteMetric(card,"lor","dpmo")}</span><span className={`siteperf-metric ${safe(sourceMetric(card,"cc"))!=null&&safe(sourceMetric(card,"cc"))>=95?"good":"bad"}`}>{siteMetric(card,"cc","pct")}</span></button>})}</div></div></article>
   </section>
   <section className="panel homev2-quick"><h2>Quick Actions</h2><div>{quick.map(([icon,title,sub,to,tone])=><button className={tone} key={title} onClick={()=>onNavigate(to)}><i>{icon}</i><span><b>{title}</b><small>{sub}</small></span></button>)}</div></section>
   <section className="homev2-bottom">
