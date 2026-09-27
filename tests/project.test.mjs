@@ -1430,6 +1430,7 @@ test("POD workspace excludes scorecard-only percentages from reject analysis", (
   const operational = read("lib/data/directOperational.js");
 
   assert.ok(operational.includes('if (kind === "pod")'));
+  assert.ok(operational.includes('query.contains("raw_data", { pod_detail: {} })'));
   assert.ok(operational.includes("raw_data?.pod_detail"));
   assert.equal(operational.includes("row.pod != null ||"), false);
   assert.ok(podView.includes("Driver-level POD Quality from dedicated Amazon POD reports only."));
