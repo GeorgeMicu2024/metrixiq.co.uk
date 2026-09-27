@@ -1958,3 +1958,22 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 .dcrscorecard-file{max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#66788a!important;font-size:10px!important}
 @media(max-width:1000px){.dcrscorecard-controls{grid-template-columns:1fr 1fr}.dcrscorecard-source{justify-self:start}}
 @media(max-width:650px){.dcrscorecard-controls{grid-template-columns:1fr}.dcrscorecard-source{white-space:normal}}
+
+
+/* Homepage inline auth — one-step sign in */
+.mk-login-form{display:block}
+.mk-login-card label{position:relative}
+.mk-login-card label .mk-field-icon{flex:0 0 auto;color:#8794a2;font-size:11px}
+.mk-login-card label input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;color:#173047;font:inherit;padding:0}
+.mk-login-card label input::placeholder{color:#8794a2;opacity:1}
+.mk-login-card label input:disabled{cursor:not-allowed}
+.mk-password-toggle{flex:0 0 auto;border:0;background:transparent;color:#6f7e8d;padding:2px 0 2px 8px;cursor:pointer;font-size:11px}
+.mk-remember button{border:0;background:transparent;padding:0;color:#239a70;font:inherit;cursor:pointer}
+.mk-remember button:disabled,.mk-password-toggle:disabled{opacity:.55;cursor:not-allowed}
+.mk-signin,.mk-google{width:100%;border:0;font-family:inherit;cursor:pointer}
+.mk-google{background:#fff;color:#0b2032}
+.mk-signin:disabled,.mk-google:disabled{opacity:.68;cursor:wait}
+.mk-auth-message{margin:9px 0 10px;padding:8px 10px;border-radius:7px;font-size:10px;line-height:1.35}
+.mk-auth-message.error{background:#fff0f1;border:1px solid #f1c6ca;color:#9d3640}
+.mk-auth-message.success{background:#eef9f4;border:1px solid #c9e8d9;color:#227154}
+#sign-in{scroll-margin-top:90px}
