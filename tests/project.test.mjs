@@ -1411,6 +1411,8 @@ test("global site selector is the single site scope control for operational page
   const concessions = read("components/operations/ConcessionsSimpleView.jsx");
   const analyst = read("components/intelligence/ExecutiveAnalystV2.jsx");
   const reports = read("components/reports/ReportBuilderV2.jsx");
+  const driverScorecards = read("components/scorecards/DriverScorecardsV22.jsx");
+  const siteOperations = read("components/sites/SiteOperationsCenter.jsx");
 
   assert.equal((dashboard.match(/aria-label="Filter workspace by site"/g) || []).length, 1);
   assert.ok(dashboard.includes("SITE_SCOPED_VIEWS"));
@@ -1418,4 +1420,6 @@ test("global site selector is the single site scope control for operational page
   assert.equal(concessions.includes("<span>Site</span>"), false);
   assert.equal(analyst.includes("<span>Site</span><select"), false);
   assert.equal(reports.includes("<span>Site</span><select"), false);
+  assert.equal(driverScorecards.includes('aria-label="Filter driver scorecards by site"'), false);
+  assert.equal(siteOperations.includes("changeSite(value)"), false);
 });
