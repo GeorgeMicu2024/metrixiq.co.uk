@@ -5,15 +5,15 @@ import fs from "node:fs";
 const read = (path) =>
   fs.readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("Concessions remains usable when global site scope is All Sites", () => {
+test("Concessions resolves All Sites through the global selector without rendering a second site control", () => {
   const view = read("components/operations/ConcessionsSimpleView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
 
-  assert.ok(view.includes('const [localSite, setLocalSite] = useState("")'));
-  assert.ok(view.includes('globalSite !== "ALL"'));
-  assert.ok(view.includes("availableSites.includes(localSite)"));
-  assert.ok(view.includes('globalSite === "ALL" && ('));
-  assert.ok(view.includes("<span>Site</span>"));
-  assert.equal(view.includes("Cross-site concession totals are intentionally disabled"), false);
+  assert.ok(view.includes('globalSite === "ALL"'));
+  assert.ok(view.includes("onSiteFilterChange(availableSites[0])"));
+  assert.equal(view.includes("<span>Site</span>"), false);
+  assert.equal(view.includes("setLocalSite"), false);
+  assert.ok(dashboard.includes("onSiteFilterChange={setSiteFilter}"));
 });
 
 test("Concessions hooks are declared before loading and error returns", () => {
