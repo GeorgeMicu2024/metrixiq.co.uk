@@ -59,7 +59,7 @@ import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 import { fetchOrganizationHierarchy, upsertOrganizationSiteProfile } from "../lib/data/enterpriseV7";
 
-const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","iadc","pod","dcr","cc","cdf","mentor","concessions"]);
+const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dcr","cc","cdf","mentor","concessions"]);
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -467,9 +467,9 @@ export default function DashboardClient() {
           </div>
         </div>
       : <WavePlanView site={siteFilter} drivers={dbDrivers} />; break;
-    case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
+    case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
+    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "driver-master": view = <DriverMasterView organizationId={workspace?.organization?.id} sites={sites} legacyDrivers={dbDrivers} canManage={platformAdmin || ["owner","admin","manager"].includes(String(session?.role || "").toLowerCase())} onOpenDriver={openDriver} />; break;
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query="" />; break;
     case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} siteFilter={siteFilter} onOpenDriver={openDriver} />; break;
