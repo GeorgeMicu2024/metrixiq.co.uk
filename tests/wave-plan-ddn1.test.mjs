@@ -54,7 +54,7 @@ test("single-TRID routes never concatenate DB and Route Plan name variants", () 
   const view = read("components/sites/WavePlanView.jsx");
 
   assert.ok(view.includes("if(trids.length===1)"));
-  assert.ok(view.includes("const preferred=explicitNames[0]||dbNames[0]||prev.names[0]"));
+  assert.ok(view.includes("const preferred=dbNames[0]||explicitNames[0]||prev.names[0]"));
   assert.ok(view.includes("names=preferred?[preferred]:[]"));
   assert.ok(view.includes("uniqueDriverNames"));
   assert.ok(view.includes("nameIdentityKey"));
