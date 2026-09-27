@@ -193,7 +193,7 @@ export default function DcrScorecardView({
         <article>
           <span>Total Drivers</span>
           <strong>{rows.length}</strong>
-          <small>{siteLabel} · {selectedWeek || "No week"}</small>
+          <small>{selectedWeek || "No week"}</small>
         </article>
         <article>
           <span>DCR Average</span>
@@ -220,7 +220,7 @@ export default function DcrScorecardView({
       {!rows.length ? (
         <section className="panel iadcpro-empty">
           <div>!</div>
-          <h2>No DCR scorecard rows for {siteLabel}</h2>
+          <h2>No DCR scorecard rows in the current scope</h2>
           <p>
             No weekly scorecard DCR data is available for this site. Import the correct DSP scorecard
             and keep the Activity Site matched to the station.
@@ -232,7 +232,7 @@ export default function DcrScorecardView({
             <div className="iadcpro-card-head">
               <div>
                 <h2>DCR Driver Ranking</h2>
-                <p>{siteLabel} · {selectedWeek} · scorecard source only</p>
+                <p>{selectedWeek} · scorecard source only</p>
               </div>
               <strong>{visible.length} drivers</strong>
             </div>
@@ -310,7 +310,7 @@ export default function DcrScorecardView({
                   <div>
                     <span>SCORECARD DRIVER</span>
                     <h2>{dname(active.drivers)}</h2>
-                    <small>{trid(active.drivers)} · {siteLabel}</small>
+                    <small>{trid(active.drivers)}</small>
                   </div>
                 </div>
 
