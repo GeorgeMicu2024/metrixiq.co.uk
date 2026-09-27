@@ -430,8 +430,6 @@ export default function MentorView({
                 <span className="page-kicker">EMENTOR SAFETY</span>
                 <h1>Daily eMentor Report</h1>
                 <p>
-                  Site: <b>{siteLabel}</b>
-                  <span>•</span>
                   Date: <b>{formatDate(selectedDate)}</b>
                   <span>•</span>
                   Report Type: <b>Daily</b>
@@ -565,7 +563,7 @@ export default function MentorView({
         <div>
           <span className="page-kicker">EMENTOR SAFETY · WEEKLY</span>
           <h1>Weekly eMentor Performance</h1>
-          <p>{siteLabel} · {periodLabel} · minimum required score {TARGETS.mentor}+</p>
+          <p>{periodLabel} · minimum required score {TARGETS.mentor}+</p>
         </div>
         <div className="mentor-view-actions">
           <div className="mentor-mode-tabs">
