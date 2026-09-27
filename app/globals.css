@@ -2446,3 +2446,72 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   .topbar-premium .notification-bell{width:38px!important;height:38px!important;min-width:38px!important}
   .topbar-calendar-popover{position:fixed;top:70px;right:10px}
 }
+
+
+/* ===== Daily Dispatch file reconciliation ===== */
+.waveplan-file-match{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:11px 14px;
+  border:1px solid #d8e4ea;
+  border-radius:12px;
+  background:#fff;
+  color:#314a5f;
+  box-shadow:0 3px 10px rgba(22,45,64,.035);
+}
+.waveplan-file-match.ok{
+  border-color:#bfe4d4;
+  background:linear-gradient(180deg,#f7fcfa,#eff9f5);
+}
+.waveplan-file-match>span{
+  display:inline-flex;
+  align-items:center;
+  height:26px;
+  padding:0 9px;
+  border-radius:999px;
+  background:#dff4ea;
+  color:#19765c;
+  font-size:9px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+  white-space:nowrap;
+}
+.waveplan-file-match>b{
+  color:#17344b;
+  font-size:11px;
+}
+.waveplan-file-match>small{
+  margin-left:auto;
+  max-width:44%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:#7a8a98;
+  font-size:9px;
+}
+.waveplan-mismatch{
+  border-color:#f0c7cb!important;
+  background:#fffafa!important;
+}
+.waveplan-mismatch-note{
+  margin:10px 0 0;
+  padding:10px 12px;
+  border:1px solid #f0d7aa;
+  border-radius:9px;
+  background:#fff9ed;
+  color:#7b5a1d;
+  font-size:10px;
+  line-height:1.45;
+}
+.waveplan-mismatch-files{
+  margin:9px 0 0;
+  color:#66798a;
+  font-size:10px;
+  line-height:1.55;
+}
+@media(max-width:760px){
+  .waveplan-file-match{align-items:flex-start;flex-direction:column}
+  .waveplan-file-match>small{max-width:100%;margin-left:0}
+}
