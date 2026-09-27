@@ -1133,7 +1133,7 @@ test("Concessions no longer reads its page data from the mixed operational matri
   assert.equal(view.includes("ConcessionsMatrix"), false);
   assert.equal(view.includes("buildConcessionsSignals"), false);
   assert.equal(simple.includes("driver_metrics"), false);
-  assert.ok(simple.includes("4-WEEK DRIVER MATRIX"));
+  assert.ok(simple.includes("4-week concession matrix"));
 });
 
 test("IADC Mentor and Concessions use canonical operational modules", () => {
