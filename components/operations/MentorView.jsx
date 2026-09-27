@@ -220,8 +220,6 @@ export default function MentorView({
   onOpenDriver,
   onImport,
   siteFilter = "all",
-  onSiteFilterChange,
-  sites = [],
   refreshKey = 0,
 }) {
   const weeklyLoad = useOperationalRows(organizationId, "mentor", refreshKey);
@@ -274,24 +272,6 @@ export default function MentorView({
 
   const allDailyRows = dailyLoad.rows || [];
   const allWeeklyRows = weeklyLoad.rows || [];
-
-  const availableSites = useMemo(
-    () =>
-      [...new Set(
-        [
-          ...sites,
-          ...[...allDailyRows, ...allWeeklyRows].flatMap((row) => [
-            row?.site,
-            row?.drivers?.site,
-            row?.raw_data?.activity_site,
-            row?.raw_data?.mentor?.station,
-          ]),
-        ]
-          .map((value) => String(value || "").trim().toUpperCase())
-          .filter((value) => /^[A-Z]{2,5}\\d{1,3}$/.test(value))
-      )].sort(),
-    [sites, allDailyRows, allWeeklyRows]
-  );
 
   const weeklyRows = useMemo(
     () => {
@@ -460,21 +440,6 @@ export default function MentorView({
             </div>
 
             <div className="mentor-report-controls">
-              <label className="mentor-control">
-                <span>Site</span>
-                <select
-                  value={siteFilter}
-                  onChange={(event) => onSiteFilterChange?.(event.target.value)}
-                  disabled={!onSiteFilterChange}
-                  aria-label="Filter eMentor report by site"
-                >
-                  <option value="all">All sites</option>
-                  {availableSites.map((site) => (
-                    <option key={site} value={site}>{site}</option>
-                  ))}
-                </select>
-              </label>
-
               <label className="mentor-control">
                 <span>Date</span>
                 <select
