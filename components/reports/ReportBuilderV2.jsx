@@ -151,16 +151,14 @@ function ReportPackPreview({pack,sections}){
 
 export default function ReportBuilderV2({
   organizationId,
-  sites=[],
   siteFilter="all",
-  onSiteFilterChange,
 }){
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
   const [notice,setNotice]=useState("");
   const [tab,setTab]=useState("builder");
-  const [site,setSite]=useState(siteFilter||"all");
+  const site=siteFilter||"all";
   const [week,setWeek]=useState("");
   const [group,setGroup]=useState("all");
   const [customDriverIds,setCustomDriverIds]=useState([]);
@@ -176,7 +174,6 @@ export default function ReportBuilderV2({
     finally{setLoading(false);}
   }
   useEffect(()=>{load();},[organizationId]);
-  useEffect(()=>{if(siteFilter&&siteFilter!==site)setSite(siteFilter);},[siteFilter]);
 
   const weeks=useMemo(()=>availableWeeks(data||{},site),[data,site]);
   useEffect(()=>{if(!week||!weeks.includes(week))setWeek(weeks.at(-1)||"");},[weeks.join("|")]);
@@ -204,11 +201,6 @@ export default function ReportBuilderV2({
     setSections(selectedSections);
     setPack(next);
     setNotice(mode==="weekly"?"Weekly Executive Pack generated.":"Report preview generated.");
-  }
-
-  function changeSite(value){
-    setSite(value);setWeek("");setPack(null);setCustomDriverIds([]);
-    onSiteFilterChange?.(value);
   }
 
   function toggleSection(id){
@@ -293,7 +285,6 @@ export default function ReportBuilderV2({
     {tab!=="saved"&&<section className="panel reportv5-controls reportv5-no-print">
       <div className="panel-head"><div><h2>{tab==="weekly"?"Generate Weekly Management Pack":"Build a custom management report"}</h2><p>{tab==="weekly"?"Complete executive preset with every management section enabled.":"Choose site, period, driver population and report sections."}</p></div></div>
       <div className="reportv5-filter-grid">
-        <label><span>Site</span><select value={site} onChange={(e)=>changeSite(e.target.value)}><option value="all">All sites</option>{sites.map((value)=><option key={value}>{value}</option>)}</select></label>
         <label><span>Week</span><select value={week} onChange={(e)=>{setWeek(e.target.value);setPack(null);}}>{weeks.map((value)=><option key={value}>{value}</option>)}</select></label>
         {tab==="builder"&&<label><span>Driver scope</span><select value={group} onChange={(e)=>{setGroup(e.target.value);setPack(null);}}><option value="all">All drivers</option><option value="fair-poor">Fair / Poor only</option><option value="fico">FICO below 815</option><option value="improved">Improved drivers</option><option value="declined">Declined drivers</option><option value="custom">Custom drivers</option></select></label>}
         <button className="btn primary" disabled={!week} onClick={()=>generate(tab)}>{tab==="weekly"?"Generate "+(week||"Weekly")+" Management Pack":"Generate report"}</button>
