@@ -47,7 +47,7 @@ test("scorecard spreadsheet DCR uses embedded filename site", () => {
   const row = {
     dcr: 98.8,
     site: "DDN1",
-    scorecard_score: 72,
+    scorecard_score: null,
     week_label: "W39",
     raw_data: {
       metric_granularity: "weekly",
