@@ -20,6 +20,7 @@ test("POD workspace uses detailed POD evidence and never renders a blank unlabel
   const data = read("lib/data/directOperational.js");
 
   assert.ok(data.includes('if (kind === "pod")'));
+  assert.ok(data.includes('query.contains("raw_data", { pod_detail: {} })'));
   assert.ok(data.includes("raw_data?.pod_detail"));
   assert.ok(data.includes('typeof detail === "object"'));
   assert.equal(data.includes("row.pod != null ||"), false);
