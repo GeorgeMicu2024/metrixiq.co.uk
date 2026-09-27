@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { fetchDcrScorecardRows } from "../../lib/data/dcr";
+import { dcrSourceLabel, fetchDcrScorecardRows } from "../../lib/data/dcr";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { ErrorBox, Loading, dname, n, openShape, pct, trid, weekNo } from "./OperationalShared";
 
@@ -10,11 +10,6 @@ const rowWeek = (row) => {
   const raw = String(row?.raw_data?.calendar_week || row?.week_label || "");
   const match = raw.match(/W\d+/i);
   return match ? match[0].toUpperCase() : raw;
-};
-
-const sourceLabel = (row) => {
-  const files = Array.isArray(row?.raw_data?.source_files) ? row.raw_data.source_files : [];
-  return files[0] || "Scorecard";
 };
 
 const tone = (value) => {
@@ -107,7 +102,7 @@ export default function DcrScorecardView({
     const needle = query.trim().toLowerCase();
     return rows
       .filter((row) => {
-        const haystack = [dname(row.drivers), trid(row.drivers), sourceLabel(row)]
+        const haystack = [dname(row.drivers), trid(row.drivers), dcrSourceLabel(row)]
           .join(" ")
           .toLowerCase();
         return !needle || haystack.includes(needle);
@@ -279,7 +274,7 @@ export default function DcrScorecardView({
                           </span>
                         </td>
                         <td><span className={"iadcpro-status " + rowTone}>{status(score)}</span></td>
-                        <td className="dcrscorecard-file">{sourceLabel(row)}</td>
+                        <td className="dcrscorecard-file">{dcrSourceLabel(row)}</td>
                         <td>
                           <button
                             type="button"
@@ -344,7 +339,7 @@ export default function DcrScorecardView({
                   </div>
                   <div>
                     <span>Source</span>
-                    <b>{sourceLabel(active)}</b>
+                    <b>{dcrSourceLabel(active)}</b>
                   </div>
                 </div>
 
