@@ -524,7 +524,7 @@ export default function DashboardClient() {
   <div className="topbar-primary">
     <button className="menu-btn topbar-menu" onClick={() => { if (window.innerWidth <= 900) setMobile(true); else setSidebarCompact(value=>!value); }} aria-label="Toggle navigation">☰</button>
     <label className="site-switcher site-switcher-mockup site-switcher-premium" aria-label="Active site selector">
-      <span className="site-switcher-icon" aria-hidden="true">▥</span>
+      <span className="site-switcher-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M4 21V7.5L12 3v18M4 21h16M8 10h1M8 14h1M8 18h1M15 9h5v12M16.5 13h1M16.5 17h1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
       <span className="site-switcher-mark">SITE</span>
       <select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}>
         <option value="all">All Sites</option>
@@ -537,7 +537,7 @@ export default function DashboardClient() {
   </div>
   <div className="topbar-controls topbar-controls-premium">
     <div className="topbar-date-week" title="Current date and ISO week">
-      <span className="topbar-date-icon" aria-hidden="true">▣</span>
+      <span className="topbar-date-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
       <span><strong>{headerDate}</strong><small>Week {headerWeek}</small></span>
     </div>
     <ChatHeaderButton organizationId={workspace?.organization?.id} userId={session?.user?.id||session?.id} onOpen={()=>{if(active==="manager-chat"){if(!navigate(previousActive||"dashboard"))navigate("dashboard");}else{setPreviousActive(active);navigate("manager-chat");}}} />
