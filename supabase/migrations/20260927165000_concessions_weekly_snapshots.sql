@@ -58,8 +58,12 @@ create policy concessions_weekly_update_ops
   );
 
 drop policy if exists concessions_weekly_delete_admin on public.concessions_weekly_snapshots;
-create policy concessions_weekly_delete_admin
+drop policy if exists concessions_weekly_delete_ops on public.concessions_weekly_snapshots;
+create policy concessions_weekly_delete_ops
   on public.concessions_weekly_snapshots
   for delete
   to authenticated
-  using (private.has_org_role(organization_id, array['owner','admin']));
+  using (
+    private.has_org_role(organization_id, array['owner','admin','manager'])
+    and private.can_access_site(organization_id, site)
+  );
