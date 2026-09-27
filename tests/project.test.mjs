@@ -1437,3 +1437,16 @@ test("POD workspace excludes scorecard-only percentages from reject analysis", (
   assert.ok(podView.includes("No detailed POD weeks"));
   assert.equal(podView.includes("Clear page"), false);
 });
+
+
+test("Contact Compliance history stays site-scoped and source-locked", () => {
+  const view = read("components/operations/CustomerComplianceView.jsx");
+  const data = read("lib/data/directOperational.js");
+  const metrics = read("lib/persistence/metrics.js");
+
+  assert.ok(view.includes("inferSiteFromFile"));
+  assert.ok(view.includes("onImported?.(result,[file],importSite)"));
+  assert.ok(data.includes('if (kind === "cc")'));
+  assert.ok(data.includes("contact_compliance_detail"));
+  assert.ok(metrics.includes("contact_compliance_detail: freshRaw.contact_compliance_detail || oldRaw.contact_compliance_detail || null"));
+});
