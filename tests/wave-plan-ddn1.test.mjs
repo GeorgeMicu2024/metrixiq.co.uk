@@ -47,3 +47,36 @@ test("mismatched route sets cannot be sent as a Wave Plan", () => {
   assert.ok(view.includes("MetrixIQ will not guess driver-to-staging assignments"));
   assert.ok(view.includes("disabled={!generated||routeSetMismatch}"));
 });
+
+
+test("single-TRID routes never concatenate DB and Route Plan name variants", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+
+  assert.ok(view.includes("if(trids.length===1)"));
+  assert.ok(view.includes("const preferred=explicitNames[0]||dbNames[0]||prev.names[0]"));
+  assert.ok(view.includes("names=preferred?[preferred]:[]"));
+  assert.ok(view.includes("uniqueDriverNames"));
+  assert.ok(view.includes("nameIdentityKey"));
+});
+
+test("Daily Dispatch exposes a manual Edit Driver Names drawer", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+  const css = read("app/globals.css");
+
+  assert.ok(view.includes("Edit Driver Names"));
+  assert.ok(view.includes("openNameEditor"));
+  assert.ok(view.includes("applyNameEdits"));
+  assert.ok(view.includes("wave-name-editor"));
+  assert.ok(view.includes("Corrected name for "));
+  assert.ok(css.includes(".wave-name-editor-backdrop"));
+  assert.ok(css.includes(".wave-name-editor-table"));
+});
+
+test("manual driver-name corrections override auto-cleaned names without mutating source identity", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+
+  assert.ok(view.includes("autoRouteDrivers"));
+  assert.ok(view.includes("new Map(autoRouteDrivers)"));
+  assert.ok(view.includes("const current=autoRouteDrivers.get(route)"));
+  assert.ok(view.includes("if(value&&value!==row.current)next[key]=value;else delete next[key]"));
+});
