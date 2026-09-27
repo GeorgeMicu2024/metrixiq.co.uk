@@ -344,11 +344,6 @@ export default function IadcComplianceView({
   if (load.loading) return <Loading text="Loading IADC & DWC workspace…" />;
   if (load.error) return <ErrorBox error={load.error} />;
 
-  const siteLabel =
-    String(siteFilter || "all").toLowerCase() === "all"
-      ? "All Sites"
-      : String(siteFilter).toUpperCase();
-
   return (
     <div className="iadcpro">
       <header className="iadcpro-hero">
