@@ -3,6 +3,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import IadcComplianceView from "./IadcComplianceView";
+import DcrScorecardView from "./DcrScorecardView";
 import { analyseFiles } from "../../lib/analyzer";
 import { ErrorBox,Loading,dname,filterRowsBySite,n,openShape,pct,trid,useOperationalRows,weekNo } from "../operations/OperationalShared";
 
@@ -147,6 +148,8 @@ function LegacyIadcView({organizationId,onOpenDriver,onImport,onImported,siteFil
 }
 
 export default function IadcView(props){
-  if((props?.metric||"iadc")==="iadc") return <IadcComplianceView {...props}/>;
+  const metric=props?.metric||"iadc";
+  if(metric==="iadc") return <IadcComplianceView {...props}/>;
+  if(metric==="dcr") return <DcrScorecardView {...props}/>;
   return <LegacyIadcView {...props}/>;
 }
