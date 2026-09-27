@@ -22,6 +22,6 @@ test("IADC workspace uses a focused database loader and preserves daily/weekly e
   assert.ok(view.includes("Vs previous"));
   assert.ok(view.includes("Open Driver 360"));
 
-  assert.ok(router.includes('if((props?.metric||"iadc")==="iadc")'));
+  assert.ok(router.includes('if(metric==="iadc") return <IadcComplianceView'));
   assert.ok(router.includes("<IadcComplianceView"));
 });
