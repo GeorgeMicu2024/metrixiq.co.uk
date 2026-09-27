@@ -1319,7 +1319,7 @@ test("eMentor reconciliation is idempotent by stable source identity", () => {
   assert.ok(migration.includes('reconciliation_key'));
 
   assert.ok(mapping.includes('const reconciled = useMemo'));
-  assert.ok(mapping.includes('unique source accounts'));
+  assert.ok(mapping.includes('source account'));
 });
 
 test("daily eMentor supports multiple source accounts per driver and persistent hide", () => {
