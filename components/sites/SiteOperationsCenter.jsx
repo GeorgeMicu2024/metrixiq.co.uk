@@ -29,7 +29,6 @@ export default function SiteOperationsCenter({
   organizationId,
   sites=[],
   siteFilter="all",
-  onSiteFilterChange,
   onOpenDriver,
   onOpenEvidence,
   onOpenCoaching,
@@ -111,17 +110,12 @@ export default function SiteOperationsCenter({
     })),
   }),[data,latestRows]);
 
-  function changeSite(value){
-    setSelectedSite(value);
-    onSiteFilterChange?.(value);
-  }
-
   if(!selectedSite)return <section className="panel siteopsv4-empty"><b>No site available</b><span>Import site or driver scorecard evidence first.</span></section>;
 
   return <div className="siteopsv4-root">
     <div className="siteopsv4-heading">
       <div><span className="page-kicker">SITE OPERATIONS CENTER</span><h1>{selectedSite} Control Room</h1><p>Current scorecard, driver distribution, root causes, incidents, coaching and reporting health in one site view.</p></div>
-      <div className="siteopsv4-heading-actions"><select value={selectedSite} onChange={(e)=>changeSite(e.target.value)}>{sites.map((site)=><option key={site}>{site}</option>)}</select><button className="btn ghost" onClick={load}>Refresh</button><button className="btn primary" onClick={onOpenScorecards}>Open Site Scorecards</button></div>
+      <div className="siteopsv4-heading-actions"><button className="btn ghost" onClick={load}>Refresh</button><button className="btn primary" onClick={onOpenScorecards}>Open Site Scorecards</button></div>
     </div>
     {error&&<div className="mgrv2-notice error">{error}</div>}
 
