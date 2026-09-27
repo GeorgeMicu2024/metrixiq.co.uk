@@ -29,6 +29,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     ]);
     setRows(mappingRows);
     setDrivers(driverRows);
+    if (mappingRows.some((row) => row.auto_materialized)) onChanged?.();
   }
 
   useEffect(() => {
@@ -67,14 +68,20 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     return [...byIdentity.values()];
   }, [dated]);
 
-  const counts = useMemo(() => ({
-    all: reconciled.length,
-    open: reconciled.filter((r) => r.status === "open").length,
-    resolved: reconciled.filter((r) => r.status === "resolved").length,
-    hidden: reconciled.filter((r) => r.status === "ignored").length,
-  }), [reconciled]);
+  const actionable = useMemo(
+    () => reconciled.filter((r) => r.status === "open" || r.status === "ignored"),
+    [reconciled]
+  );
 
-  const visible = filter === "all" ? reconciled : reconciled.filter((r) => filter === "hidden" ? r.status === "ignored" : r.status === filter);
+  const counts = useMemo(() => ({
+    all: actionable.length,
+    open: actionable.filter((r) => r.status === "open").length,
+    hidden: actionable.filter((r) => r.status === "ignored").length,
+  }), [actionable]);
+
+  const visible = filter === "all"
+    ? actionable
+    : actionable.filter((r) => filter === "hidden" ? r.status === "ignored" : r.status === filter);
 
   async function createAndResolve() {
     if (!createFor || !newDriver.full_name.trim()) return;
@@ -108,7 +115,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     finally { setBusy(""); }
   }
 
-  if (!dated.length) return null;
+  if (!actionable.length) return null;
 
   return (
     <section className="mentor-mapping-panel">
@@ -119,14 +126,13 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
           <p>Review rows that could not be matched automatically. Manual mappings are reused on future imports.</p>
         </div>
         <div className="mentor-mapping-counts">
-          <b>{reconciled.length} unique source accounts</b>
+          <b>{actionable.length} source account{actionable.length === 1 ? "" : "s"} to review</b>
           <span>{counts.open} need review</span>
-          <span>{counts.resolved} mapped</span>
           <span>{counts.hidden} hidden</span>
         </div>
       </div>
       <div className="mentor-mapping-tabs">
-        {["open","resolved","hidden","all"].map((key) => (
+        {["open","hidden","all"].map((key) => (
           <button key={key} type="button" className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>
             {key === "open" ? "Needs review" : key[0].toUpperCase()+key.slice(1)} ({counts[key]})
           </button>
