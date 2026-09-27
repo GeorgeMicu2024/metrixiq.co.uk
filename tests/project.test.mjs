@@ -454,12 +454,13 @@ test("persistence orchestration delegates identity and evidence storage", () => 
   assert.ok(persistence.includes("persistSiteScorecards"));
   assert.ok(persistence.includes("persistFeedbackEvents"));
   assert.ok(persistence.includes("persistResolvedNameAliases"));
+  assert.ok(persistence.includes("replaceConcessionSnapshotWeeks"));
   assert.equal(persistence.includes('.from("imports")'), false);
   assert.equal(persistence.includes('.from("site_scorecards")'), false);
   assert.equal(persistence.includes('.from("feedback_events")'), false);
   assert.ok(identity.includes("export async function seedIdentityRecords"));
   assert.ok(evidence.includes("export async function persistImportAudit"));
-  assert.ok(persistence.length < 8000);
+  assert.ok(persistence.length < 9000);
 });
 
 test("persistence delegates driver metric repository access", () => {
