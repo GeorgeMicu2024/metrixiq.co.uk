@@ -1118,8 +1118,8 @@ test("Concessions uses isolated weekly snapshots for the last four weeks", () =>
   const data = read("lib/data/concessions.js");
 
   assert.ok(view.includes("ConcessionsSimpleView"));
-  assert.ok(simple.includes("Concessions — Last 4 Weeks"));
-  assert.ok(simple.includes("Dedicated DNR snapshots only"));
+  assert.ok(simple.includes("<h1>Concessions</h1>"));
+  assert.ok(simple.includes("Clean DNR history from dedicated Associates Concessions snapshots."));
   assert.ok(simple.includes("fetchConcessionSnapshots"));
   assert.ok(simple.includes("buildFourWeekConcessionMatrix"));
   assert.ok(data.includes('from("concessions_weekly_snapshots")'));
@@ -1399,7 +1399,23 @@ test("concessions ignores unrelated operational rows through the isolated snapsh
 
   assert.ok(data.includes("parseTrustedConcessionsFile"));
   assert.ok(data.includes("concessions_weekly_snapshots"));
-  assert.ok(simple.includes("Dedicated DNR snapshots only"));
+  assert.ok(simple.includes("Clean DNR history from dedicated Associates Concessions snapshots."));
   assert.ok(persistence.includes("replaceConcessionSnapshotWeeks"));
   assert.ok(persistence.includes("DSP_Associates_Concessions_"));
+});
+
+
+test("global site selector is the single site scope control for operational pages", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+  const mentor = read("components/operations/MentorView.jsx");
+  const concessions = read("components/operations/ConcessionsSimpleView.jsx");
+  const analyst = read("components/intelligence/ExecutiveAnalystV2.jsx");
+  const reports = read("components/reports/ReportBuilderV2.jsx");
+
+  assert.equal((dashboard.match(/aria-label="Filter workspace by site"/g) || []).length, 1);
+  assert.ok(dashboard.includes("SITE_SCOPED_VIEWS"));
+  assert.equal(mentor.includes('aria-label="Filter eMentor report by site"'), false);
+  assert.equal(concessions.includes("<span>Site</span>"), false);
+  assert.equal(analyst.includes("<span>Site</span><select"), false);
+  assert.equal(reports.includes("<span>Site</span><select"), false);
 });
