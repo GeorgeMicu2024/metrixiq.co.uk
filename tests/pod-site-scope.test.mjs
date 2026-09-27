@@ -31,3 +31,11 @@ test("POD workspace uses detailed POD evidence and never renders a blank unlabel
   assert.equal(view.includes("Clear page"), false);
   assert.equal(view.includes("setCleared"), false);
 });
+
+
+test("operational site resolver accepts Amazon station codes such as DLS2", () => {
+  const shared = read("components/operations/OperationalShared.jsx");
+
+  assert.ok(shared.includes('/^[A-Z]{2,5}\\d{1,3}$/'));
+  assert.equal(shared.includes('/^[A-Z]{2,5}\\\\d{1,3}$/'), false);
+});
