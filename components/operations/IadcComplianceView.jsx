@@ -356,8 +356,8 @@ export default function IadcComplianceView({
           <span className="page-kicker">WORKFLOW COMPLIANCE</span>
           <h1>IADC & DWC Performance</h1>
           <p>
-            Driver-level compliance for <b>{siteLabel}</b>. Daily reports and weekly
-            scorecards stay separated so the selected period always reflects real source evidence.
+            Driver-level IADC and DWC compliance with daily reports kept separate
+            from weekly scorecard evidence.
           </p>
         </div>
         <div className="iadcpro-target">
@@ -534,7 +534,7 @@ export default function IadcComplianceView({
       {!rows.length ? (
         <section className="panel iadcpro-empty">
           <div>!</div>
-          <h2>No IADC data available for {siteLabel}</h2>
+          <h2>No IADC data available in the current scope</h2>
           <p>
             The workspace returned no IADC metric rows for this site. Import a valid Amazon IADC/DWC report
             or verify the site scope.
@@ -559,7 +559,7 @@ export default function IadcComplianceView({
               <div>
                 <h2>Driver Performance</h2>
                 <p>
-                  {siteLabel} · {mode === "daily" ? formatDate(selectedDay) : selectedWeek}
+                  {mode === "daily" ? formatDate(selectedDay) : selectedWeek}
                   {previousDay ? ` · compared with ${formatDate(previousDay)}` : ""}
                 </p>
               </div>
@@ -649,7 +649,7 @@ export default function IadcComplianceView({
                   <div>
                     <span>DRIVER DETAIL</span>
                     <h2>{dname(active.drivers)}</h2>
-                    <small>{trid(active.drivers)} · {siteLabel}</small>
+                    <small>{trid(active.drivers)}</small>
                   </div>
                 </div>
 
