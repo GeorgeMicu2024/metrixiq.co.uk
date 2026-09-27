@@ -59,6 +59,8 @@ import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 import { fetchOrganizationHierarchy, upsertOrganizationSiteProfile } from "../lib/data/enterpriseV7";
 
+const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","iadc","pod","dcr","cc","cdf","mentor","concessions"]);
+
 export default function DashboardClient() {
   const router = useRouter();
   const [active, setActive] = useState("dashboard");
@@ -121,6 +123,11 @@ export default function DashboardClient() {
       id === "driver-profile" ||
       canAccessNav(id, access, platformAdmin, session?.role, permissions)
     ) {
+      if (SITE_SCOPED_VIEWS.has(id) && siteFilter === "all" && sites.length) {
+        const remembered = localStorage.getItem("metrixiq.activeSite");
+        const nextSite = remembered && sites.includes(remembered) ? remembered : sites[0];
+        if (nextSite) setSiteFilter(nextSite);
+      }
       setActive(id);
       const params = new URLSearchParams(window.location.search);
       if (id === "dashboard") params.delete("view"); else params.set("view", id);
@@ -297,6 +304,17 @@ export default function DashboardClient() {
     .filter(Boolean);
   const sites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])].sort();
 
+  useEffect(() => {
+    if (!SITE_SCOPED_VIEWS.has(active) || siteFilter !== "all" || !sites.length) return;
+    const remembered = localStorage.getItem("metrixiq.activeSite");
+    const nextSite = remembered && sites.includes(remembered) ? remembered : sites[0];
+    if (nextSite) setSiteFilter(nextSite);
+  }, [active, siteFilter, sites.join("|")]);
+
+  useEffect(() => {
+    if (siteFilter !== "all") localStorage.setItem("metrixiq.activeSite", siteFilter);
+  }, [siteFilter]);
+
   async function createSiteFromDashboard() {
     const organizationId = workspace?.organization?.id;
     const code = String(siteDraft.code || "").trim().toUpperCase();
@@ -460,14 +478,14 @@ export default function DashboardClient() {
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} sites={sites} refreshKey={operationalRefreshKey} />; break;
-    case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
+    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
+    case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
     case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "automation": view = <AutomationCenter organizationId={workspace?.organization?.id} sites={sites} drivers={drivers} canManage={platformAdmin || permissions?.manage_automations} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "coaching": view = <CoachingV3 organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} onOpenDriver={openDriver} canManage={platformAdmin || permissions?.manage_coaching} />; break;
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
-    case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
+    case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
     case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
@@ -476,7 +494,7 @@ export default function DashboardClient() {
     case "integrations": view = <IntegrationHub organizationId={workspace?.organization?.id} canManage={platformAdmin || permissions?.manage_integrations} onNavigate={navigate} />; break;
     case "reliability": view = <ReliabilityCenter organizationId={workspace?.organization?.id} canRun={platformAdmin || permissions?.run_reliability_checks} onNavigate={navigate} />; break;
     case "developer-platform": view = <IntegrationDeliveryCenter organizationId={workspace?.organization?.id} canManageApi={platformAdmin || permissions?.manage_api_keys} canManageWebhooks={platformAdmin || permissions?.manage_webhooks} canManageDelivery={platformAdmin || permissions?.manage_delivery} />; break;
-    case "reports": view = <ReportBuilderV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
+    case "reports": view = <ReportBuilderV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
     case "team": view = <TeamAccessHub organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <AccountSettingsView platformAdmin={platformAdmin} />; break;
@@ -505,7 +523,7 @@ export default function DashboardClient() {
   </div>
   <div className="topbar-controls">
     {workspaceOptions.length>1?<label className="workspace-switcher"><span>WORKSPACE</span><select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select></label>:null}
-    <label className="site-switcher site-switcher-mockup" aria-label="Active site selector"><span className="site-switcher-mark">SITE</span><select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);}}><option value="all">All Sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}<option value="__add_site__">＋ Add new site</option></select><span className="site-switcher-chevron">⌄</span></label>
+    <label className="site-switcher site-switcher-mockup" aria-label="Active site selector"><span className="site-switcher-mark">SITE</span><select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}><option value="all">All Sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}<option value="__add_site__">＋ Add new site</option></select><span className="site-switcher-chevron">⌄</span></label>
     <ChatHeaderButton organizationId={workspace?.organization?.id} userId={session?.user?.id||session?.id} onOpen={()=>{if(active==="manager-chat"){if(!navigate(previousActive||"dashboard"))navigate("dashboard");}else{setPreviousActive(active);navigate("manager-chat");}}} />
     <NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={operationalRefreshKey} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate} />
     <div className="topbar-profile-wrap">
