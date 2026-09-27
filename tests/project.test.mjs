@@ -1111,35 +1111,27 @@ test("Concessions V2 calculates movement, repeat offenders and actions", () => {
   assert.ok(signals.managementActions.some((action) => action.id === "missing"));
 });
 
-test("Concessions Overview receives its ranking accessor and V2 management evidence", () => {
+test("Concessions source-locks one site and one canonical Associates report", () => {
   const view = read("components/operations/ConcessionsView.jsx");
-  const sections = read("components/operations/ConcessionsSections.jsx");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
+  const data = read("lib/data/concessions.js");
 
-  assert.ok(view.includes("buildConcessionsSignals"));
-  assert.ok(view.includes("valueFor={valueFor}"));
-  assert.ok(view.includes("managementActions={managementActions}"));
-  assert.ok(view.includes("repeatOffenders={repeatOffenders}"));
-  assert.ok(sections.includes("valueFor,"));
-  assert.ok(sections.includes("MANAGEMENT ACTIONS"));
-  assert.ok(sections.includes("Repeat-driver shortlist"));
+  assert.ok(view.includes("ConcessionsSimpleView"));
+  assert.ok(simple.includes("Cross-site concession totals are intentionally disabled"));
+  assert.ok(simple.includes("Associates CSV only"));
+  assert.ok(simple.includes("fetchTrustedConcessions"));
+  assert.ok(data.includes("DSP_Associates_Concessions_"));
+  assert.ok(data.includes("coverage >= 0.85"));
 });
 
-test("Concessions separates orchestration from presentation sections", () => {
+test("Concessions no longer uses the mixed operational matrix", () => {
   const view = read("components/operations/ConcessionsView.jsx");
-  const sections = read("components/operations/ConcessionsSections.jsx");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
 
-  assert.ok(view.includes("ConcessionsHeader"));
-  assert.ok(view.includes("ConcessionsKpis"));
-  assert.ok(view.includes("ConcessionsMatrix"));
-  assert.ok(view.includes("ConcessionsOverview"));
-  assert.ok(view.includes("<style jsx global>"));
-  assert.equal(view.includes('<section className="cx2-kpis">'), false);
-  assert.equal(view.includes('<section className="cx2-card cx2-matrix-card">'), false);
-  assert.equal(view.includes('<section className="cx2-overview-grid">'), false);
-  assert.ok(sections.includes("export function ConcessionsHeader"));
-  assert.ok(sections.includes("export function ConcessionsKpis"));
-  assert.ok(sections.includes("export function ConcessionsMatrix"));
-  assert.ok(sections.includes("export function ConcessionsOverview"));
+  assert.equal(view.includes("ConcessionsMatrix"), false);
+  assert.equal(view.includes("buildConcessionsSignals"), false);
+  assert.ok(simple.includes("one site, one week, one canonical source"));
+  assert.ok(simple.includes("Incomplete reports hidden"));
 });
 
 test("IADC Mentor and Concessions use canonical operational modules", () => {
@@ -1167,15 +1159,14 @@ test("IADC Mentor and Concessions use canonical operational modules", () => {
   assert.ok(dashboard.includes('./operations/ConcessionsView'));
 });
 
-test("Concessions keeps React hook order stable across loading states", () => {
+test("Concessions wrapper stays hook-free and delegates to the source-locked view", () => {
   const concessions = read("components/operations/ConcessionsView.jsx");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
 
+  assert.equal(concessions.includes("useState("), false);
   assert.equal(concessions.includes("useMemo("), false);
-  assert.ok(concessions.includes("const rows=filterRowsBySite(load.rows,siteFilter);"));
-  assert.ok(
-    concessions.indexOf("const rows=filterRowsBySite(load.rows,siteFilter);") <
-    concessions.indexOf("if(load.loading)")
-  );
+  assert.ok(concessions.includes("<ConcessionsSimpleView"));
+  assert.ok(simple.includes("useEffect("));
 });
 
 test("site-scoped operational views recover from stale week selections", () => {
