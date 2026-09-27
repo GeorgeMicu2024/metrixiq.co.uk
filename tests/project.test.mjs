@@ -1390,9 +1390,12 @@ test("analysis preserves daily granularity for IADC persistence and IADC opens i
 });
 
 
-test("concessions week window ignores unrelated daily operational rows", () => {
-  const view = read("components/operations/ConcessionsView.jsx");
-  assert.ok(view.includes("const concessionRows=rows.filter(r=>n(r.concessions)!=null)"));
-  assert.ok(view.includes("const weeks=contiguousWeeks(concessionRows,range)"));
-  assert.equal(view.includes("const weeks=contiguousWeeks(rows,range)"), false);
+test("concessions ignores unrelated operational rows through canonical source locking", () => {
+  const data = read("lib/data/concessions.js");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
+
+  assert.ok(data.includes("parseTrustedConcessionsFile"));
+  assert.ok(data.includes("trustedSourceForRow"));
+  assert.ok(data.includes("trustedKeys"));
+  assert.ok(simple.includes("Mixed reports are ignored"));
 });
