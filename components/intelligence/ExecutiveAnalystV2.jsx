@@ -49,6 +49,7 @@ export default function ExecutiveAnalystV2({
     finally{setLoading(false);}
   }
   useEffect(()=>{load();},[organizationId]);
+  useEffect(()=>{setAnswer(null);setWeek("");},[siteFilter]);
 
   const weeks=useMemo(()=>availableWeeks(data||{},site),[data,site]);
   useEffect(()=>{
