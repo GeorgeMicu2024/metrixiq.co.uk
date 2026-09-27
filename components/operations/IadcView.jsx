@@ -2,6 +2,7 @@
 // IADC/DWC workspace: daily + weekly compliance views, direct import, export, share, driver detail and pagination.
 
 import { useMemo, useRef, useState } from "react";
+import IadcComplianceView from "./IadcComplianceView";
 import { analyseFiles } from "../../lib/analyzer";
 import { ErrorBox,Loading,dname,filterRowsBySite,n,openShape,pct,trid,useOperationalRows,weekNo } from "../operations/OperationalShared";
 
@@ -19,7 +20,7 @@ const errorLabels={photoDefect:"Photo Defect",photoManualBypass:"Photo Manual By
 const average=(a,get)=>{const x=a.map(get).filter(v=>v!=null&&Number.isFinite(Number(v))).map(Number);return x.length?x.reduce((s,v)=>s+v,0)/x.length:null};
 const escapeCsv=v=>'"'+String(v??"").replaceAll('"','""')+'"';
 
-export default function IadcView({organizationId,onOpenDriver,onImport,onImported,siteFilter="all",metric="iadc",initialComplianceTab="iadc",refreshKey=0}){
+function LegacyIadcView({organizationId,onOpenDriver,onImport,onImported,siteFilter="all",metric="iadc",initialComplianceTab="iadc",refreshKey=0}){
   const load=useOperationalRows(organizationId,metric,refreshKey);
   const rows=filterRowsBySite(load.rows,siteFilter);
   const meta=METRIC_META[metric]||METRIC_META.iadc;
@@ -143,4 +144,9 @@ export default function IadcView({organizationId,onOpenDriver,onImport,onImporte
       </section></>})()}
     </section>}
   </div>;
+}
+
+export default function IadcView(props){
+  if((props?.metric||"iadc")==="iadc") return <IadcComplianceView {...props}/>;
+  return <LegacyIadcView {...props}/>;
 }
