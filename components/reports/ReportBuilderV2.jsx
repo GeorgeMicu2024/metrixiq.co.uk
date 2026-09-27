@@ -174,6 +174,7 @@ export default function ReportBuilderV2({
     finally{setLoading(false);}
   }
   useEffect(()=>{load();},[organizationId]);
+  useEffect(()=>{setWeek("");setPack(null);setCustomDriverIds([]);},[siteFilter]);
 
   const weeks=useMemo(()=>availableWeeks(data||{},site),[data,site]);
   useEffect(()=>{if(!week||!weeks.includes(week))setWeek(weeks.at(-1)||"");},[weeks.join("|")]);
