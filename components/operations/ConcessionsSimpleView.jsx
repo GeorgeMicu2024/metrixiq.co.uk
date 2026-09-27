@@ -10,10 +10,10 @@ import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { ErrorBox, Loading } from "./OperationalShared";
 
 const cellTone = (value) => {
-  const n = Number(value || 0);
-  if (n === 0) return "zero";
-  if (n === 1) return "one";
-  if (n === 2) return "two";
+  const count = Number(value || 0);
+  if (count === 0) return "zero";
+  if (count === 1) return "one";
+  if (count === 2) return "two";
   return "high";
 };
 
@@ -21,10 +21,10 @@ export default function ConcessionsSimpleView({
   organizationId,
   onOpenDriver,
   siteFilter = "all",
+  onSiteFilterChange,
   refreshKey = 0,
 }) {
   const [load, setLoad] = useState({ loading: true, error: "", rows: [] });
-  const [localSite, setLocalSite] = useState("");
   const [query, setQuery] = useState("");
   const [show, setShow] = useState("all");
 
@@ -63,17 +63,29 @@ export default function ConcessionsSimpleView({
   const globalSite = String(siteFilter || "all").trim().toUpperCase();
   const availableSites = useMemo(
     () =>
-      [...new Set((load.rows || []).map((row) => String(row.site || "").toUpperCase()).filter(Boolean))]
-        .sort(),
+      [...new Set(
+        (load.rows || [])
+          .map((row) => String(row.site || "").toUpperCase())
+          .filter(Boolean)
+      )].sort(),
     [load.rows]
   );
+
+  useEffect(() => {
+    if (
+      !load.loading &&
+      globalSite === "ALL" &&
+      availableSites.length &&
+      onSiteFilterChange
+    ) {
+      onSiteFilterChange(availableSites[0]);
+    }
+  }, [load.loading, globalSite, availableSites.join("|"), onSiteFilterChange]);
 
   const site =
     globalSite !== "ALL"
       ? globalSite
-      : availableSites.includes(localSite)
-        ? localSite
-        : availableSites[0] || "";
+      : availableSites[0] || "";
 
   const weeks = useMemo(
     () => latestFourConcessionWeeks(load.rows || [], site),
@@ -87,15 +99,35 @@ export default function ConcessionsSimpleView({
 
   const weekly = useMemo(
     () =>
-      weeks.map((week) => {
+      weeks.map((week, index) => {
         const rows = (load.rows || []).filter(
-          (row) => row.site === site && row.week_label === week && Number(row.dnr || 0) > 0
+          (row) =>
+            row.site === site &&
+            row.week_label === week &&
+            Number(row.dnr || 0) > 0
         );
+        const total = rows.reduce(
+          (sum, row) => sum + Number(row.dnr || 0),
+          0
+        );
+        const previous =
+          index > 0
+            ? (load.rows || [])
+                .filter(
+                  (row) =>
+                    row.site === site &&
+                    row.week_label === weeks[index - 1] &&
+                    Number(row.dnr || 0) > 0
+                )
+                .reduce((sum, row) => sum + Number(row.dnr || 0), 0)
+            : null;
+
         return {
           week,
-          total: rows.reduce((sum, row) => sum + Number(row.dnr || 0), 0),
+          total,
           affected: new Set(rows.map((row) => row.driver_trid)).size,
           source: rows[0]?.source_file || "",
+          delta: previous == null ? null : total - previous,
         };
       }),
     [load.rows, site, weeks]
@@ -104,162 +136,223 @@ export default function ConcessionsSimpleView({
   const latestWeek = weeks[weeks.length - 1] || "";
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
+
     return matrix.filter((row) => {
       if (show === "repeat" && row.affectedWeeks < 2) return false;
-      if (show === "latest" && Number(row.byWeek?.[latestWeek] || 0) <= 0) return false;
+      if (show === "latest" && Number(row.byWeek?.[latestWeek] || 0) <= 0) {
+        return false;
+      }
+
       if (!needle) return true;
-      return `${row.driver_name} ${row.driver_trid}`.toLowerCase().includes(needle);
+      return `${row.driver_name} ${row.driver_trid}`
+        .toLowerCase()
+        .includes(needle);
     });
   }, [matrix, query, show, latestWeek]);
 
-  const fourWeekTotal = weekly.reduce((sum, week) => sum + week.total, 0);
+  const fourWeekTotal = weekly.reduce((sum, item) => sum + item.total, 0);
   const uniqueAffected = matrix.length;
   const repeatDrivers = matrix.filter((row) => row.affectedWeeks >= 2).length;
-  const latestTotal = weekly.find((week) => week.week === latestWeek)?.total || 0;
+  const latestTotal =
+    weekly.find((item) => item.week === latestWeek)?.total || 0;
+  const maxWeek = Math.max(1, ...weekly.map((item) => item.total));
 
   if (load.loading) return <Loading text="Loading clean concessions history…" />;
   if (load.error) return <ErrorBox error={load.error} />;
 
   return (
-    <div className="cx4">
-      <header className="cx4-hero">
+    <div className="cx5">
+      <header className="cx5-heading">
         <div>
           <span className="page-kicker">QUALITY INTELLIGENCE</span>
-          <h1>Concessions — Last 4 Weeks</h1>
+          <h1>Concessions</h1>
           <p>
-            Dedicated DNR snapshots only. No scorecard, IADC, POD or mixed operational rows are used here.
+            Clean DNR history from dedicated Associates Concessions snapshots.
+            The view always shows the latest four available weeks.
           </p>
         </div>
-        <div className="cx4-lock">
-          <span>ISOLATED DATASET</span>
-          <strong>{site || "No site"}</strong>
+        <div className="cx5-heading-meta">
+          <span>4-week view</span>
+          <b>Verified snapshots</b>
         </div>
       </header>
 
-      <section className={"cx4-toolbar " + (globalSite === "ALL" ? "with-site" : "")}>
-        {globalSite === "ALL" && (
-          <label>
-            <span>Site</span>
-            <select
-              value={site}
-              onChange={(event) => {
-                setLocalSite(event.target.value);
-                setQuery("");
-              }}
-            >
-              {availableSites.length ? (
-                availableSites.map((item) => <option key={item}>{item}</option>)
-              ) : (
-                <option value="">No site data</option>
-              )}
-            </select>
-          </label>
-        )}
-
-        <label className="cx4-search">
-          <span>Search</span>
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Driver name or TRID…"
-          />
-        </label>
-
-        <label>
-          <span>Show</span>
-          <select value={show} onChange={(event) => setShow(event.target.value)}>
-            <option value="all">All affected drivers</option>
-            <option value="repeat">Repeat · 2+ weeks</option>
-            <option value="latest">Latest week only</option>
-          </select>
-        </label>
-      </section>
-
       {!site || !weeks.length ? (
-        <section className="panel cx4-empty">
-          <h2>No clean concessions snapshots available</h2>
-          <p>Import a dedicated Associates Concessions CSV for this site.</p>
+        <section className="panel cx5-empty">
+          <div className="cx5-empty-icon">!</div>
+          <h2>No clean concessions history for this site</h2>
+          <p>
+            Use the Site selector in the top bar, then import a dedicated
+            Associates Concessions CSV for that station.
+          </p>
         </section>
       ) : (
         <>
-          <section className="cx4-kpis">
-            <article>
+          <section className="panel cx5-summary">
+            <div>
               <span>4W DNR</span>
               <strong>{fourWeekTotal}</strong>
               <small>{weeks[0]}–{latestWeek}</small>
-            </article>
-            <article>
+            </div>
+            <div>
               <span>Unique affected</span>
               <strong>{uniqueAffected}</strong>
-              <small>Across four weeks</small>
-            </article>
-            <article className="warn">
+              <small>Across the 4-week window</small>
+            </div>
+            <div>
               <span>Repeat drivers</span>
               <strong>{repeatDrivers}</strong>
               <small>Affected in 2+ weeks</small>
-            </article>
-            <article className="latest">
+            </div>
+            <div className="latest">
               <span>{latestWeek} DNR</span>
               <strong>{latestTotal}</strong>
-              <small>Latest clean report</small>
-            </article>
+              <small>Latest imported week</small>
+            </div>
           </section>
 
-          <section className="cx4-weeks">
-            {weekly.map((item, index) => (
-              <article key={item.week} className={index === weekly.length - 1 ? "current" : ""}>
-                <div>
-                  <span>{item.week}</span>
-                  {index === weekly.length - 1 && <b>LATEST</b>}
-                </div>
-                <strong>{item.total}</strong>
-                <small>{item.affected} affected drivers</small>
-                <em title={item.source}>{item.source || "Dedicated concessions source"}</em>
-              </article>
-            ))}
-          </section>
-
-          <section className="panel cx4-table-card">
-            <div className="cx4-card-head">
+          <section className="panel cx5-trend">
+            <div className="cx5-section-head">
               <div>
-                <span>4-WEEK DRIVER MATRIX</span>
-                <h2>{site} · {weeks[0]}–{latestWeek}</h2>
+                <span className="page-kicker">WEEKLY TREND</span>
+                <h2>Four-week movement</h2>
               </div>
-              <b>{filtered.length} drivers</b>
+              <small>Lower DNR is better</small>
             </div>
 
-            <div className="cx4-table-wrap">
+            <div className="cx5-trend-grid">
+              {weekly.map((item, index) => {
+                const isLatest = index === weekly.length - 1;
+                const deltaClass =
+                  item.delta == null
+                    ? "neutral"
+                    : item.delta < 0
+                      ? "better"
+                      : item.delta > 0
+                        ? "worse"
+                        : "neutral";
+
+                return (
+                  <article key={item.week} className={isLatest ? "latest" : ""}>
+                    <div className="cx5-trend-top">
+                      <span>{item.week}</span>
+                      {isLatest && <em>LATEST</em>}
+                    </div>
+                    <div className="cx5-trend-value">
+                      <strong>{item.total}</strong>
+                      <small>DNR</small>
+                    </div>
+                    <div className="cx5-trend-bar">
+                      <i style={{ width: `${Math.max(8, (item.total / maxWeek) * 100)}%` }} />
+                    </div>
+                    <div className="cx5-trend-foot">
+                      <span>{item.affected} drivers</span>
+                      <b className={deltaClass}>
+                        {item.delta == null
+                          ? "Baseline"
+                          : item.delta === 0
+                            ? "No change"
+                            : `${item.delta > 0 ? "+" : ""}${item.delta} vs prev`}
+                      </b>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="panel cx5-matrix">
+            <div className="cx5-matrix-head">
+              <div>
+                <span className="page-kicker">DRIVER DETAIL</span>
+                <h2>4-week concession matrix</h2>
+                <p>
+                  Compare individual DNR movement and identify repeat patterns.
+                </p>
+              </div>
+
+              <div className="cx5-filterbar">
+                <label className="cx5-search">
+                  <span aria-hidden="true">⌕</span>
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search driver or TRID…"
+                  />
+                </label>
+
+                <select
+                  value={show}
+                  onChange={(event) => setShow(event.target.value)}
+                  aria-label="Filter concessions drivers"
+                >
+                  <option value="all">All affected drivers</option>
+                  <option value="repeat">Repeat · 2+ weeks</option>
+                  <option value="latest">Latest week only</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="cx5-table-wrap">
               <table>
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Driver</th>
                     <th>TRID</th>
-                    {weeks.map((week) => <th key={week}>{week}</th>)}
-                    <th>4W Total</th>
-                    <th>Affected</th>
+                    {weeks.map((week) => (
+                      <th
+                        key={week}
+                        className={week === latestWeek ? "latest-col" : ""}
+                      >
+                        {week}
+                      </th>
+                    ))}
+                    <th>4W total</th>
+                    <th>Weeks</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((row, index) => (
                     <tr key={row.driver_trid}>
-                      <td><span className="cx4-rank">{index + 1}</span></td>
-                      <td><b>{row.driver_name}</b></td>
-                      <td><code>{row.driver_trid}</code></td>
+                      <td>
+                        <span className="cx5-rank">{index + 1}</span>
+                      </td>
+                      <td>
+                        <div className="cx5-driver">
+                          <b>{row.driver_name}</b>
+                          {row.affectedWeeks >= 3 && <small>Repeat pattern</small>}
+                        </div>
+                      </td>
+                      <td>
+                        <code>{row.driver_trid}</code>
+                      </td>
                       {weeks.map((week) => {
                         const value = Number(row.byWeek?.[week] || 0);
                         return (
-                          <td key={week}>
-                            <span className={"cx4-cell " + cellTone(value)}>{value || "—"}</span>
+                          <td
+                            key={week}
+                            className={week === latestWeek ? "latest-col" : ""}
+                          >
+                            <span className={"cx5-cell " + cellTone(value)}>
+                              {value || "—"}
+                            </span>
                           </td>
                         );
                       })}
-                      <td><span className="cx4-total">{row.total}</span></td>
-                      <td>{row.affectedWeeks}/4</td>
+                      <td>
+                        <span className="cx5-total">{row.total}</span>
+                      </td>
+                      <td>
+                        <span className={row.affectedWeeks >= 2 ? "cx5-repeat" : "cx5-weeks"}>
+                          {row.affectedWeeks}/4
+                        </span>
+                      </td>
                       <td>
                         <button
                           type="button"
+                          className="cx5-open"
                           disabled={!row.driver_id}
                           onClick={() =>
                             row.driver_id &&
@@ -272,11 +365,21 @@ export default function ConcessionsSimpleView({
                             })
                           }
                         >
-                          Open →
+                          Open
+                          <span>→</span>
                         </button>
                       </td>
                     </tr>
                   ))}
+                  {!filtered.length && (
+                    <tr>
+                      <td colSpan={weeks.length + 6}>
+                        <div className="cx5-no-results">
+                          No drivers match the current filter.
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -285,21 +388,102 @@ export default function ConcessionsSimpleView({
       )}
 
       <style jsx global>{`
-        .cx4{display:grid;gap:14px;padding-bottom:28px}
-        .cx4-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:22px 24px;border:1px solid #dce6ed;border-radius:16px;background:linear-gradient(135deg,#fff 0%,#f7fbfa 62%,#eef8f5 100%)}
-        .cx4-hero h1{margin:5px 0 6px;font-size:30px;color:#12273a;letter-spacing:-.035em}.cx4-hero p{margin:0;color:#6e7f90;font-size:13px}
-        .cx4-lock{display:flex;flex-direction:column;align-items:flex-end;gap:3px;border:1px solid #cde6de;background:#eff9f5;color:#2b7665;border-radius:10px;padding:10px 12px}.cx4-lock span{font-size:9px;font-weight:900;letter-spacing:.08em}.cx4-lock strong{font-size:14px}
-        .cx4-toolbar{display:grid;grid-template-columns:minmax(280px,1fr) 220px;gap:10px;padding:13px;border:1px solid #dfe7ed;border-radius:13px;background:#fff}.cx4-toolbar.with-site{grid-template-columns:160px minmax(260px,1fr) 220px}
-        .cx4-toolbar label{display:grid;gap:5px}.cx4-toolbar label>span{font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8794a2}.cx4-toolbar select,.cx4-toolbar input{height:40px;border:1px solid #d4dee6;border-radius:9px;background:#fff;padding:0 11px;color:#21364a;font-weight:700;outline:none;width:100%}
-        .cx4-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.cx4-kpis article{padding:16px 17px;border:1px solid #dfe7ed;border-radius:14px;background:#fff}.cx4-kpis article.warn{border-top:3px solid #e5a21a}.cx4-kpis article.latest{border-top:3px solid #2d8f79}.cx4-kpis span{display:block;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#7b8998}.cx4-kpis strong{display:block;margin:8px 0 4px;font-size:29px;color:#142a3f}.cx4-kpis small{color:#7c8b9a;font-size:11px}
-        .cx4-weeks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.cx4-weeks article{padding:15px 16px;border:1px solid #dfe7ed;border-radius:13px;background:#fff}.cx4-weeks article.current{border-color:#8fd2bf;box-shadow:inset 0 3px #2d8f79}.cx4-weeks article>div{display:flex;align-items:center;justify-content:space-between}.cx4-weeks span{font-size:11px;font-weight:900;color:#516477}.cx4-weeks b{font-size:8px;color:#267a67;background:#eaf7f2;border-radius:999px;padding:4px 7px}.cx4-weeks strong{display:block;font-size:28px;margin:9px 0 3px;color:#142a3f}.cx4-weeks small{display:block;color:#6f8090;font-size:11px}.cx4-weeks em{display:block;margin-top:9px;color:#99a4ae;font-size:9px;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .cx4-table-card{overflow:hidden;border-radius:14px}.cx4-card-head{display:flex;justify-content:space-between;align-items:center;padding:15px 16px;border-bottom:1px solid #e5ebef}.cx4-card-head span{font-size:9px;font-weight:900;letter-spacing:.1em;color:#4b927f}.cx4-card-head h2{margin:3px 0 0;font-size:17px}.cx4-card-head>b{font-size:11px;color:#708091}
-        .cx4-table-wrap{max-height:650px;overflow:auto}.cx4-table-wrap table{width:100%;min-width:980px;border-collapse:separate;border-spacing:0}.cx4-table-wrap th{position:sticky;top:0;background:#f7f9fb;padding:10px 12px;text-align:left;border-bottom:1px solid #dfe7ed;font-size:9px;text-transform:uppercase;letter-spacing:.07em;color:#738293}.cx4-table-wrap td{padding:10px 12px;border-bottom:1px solid #edf1f4;font-size:12px;color:#263a4e}.cx4-table-wrap code{font-size:10px;background:#f2f5f7;padding:4px 6px;border-radius:6px;color:#5d6f81}
-        .cx4-rank{display:grid;place-items:center;width:27px;height:27px;border-radius:8px;background:#edf2f5;font-weight:850}.cx4-cell{display:inline-flex;justify-content:center;min-width:34px;border-radius:7px;padding:5px 7px;font-weight:900}.cx4-cell.zero{background:#edf8f2;color:#4f8068}.cx4-cell.one{background:#fff4cf;color:#8b6818}.cx4-cell.two{background:#fde6b7;color:#945f08}.cx4-cell.high{background:#f7dde0;color:#a3424b}.cx4-total{display:inline-flex;justify-content:center;min-width:38px;border-radius:7px;padding:6px 8px;background:#edf2f5;font-weight:900;color:#1f3a50}
-        .cx4-table-wrap td:last-child button{border:1px solid #d5dee5;background:#fff;border-radius:7px;padding:6px 10px;color:#376f64;font-weight:800;cursor:pointer}.cx4-table-wrap td:last-child button:disabled{opacity:.4;cursor:not-allowed}
-        .cx4-empty{padding:38px;text-align:center;border-radius:14px}.cx4-empty h2{margin:0 0 8px}.cx4-empty p{margin:0;color:#738394}
-        @media(max-width:900px){.cx4-toolbar,.cx4-toolbar.with-site{grid-template-columns:1fr 1fr}.cx4-search{grid-column:1/-1}.cx4-kpis,.cx4-weeks{grid-template-columns:1fr 1fr}}
-        @media(max-width:620px){.cx4-hero{align-items:flex-start;flex-direction:column}.cx4-lock{align-items:flex-start}.cx4-toolbar,.cx4-toolbar.with-site{grid-template-columns:1fr}.cx4-search{grid-column:auto}.cx4-kpis,.cx4-weeks{grid-template-columns:1fr 1fr}}
+        .cx5{display:grid;gap:14px;padding-bottom:28px;max-width:1600px;margin:0 auto}
+        .cx5-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;padding:10px 2px 4px}
+        .cx5-heading h1{margin:5px 0 5px;font-size:30px;line-height:1.05;letter-spacing:-.035em;color:#10263a}
+        .cx5-heading p{margin:0;max-width:780px;font-size:12px;line-height:1.55;color:#738395}
+        .cx5-heading-meta{display:flex;align-items:center;gap:8px;white-space:nowrap}
+        .cx5-heading-meta span,.cx5-heading-meta b{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:999px;font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+        .cx5-heading-meta span{border:1px solid #dce5eb;background:#fff;color:#66798b}
+        .cx5-heading-meta b{border:1px solid #c8e5da;background:#eff9f5;color:#25725f}
+
+        .cx5-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:hidden;padding:0;border-radius:14px}
+        .cx5-summary>div{padding:17px 20px;border-right:1px solid #e5ebef;min-height:96px}
+        .cx5-summary>div:last-child{border-right:0}
+        .cx5-summary>div.latest{background:linear-gradient(180deg,#f6fcfa 0%,#fff 100%)}
+        .cx5-summary span{display:block;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#788898}
+        .cx5-summary strong{display:block;margin:7px 0 3px;font-size:27px;line-height:1;color:#132a3e}
+        .cx5-summary small{font-size:10px;color:#85929f}
+
+        .cx5-trend{padding:16px 18px 18px;border-radius:14px}
+        .cx5-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:12px}
+        .cx5-section-head h2{margin:3px 0 0;font-size:16px;color:#173047}
+        .cx5-section-head>small{font-size:10px;color:#8995a0}
+        .cx5-trend-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #e3e9ee;border-radius:11px;overflow:hidden}
+        .cx5-trend-grid article{padding:13px 15px;border-right:1px solid #e7ecef;background:#fff}
+        .cx5-trend-grid article:last-child{border-right:0}
+        .cx5-trend-grid article.latest{background:#f5fbf9}
+        .cx5-trend-top{display:flex;align-items:center;justify-content:space-between}
+        .cx5-trend-top>span{font-size:10px;font-weight:900;color:#5e7081}
+        .cx5-trend-top em{font-size:8px;font-style:normal;font-weight:900;color:#20715e;background:#dff3eb;border-radius:999px;padding:3px 6px}
+        .cx5-trend-value{display:flex;align-items:flex-end;gap:5px;margin:8px 0}
+        .cx5-trend-value strong{font-size:23px;line-height:1;color:#152b40}
+        .cx5-trend-value small{font-size:9px;color:#82909e;padding-bottom:2px}
+        .cx5-trend-bar{height:5px;border-radius:99px;background:#edf1f4;overflow:hidden}
+        .cx5-trend-bar i{display:block;height:100%;border-radius:99px;background:#2d8f79}
+        .cx5-trend-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:9px}
+        .cx5-trend-foot span{color:#81909d}
+        .cx5-trend-foot b{font-weight:850}
+        .cx5-trend-foot b.better{color:#19805e}
+        .cx5-trend-foot b.worse{color:#b44a54}
+        .cx5-trend-foot b.neutral{color:#7b8996}
+
+        .cx5-matrix{overflow:hidden;border-radius:14px;padding:0}
+        .cx5-matrix-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;padding:16px 18px;border-bottom:1px solid #e6ebef}
+        .cx5-matrix-head h2{margin:3px 0 2px;font-size:17px;color:#142b40}
+        .cx5-matrix-head p{margin:0;font-size:10px;color:#81909e}
+        .cx5-filterbar{display:flex;align-items:center;gap:8px;min-width:min(520px,48vw)}
+        .cx5-search{display:flex;align-items:center;gap:7px;flex:1;height:38px;padding:0 11px;border:1px solid #d3dde5;border-radius:9px;background:#fff}
+        .cx5-search span{font-size:15px;color:#84929f}
+        .cx5-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#173047;font-size:11px}
+        .cx5-filterbar select{height:38px;min-width:170px;border:1px solid #d3dde5;border-radius:9px;background:#fff;padding:0 10px;color:#334b60;font-size:10px;font-weight:750}
+
+        .cx5-table-wrap{max-height:600px;overflow:auto}
+        .cx5-table-wrap table{width:100%;min-width:980px;border-collapse:separate;border-spacing:0}
+        .cx5-table-wrap th{position:sticky;top:0;z-index:2;padding:10px 12px;background:#f7f9fa;border-bottom:1px solid #dce4ea;text-align:left;font-size:8px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;color:#778797}
+        .cx5-table-wrap th.latest-col,.cx5-table-wrap td.latest-col{background:#f3faf7}
+        .cx5-table-wrap td{padding:9px 12px;border-bottom:1px solid #edf1f4;font-size:11px;color:#253b50;vertical-align:middle}
+        .cx5-table-wrap tbody tr:hover td{background:#fafcfd}
+        .cx5-table-wrap tbody tr:hover td.latest-col{background:#eff8f4}
+        .cx5-rank{display:grid;place-items:center;width:25px;height:25px;border-radius:7px;background:#edf2f5;color:#486075;font-size:10px;font-weight:850}
+        .cx5-driver{display:grid;gap:2px}
+        .cx5-driver b{font-size:11px;color:#13283c}
+        .cx5-driver small{font-size:8px;font-weight:800;color:#a45a61;text-transform:uppercase;letter-spacing:.04em}
+        .cx5-table-wrap code{font-size:9px;background:#f1f4f6;color:#68798a;border-radius:5px;padding:3px 5px}
+        .cx5-cell{display:inline-flex;align-items:center;justify-content:center;min-width:31px;height:25px;border-radius:7px;font-size:10px;font-weight:900}
+        .cx5-cell.zero{background:#edf7f2;color:#4f8068}
+        .cx5-cell.one{background:#fff3d5;color:#8b6818}
+        .cx5-cell.two{background:#fde8bd;color:#935f08}
+        .cx5-cell.high{background:#f8dfe2;color:#a43f49}
+        .cx5-total{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:26px;padding:0 7px;border-radius:7px;background:#eaf0f4;color:#1a364d;font-weight:900}
+        .cx5-weeks,.cx5-repeat{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 7px;border-radius:999px;font-size:9px;font-weight:850}
+        .cx5-weeks{background:#eff3f6;color:#617486}
+        .cx5-repeat{background:#fff0df;color:#986119}
+        .cx5-open{display:inline-flex;align-items:center;gap:5px;border:1px solid #d3dee6;background:#fff;border-radius:7px;height:29px;padding:0 9px;color:#2b7162;font-size:9px;font-weight:850;cursor:pointer}
+        .cx5-open:disabled{opacity:.4;cursor:not-allowed}
+        .cx5-no-results{padding:30px;text-align:center;color:#83909c}
+
+        .cx5-empty{display:grid;justify-items:center;text-align:center;gap:7px;padding:44px;border-radius:14px}
+        .cx5-empty-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#f0f5f7;color:#5a7184;font-weight:900}
+        .cx5-empty h2{margin:3px 0 0;font-size:18px}
+        .cx5-empty p{margin:0;max-width:600px;color:#748493;font-size:11px;line-height:1.5}
+
+        @media(max-width:980px){
+          .cx5-summary,.cx5-trend-grid{grid-template-columns:1fr 1fr}
+          .cx5-summary>div:nth-child(2){border-right:0}
+          .cx5-summary>div:nth-child(-n+2){border-bottom:1px solid #e5ebef}
+          .cx5-trend-grid article:nth-child(2){border-right:0}
+          .cx5-trend-grid article:nth-child(-n+2){border-bottom:1px solid #e7ecef}
+          .cx5-matrix-head{align-items:stretch;flex-direction:column}
+          .cx5-filterbar{min-width:0;width:100%}
+        }
+        @media(max-width:640px){
+          .cx5-heading{align-items:flex-start;flex-direction:column}
+          .cx5-heading-meta{align-self:flex-start}
+          .cx5-summary,.cx5-trend-grid{grid-template-columns:1fr 1fr}
+          .cx5-filterbar{flex-direction:column;align-items:stretch}
+          .cx5-filterbar select{width:100%}
+        }
       `}</style>
     </div>
   );
