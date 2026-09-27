@@ -2515,3 +2515,182 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   .waveplan-file-match{align-items:flex-start;flex-direction:column}
   .waveplan-file-match>small{max-width:100%;margin-left:0}
 }
+
+
+/* ===== Daily Dispatch driver name editor ===== */
+.waveplan-actions.clean{
+  grid-template-columns:minmax(220px,1.6fr) minmax(180px,.75fr) minmax(150px,.55fr)!important;
+}
+.waveplan-actions.clean .ready{
+  grid-column:1/-1;
+}
+.waveplan-edit-names{
+  border-color:#82cfc3!important;
+  background:#f4fbf9!important;
+  color:#17705f!important;
+  font-weight:850!important;
+}
+.waveplan-edit-names:hover:not(:disabled){
+  background:#e9f7f3!important;
+  border-color:#55bba9!important;
+}
+.wave-name-editor-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:1800;
+  display:flex;
+  justify-content:flex-end;
+  background:rgba(11,28,43,.28);
+  backdrop-filter:blur(2px);
+}
+.wave-name-editor{
+  width:min(520px,96vw);
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  background:#fff;
+  border-left:1px solid #dce5ec;
+  box-shadow:-24px 0 70px rgba(14,34,51,.18);
+  animation:waveNameSlide .18s ease-out;
+}
+@keyframes waveNameSlide{
+  from{transform:translateX(28px);opacity:.72}
+  to{transform:translateX(0);opacity:1}
+}
+.wave-name-editor>header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  padding:22px 22px 16px;
+  border-bottom:1px solid #e7edf1;
+}
+.wave-name-editor>header h2{
+  margin:4px 0 5px;
+  color:#142d43;
+  font-size:22px;
+  letter-spacing:-.025em;
+}
+.wave-name-editor>header p{
+  margin:0;
+  max-width:390px;
+  color:#728394;
+  font-size:11px;
+  line-height:1.5;
+}
+.wave-name-editor>header>button{
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:9px;
+  background:#f4f7f9;
+  color:#27455e;
+  font-size:22px;
+  cursor:pointer;
+}
+.wave-name-editor-info,
+.wave-name-editor-tip{
+  margin:14px 18px 0;
+  padding:11px 12px;
+  border-radius:10px;
+  font-size:10px;
+  line-height:1.45;
+}
+.wave-name-editor-info{
+  border:1px solid #c8e0f5;
+  background:#eff7ff;
+  color:#355e82;
+}
+.wave-name-editor-tip{
+  border:1px solid #cfe9df;
+  background:#f2faf7;
+  color:#356c5d;
+}
+.wave-name-editor-table{
+  margin:14px 18px 0;
+  border:1px solid #dfe7ed;
+  border-radius:12px;
+  overflow:auto;
+  flex:1;
+  min-height:0;
+}
+.wave-name-editor-table .head,
+.wave-name-editor-table .row{
+  display:grid;
+  grid-template-columns:82px minmax(0,1fr) minmax(0,1.15fr);
+  align-items:center;
+}
+.wave-name-editor-table .head{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:#f6f8fa;
+  border-bottom:1px solid #dfe7ed;
+}
+.wave-name-editor-table .head span{
+  padding:10px 9px;
+  color:#687a8b;
+  font-size:8px;
+  font-weight:950;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+}
+.wave-name-editor-table .row{
+  min-height:58px;
+  border-bottom:1px solid #edf1f4;
+}
+.wave-name-editor-table .row:last-child{border-bottom:0}
+.wave-name-editor-table .row>*{
+  min-width:0;
+  padding:8px 9px;
+}
+.wave-name-editor-table .row>b{
+  color:#234059;
+  font-size:10px;
+}
+.wave-name-editor-table .row>span{
+  color:#576b7d;
+  font-size:10px;
+  line-height:1.35;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.wave-name-editor-table input{
+  width:calc(100% - 18px);
+  margin:0 9px;
+  height:36px;
+  padding:0 9px;
+  border:1px solid #d3dee6;
+  border-radius:8px;
+  background:#fff;
+  color:#173047;
+  font-size:10px;
+  outline:0;
+}
+.wave-name-editor-table input:focus{
+  border-color:#6cc4b5;
+  box-shadow:0 0 0 3px rgba(44,157,139,.10);
+}
+.wave-name-editor>footer{
+  display:flex;
+  justify-content:flex-end;
+  gap:9px;
+  padding:15px 18px 18px;
+  border-top:1px solid #e7edf1;
+  background:#fbfcfd;
+}
+.wave-name-editor>footer .btn{
+  min-width:116px;
+}
+@media(max-width:760px){
+  .waveplan-actions.clean{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .waveplan-actions.clean .ready{
+    grid-column:1/-1;
+  }
+  .wave-name-editor-table .head,
+  .wave-name-editor-table .row{
+    grid-template-columns:70px minmax(0,1fr) minmax(0,1fr);
+  }
+}
