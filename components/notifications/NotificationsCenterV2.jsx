@@ -121,7 +121,12 @@ export default function NotificationsCenterV2({
       aria-expanded={open}
       onClick={()=>setOpen((value)=>!value)}
     >
-      <span aria-hidden="true">🔔</span>
+      <span aria-hidden="true" className="notification-bell-icon">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M10 21h4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"/>
+        </svg>
+      </span>
       {unread>0&&<b>{unread>99?"99+":unread}</b>}
     </button>
 
