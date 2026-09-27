@@ -1111,27 +1111,28 @@ test("Concessions V2 calculates movement, repeat offenders and actions", () => {
   assert.ok(signals.managementActions.some((action) => action.id === "missing"));
 });
 
-test("Concessions source-locks one site and one canonical Associates report", () => {
+test("Concessions uses isolated weekly snapshots for the last four weeks", () => {
   const view = read("components/operations/ConcessionsView.jsx");
   const simple = read("components/operations/ConcessionsSimpleView.jsx");
   const data = read("lib/data/concessions.js");
 
   assert.ok(view.includes("ConcessionsSimpleView"));
-  assert.ok(simple.includes("one site, one week, one canonical source"));
-  assert.ok(simple.includes("Associates CSV only"));
-  assert.ok(simple.includes("fetchTrustedConcessions"));
-  assert.ok(data.includes("DSP_Associates_Concessions_"));
-  assert.ok(data.includes("coverage >= 0.85"));
+  assert.ok(simple.includes("Concessions — Last 4 Weeks"));
+  assert.ok(simple.includes("Dedicated DNR snapshots only"));
+  assert.ok(simple.includes("fetchConcessionSnapshots"));
+  assert.ok(simple.includes("buildFourWeekConcessionMatrix"));
+  assert.ok(data.includes('from("concessions_weekly_snapshots")'));
+  assert.ok(data.includes("latestFourConcessionWeeks"));
 });
 
-test("Concessions no longer uses the mixed operational matrix", () => {
+test("Concessions no longer reads its page data from the mixed operational matrix", () => {
   const view = read("components/operations/ConcessionsView.jsx");
   const simple = read("components/operations/ConcessionsSimpleView.jsx");
 
   assert.equal(view.includes("ConcessionsMatrix"), false);
   assert.equal(view.includes("buildConcessionsSignals"), false);
-  assert.ok(simple.includes("one site, one week, one canonical source"));
-  assert.ok(simple.includes("Incomplete reports hidden"));
+  assert.equal(simple.includes("driver_metrics"), false);
+  assert.ok(simple.includes("4-WEEK DRIVER MATRIX"));
 });
 
 test("IADC Mentor and Concessions use canonical operational modules", () => {
@@ -1390,12 +1391,14 @@ test("analysis preserves daily granularity for IADC persistence and IADC opens i
 });
 
 
-test("concessions ignores unrelated operational rows through canonical source locking", () => {
+test("concessions ignores unrelated operational rows through the isolated snapshot table", () => {
   const data = read("lib/data/concessions.js");
   const simple = read("components/operations/ConcessionsSimpleView.jsx");
+  const persistence = read("lib/persistence/concessions.js");
 
   assert.ok(data.includes("parseTrustedConcessionsFile"));
-  assert.ok(data.includes("trustedSourceForRow"));
-  assert.ok(data.includes("trustedKeys"));
-  assert.ok(simple.includes("Mixed reports are ignored"));
+  assert.ok(data.includes("concessions_weekly_snapshots"));
+  assert.ok(simple.includes("Dedicated DNR snapshots only"));
+  assert.ok(persistence.includes("replaceConcessionSnapshotWeeks"));
+  assert.ok(persistence.includes("DSP_Associates_Concessions_"));
 });
