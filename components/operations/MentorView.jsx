@@ -593,12 +593,12 @@ export default function MentorView({
         <article><span>Average score</span><strong>{average == null ? "—" : Math.round(average)}</strong><small>{targetLabel("mentor")}</small></article>
         <article className={below ? "warn" : ""}><span>Below target</span><strong>{below}</strong><small>{periodLabel}</small></article>
         <article><span>At / above target</span><strong>{passed}</strong><small>{TARGETS.mentor}+ required</small></article>
-        <article><span>Driver records</span><strong>{activeRows.length}</strong><small>{siteLabel}</small></article>
+        <article><span>Driver records</span><strong>{activeRows.length}</strong><small>Current scope</small></article>
       </section>
 
       <section className="panel mentor-weekly-table">
         <div className="panel-head">
-          <div><span className="page-kicker">DRIVER RANKING</span><h2>Weekly eMentor leaderboard</h2><p>{periodLabel} · {siteLabel} · sorted by your selected column</p></div>
+          <div><span className="page-kicker">DRIVER RANKING</span><h2>Weekly eMentor leaderboard</h2><p>{periodLabel} · sorted by your selected column</p></div>
         </div>
         <MentorReportTable rows={visibleRows} sort={sort} onSort={toggleSort} onOpenDriver={onOpenDriver} />
       </section>
