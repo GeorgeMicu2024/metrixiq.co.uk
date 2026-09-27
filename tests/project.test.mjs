@@ -1117,7 +1117,7 @@ test("Concessions source-locks one site and one canonical Associates report", ()
   const data = read("lib/data/concessions.js");
 
   assert.ok(view.includes("ConcessionsSimpleView"));
-  assert.ok(simple.includes("Cross-site concession totals are intentionally disabled"));
+  assert.ok(simple.includes("one site, one week, one canonical source"));
   assert.ok(simple.includes("Associates CSV only"));
   assert.ok(simple.includes("fetchTrustedConcessions"));
   assert.ok(data.includes("DSP_Associates_Concessions_"));
