@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { storeUnmatched } from "../lib/persistence/identity.js";
 
 function mentorRow(reportDate, key, weekLabel = "W39") {
@@ -70,4 +71,18 @@ test("daily eMentor reconciliation deduplicates by report date, not week", async
   assert.equal(inserted.length, 1);
   assert.equal(inserted[0].payload.reportDate, "2026-09-26");
   assert.equal(inserted[0].reconciliation_key, "MENTOR-ACCOUNT-1");
+});
+
+
+test("mapped eMentor reconciliation rows are materialized, not only relabelled in the UI", () => {
+  const mapping = fs.readFileSync(new URL("../lib/data/mentorMapping.js", import.meta.url), "utf8");
+  const panel = fs.readFileSync(new URL("../components/operations/MentorMappingPanel.jsx", import.meta.url), "utf8");
+
+  assert.ok(mapping.includes('supabase.rpc("resolve_mentor_unmatched_record"'));
+  assert.ok(mapping.includes("auto_materialized: true"));
+  assert.equal(mapping.includes("resolved_via_alias"), false);
+
+  assert.ok(panel.includes('r.status === "open" || r.status === "ignored"'));
+  assert.ok(panel.includes("if (!actionable.length) return null"));
+  assert.equal(panel.includes('"resolved","hidden"'), false);
 });
