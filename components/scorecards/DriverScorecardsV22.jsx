@@ -15,7 +15,6 @@ export default function DriverScorecardsV22({
   onOpenDriver,
   onImport,
   siteFilter = "all",
-  onSiteFilterChange,
 }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
@@ -136,19 +135,6 @@ export default function DriverScorecardsV22({
 
   const driverKey = (row) =>
     String(row?.driver_id || row?.drivers?.id || row?.drivers?.trid || "").trim();
-
-  const siteOptions = useMemo(() => {
-    const values = new Set();
-    for (const row of rows) {
-      const site = siteForRow(row);
-      if (site !== "UNASSIGNED") values.add(site);
-    }
-    for (const card of cards) {
-      const site = String(card.site || "").trim().toUpperCase();
-      if (site) values.add(site);
-    }
-    return [...values].sort();
-  }, [rows, cards]);
 
   const periodMap = useMemo(() => {
     const map = new Map();
@@ -824,19 +810,6 @@ export default function DriverScorecardsV22({
               {item.year || "—"} · {item.weekLabel} · {item.site || "UNASSIGNED"}
             </option>
           )}
-        </select>
-      </label>
-
-      <label>
-        <span>Site</span>
-        <select
-          aria-label="Filter driver scorecards by site"
-          value={siteFilter}
-          onChange={(event) => onSiteFilterChange?.(event.target.value)}
-          disabled={!onSiteFilterChange}
-        >
-          <option value="all">All sites</option>
-          {siteOptions.map((site) => <option key={site} value={site}>{site}</option>)}
         </select>
       </label>
 
