@@ -27,7 +27,8 @@ test("Daily Dispatch never treats service types as driver names", () => {
 test("valid multi-driver Amazon rows remain visible instead of becoming UNASSIGNED", () => {
   const view = read("components/sites/WavePlanView.jsx");
 
-  assert.ok(view.includes('v.names.length?v.names.join(" / ")'));
+  assert.ok(view.includes("uniqueDriverNames(v.names)"));
+  assert.ok(view.includes('names.length?names.join(" / ")'));
   assert.ok(view.includes("v.names.length!==v.trids.length"));
 });
 
