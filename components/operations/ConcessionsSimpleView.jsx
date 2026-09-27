@@ -37,6 +37,7 @@ export default function ConcessionsSimpleView({
   const [query, setQuery] = useState("");
   const [show, setShow] = useState("affected");
   const [sortDir, setSortDir] = useState("desc");
+  const [localSite, setLocalSite] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -73,54 +74,27 @@ export default function ConcessionsSimpleView({
     };
   }, [organizationId, siteFilter]);
 
-  if (load.loading) return <Loading text="Loading trusted concessions…" />;
-  if (load.error) return <ErrorBox error={load.error} />;
+  const globalSite = String(siteFilter || "all").trim().toUpperCase();
 
-  const site = String(siteFilter || "all").trim().toUpperCase();
+  const availableSites = useMemo(
+    () =>
+      [...new Set(
+        (load.reports || [])
+          .filter((report) => report.trusted)
+          .map((report) => String(report.site || "").toUpperCase())
+          .filter(Boolean)
+      )].sort(),
+    [load.reports]
+  );
 
-  if (site === "ALL") {
-    const trustedBySite = new Map();
-    for (const report of load.reports.filter((item) => item.trusted)) {
-      if (!trustedBySite.has(report.site)) trustedBySite.set(report.site, []);
-      trustedBySite.get(report.site).push(report.week);
-    }
+  const site =
+    globalSite !== "ALL"
+      ? globalSite
+      : availableSites.includes(localSite)
+        ? localSite
+        : availableSites[0] || "";
 
-    return (
-      <div className="cx-simple">
-        <header className="cx-simple-hero">
-          <div>
-            <span className="page-kicker">QUALITY INTELLIGENCE</span>
-            <h1>Concessions</h1>
-            <p>
-              Cross-site concession totals are intentionally disabled. Select one site so every number
-              comes from one canonical Associates Concessions report.
-            </p>
-          </div>
-          <div className="cx-simple-lock">SOURCE LOCKED</div>
-        </header>
-
-        <section className="panel cx-simple-site-required">
-          <div>1 SITE = 1 SOURCE</div>
-          <h2>Select a site from the top-right Site menu</h2>
-          <p>
-            MetrixIQ now ignores scorecards, IADC/DWC, CDF and generic workbooks on this page.
-            Only <code>DSP_Associates_Concessions_SITE_YYYY-W##.csv</code> is accepted.
-          </p>
-          {!!trustedBySite.size && (
-            <div className="cx-simple-site-list">
-              {[...trustedBySite.entries()].map(([name, weeks]) => (
-                <span key={name}>
-                  <b>{name}</b> · {weeks.sort((a,b)=>weekNo(b)-weekNo(a)).join(", ")}
-                </span>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    );
-  }
-
-  const reports = load.reports
+  const reports = (load.reports || [])
     .filter((report) => report.site === site)
     .sort((a, b) => weekNo(b.week) - weekNo(a.week));
 
@@ -130,7 +104,7 @@ export default function ConcessionsSimpleView({
   const activeReport = trustedReports.find((report) => report.week === selectedWeek) || null;
   const incompleteReports = reports.filter((report) => !report.trusted);
 
-  const rows = load.rows.filter(
+  const rows = (load.rows || []).filter(
     (row) => row.source_site === site && row.source_week === selectedWeek
   );
 
@@ -166,6 +140,9 @@ export default function ConcessionsSimpleView({
     (a, b) => Number(b.concessions || 0) - Number(a.concessions || 0)
   )[0] || null;
 
+  if (load.loading) return <Loading text="Loading trusted concessions…" />;
+  if (load.error) return <ErrorBox error={load.error} />;
+
   return (
     <div className="cx-simple">
       <header className="cx-simple-hero">
@@ -173,7 +150,7 @@ export default function ConcessionsSimpleView({
           <span className="page-kicker">QUALITY INTELLIGENCE</span>
           <h1>Concessions</h1>
           <p>
-            {site} · one site, one week, one canonical source. Mixed reports are ignored.
+            {site || "No site"} · one site, one week, one canonical source. Mixed reports are ignored.
           </p>
         </div>
         <div className="cx-simple-lock">
@@ -182,7 +159,27 @@ export default function ConcessionsSimpleView({
         </div>
       </header>
 
-      <section className="cx-simple-toolbar">
+      <section className={"cx-simple-toolbar " + (globalSite === "ALL" ? "with-site" : "")}>
+        {globalSite === "ALL" && (
+          <label>
+            <span>Site</span>
+            <select
+              value={site}
+              onChange={(event) => {
+                setLocalSite(event.target.value);
+                setWeek("");
+                setQuery("");
+              }}
+            >
+              {availableSites.length ? (
+                availableSites.map((item) => <option key={item}>{item}</option>)
+              ) : (
+                <option value="">No trusted site</option>
+              )}
+            </select>
+          </label>
+        )}
+
         <label>
           <span>Week</span>
           <select value={selectedWeek} onChange={(event) => setWeek(event.target.value)}>
@@ -239,9 +236,9 @@ export default function ConcessionsSimpleView({
       ) : (
         <section className="panel cx-simple-empty">
           <div>!</div>
-          <h2>No trusted concessions report for {site}</h2>
+          <h2>{site ? `No trusted concessions report for ${site}` : "No trusted concessions reports available"}</h2>
           <p>
-            Upload a dedicated <code>DSP_Associates_Concessions_{site}_YYYY-W##.csv</code>.
+            Upload a dedicated <code>DSP_Associates_Concessions_{site || "SITE"}_YYYY-W##.csv</code>.
             Generic Excel files, scorecards and IADC/DWC reports are no longer allowed to feed this page.
           </p>
         </section>
@@ -353,6 +350,7 @@ export default function ConcessionsSimpleView({
         .cx-simple-lock{display:flex;flex-direction:column;align-items:flex-end;gap:3px;border:1px solid #cde6de;background:#eff9f5;color:#2b7665;border-radius:10px;padding:10px 12px;font-size:10px;font-weight:900;letter-spacing:.06em}
         .cx-simple-lock strong{font-size:12px;letter-spacing:0}
         .cx-simple-toolbar{display:grid;grid-template-columns:170px minmax(260px,1fr) 180px 180px;gap:10px;padding:13px;border:1px solid #dfe7ed;border-radius:13px;background:#fff}
+        .cx-simple-toolbar.with-site{grid-template-columns:150px 150px minmax(240px,1fr) 170px 170px}
         .cx-simple-toolbar label{display:grid;gap:5px}.cx-simple-toolbar label>span{font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8794a2}
         .cx-simple-toolbar select,.cx-simple-toolbar input{height:40px;border:1px solid #d4dee6;border-radius:9px;background:#fff;padding:0 11px;color:#21364a;font-weight:700;outline:none;width:100%}
         .cx-simple-source{display:grid;grid-template-columns:1fr 180px 180px;gap:10px;padding:12px 14px;border:1px solid #cfe6df;border-radius:12px;background:#f3faf7}
