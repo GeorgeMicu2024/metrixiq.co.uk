@@ -148,7 +148,7 @@ export default function DcrScorecardView({
           <span className="page-kicker">DELIVERY PERFORMANCE</span>
           <h1>DCR — Delivery Completion Rate</h1>
           <p>
-            Weekly DCR is read directly from imported DSP scorecard rows for <b>{siteLabel}</b>.
+            Weekly DCR is read directly from imported DSP scorecard evidence.
             Daily operational records are excluded from this view.
           </p>
         </div>
