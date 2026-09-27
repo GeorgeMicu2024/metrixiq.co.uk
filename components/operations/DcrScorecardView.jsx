@@ -136,11 +136,6 @@ export default function DcrScorecardView({
   if (load.loading) return <Loading text="Loading DCR scorecard data…" />;
   if (load.error) return <ErrorBox error={load.error} />;
 
-  const siteLabel =
-    String(siteFilter || "all").toLowerCase() === "all"
-      ? "All Sites"
-      : String(siteFilter).toUpperCase();
-
   return (
     <div className="iadcpro dcrscorecard">
       <header className="iadcpro-hero">
