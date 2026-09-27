@@ -179,6 +179,7 @@ test("operational metric imports reload and query the correct metric column", ()
   assert.ok(data.includes('["dcr", "cc"].includes(kind)'));
   assert.ok(data.includes('query.not(kind, "is", null)'));
   assert.ok(data.includes('if (kind === "pod")'));
+  assert.ok(data.includes('query.contains("raw_data", { pod_detail: {} })'));
   assert.ok(data.includes('raw_data?.pod_detail'));
   assert.ok(data.includes('typeof detail === "object"'));
   assert.equal(data.includes('row.pod != null ||'), false);
