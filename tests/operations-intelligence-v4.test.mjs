@@ -176,8 +176,11 @@ test("operational metric imports reload and query the correct metric column", ()
   const iadc = fs.readFileSync("components/operations/IadcView.jsx","utf8");
   const mentor = fs.readFileSync("components/operations/MentorView.jsx","utf8");
 
-  assert.ok(data.includes('["dcr", "cc"].includes(kind)'));
-  assert.ok(data.includes('query.not(kind, "is", null)'));
+  assert.ok(data.includes('if (kind === "dcr")'));
+  assert.ok(data.includes('query.not("dcr", "is", null)'));
+  assert.ok(data.includes('if (kind === "cc")'));
+  assert.ok(data.includes('query.not("cc", "is", null)'));
+  assert.ok(data.includes('contact_compliance_detail: {}'));
   assert.ok(data.includes('if (kind === "pod")'));
   assert.ok(data.includes('query.contains("raw_data", { pod_detail: {} })'));
   assert.ok(data.includes('raw_data?.pod_detail'));
