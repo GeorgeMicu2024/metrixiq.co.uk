@@ -258,7 +258,7 @@ export default function ReportBuilderV2({
 
   function openSnapshot(item){
     if(!item.payload)return;
-    setPack(item.payload);setSite(item.site||"all");setWeek(item.week_label||"");
+    setPack(item.payload);setWeek(item.week_label||"");
     setSections(Array.isArray(item.sections)&&item.sections.length?item.sections:ALL_SECTIONS);
     setTab(item.report_type==="weekly_executive_pack"?"weekly":"builder");
     setNotice("Saved report snapshot loaded.");
