@@ -97,6 +97,7 @@ export default function DashboardClient() {
   const [collapsedGroups,setCollapsedGroups]=useState({});
   const [sidebarCompact,setSidebarCompact]=useState(false);
   const [profileMenuOpen,setProfileMenuOpen]=useState(false);
+  const [headerCalendarOpen,setHeaderCalendarOpen]=useState(false);
   const [now,setNow]=useState(()=>new Date());
 
   useEffect(() => {
@@ -536,13 +537,18 @@ export default function DashboardClient() {
     {workspaceOptions.length>1?<label className="workspace-switcher workspace-switcher-premium"><span>WORKSPACE</span><select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select></label>:null}
   </div>
   <div className="topbar-controls topbar-controls-premium">
-    <div className="topbar-date-week" title="Current date and ISO week">
-      <span className="topbar-date-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
-      <span><strong>{headerDate}</strong><small>Week {headerWeek}</small></span>
+    <div className="topbar-calendar-wrap">
+      <button className={headerCalendarOpen?"topbar-date-week active":"topbar-date-week"} type="button" title="Open current week" aria-label="Open current week calendar" aria-expanded={headerCalendarOpen} onClick={()=>setHeaderCalendarOpen(value=>!value)}>
+        <span className="topbar-date-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
+        <span><strong>{headerDate}</strong><small>Week {headerWeek}</small></span>
+      </button>
+      {headerCalendarOpen&&<div className="topbar-calendar-popover">
+        <div><span>CURRENT WEEK</span><strong>Week {headerWeek}</strong><small>{headerDate}</small></div>
+        <button type="button" onClick={()=>{setHeaderCalendarOpen(false);navigate("daily-dispatch");}}>Open Daily Dispatch →</button>
+      </div>}
     </div>
     <ChatHeaderButton organizationId={workspace?.organization?.id} userId={session?.user?.id||session?.id} onOpen={()=>{if(active==="manager-chat"){if(!navigate(previousActive||"dashboard"))navigate("dashboard");}else{setPreviousActive(active);navigate("manager-chat");}}} />
     <NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={operationalRefreshKey} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate} />
-    <button className="topbar-sync" type="button" title="Refresh current data" aria-label="Refresh current data" onClick={()=>setOperationalRefreshKey(value=>value+1)}>↻</button>
     <div className="topbar-profile-wrap">
       <button className={profileMenuOpen?"topbar-profile topbar-profile-premium active":"topbar-profile topbar-profile-premium"} onClick={()=>setProfileMenuOpen(v=>!v)} aria-expanded={profileMenuOpen}>
         <b className="topbar-profile-avatar">{session?.avatar_url?<img src={session.avatar_url} alt="" referrerPolicy="no-referrer"/>:initials(session?.name||session?.email||"M")}</b>
