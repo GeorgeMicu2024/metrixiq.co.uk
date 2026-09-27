@@ -1423,3 +1423,16 @@ test("global site selector is the single site scope control for operational page
   assert.equal(driverScorecards.includes('aria-label="Filter driver scorecards by site"'), false);
   assert.equal(siteOperations.includes("changeSite(value)"), false);
 });
+
+
+test("POD workspace excludes scorecard-only percentages from reject analysis", () => {
+  const podView = read("components/operations/PodQualityView.jsx");
+  const operational = read("lib/data/directOperational.js");
+
+  assert.ok(operational.includes('if (kind === "pod")'));
+  assert.ok(operational.includes("raw_data?.pod_detail"));
+  assert.equal(operational.includes("row.pod != null ||"), false);
+  assert.ok(podView.includes("Driver-level POD Quality from dedicated Amazon POD reports only."));
+  assert.ok(podView.includes("No detailed POD weeks"));
+  assert.equal(podView.includes("Clear page"), false);
+});
