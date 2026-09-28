@@ -1,7 +1,7 @@
 import process from "node:process";
 
 const BASE = (process.env.PERF_AUDIT_BASE_URL || "https://www.metrixiq.co.uk").replace(/\/$/, "");
-const CSS_BUDGET = Number(process.env.PERF_CSS_BUDGET || 45000);
+const CSS_BUDGET = Number(process.env.PERF_CSS_BUDGET || 20000);
 const JS_BUDGET = Number(process.env.PERF_JS_BUDGET || 625000);
 
 async function fetchText(url) {
