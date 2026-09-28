@@ -81,7 +81,6 @@ test("Data Freshness Monitor uses report periods and explicit cadence states", (
 test("PWA V6 is installable without caching private workspace navigation", () => {
   const manifest = JSON.parse(fs.readFileSync("public/manifest.webmanifest", "utf8"));
   const sw = fs.readFileSync("public/sw.js", "utf8");
-  const bootstrap = fs.readFileSync("components/pwa/PwaBootstrap.jsx", "utf8");
   const layout = fs.readFileSync("app/layout.jsx", "utf8");
 
   assert.equal(manifest.display, "standalone");
@@ -91,9 +90,9 @@ test("PWA V6 is installable without caching private workspace navigation", () =>
   assert.ok(sw.includes('if(!cacheable)return'));
   assert.equal(sw.includes('caches.match("/app")'), false);
   assert.equal(sw.includes('url.pathname.startsWith("/api/")'), false);
-  assert.ok(bootstrap.includes('navigator.serviceWorker.register("/sw.js"'));
-  assert.ok(bootstrap.includes("beforeinstallprompt"));
-  assert.ok(layout.includes("<PwaBootstrap />"));
+  assert.ok(layout.includes('navigator.serviceWorker.register("/sw.js"'));
+  assert.ok(layout.includes("beforeinstallprompt"));
+  assert.ok(layout.includes('id="metrixiq-pwa-bootstrap"'));
   assert.ok(layout.includes('viewportFit: "cover"'));
 });
 
