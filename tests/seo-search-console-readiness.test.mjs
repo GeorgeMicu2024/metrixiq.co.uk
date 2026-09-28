@@ -30,11 +30,13 @@ test("conversion CTAs track only when consent-loaded gtag is available", () => {
   assert.ok(solution.includes('cta_location: "solution_page"'));
 });
 
-test("Search Console verification is environment-driven and no fake token is committed", () => {
+test("Search Console verification is environment-driven and documented", () => {
   const layout = read("app/layout.jsx");
+  const envExample = read(".env.example");
 
   assert.ok(layout.includes("GOOGLE_SITE_VERIFICATION"));
   assert.ok(layout.includes("verification: { google: googleSiteVerification }"));
+  assert.ok(envExample.includes("GOOGLE_SITE_VERIFICATION=YOUR_GOOGLE_SEARCH_CONSOLE_TOKEN"));
   assert.equal(/google-site-verification=[A-Za-z0-9_-]{20,}/.test(layout), false);
 });
 
@@ -86,4 +88,14 @@ test("legacy keyword aliases redirect to canonical public pages without a host r
   }
 
   assert.equal(config.includes('type: "host"'), false);
+});
+
+
+test("primary homepage CTAs are conversion tracked after analytics consent", () => {
+  const landing = read("components/Landing.jsx");
+
+  assert.ok(landing.includes("TrackedLink"));
+  assert.ok(landing.includes('cta_location: "homepage_header"'));
+  assert.ok(landing.includes('cta_location: "homepage_hero"'));
+  assert.ok(landing.includes('cta_location: "homepage_closing"'));
 });
