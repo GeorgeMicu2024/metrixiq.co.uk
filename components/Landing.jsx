@@ -13,6 +13,15 @@ const features=[
   ["◔","Executive Reporting","Summarise movement, trends and operational priorities for faster management decisions."],
 ];
 
+const solutionLinks=[
+  ["/driver-performance-scorecards","Driver Performance Scorecards","Connect recurring KPIs, trends and coaching context at driver level."],
+  ["/fleet-compliance-monitoring","Fleet Compliance Monitoring","Keep operational compliance exceptions and site trends visible."],
+  ["/delivery-operations-software","Delivery Operations Software","Bring recurring site workflows, imports and management reporting together."],
+  ["/driver-coaching-software","Driver Coaching Software","Turn performance evidence into focused coaching and follow-up."],
+  ["/fleet-data-analytics","Fleet Data Analytics","Connect driver and site detail to wider performance trends."],
+  ["/fleet-performance-management","Fleet Performance Management","Move from KPI movement into operational management action."],
+];
+
 const faqs=[
   ["What is MetrixIQ?","MetrixIQ is a fleet and driver performance intelligence platform for delivery operations. It brings operational reports, driver scorecards, compliance metrics, coaching workflows and management reporting into one workspace."],
   ["Who is MetrixIQ designed for?","The platform is designed for delivery operators, fleet managers, site managers and operations teams that need a clearer way to monitor driver and site performance across recurring reporting periods."],
@@ -76,6 +85,17 @@ export default function Landing(){
       <article><b>01</b><h3>Daily operations</h3><p>Review daily safety, delivery and compliance signals, identify missing or unusual records and focus managers on the exceptions that need attention.</p></article>
       <article><b>02</b><h3>Driver performance reviews</h3><p>Bring scorecards and supporting metrics into a driver-level view that makes strengths, risks, movement and coaching priorities easier to understand.</p></article>
       <article><b>03</b><h3>Site and fleet reporting</h3><p>Compare operational performance across sites and reporting periods, then summarise the movement and root causes that matter to senior management.</p></article>
+    </div>
+  </section>
+
+  <section className="mk-solution-links">
+    <div className="mk-feature-intro compact">
+      <span>EXPLORE SOLUTIONS</span>
+      <h2>Find the MetrixIQ workflow that matches your operational priority.</h2>
+      <p>Each solution page goes deeper into a specific performance, compliance, coaching or analytics workflow while remaining part of the same MetrixIQ workspace.</p>
+    </div>
+    <div className="mk-solution-links-grid">
+      {solutionLinks.map(([href,title,body])=><Link href={href} key={href}><b>{title}</b><p>{body}</p><span>Explore →</span></Link>)}
     </div>
   </section>
 
