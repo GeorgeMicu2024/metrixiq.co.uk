@@ -6,9 +6,9 @@ import { buildPageMetadata, SITE_URL } from "../../lib/seo/site";
 import { SOLUTION_PAGE_LIST } from "../../lib/seo/solutionPages";
 
 export const metadata = buildPageMetadata({
-  title: "Solutions",
+  title: "Fleet & Driver Performance Software Solutions",
   description:
-    "Explore MetrixIQ solutions for driver performance scorecards, fleet compliance, coaching, delivery operations, fleet analytics and performance management.",
+    "Explore MetrixIQ software solutions for driver scorecards, fleet compliance, coaching, delivery operations, analytics and performance management.",
   path: "/solutions",
 });
 
@@ -39,6 +39,9 @@ export default function SolutionsPage() {
           <h2>Choose the workflow you want to improve</h2>
           <p>
             Each MetrixIQ solution is part of the same operational workspace. Teams can start with the problem that matters most today and keep the driver, site and reporting context connected as the platform grows with the operation.
+          </p>
+          <p>
+            MetrixIQ solutions are designed around recurring delivery-management workflows rather than isolated dashboards. The same driver, site and reporting context can move from scorecard review into compliance, coaching, analytics and management reporting without rebuilding the data each time.
           </p>
           <div className="solution-hub-grid">
             {SOLUTION_PAGE_LIST.map((page) => (
