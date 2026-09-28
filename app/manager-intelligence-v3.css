@@ -353,3 +353,49 @@
     animation:none;
   }
 }
+
+
+/* Smart Import approval gate */
+.smartlab-approval-card{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:14px 18px;
+  align-items:center;
+  padding:16px;
+  border:1px solid #cfe4df;
+  border-radius:14px;
+  background:#f7fbfa;
+}
+.smartlab-approval-card h3{
+  margin:2px 0 4px;
+  color:#20384a;
+  font-size:18px;
+}
+.smartlab-approval-card p{
+  margin:0;
+  color:#6f8290;
+  line-height:1.45;
+}
+.smartlab-approval-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  align-items:center;
+  gap:9px;
+}
+.smartlab-approval-card>.importv2-message{
+  grid-column:1/-1;
+  margin:0;
+}
+@media(max-width:680px){
+  .smartlab-approval-card{
+    grid-template-columns:1fr;
+    padding:14px;
+  }
+  .smartlab-approval-actions{
+    justify-content:stretch;
+  }
+  .smartlab-approval-actions .btn{
+    flex:1 1 150px;
+  }
+}
