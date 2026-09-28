@@ -10,6 +10,7 @@ import "../enterprise-portfolio-v7.css";
 import "../automation-workflows-v8.css";
 import "../integration-delivery-v9.css";
 import "../account-settings.css";
+import PwaBootstrap from "../../components/pwa/PwaBootstrap";
 
 export const metadata = {
   robots: {
@@ -20,5 +21,5 @@ export const metadata = {
 };
 
 export default function PrivateRouteLayout({ children }) {
-  return children;
+  return <><PwaBootstrap />{children}</>;
 }
