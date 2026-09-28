@@ -16,17 +16,6 @@ const nextConfig = {
   poweredByHeader: false,
   allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.68.111"],
 
-  async redirects() {
-    return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.metrixiq.co.uk" }],
-        destination: "https://metrixiq.co.uk/:path*",
-        permanent: true,
-      },
-    ];
-  },
-
   async headers() {
     return [
       {
