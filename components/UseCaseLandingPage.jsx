@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicPageShell from "./PublicPageShell";
+import TrackedLink from "./TrackedLink";
 import StructuredData from "./StructuredData";
 import { buildUseCaseSchemas, USE_CASE_LIST } from "../lib/seo/useCasePages";
 
@@ -9,7 +10,16 @@ export default function UseCaseLandingPage({ page }) {
   return (
     <>
       <StructuredData data={buildUseCaseSchemas(page)} />
-      <PublicPageShell eyebrow={page.eyebrow} title={page.h1} intro={page.intro}>
+      <PublicPageShell
+        eyebrow={page.eyebrow}
+        title={page.h1}
+        intro={page.intro}
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Use cases", href: "/use-cases" },
+          { label: page.title },
+        ]}
+      >
         <section>
           <h2>{page.challengeTitle}</h2>
           {page.challenge.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
@@ -64,8 +74,8 @@ export default function UseCaseLandingPage({ page }) {
           <h2>{page.relatedSolutionLabel}</h2>
           <p>See the product workflow that supports this operational use case.</p>
           <div className="public-actions">
-            <Link className="primary" href={page.relatedSolution}>Explore {page.relatedSolutionLabel}</Link>
-            <Link href="/login?mode=register">Get started</Link>
+            <TrackedLink className="primary" href={page.relatedSolution} eventParams={{ cta_label: "Explore related solution", cta_location: "use_case_page", use_case: page.path }}>Explore {page.relatedSolutionLabel}</TrackedLink>
+            <TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "use_case_page", use_case: page.path }}>Get started</TrackedLink>
           </div>
         </section>
 
