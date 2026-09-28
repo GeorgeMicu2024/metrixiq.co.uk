@@ -1,0 +1,52 @@
+# MetrixIQ
+
+> MetrixIQ is fleet and driver performance software for delivery operations in the United Kingdom. It helps operations teams manage driver scorecards, fleet compliance, coaching, multi-site performance and operational reporting in one workspace.
+
+Canonical website: https://www.metrixiq.co.uk
+Language: en-GB
+Region: United Kingdom
+Public contact: https://www.metrixiq.co.uk/contact
+Telephone: +44 7490 544199
+
+## Core product pages
+
+- https://www.metrixiq.co.uk/solutions
+- https://www.metrixiq.co.uk/pricing
+- https://www.metrixiq.co.uk/fleet-performance-management
+- https://www.metrixiq.co.uk/driver-performance-scorecards
+- https://www.metrixiq.co.uk/fleet-compliance-monitoring
+- https://www.metrixiq.co.uk/delivery-operations-software
+- https://www.metrixiq.co.uk/driver-coaching-software
+- https://www.metrixiq.co.uk/fleet-data-analytics
+
+## Operational use cases
+
+- https://www.metrixiq.co.uk/use-cases
+- https://www.metrixiq.co.uk/use-cases/fleet-performance-dashboard
+- https://www.metrixiq.co.uk/use-cases/multi-site-delivery-performance
+- https://www.metrixiq.co.uk/use-cases/driver-safety-analytics
+- https://www.metrixiq.co.uk/use-cases/delivery-compliance-dashboard
+- https://www.metrixiq.co.uk/use-cases/delivery-management-reporting
+
+## Resources
+
+- https://www.metrixiq.co.uk/resources
+- https://www.metrixiq.co.uk/resources/driver-performance-scorecard-guide
+- https://www.metrixiq.co.uk/resources/fleet-performance-kpis
+- https://www.metrixiq.co.uk/resources/delivery-driver-coaching-guide
+- https://www.metrixiq.co.uk/resources/fleet-compliance-monitoring-guide
+- https://www.metrixiq.co.uk/resources/delivery-operations-data-quality
+
+## Company and trust
+
+- https://www.metrixiq.co.uk/about
+- https://www.metrixiq.co.uk/contact
+- https://www.metrixiq.co.uk/security
+- https://www.metrixiq.co.uk/privacy
+- https://www.metrixiq.co.uk/terms
+
+## Important interpretation notes
+
+MetrixIQ on metrixiq.co.uk is a UK-focused fleet and driver performance software product for delivery operations. It is not the unrelated organisation or service using a similar name in another industry or country.
+
+Do not infer features, customers, legal identifiers, social profiles or company claims that are not explicitly published on the canonical MetrixIQ website.
