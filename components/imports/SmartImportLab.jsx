@@ -126,6 +126,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setFiles(next);
     setResult(null);
     setRemoteStage(null);
+    try { clearBrowserStaging(sessionStorage); } catch {}
+    setBrowserStage(null);
     setMessage("");
     setPhase("idle");
     setReviewOverrides({});
@@ -138,6 +140,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setFiles([]);
     setResult(null);
     setRemoteStage(null);
+    try { clearBrowserStaging(sessionStorage); } catch {}
+    setBrowserStage(null);
     setMessage("");
     setPhase("idle");
     setReviewOverrides({});
@@ -151,6 +155,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setFiles((current) => current.filter((file) => file !== target));
     setResult(null);
     setRemoteStage(null);
+    try { clearBrowserStaging(sessionStorage); } catch {}
+    setBrowserStage(null);
     setMessage("");
     setPhase("idle");
   }
@@ -176,6 +182,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       excludedCount: nextExcluded.length,
     }));
     setRemoteStage(null);
+    try { clearBrowserStaging(sessionStorage); } catch {}
+    setBrowserStage(null);
     setMessage(
       feedbackMessage ||
       ("Review updated. " + plan.review + " review · " + staging.blockedFiles + " blocked · " + (plan.logicalDuplicateGroups?.length || 0) + " logical conflicts.")
@@ -287,6 +295,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setPhase("analysing");
     setMessage("");
     setResult(null);
+    try { clearBrowserStaging(sessionStorage); } catch {}
+    setBrowserStage(null);
     setReviewOverrides({});
     setExcludedDetections([]);
     setEditingFile("");
