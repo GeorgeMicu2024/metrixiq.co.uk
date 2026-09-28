@@ -7,8 +7,9 @@ export function generateStaticParams() {
   return Object.keys(RESOURCE_ARTICLES).map((slug) => ({ slug }));
 }
 
-export function generateMetadata({ params }) {
-  const article = RESOURCE_ARTICLES[params.slug];
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
+  const article = RESOURCE_ARTICLES[slug];
   if (!article) return {};
 
   return buildPageMetadata({
@@ -18,8 +19,9 @@ export function generateMetadata({ params }) {
   });
 }
 
-export default function ResourcePage({ params }) {
-  const article = RESOURCE_ARTICLES[params.slug];
+export default async function ResourcePage({ params }) {
+  const { slug } = await params;
+  const article = RESOURCE_ARTICLES[slug];
   if (!article) notFound();
   return <ResourceArticle article={article} />;
 }
