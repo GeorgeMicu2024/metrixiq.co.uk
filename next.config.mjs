@@ -7,14 +7,47 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000" },
 ];
 
+const noIndexHeaders = [
+  { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+];
+
 const nextConfig = {
   turbopack: { root: process.cwd() },
+  poweredByHeader: false,
   allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.68.111"],
+
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.metrixiq.co.uk" }],
+        destination: "https://metrixiq.co.uk/:path*",
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/app/:path*",
+        headers: noIndexHeaders,
+      },
+      {
+        source: "/auth/:path*",
+        headers: noIndexHeaders,
+      },
+      {
+        source: "/login",
+        headers: noIndexHeaders,
+      },
+      {
+        source: "/api/:path*",
+        headers: noIndexHeaders,
       },
     ];
   },
