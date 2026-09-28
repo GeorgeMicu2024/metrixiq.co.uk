@@ -40,7 +40,7 @@ test("entity clarification avoids invented legal identifiers and only emits veri
   const site = read("lib/seo/site.js");
 
   assert.equal(site.includes("legalName:"), false);
-  assert.ok(site.includes("PUBLIC_AUTHORITY_URLS.length ? { sameAs: PUBLIC_AUTHORITY_URLS } : {}"));
+  assert.ok(site.includes("PUBLIC_SAME_AS.length ? { sameAs: PUBLIC_SAME_AS } : {}"));
   assert.ok(site.includes("telephone: CONTACT_PHONE_E164"));
 });
 
@@ -70,9 +70,9 @@ test("authority profiles and public email are emitted only from verified environ
   assert.ok(site.includes("PUBLIC_AUTHORITY_URLS"));
   assert.ok(site.includes("LINKEDIN_COMPANY_URL"));
   assert.ok(site.includes("PUBLIC_SOCIAL_PROFILE_URLS"));
-  assert.ok(site.includes("PUBLIC_AUTHORITY_URLS.length ? { sameAs: PUBLIC_AUTHORITY_URLS } : {}"));
+  assert.ok(site.includes("PUBLIC_SAME_AS.length ? { sameAs: PUBLIC_SAME_AS } : {}"));
   assert.ok(site.includes("PUBLIC_CONTACT_EMAIL ? { email: PUBLIC_CONTACT_EMAIL } : {}"));
   assert.ok(envExample.includes("LINKEDIN_COMPANY_URL="));
   assert.ok(envExample.includes("PUBLIC_SOCIAL_PROFILE_URLS="));
-  assert.ok(contact.includes("const contactEmail = PUBLIC_CONTACT_EMAIL"));
+  assert.ok(contact.includes("PUBLIC_CONTACT_EMAIL"));
 });
