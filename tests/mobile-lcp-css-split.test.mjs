@@ -77,3 +77,14 @@ test("mobile hero removes decorative radial layers before LCP", () => {
   assert.ok(marketing.includes(".mk-hero-bg{display:none}"));
   assert.ok(marketing.includes(".mk-stats{content-visibility:auto"));
 });
+
+
+test("secondary public-page CSS is route-scoped away from the homepage", () => {
+  const root = read("app/layout.jsx");
+  const shell = read("components/PublicPageShell.jsx");
+  const notFound = read("app/not-found.jsx");
+
+  assert.equal(root.includes('import "./public-pages.css"'), false);
+  assert.ok(shell.includes('import "../app/public-pages.css"'));
+  assert.ok(notFound.includes('import "./public-pages.css"'));
+});
