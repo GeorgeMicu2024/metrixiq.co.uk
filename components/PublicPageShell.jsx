@@ -8,7 +8,7 @@ export default function PublicPageShell({ eyebrow, title, intro, children }) {
         <Link href="/" aria-label="MetrixIQ home"><Brand /></Link>
         <nav aria-label="Public navigation">
           <Link href="/#features">Features</Link>
-          <Link href="/#solutions">Solutions</Link>
+          <Link href="/solutions">Solutions</Link>
           <Link href="/#pricing">Pricing</Link>
           <Link href="/about">About</Link>
           <Link href="/contact">Contact</Link>
