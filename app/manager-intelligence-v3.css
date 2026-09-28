@@ -101,3 +101,122 @@
     min-width:72px;
   }
 }
+
+
+/* Smart Import Review Center */
+.smartlab-review-center{
+  border:1px solid #ead7b4;
+}
+.smartlab-review-list{
+  display:grid;
+  gap:12px;
+  margin-top:14px;
+}
+.smartlab-review-card{
+  border:1px solid #e3e8eb;
+  border-radius:14px;
+  background:#fbfcfd;
+  padding:14px;
+}
+.smartlab-review-card-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+.smartlab-review-card-head>div{
+  min-width:0;
+}
+.smartlab-review-card-head strong{
+  display:block;
+  color:#22384a;
+  overflow-wrap:anywhere;
+}
+.smartlab-review-card-head small{
+  display:block;
+  margin-top:5px;
+  color:#a14c53;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.04em;
+}
+.smartlab-review-reason{
+  margin:10px 0 0;
+  color:#697c8c;
+  line-height:1.45;
+}
+.smartlab-review-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
+}
+.smartlab-review-actions .btn.danger{
+  border-color:#edc9cc;
+  color:#a6474e;
+  background:#fff8f8;
+}
+.smartlab-review-editor{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #e7ecef;
+}
+.smartlab-review-editor label{
+  display:grid;
+  gap:5px;
+}
+.smartlab-review-editor label>span{
+  color:#728493;
+  font-size:8px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.smartlab-review-editor input,
+.smartlab-review-editor select{
+  width:100%;
+  min-height:42px;
+  border:1px solid #d5e0e5;
+  border-radius:10px;
+  background:#fff;
+  color:#24394c;
+  padding:8px 10px;
+  font:inherit;
+}
+.smartlab-review-editor .importv2-message,
+.smartlab-review-editor .smartlab-review-actions{
+  grid-column:1/-1;
+}
+.smartlab-row-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:6px;
+}
+.smartlab-row-actions .btn{
+  min-height:28px;
+  padding:4px 8px;
+  font-size:8px;
+}
+.smartlab-row-actions .btn.danger{
+  color:#a6474e;
+}
+
+@media(max-width:680px){
+  .smartlab-review-card{
+    padding:12px;
+  }
+  .smartlab-review-card-head{
+    flex-direction:column;
+  }
+  .smartlab-review-editor{
+    grid-template-columns:1fr;
+  }
+  .smartlab-review-actions .btn{
+    flex:1 1 auto;
+    min-width:120px;
+  }
+}
