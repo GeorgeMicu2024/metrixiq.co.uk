@@ -2694,3 +2694,15 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     grid-template-columns:70px minmax(0,1fr) minmax(0,1fr);
   }
 }
+
+
+/* Dynamic Wave Plan colours: source fill wins over legacy fixed palette. */
+.daily-dispatch .dcsl-wave,
+.daily-dispatch .dcsl-wave h4,
+.daily-dispatch .dcsl-wave>div{
+  background:var(--wave)!important;
+}
+.daily-dispatch .dcsl-wave h4,
+.daily-dispatch .dcsl-wave>div>*{
+  color:var(--wave-text,#fff)!important;
+}
