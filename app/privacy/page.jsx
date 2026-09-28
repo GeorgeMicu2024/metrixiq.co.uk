@@ -48,6 +48,16 @@ export default function PrivacyPage() {
       </section>
 
       <section>
+        <h2>Analytics cookies</h2>
+        <p>
+          Optional Google Analytics cookies are not loaded until you choose to accept analytics. If analytics is enabled for the website, your preference is stored in a first-party consent cookie so MetrixIQ can remember whether analytics was accepted or rejected.
+        </p>
+        <p>
+          You can change that choice later using the Cookie settings control in the public website footer. Rejecting analytics does not prevent access to the public website or authenticated MetrixIQ workspace.
+        </p>
+      </section>
+
+      <section>
         <h2>Your choices</h2>
         <p>
           You can use the contact page for privacy-related questions or account requests. Some information may need to be retained where required for security, fraud prevention, contractual records or legal obligations.
