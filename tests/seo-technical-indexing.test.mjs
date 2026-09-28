@@ -85,6 +85,7 @@ test("landing authentication lazy-loads Supabase only after interaction", () => 
 
   assert.ok(card.includes('await import("../lib/supabase/client")'));
   assert.equal(card.includes('import { getSupabaseBrowserClient }'), false);
-  assert.ok(rootLayout.includes("<PwaBootstrap />"));
+  assert.ok(rootLayout.includes('id="metrixiq-pwa-bootstrap"'));
+  assert.equal(rootLayout.includes("PwaBootstrap"), false);
   assert.equal(privateLayout.includes("PwaBootstrap"), false);
 });
