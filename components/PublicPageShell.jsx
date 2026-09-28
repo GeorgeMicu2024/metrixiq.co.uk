@@ -11,6 +11,7 @@ export default function PublicPageShell({ eyebrow, title, intro, children }) {
           <Link href="/#features">Features</Link>
           <Link href="/solutions">Solutions</Link>
           <Link href="/#pricing">Pricing</Link>
+          <Link href="/resources">Resources</Link>
           <Link href="/about">About</Link>
           <Link href="/contact">Contact</Link>
         </nav>
@@ -37,6 +38,7 @@ export default function PublicPageShell({ eyebrow, title, intro, children }) {
           <nav aria-label="Legal and company links">
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
+            <Link href="/resources">Resources</Link>
             <Link href="/security">Security</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
