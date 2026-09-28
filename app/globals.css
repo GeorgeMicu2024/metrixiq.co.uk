@@ -2710,3 +2710,5 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 .waveplan-roster-save.ok{border-color:#a6e1c7;background:#ecfdf3;color:#067647}
 .waveplan-roster-save.error{border-color:#f3b5b5;background:#fff1f1;color:#b42318}
 .waveplan-roster-save small{display:block;margin-top:2px;font-weight:600;opacity:.82}
+
+.waveplan-date-input{min-height:38px;border:1px solid #d6dee8;border-radius:9px;padding:7px 9px;background:#fff;color:#26384c;font:inherit;font-size:12px}
