@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
 
-import { parseMentorMatrix } from "../lib/analyzer/spreadsheet.js";
+import { parseMentorMatrix, parseScorecardMatrix } from "../lib/analyzer/spreadsheet.js";
 import {
   buildSmartFileDetection,
   buildSmartImportPlan,
@@ -116,7 +116,7 @@ test("SHA-256 dedupe catches same bytes even when filenames differ", async () =>
 });
 
 test("ZIP is accepted and expanded in memory without persistence", async () => {
-  assert.equal(classifyImportFile({ name: "reports.zip", size: 100 }).status, "ready");
+  assert.equal(classifyImportFile({ name: "reports.zip", size: 100 }).status, "blocked");
 
   const zip = new JSZip();
   zip.file("DDN1/report.csv", "Station,Transporter ID,DCR\nDDN1,A123456789,99.5%");
