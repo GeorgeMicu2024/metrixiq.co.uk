@@ -7,6 +7,7 @@ import { expandImportFiles } from "../../lib/imports/archive";
 import { deduplicateFilesByContent } from "../../lib/imports/contentFingerprint";
 import { IMPORT_ACCEPT, formatFileSize } from "../../lib/imports/preflight";
 import { buildStagingPlan } from "../../lib/imports/stagingPlan";
+import { clearBrowserStaging, loadBrowserStaging, saveBrowserStaging } from "../../lib/imports/browserStaging";
 
 function tone(state) {
   if (state === "ready") return "good";
@@ -26,6 +27,14 @@ export default function SmartImportLab({ sites = [] }) {
   const [phase, setPhase] = useState("idle");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
+  const [browserStage, setBrowserStage] = useState(null);
+
+  useState(() => {
+    try {
+      if (typeof window !== "undefined") setBrowserStage(loadBrowserStaging(sessionStorage));
+    } catch {}
+    return null;
+  });
 
   function addFiles(incoming) {
     const next = [...files];
@@ -48,6 +57,23 @@ export default function SmartImportLab({ sites = [] }) {
     setMessage("");
     setPhase("idle");
     if (input.current) input.current.value = "";
+  }
+
+  function stageDryRun() {
+    if (!result?.staging) return;
+    try {
+      const snapshot = saveBrowserStaging(sessionStorage, result.staging);
+      setBrowserStage(snapshot);
+      setMessage("Dry-run staging snapshot created in this browser session. No Supabase writes were made.");
+    } catch (error) {
+      setMessage(error?.message || "Could not create browser staging snapshot.");
+    }
+  }
+
+  function discardDryRunStage() {
+    try { clearBrowserStaging(sessionStorage); } catch {}
+    setBrowserStage(null);
+    setMessage("Dry-run staging snapshot discarded. No database data was changed.");
   }
 
   async function analyse() {
@@ -178,7 +204,12 @@ export default function SmartImportLab({ sites = [] }) {
             <h2>Where the validated data would go</h2>
             <p>This is a routing simulation only. No rows are inserted, updated or deleted.</p>
           </div>
-          <span className="importv2-readiness good">DB WRITES OFF</span>
+          <div className="importv2-head-actions">
+            {browserStage
+              ? <button className="btn ghost" onClick={discardDryRunStage}>Discard dry-run stage</button>
+              : <button className="btn primary" onClick={stageDryRun} disabled={!result.staging?.readyFiles}>Stage Dry Run</button>}
+            <span className="importv2-readiness good">DB WRITES OFF</span>
+          </div>
         </div>
         <div className="importv2-kpis">
           <article className="good"><span>Ready files</span><strong>{result.staging?.readyFiles || 0}</strong><small>eligible for staging</small></article>
@@ -187,6 +218,9 @@ export default function SmartImportLab({ sites = [] }) {
           <article><span>Feedback rows</span><strong>{result.staging?.feedbackRows || 0}</strong><small>CDF / escalation evidence</small></article>
           <article><span>Site scorecards</span><strong>{result.staging?.scorecardRows || 0}</strong><small>detected site snapshots</small></article>
         </div>
+        {browserStage && <div className="importv2-message good" style={{ marginTop: 12 }}>
+          ✓ Dry-run staged at {new Date(browserStage.createdAt).toLocaleString("en-GB")} · {browserStage.summary?.readyFiles || 0} ready files · session-only metadata · no DB writes.
+        </div>}
         <div className="importv2-preview-grid" style={{ marginTop: 14 }}>
           <article>
             <h3>Approved destinations</h3>
