@@ -2,8 +2,11 @@ import Link from "next/link";
 import PublicPageShell from "./PublicPageShell";
 import StructuredData from "./StructuredData";
 import { SOLUTION_PAGES, buildSolutionSchemas } from "../lib/seo/solutionPages";
+import { RESOURCE_LIST } from "../lib/seo/resources";
 
 export default function SolutionLandingPage({ page }) {
+  const resources = RESOURCE_LIST.filter((article) => article.relatedSolution === page.path).slice(0, 2);
+
   return (
     <>
       <StructuredData data={buildSolutionSchemas(page)} />
@@ -71,6 +74,21 @@ export default function SolutionLandingPage({ page }) {
             <Link href="/contact">Contact MetrixIQ</Link>
           </div>
         </section>
+
+        {resources.length ? (
+          <section className="solution-learning">
+            <h2>Learn more</h2>
+            <div>
+              {resources.map((article) => (
+                <Link href={article.path} key={article.slug}>
+                  <span>{article.eyebrow}</span>
+                  <b>{article.title}</b>
+                  <small>{article.readingTime} · Read guide →</small>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="solution-related">
           <h2>Related MetrixIQ solutions</h2>
