@@ -11,6 +11,7 @@ import "./enterprise-portfolio-v7.css";
 import "./automation-workflows-v8.css";
 import "./integration-delivery-v9.css";
 import "./account-settings.css";
+import "./public-pages.css";
 import PwaBootstrap from "../components/pwa/PwaBootstrap";
 import StructuredData from "../components/StructuredData";
 import {
