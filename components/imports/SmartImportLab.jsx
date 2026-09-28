@@ -5,7 +5,7 @@ import { analyseFiles } from "../../lib/analyzer";
 import { buildSmartImportPlan } from "../../lib/analyzer/smartDetection";
 import { expandImportFiles } from "../../lib/imports/archive";
 import { deduplicateFilesByContent } from "../../lib/imports/contentFingerprint";
-import { IMPORT_ACCEPT, formatFileSize } from "../../lib/imports/preflight";
+import { IMPORT_ACCEPT, classifyImportFile, fileExtension, formatFileSize } from "../../lib/imports/preflight";
 import { buildStagingPlan } from "../../lib/imports/stagingPlan";
 import { buildRemoteStagingPayload } from "../../lib/imports/stagingPayload";
 import { stageSmartImportPayload } from "../../lib/imports/stagingRemote";
@@ -30,6 +30,61 @@ function granularityLabel(value) {
   if (value === "weekly") return "Weekly";
   if (value === "mixed") return "Mixed";
   return value || "Unknown";
+}
+
+function labFileAssessment(file) {
+  const size = Number(file?.size || 0);
+  if (size === 0) {
+    return {
+      status: "blocked",
+      label: "Unavailable",
+      code: "EMPTY_FILE",
+      message: "0 B / unavailable on this device. Remove it and select or download it again.",
+    };
+  }
+
+  if (fileExtension(file?.name) === "zip") {
+    return {
+      status: "ready",
+      label: "ZIP ready",
+      code: null,
+      message: "Archive will be expanded in memory.",
+    };
+  }
+
+  const assessment = classifyImportFile(file);
+  return {
+    ...assessment,
+    code: assessment.status === "blocked" ? "UNSUPPORTED_FILE" : null,
+  };
+}
+
+function blockedFileResult({ file, code, message }) {
+  return {
+    name: file?.name || "Unavailable file",
+    type: fileExtension(file?.name) || "unknown",
+    reportType: null,
+    status: "error",
+    recognized: false,
+    rows: 0,
+    error: message,
+    contentHash: "",
+    byteSize: Number(file?.size || 0),
+    mimeType: file?.type || null,
+    period: null,
+    smart: {
+      fileName: file?.name || "",
+      site: "",
+      contentSites: [],
+      reportTypes: [],
+      granularity: "unknown",
+      period: null,
+      confidence: 0,
+      requiresReview: true,
+      warnings: [{ code, message }],
+      segments: [],
+    },
+  };
 }
 
 export default function SmartImportLab({ sites = [], organizationId = "" }) {
@@ -71,6 +126,14 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setMessage("");
     setPhase("idle");
     if (input.current) input.current.value = "";
+  }
+
+  function removeFile(target) {
+    setFiles((current) => current.filter((file) => file !== target));
+    setResult(null);
+    setRemoteStage(null);
+    setMessage("");
+    setPhase("idle");
   }
 
   function stageDryRun() {
@@ -129,15 +192,35 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setResult(null);
 
     try {
-      const expanded = await expandImportFiles(files);
+      const sourceBlocked = files
+        .map((file) => ({ file, assessment: labFileAssessment(file) }))
+        .filter((item) => item.assessment.status === "blocked")
+        .map((item) => ({
+          file: item.file,
+          code: item.assessment.code || "UNREADABLE_FILE",
+          message: item.assessment.message,
+        }));
+      const sourceReady = files.filter((file) => labFileAssessment(file).status !== "blocked");
+
+      const expanded = await expandImportFiles(sourceReady);
       const deduped = await deduplicateFilesByContent(expanded.files);
-      const analysis = await analyseFiles(deduped.uniqueFiles);
-      const fileResults = (analysis.fileResults || []).map((row, index) => ({
+      const analysis = deduped.uniqueFiles.length
+        ? await analyseFiles(deduped.uniqueFiles)
+        : { fileResults: [], periods: [], siteScorecards: [], feedbackEvents: [] };
+
+      const parsedResults = (analysis.fileResults || []).map((row, index) => ({
         ...row,
         contentHash: deduped.hashes.get(deduped.uniqueFiles[index]) || "",
         byteSize: Number(deduped.uniqueFiles[index]?.size || 0),
         mimeType: deduped.uniqueFiles[index]?.type || null,
       }));
+
+      const unavailable = [
+        ...sourceBlocked,
+        ...(deduped.unreadableFiles || []),
+      ];
+      const blockedResults = unavailable.map(blockedFileResult);
+      const fileResults = [...parsedResults, ...blockedResults];
       const analysed = { ...analysis, fileResults };
       const plan = buildSmartImportPlan(fileResults, sites);
       const staging = buildStagingPlan({
@@ -153,12 +236,13 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         archives: expanded.archives,
         archiveWarnings: expanded.warnings,
         exactDuplicates: deduped.duplicates,
-        extractedCount: expanded.files.length,
+        unavailableFiles: unavailable,
+        extractedCount: expanded.files.length + sourceBlocked.length,
         uniqueCount: deduped.uniqueFiles.length,
       });
       setPhase("done");
       setMessage(
-        `Dry run complete. ${plan.ready} ready · ${plan.warnings} warning · ${plan.review} review · ${deduped.duplicates.length} exact duplicate${deduped.duplicates.length === 1 ? "" : "s"} skipped · ${plan.logicalDuplicateGroups?.length || 0} logical conflict group${(plan.logicalDuplicateGroups?.length || 0) === 1 ? "" : "s"}.`
+        `Dry run complete. ${plan.ready} ready · ${plan.warnings} warning · ${plan.review} review · ${deduped.duplicates.length} exact duplicate${deduped.duplicates.length === 1 ? "" : "s"} skipped · ${unavailable.length} unavailable/blocked · ${plan.logicalDuplicateGroups?.length || 0} logical conflict group${(plan.logicalDuplicateGroups?.length || 0) === 1 ? "" : "s"}.`
       );
     } catch (error) {
       setPhase("error");
@@ -167,6 +251,14 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
   }
 
   const plan = result?.plan;
+  const canStageRemote = Boolean(
+    result?.staging?.readyFiles &&
+    !result?.staging?.blockedFiles &&
+    !result?.staging?.logicalConflictGroups &&
+    !plan?.review &&
+    organizationId &&
+    !remoteBusy
+  );
 
   return <section className="smartlab-root">
     <div className="panel" style={{ marginBottom: 16 }}>
@@ -225,11 +317,21 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
           </button>
         </div>
         <div className="importv2-file-list">
-          {files.map((file) => <article className="importv2-file ready" key={[file.name, file.size, file.lastModified].join(":")}>
-            <span>{String(file.name).split(".").pop()?.toUpperCase() || "FILE"}</span>
-            <div><b>{file.name}</b><small>{formatFileSize(file.size)}</small></div>
-            <div className="importv2-file-state"><b>Dry run only</b></div>
-          </article>)}
+          {files.map((file) => {
+            const assessment = labFileAssessment(file);
+            const isBlocked = assessment.status === "blocked";
+            return <article className={"importv2-file " + (isBlocked ? "blocked" : "ready")} key={[file.name, file.size, file.lastModified].join(":")}>
+              <span>{String(file.name).split(".").pop()?.toUpperCase() || "FILE"}</span>
+              <div>
+                <b>{file.name}</b>
+                <small>{formatFileSize(file.size)}{isBlocked ? " · " + assessment.message : ""}</small>
+              </div>
+              <div className="importv2-file-state">
+                <b>{isBlocked ? assessment.label : "Dry run only"}</b>
+                <button className="btn ghost smartlab-remove-file" type="button" onClick={(event) => { event.stopPropagation(); removeFile(file); }}>Remove</button>
+              </div>
+            </article>;
+          })}
         </div>
         {message && <div className={"importv2-message " + (phase === "error" ? "error" : "good")}>{message}</div>}
       </section>
@@ -259,7 +361,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
             <button
               className="btn primary"
               onClick={stageToTestDb}
-              disabled={!result.staging?.readyFiles || remoteBusy || !organizationId}
+              disabled={!canStageRemote}
             >
               {remoteBusy ? "Staging…" : remoteStage ? "Stage again" : "Stage to Test DB"}
             </button>
