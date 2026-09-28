@@ -7,6 +7,8 @@ import { expandImportFiles } from "../../lib/imports/archive";
 import { deduplicateFilesByContent } from "../../lib/imports/contentFingerprint";
 import { IMPORT_ACCEPT, formatFileSize } from "../../lib/imports/preflight";
 import { buildStagingPlan } from "../../lib/imports/stagingPlan";
+import { buildRemoteStagingPayload } from "../../lib/imports/stagingPayload";
+import { stageSmartImportPayload } from "../../lib/imports/stagingRemote";
 import { clearBrowserStaging, loadBrowserStaging, saveBrowserStaging } from "../../lib/imports/browserStaging";
 
 function tone(state) {
@@ -30,13 +32,15 @@ function granularityLabel(value) {
   return value || "Unknown";
 }
 
-export default function SmartImportLab({ sites = [] }) {
+export default function SmartImportLab({ sites = [], organizationId = "" }) {
   const input = useRef(null);
   const [files, setFiles] = useState([]);
   const [phase, setPhase] = useState("idle");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState(null);
   const [browserStage, setBrowserStage] = useState(null);
+  const [remoteStage, setRemoteStage] = useState(null);
+  const [remoteBusy, setRemoteBusy] = useState(false);
 
   useEffect(() => {
     try {
@@ -55,6 +59,7 @@ export default function SmartImportLab({ sites = [] }) {
     }
     setFiles(next);
     setResult(null);
+    setRemoteStage(null);
     setMessage("");
     setPhase("idle");
   }
@@ -62,6 +67,7 @@ export default function SmartImportLab({ sites = [] }) {
   function clear() {
     setFiles([]);
     setResult(null);
+    setRemoteStage(null);
     setMessage("");
     setPhase("idle");
     if (input.current) input.current.value = "";
@@ -84,6 +90,38 @@ export default function SmartImportLab({ sites = [] }) {
     setMessage("Dry-run staging snapshot discarded. No database data was changed.");
   }
 
+  async function stageToTestDb() {
+    if (!result?.staging || remoteBusy) return;
+    if (!organizationId) {
+      setMessage("Workspace organisation is missing. Test DB staging was not started.");
+      return;
+    }
+
+    setRemoteBusy(true);
+    setMessage("");
+    try {
+      const payload = buildRemoteStagingPayload({
+        organizationId,
+        analysis: result.analysis,
+        plan: result.plan,
+        staging: result.staging,
+        exactDuplicates: result.exactDuplicates,
+      });
+      const staged = await stageSmartImportPayload(payload);
+      setRemoteStage(staged);
+      setMessage(
+        "Safely staged in MetrixIQ Staging · " +
+        staged.readyFiles + " ready · " +
+        staged.duplicateFiles + " duplicate" + (staged.duplicateFiles === 1 ? "" : "s") + " · " +
+        staged.records + " evidence records · production untouched."
+      );
+    } catch (error) {
+      setMessage(error?.message || "Could not write this batch to MetrixIQ Staging.");
+    } finally {
+      setRemoteBusy(false);
+    }
+  }
+
   async function analyse() {
     if (!files.length || phase === "analysing") return;
     setPhase("analysing");
@@ -97,6 +135,8 @@ export default function SmartImportLab({ sites = [] }) {
       const fileResults = (analysis.fileResults || []).map((row, index) => ({
         ...row,
         contentHash: deduped.hashes.get(deduped.uniqueFiles[index]) || "",
+        byteSize: Number(deduped.uniqueFiles[index]?.size || 0),
+        mimeType: deduped.uniqueFiles[index]?.type || null,
       }));
       const analysed = { ...analysis, fileResults };
       const plan = buildSmartImportPlan(fileResults, sites);
@@ -134,14 +174,14 @@ export default function SmartImportLab({ sites = [] }) {
         <div>
           <span className="page-kicker">SMART IMPORT LAB · DRY RUN</span>
           <h2>Automatic detection without database writes</h2>
-          <p>Drop mixed files or ZIP archives. MetrixIQ detects report type, site, period/granularity, content duplicates and conflicts. This lab never saves to Supabase.</p>
+          <p>Drop mixed files or ZIP archives. MetrixIQ detects report type, site, period/granularity, duplicates and conflicts. Test staging is isolated from production.</p>
         </div>
         <div className="importv2-head-actions">
           <button className="btn ghost" onClick={clear} disabled={phase === "analysing"}>Clear</button>
           <button className="btn primary" onClick={() => input.current?.click()} disabled={phase === "analysing"}>Add files</button>
         </div>
       </div>
-      <div className="importv2-notice">🔒 DB WRITES OFF · Existing Import Center save flow is untouched.</div>
+      <div className="importv2-notice">🔒 PRODUCTION WRITES OFF · Smart Import can write only to the isolated MetrixIQ Staging test database.</div>
     </div>
 
     <input
@@ -210,13 +250,20 @@ export default function SmartImportLab({ sites = [] }) {
           <div>
             <span className="page-kicker">STAGING PREVIEW</span>
             <h2>Where the validated data would go</h2>
-            <p>This is a routing simulation only. No rows are inserted, updated or deleted.</p>
+            <p>Review routing first, then optionally write this validated batch to the isolated MetrixIQ Staging test database.</p>
           </div>
-          <div className="importv2-head-actions">
+          <div className="importv2-head-actions smartlab-stage-actions">
             {browserStage
-              ? <button className="btn ghost" onClick={discardDryRunStage}>Discard stage</button>
-              : <button className="btn primary" onClick={stageDryRun} disabled={!result.staging?.readyFiles}>Stage Dry Run</button>}
-            <span className="importv2-readiness good">DB WRITES OFF</span>
+              ? <button className="btn ghost" onClick={discardDryRunStage}>Discard dry run</button>
+              : <button className="btn ghost" onClick={stageDryRun} disabled={!result.staging?.readyFiles || remoteBusy}>Save dry run</button>}
+            <button
+              className="btn primary"
+              onClick={stageToTestDb}
+              disabled={!result.staging?.readyFiles || remoteBusy || !organizationId}
+            >
+              {remoteBusy ? "Staging…" : remoteStage ? "Stage again" : "Stage to Test DB"}
+            </button>
+            <span className="importv2-readiness good">PRODUCTION OFF</span>
           </div>
         </div>
         <div className="importv2-kpis">
@@ -227,7 +274,10 @@ export default function SmartImportLab({ sites = [] }) {
           <article><span>Site scorecards</span><strong>{result.staging?.scorecardRows || 0}</strong><small>detected site snapshots</small></article>
         </div>
         {browserStage && <div className="importv2-message good" style={{ marginTop: 12 }}>
-          ✓ Dry-run staged at {new Date(browserStage.createdAt).toLocaleString("en-GB")} · {browserStage.summary?.readyFiles || 0} ready files · session-only metadata · no DB writes.
+          ✓ Local dry-run snapshot · {browserStage.summary?.readyFiles || 0} ready files · session-only metadata.
+        </div>}
+        {remoteStage && <div className="importv2-message good smartlab-remote-stage" style={{ marginTop: 12 }}>
+          ✓ MetrixIQ Staging · Batch <b>{String(remoteStage.batchId || "").slice(0, 8)}</b> · {remoteStage.readyFiles || 0} ready · {remoteStage.duplicateFiles || 0} duplicates · {remoteStage.records || 0} evidence records · production untouched.
         </div>}
         <div className="importv2-preview-grid" style={{ marginTop: 14 }}>
           <article>
