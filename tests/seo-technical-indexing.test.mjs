@@ -47,7 +47,7 @@ test("cookie preferences can be reopened from public pages", () => {
   const publicShell = read("components/PublicPageShell.jsx");
   const privacy = read("app/privacy/page.jsx");
 
-  assert.ok(settings.includes("metrixiq:open-cookie-settings"));
+  assert.ok(settings.includes("CONSENT_EVENT"));
   assert.ok(landing.includes("<CookieSettingsButton />"));
   assert.ok(publicShell.includes("<CookieSettingsButton />"));
   assert.ok(privacy.includes("Analytics cookies"));
@@ -82,6 +82,6 @@ test("landing authentication lazy-loads Supabase only after interaction", () => 
 
   assert.ok(card.includes('await import("../lib/supabase/client")'));
   assert.equal(card.includes('import { getSupabaseBrowserClient }'), false);
-  assert.equal(rootLayout.includes("PwaBootstrap"), false);
-  assert.ok(privateLayout.includes("PwaBootstrap"));
+  assert.ok(rootLayout.includes("<PwaBootstrap />"));
+  assert.equal(privateLayout.includes("PwaBootstrap"), false);
 });
