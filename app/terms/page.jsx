@@ -13,6 +13,7 @@ export default function TermsPage() {
       eyebrow="TERMS"
       title="Terms of Service"
       intro="These terms set out the general conditions for access to and use of the MetrixIQ website and software service."
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Terms" }]}
     >
       <section>
         <p><b>Last updated:</b> 28 September 2026</p>
