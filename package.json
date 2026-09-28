@@ -8,7 +8,9 @@
     "start": "next start",
     "test": "node --test tests/*.test.mjs",
     "seo:audit": "node scripts/seo-audit.mjs",
-    "seo:audit:live": "node scripts/seo-live-audit.mjs"
+    "seo:audit:live": "node scripts/seo-live-audit.mjs",
+    "seo:indexnow": "node scripts/indexnow-submit.mjs",
+    "seo:indexnow:submit": "node scripts/indexnow-submit.mjs --submit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
