@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Brand from "./Brand";
-import LandingSignInCard from "./LandingSignInCard";
+import DeferredLandingSignInCard from "./DeferredLandingSignInCard";
 import CookieSettingsButton from "./CookieSettingsButton";
 import TrackedLink from "./TrackedLink";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans";
@@ -57,7 +57,7 @@ export default function Landing(){
  return <main className="marketing mk-home">
   <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><Link href="/pricing">Pricing</Link><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><TrackedLink className="mk-get" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_header" }}>Get started</TrackedLink></div></header>
 
-  <section className="mk-hero"><div className="mk-hero-bg"/><div className="mk-hero-copy"><span>FLEET & DRIVER PERFORMANCE SOFTWARE</span><h1>Smarter data.<br/>Stronger teams.<br/><em>Better results.</em></h1><p>MetrixIQ is fleet and driver performance software for delivery operations, helping managers monitor scorecards, compliance, coaching and site performance in one operational workspace.</p><div className="mk-actions"><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_hero" }}>Get started <b>→</b></TrackedLink><a href="#solutions">▶ &nbsp; See how it works</a></div><div className="mk-benefits">{benefits.map((x,i)=><span key={x}>{i===1?"↗":"◇"} {x}</span>)}</div></div><div className="mk-script">Data<br/>People<br/>Performance<i/></div><LandingSignInCard/></section>
+  <section className="mk-hero"><div className="mk-hero-bg"/><div className="mk-hero-copy"><span>FLEET & DRIVER PERFORMANCE SOFTWARE</span><h1>Smarter data.<br/>Stronger teams.<br/><em>Better results.</em></h1><p>MetrixIQ is fleet and driver performance software for delivery operations, helping managers monitor scorecards, compliance, coaching and site performance in one operational workspace.</p><div className="mk-actions"><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_hero" }}>Get started <b>→</b></TrackedLink><a href="#solutions">▶ &nbsp; See how it works</a></div><div className="mk-benefits">{benefits.map((x,i)=><span key={x}>{i===1?"↗":"◇"} {x}</span>)}</div></div><div className="mk-script">Data<br/>People<br/>Performance<i/></div><DeferredLandingSignInCard/></section>
 
   <section className="mk-stats" aria-label="Product outcomes">{[["↗","+25%","Driver performance"],["◷","-40%","Operational issues"],["◇","+30%","Compliance rate"],["♟","Happier","and more productive teams"]].map(x=><article key={x[1]}><i>{x[0]}</i><div><strong>{x[1]}</strong><span>{x[2]}</span></div></article>)}</section>
 
