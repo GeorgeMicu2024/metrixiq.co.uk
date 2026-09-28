@@ -278,3 +278,26 @@ test("DWC IADC weekly file with daily detail remains Ready, not Warning", () => 
   assert.equal(plan.warnings, 0);
   assert.equal(plan.review, 0);
 });
+
+
+test("zero-byte and unreadable files are isolated instead of aborting the batch", async () => {
+  const good = new File(["valid"], "good.csv", { lastModified: 1 });
+  const empty = new File([], "empty.pdf", { lastModified: 2 });
+  const unreadable = {
+    name: "icloud-placeholder.xlsx",
+    size: 123,
+    lastModified: 3,
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    async arrayBuffer() {
+      throw new Error("The object can not be found here.");
+    },
+  };
+
+  const result = await deduplicateFilesByContent([good, empty, unreadable]);
+
+  assert.equal(result.uniqueFiles.length, 1);
+  assert.equal(result.unreadableFiles.length, 2);
+  assert.equal(result.unreadableFiles[0].code, "EMPTY_FILE");
+  assert.equal(result.unreadableFiles[1].code, "UNREADABLE_FILE");
+  assert.match(result.unreadableFiles[1].message, /object can not be found/i);
+});
