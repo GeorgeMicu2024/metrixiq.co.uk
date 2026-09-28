@@ -12,7 +12,9 @@ const carriers=[
   ["evri","Evri"],
   ["dpd","DPD"],
   ["dhl","DHL"],
-  ["royal","Royal Mail"],
+  ["ups","UPS"],
+  ["fedex","FedEx"],
+  ["yodel","Yodel"],
 ];
 
 const features=[
@@ -46,6 +48,16 @@ const faqs=[
   ["What performance data can be managed?","Driver scorecards, safety and compliance metrics, recurring operational reports, coaching evidence and other structured fleet-performance data."],
   ["Does MetrixIQ replace source systems?","No. MetrixIQ is an intelligence and management layer that helps teams organise, reconcile and interpret operational evidence while keeping source reports in context."],
 ];
+
+function CarrierLogo({kind,name}){
+  if(kind==="amazon") return <span className="carrier-logo carrier-amazon" aria-label={name}><b>amazon</b><i>⌣</i><small>logistics</small></span>;
+  if(kind==="evri") return <span className="carrier-logo carrier-evri" aria-label={name}><i><b/><b/><b/><b/></i><strong>evri</strong></span>;
+  if(kind==="dpd") return <span className="carrier-logo carrier-dpd" aria-label={name}><i>◇</i><strong>dpd</strong></span>;
+  if(kind==="dhl") return <span className="carrier-logo carrier-dhl" aria-label={name}><i/><strong>DHL</strong></span>;
+  if(kind==="ups") return <span className="carrier-logo carrier-ups" aria-label={name}><i>ups</i></span>;
+  if(kind==="fedex") return <span className="carrier-logo carrier-fedex" aria-label={name}><strong>Fed</strong><b>Ex</b></span>;
+  return <span className="carrier-logo carrier-yodel" aria-label={name}><i>◖</i><strong>Yodel</strong></span>;
+}
 
 function DashboardPreview(){
   const rows=[["1","Driver 001","978"],["2","Driver 002","965"],["3","Driver 003","960"],["4","Driver 004","958"],["5","Driver 005","955"]];
@@ -111,8 +123,8 @@ export default function Landing(){
   </section>
 
   <section className="mk-network-strip" aria-label="Delivery network examples">
-    <div><span>BUILT FOR MULTI-CARRIER DELIVERY OPERATIONS</span><small>Workflow context only — no affiliation implied.</small></div>
-    <div className="mk-network-logos">{carriers.map(([key,name])=><span className={"network-"+key} key={key}>{name}</span>)}</div>
+    <div><span>DELIVERY NETWORK WORKFLOWS</span><small>Examples only — no affiliation implied.</small></div>
+    <div className="mk-network-logos">{carriers.map(([key,name])=><CarrierLogo kind={key} name={name} key={key}/>)}</div>
   </section>
 
   <section id="product" className="mk-product-showcase">
