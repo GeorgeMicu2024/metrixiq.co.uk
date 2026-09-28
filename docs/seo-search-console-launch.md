@@ -29,16 +29,17 @@ Request indexing in this order after the production deployment is healthy:
 
 1. `https://www.metrixiq.co.uk/`
 2. `https://www.metrixiq.co.uk/solutions`
-3. `https://www.metrixiq.co.uk/fleet-performance-management`
-4. `https://www.metrixiq.co.uk/driver-performance-scorecards`
-5. `https://www.metrixiq.co.uk/fleet-compliance-monitoring`
-6. `https://www.metrixiq.co.uk/delivery-operations-software`
-7. `https://www.metrixiq.co.uk/driver-coaching-software`
-8. `https://www.metrixiq.co.uk/fleet-data-analytics`
-9. `https://www.metrixiq.co.uk/use-cases`
-10. `https://www.metrixiq.co.uk/use-cases/fleet-performance-dashboard`
-11. `https://www.metrixiq.co.uk/use-cases/multi-site-delivery-performance`
-12. `https://www.metrixiq.co.uk/compare/spreadsheets-vs-fleet-performance-software`
+3. `https://www.metrixiq.co.uk/pricing`
+4. `https://www.metrixiq.co.uk/fleet-performance-management`
+5. `https://www.metrixiq.co.uk/driver-performance-scorecards`
+6. `https://www.metrixiq.co.uk/fleet-compliance-monitoring`
+7. `https://www.metrixiq.co.uk/delivery-operations-software`
+8. `https://www.metrixiq.co.uk/driver-coaching-software`
+9. `https://www.metrixiq.co.uk/fleet-data-analytics`
+10. `https://www.metrixiq.co.uk/use-cases`
+11. `https://www.metrixiq.co.uk/use-cases/fleet-performance-dashboard`
+12. `https://www.metrixiq.co.uk/use-cases/multi-site-delivery-performance`
+13. `https://www.metrixiq.co.uk/compare/spreadsheets-vs-fleet-performance-software`
 
 The remaining resource and trust pages can be discovered through the sitemap and internal links. Do not repeatedly request indexing for unchanged URLs.
 
