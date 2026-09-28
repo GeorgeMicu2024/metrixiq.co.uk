@@ -3,9 +3,9 @@ import StructuredData from "../components/StructuredData";
 import { buildPageMetadata, SITE_URL } from "../lib/seo/site";
 
 export const metadata = buildPageMetadata({
-  title: "Fleet & Driver Performance Intelligence",
+  title: "Fleet & Driver Performance Software",
   description:
-    "AI-powered fleet and driver performance intelligence for delivery operations. Manage scorecards, compliance, coaching and reporting in one workspace.",
+    "Fleet and driver performance software for delivery operations. Manage scorecards, compliance, coaching and reporting in one workspace.",
   path: "/",
 });
 
@@ -19,7 +19,7 @@ const faqSchema = {
       name: "What is MetrixIQ?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "MetrixIQ is a fleet and driver performance intelligence platform for delivery operations. It brings operational reports, driver scorecards, compliance metrics, coaching workflows and management reporting into one workspace.",
+        text: "MetrixIQ is fleet and driver performance software for delivery operations. It brings operational reports, driver scorecards, compliance metrics, coaching workflows and management reporting into one workspace.",
       },
     },
     {
