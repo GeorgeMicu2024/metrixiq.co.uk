@@ -14,6 +14,7 @@ export default function AboutPage() {
       eyebrow="ABOUT METRIXIQ"
       title="Operational intelligence built around the way delivery teams actually work."
       intro="MetrixIQ brings driver performance, compliance, coaching and operational reporting into one structured workspace so managers can spend less time reconciling files and more time improving results."
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
     >
       <section>
         <h2>Why MetrixIQ exists</h2>
