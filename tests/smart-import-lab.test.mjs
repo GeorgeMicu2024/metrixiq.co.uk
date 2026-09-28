@@ -241,7 +241,4 @@ test("same site report and period with changed bytes becomes a logical conflict"
 
 test("ZIP support stays isolated from the legacy Import Queue", () => {
   assert.equal(classifyImportFile({ name: "reports.zip", size: 100 }).status, "blocked");
-  const lab = await import("../components/imports/SmartImportLab.jsx").catch(() => null);
-  assert.equal(lab, null);
-  // JSX is compiled by Next; source assertion belongs in the project test suite.
 });
