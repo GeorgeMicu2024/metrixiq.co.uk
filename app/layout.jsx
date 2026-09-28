@@ -3,6 +3,7 @@ import "./public-pages.css";
 import PwaBootstrap from "../components/pwa/PwaBootstrap";
 import StructuredData from "../components/StructuredData";
 import GoogleAnalytics from "../components/GoogleAnalytics";
+import WebVitalsReporter from "../components/WebVitalsReporter";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_TITLE,
@@ -93,6 +94,7 @@ export default function RootLayout({ children }) {
         <StructuredData data={[organizationSchema, websiteSchema, softwareSchema]} />
         <PwaBootstrap />
         <GoogleAnalytics />
+        <WebVitalsReporter />
         {children}
       </body>
     </html>
