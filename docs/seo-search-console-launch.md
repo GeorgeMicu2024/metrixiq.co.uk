@@ -88,3 +88,20 @@ After launch, review Search Console weekly at first:
 - Mobile Core Web Vitals.
 
 Use real query/impression data to decide the next content pages instead of creating large numbers of speculative keyword pages.
+
+
+## IndexNow / Bing discovery
+
+MetrixIQ now publishes an IndexNow verification key at:
+
+- `https://www.metrixiq.co.uk/ef82465f539835b58ac06a883439c0c0.txt`
+
+After the deployment containing that file is promoted to production:
+
+1. Run `npm run seo:indexnow` to verify the live key file and canonical sitemap.
+2. Run `npm run seo:indexnow:submit` to submit up to 100 canonical sitemap URLs to IndexNow.
+3. The GitHub workflow **IndexNow Submit** provides the same flow manually and requires an explicit `submit=true` confirmation.
+4. A `202` response means the batch was accepted for key validation; it does not guarantee indexing.
+5. Bing Webmaster API access is optional and can be connected later for Bing-specific crawl/index reporting.
+
+Do not rotate the IndexNow key casually. If it is rotated, update both the public key file and the configured key before submitting new batches.
