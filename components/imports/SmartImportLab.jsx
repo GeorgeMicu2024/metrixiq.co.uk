@@ -10,6 +10,7 @@ import { buildStagingPlan } from "../../lib/imports/stagingPlan";
 import { buildRemoteStagingPayload } from "../../lib/imports/stagingPayload";
 import { stageSmartImportPayload } from "../../lib/imports/stagingRemote";
 import { clearBrowserStaging, loadBrowserStaging, saveBrowserStaging } from "../../lib/imports/browserStaging";
+import { APPROVED_REVIEW_REPORT_TYPES, applyReviewResolutions, canManuallyEditDetection, validManualPeriod } from "../../lib/imports/reviewResolution";
 
 function tone(state) {
   if (state === "ready") return "good";
@@ -96,12 +97,22 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
   const [browserStage, setBrowserStage] = useState(null);
   const [remoteStage, setRemoteStage] = useState(null);
   const [remoteBusy, setRemoteBusy] = useState(false);
+  const [reviewOverrides, setReviewOverrides] = useState({});
+  const [excludedDetections, setExcludedDetections] = useState([]);
+  const [editingFile, setEditingFile] = useState("");
+  const [editForm, setEditForm] = useState({ site: "", reportType: "", periodKey: "", granularity: "" });
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     try {
       setBrowserStage(loadBrowserStaging(sessionStorage));
     } catch {}
   }, []);
+
+  const siteOptions = [...new Set((sites || []).map((site) => {
+    if (typeof site === "string") return site.trim().toUpperCase();
+    return String(site?.site_code || site?.code || site?.site || site?.name || "").trim().toUpperCase();
+  }).filter(Boolean))];
 
   function addFiles(incoming) {
     const next = [...files];
@@ -117,6 +128,10 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setRemoteStage(null);
     setMessage("");
     setPhase("idle");
+    setReviewOverrides({});
+    setExcludedDetections([]);
+    setEditingFile("");
+    setEditError("");
   }
 
   function clear() {
@@ -125,6 +140,10 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setRemoteStage(null);
     setMessage("");
     setPhase("idle");
+    setReviewOverrides({});
+    setExcludedDetections([]);
+    setEditingFile("");
+    setEditError("");
     if (input.current) input.current.value = "";
   }
 
@@ -134,6 +153,84 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setRemoteStage(null);
     setMessage("");
     setPhase("idle");
+  }
+
+  function rebuildResolvedResult(nextOverrides, nextExcluded, feedbackMessage = "") {
+    if (!result?.rawFileResults) return;
+    const fileResults = applyReviewResolutions(result.rawFileResults, {
+      overrides: nextOverrides,
+      excluded: nextExcluded,
+    });
+    const analysed = { ...result.analysis, fileResults };
+    const plan = buildSmartImportPlan(fileResults, sites);
+    const staging = buildStagingPlan({
+      analysis: analysed,
+      plan,
+      exactDuplicates: result.exactDuplicates,
+    });
+    setResult((current) => ({
+      ...current,
+      analysis: analysed,
+      plan,
+      staging,
+      excludedCount: nextExcluded.length,
+    }));
+    setRemoteStage(null);
+    setMessage(
+      feedbackMessage ||
+      ("Review updated. " + plan.review + " review · " + staging.blockedFiles + " blocked · " + (plan.logicalDuplicateGroups?.length || 0) + " logical conflicts.")
+    );
+  }
+
+  function beginReviewEdit(fileName) {
+    const row = result?.plan?.files?.find((item) => item.name === fileName)
+      || result?.rawFileResults?.find((item) => item.name === fileName);
+    if (!row || !canManuallyEditDetection(row)) return;
+    const smart = row.smart || {};
+    setEditingFile(fileName);
+    setEditForm({
+      site: smart.site === "MULTI_SITE" ? "" : (smart.site || ""),
+      reportType: smart.reportTypes?.[0] || row.reportType || "",
+      periodKey: smart.period?.key === "mixed" ? "" : (smart.period?.key || row.period?.key || ""),
+      granularity: ["daily", "weekly", "weekly_with_daily_detail"].includes(smart.granularity)
+        ? smart.granularity
+        : (row.period?.granularity === "daily" ? "daily" : "weekly"),
+    });
+    setEditError("");
+  }
+
+  function cancelReviewEdit() {
+    setEditingFile("");
+    setEditError("");
+  }
+
+  function saveReviewEdit() {
+    const site = String(editForm.site || "").trim().toUpperCase();
+    const reportType = String(editForm.reportType || "").trim().toUpperCase();
+    const periodKey = String(editForm.periodKey || "").trim();
+    const granularity = String(editForm.granularity || "").trim();
+
+    if (!site || !reportType || !granularity || !validManualPeriod(periodKey)) {
+      setEditError("Choose Site, Report family and Daily/Weekly, and enter a valid period such as 2026-W39 or 2026-09-22.");
+      return;
+    }
+
+    const nextOverrides = {
+      ...reviewOverrides,
+      [editingFile]: { site, reportType, periodKey, granularity },
+    };
+    setReviewOverrides(nextOverrides);
+    setEditingFile("");
+    setEditError("");
+    rebuildResolvedResult(nextOverrides, excludedDetections, "Manual correction saved. Detection and staging safety gates were recalculated.");
+  }
+
+  function excludeDetection(fileName) {
+    const nextExcluded = [...new Set([...excludedDetections, fileName])];
+    setExcludedDetections(nextExcluded);
+    setEditingFile("");
+    setEditError("");
+    rebuildResolvedResult(reviewOverrides, nextExcluded, fileName + " was removed from this import batch.");
   }
 
   function stageDryRun() {
@@ -190,6 +287,10 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setPhase("analysing");
     setMessage("");
     setResult(null);
+    setReviewOverrides({});
+    setExcludedDetections([]);
+    setEditingFile("");
+    setEditError("");
 
     try {
       const sourceBlocked = files
@@ -231,6 +332,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
 
       setResult({
         analysis: analysed,
+        rawFileResults: fileResults,
         plan,
         staging,
         archives: expanded.archives,
@@ -251,6 +353,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
   }
 
   const plan = result?.plan;
+  const reviewItems = result?.staging?.blocked || [];
   const canStageRemote = Boolean(
     result?.staging?.readyFiles &&
     !result?.staging?.blockedFiles &&
@@ -346,6 +449,83 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         <article className={result.exactDuplicates.length ? "warn" : "good"}><span>Exact duplicates</span><strong>{result.exactDuplicates.length}</strong><small>SHA-256 matches skipped</small></article>
         <article className={plan.logicalDuplicateGroups?.length ? "bad" : "good"}><span>Logical conflicts</span><strong>{plan.logicalDuplicateGroups?.length || 0}</strong><small>same site/report/period, changed bytes</small></article>
       </section>
+
+      {reviewItems.length > 0 && <section className="panel smartlab-review-center" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <div>
+            <span className="page-kicker">REVIEW CENTER</span>
+            <h2>Resolve {reviewItems.length} item{reviewItems.length === 1 ? "" : "s"} before staging</h2>
+            <p>Edit detection when MetrixIQ guessed metadata incorrectly, or remove the file from this batch. Raw file contents are never changed.</p>
+          </div>
+          <span className="importv2-readiness bad">{reviewItems.length} BLOCKED</span>
+        </div>
+
+        <div className="smartlab-review-list">
+          {reviewItems.map((item) => {
+            const row = plan?.files?.find((candidate) => candidate.name === item.fileName);
+            const editable = Boolean(row && canManuallyEditDetection(row));
+            const isEditing = editingFile === item.fileName;
+            return <article className="smartlab-review-card" key={item.fileName}>
+              <div className="smartlab-review-card-head">
+                <div>
+                  <strong>{item.fileName}</strong>
+                  <small>{(item.reasons || []).map((reason) => reason.code).join(" · ") || "Needs review"}</small>
+                </div>
+                <span className="importv2-readiness bad">Review</span>
+              </div>
+
+              <p className="smartlab-review-reason">
+                {(item.reasons || []).map((reason) => reason.message).join(" · ")}
+              </p>
+
+              {!isEditing && <div className="smartlab-review-actions">
+                {editable && <button className="btn ghost" type="button" onClick={() => beginReviewEdit(item.fileName)}>Edit detection</button>}
+                <button className="btn ghost danger" type="button" onClick={() => excludeDetection(item.fileName)}>Remove from batch</button>
+              </div>}
+
+              {isEditing && <div className="smartlab-review-editor">
+                <label>
+                  <span>Site</span>
+                  <select value={editForm.site} onChange={(event) => setEditForm((form) => ({ ...form, site: event.target.value }))}>
+                    <option value="">Select site</option>
+                    {siteOptions.map((site) => <option value={site} key={site}>{site}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Report family</span>
+                  <select value={editForm.reportType} onChange={(event) => setEditForm((form) => ({ ...form, reportType: event.target.value }))}>
+                    <option value="">Select report</option>
+                    {APPROVED_REVIEW_REPORT_TYPES.map((type) => <option value={type} key={type}>{type}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Period</span>
+                  <input
+                    value={editForm.periodKey}
+                    onChange={(event) => setEditForm((form) => ({ ...form, periodKey: event.target.value }))}
+                    placeholder="2026-W39 or 2026-09-22"
+                  />
+                </label>
+                <label>
+                  <span>Granularity</span>
+                  <select value={editForm.granularity} onChange={(event) => setEditForm((form) => ({ ...form, granularity: event.target.value }))}>
+                    <option value="weekly">Weekly</option>
+                    <option value="daily">Daily</option>
+                    {editForm.reportType === "DWC_IADC" && <option value="weekly_with_daily_detail">Weekly + daily detail</option>}
+                  </select>
+                </label>
+
+                {editError && <div className="importv2-message error">{editError}</div>}
+                <div className="smartlab-review-actions">
+                  <button className="btn primary" type="button" onClick={saveReviewEdit}>Save correction</button>
+                  <button className="btn ghost" type="button" onClick={cancelReviewEdit}>Cancel</button>
+                  <button className="btn ghost danger" type="button" onClick={() => excludeDetection(item.fileName)}>Remove</button>
+                </div>
+              </div>}
+            </article>;
+          })}
+        </div>
+      </section>}
 
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head">
@@ -445,7 +625,13 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
                   <td data-label="Site">{smart.site || "Needs review"}</td>
                   <td data-label="Period">{granularityLabel(smart.granularity || row.period?.granularity)}</td>
                   <td data-label="Confidence"><b>{smart.confidence ?? 0}%</b></td>
-                  <td data-label="Status"><span className={"importv2-readiness " + tone(row.smartState)}>{label(row.smartState)}</span></td>
+                  <td data-label="Status">
+                    <span className={"importv2-readiness " + tone(row.smartState)}>{label(row.smartState)}</span>
+                    {row.smartState === "review" && <div className="smartlab-row-actions">
+                      {canManuallyEditDetection(row) && <button className="btn ghost" type="button" onClick={() => beginReviewEdit(row.name)}>Edit</button>}
+                      <button className="btn ghost danger" type="button" onClick={() => excludeDetection(row.name)}>Remove</button>
+                    </div>}
+                  </td>
                 </tr>;
               })}
             </tbody>
