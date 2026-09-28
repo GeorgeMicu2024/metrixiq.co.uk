@@ -103,7 +103,7 @@ export default function Landing(){
       <span>FLEET & DRIVER PERFORMANCE SOFTWARE</span>
       <h1>Turn operational data into <em>clear action.</em></h1>
       <p>Scorecards, compliance, coaching and multi-site performance in one operational workspace.</p>
-      <div className="mk-actions"><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_hero" }}>Get started <b>→</b></TrackedLink><a href="#product">▶ &nbsp; See the platform</a></div>
+      <div className="mk-actions"><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_hero" }}>Get started <b>→</b></TrackedLink><a href="#product">▶ &nbsp; See how it works</a></div>
       <div className="mk-benefits">{benefits.map(x=><span key={x}>◇ {x}</span>)}</div>
     </div>
     <HeroSignals/>
@@ -149,6 +149,7 @@ export default function Landing(){
   <section className="mk-visual-section">
     <div className="mk-feature-intro compact"><span>VISUAL INTELLIGENCE</span><h2>Make the important signal impossible to miss.</h2><p>Compact operational views keep managers focused on movement, exceptions and the next action.</p></div>
     <VisualCards/>
+    <div className="mk-use-cases-more"><Link href="/use-cases">Explore all use cases →</Link></div>
   </section>
 
   <section className="mk-solution-links">
