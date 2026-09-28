@@ -3,6 +3,7 @@ import Brand from "./Brand";
 import CookieSettingsButton from "./CookieSettingsButton";
 import PublicBreadcrumbs from "./PublicBreadcrumbs";
 import TrackedLink from "./TrackedLink";
+import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164 } from "../lib/seo/site";
 
 export default function PublicPageShell({ eyebrow, title, intro, breadcrumbs = [], children }) {
   return (
@@ -43,6 +44,7 @@ export default function PublicPageShell({ eyebrow, title, intro, breadcrumbs = [
           <nav aria-label="Legal and company links">
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
+            <a href={`tel:${CONTACT_PHONE_E164}`} aria-label={`Call MetrixIQ on ${CONTACT_PHONE_DISPLAY}`}>{CONTACT_PHONE_DISPLAY}</a>
             <Link href="/resources">Resources</Link>
             <Link href="/use-cases">Use cases</Link>
             <Link href="/security">Security</Link>
