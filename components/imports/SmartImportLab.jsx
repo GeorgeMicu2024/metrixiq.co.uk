@@ -103,7 +103,7 @@ export default function SmartImportLab({ sites = [] }) {
       type="file"
       multiple
       hidden
-      accept={IMPORT_ACCEPT}
+      accept={IMPORT_ACCEPT + ",.zip"}
       onChange={(event) => {
         addFiles(event.target.files || []);
         event.target.value = "";
