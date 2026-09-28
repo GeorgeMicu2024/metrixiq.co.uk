@@ -45,3 +45,16 @@ svg{display:block;max-width:100%}
     contain-intrinsic-size:auto 900px;
   }
 }
+
+
+/* Lightweight placeholder keeps hero geometry stable until the interactive sign-in card is near view. */
+.mk-login-card-placeholder{min-height:408px;display:flex;flex-direction:column}
+.mk-login-placeholder-brand{text-align:center;font-size:25px;font-weight:700;letter-spacing:-.055em;color:#0b1f33;margin:4px 0 12px}
+.mk-login-placeholder-brand span{color:#13a08b}
+.mk-login-placeholder-field{height:43px;border:1px solid #e4eaee;border-radius:8px;background:#f8fafb;margin:9px 0}
+.mk-login-placeholder-button{height:43px;border-radius:9px;background:#edf3f1;margin-top:16px}
+@media(max-width:720px){
+  .mk-hero{background:#071725}
+  .mk-hero-bg{display:none}
+  .mk-stats{content-visibility:auto;contain-intrinsic-size:auto 190px}
+}
