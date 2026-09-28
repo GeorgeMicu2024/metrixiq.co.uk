@@ -50,7 +50,8 @@ test("cookie preferences can be reopened from public pages", () => {
   const publicShell = read("components/PublicPageShell.jsx");
   const privacy = read("app/privacy/page.jsx");
 
-  assert.ok(settings.includes("CONSENT_EVENT"));
+  assert.ok(settings.includes('data-cookie-settings="true"'));
+  assert.equal(settings.includes('"use client"'), false);
   assert.ok(landing.includes("<CookieSettingsButton />"));
   assert.ok(publicShell.includes("<CookieSettingsButton />"));
   assert.ok(privacy.includes("Analytics cookies"));
@@ -88,4 +89,17 @@ test("landing authentication lazy-loads Supabase only after interaction", () => 
   assert.ok(rootLayout.includes('id="metrixiq-pwa-bootstrap"'));
   assert.equal(rootLayout.includes("PwaBootstrap"), false);
   assert.equal(privateLayout.includes("PwaBootstrap"), false);
+});
+
+
+test("analytics payload is deferred until after load or existing consent", () => {
+  const deferred = read("components/DeferredGoogleAnalytics.jsx");
+  const rootLayout = read("app/layout.jsx");
+
+  assert.ok(deferred.includes('lazy(() => import("./GoogleAnalytics"))'));
+  assert.ok(deferred.includes('window.addEventListener("load", loadConsentUi'));
+  assert.ok(deferred.includes("requestIdleCallback"));
+  assert.ok(deferred.includes("[data-cookie-settings]"));
+  assert.ok(rootLayout.includes("<DeferredGoogleAnalytics />"));
+  assert.equal(rootLayout.includes("<GoogleAnalytics />"), false);
 });
