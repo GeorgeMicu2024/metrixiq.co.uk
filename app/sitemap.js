@@ -5,6 +5,7 @@ import { USE_CASE_LIST } from "../lib/seo/useCasePages";
 export default function sitemap() {
   const pages = PUBLIC_PAGES.map((page) => ({
     url: `${SITE_URL}${page.path === "/" ? "" : page.path}`,
+    lastModified: "2026-09-28",
     changeFrequency: page.changeFrequency,
     priority: page.priority,
   }));
