@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="160" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
+  <title id="title">MetrixIQ</title>
+  <desc id="desc">MetrixIQ fleet and driver performance software logo</desc>
+  <rect width="640" height="160" rx="28" fill="#ffffff"/>
+  <g transform="translate(28 24)">
+    <rect x="0" y="0" width="112" height="112" rx="30" fill="#0B1F33"/>
+    <path d="M26 31 43.2 81 56 53.3 68.8 81 86 31" fill="none" stroke="#66E3CE" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M33 31h46" fill="none" stroke="#9B90FF" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <text x="170" y="100" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="800" fill="#0B1F33" letter-spacing="-3">Metrix<tspan fill="#66E3CE">IQ</tspan></text>
+</svg>
