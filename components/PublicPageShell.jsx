@@ -10,6 +10,7 @@ export default function PublicPageShell({ eyebrow, title, intro, children }) {
         <nav aria-label="Public navigation">
           <Link href="/#features">Features</Link>
           <Link href="/solutions">Solutions</Link>
+          <Link href="/use-cases">Use cases</Link>
           <Link href="/#pricing">Pricing</Link>
           <Link href="/resources">Resources</Link>
           <Link href="/about">About</Link>
@@ -39,6 +40,7 @@ export default function PublicPageShell({ eyebrow, title, intro, children }) {
             <Link href="/about">About</Link>
             <Link href="/contact">Contact</Link>
             <Link href="/resources">Resources</Link>
+            <Link href="/use-cases">Use cases</Link>
             <Link href="/security">Security</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
