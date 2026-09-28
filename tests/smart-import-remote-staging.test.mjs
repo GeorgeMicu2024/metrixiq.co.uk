@@ -205,3 +205,53 @@ test("remote staging refuses unresolved logical conflicts", () => {
     },
   }), /Resolve logical report conflicts/);
 });
+
+
+test("uses an available staged source when the first driver source was excluded", () => {
+  const kept = smartFile(
+    "kept.xlsx",
+    "d".repeat(64),
+    "DSP_SCORECARD",
+    "DLS2",
+    "2026-W39",
+    1
+  );
+
+  const payload = buildRemoteStagingPayload({
+    organizationId: "11111111-1111-4111-8111-111111111111",
+    analysis: {
+      periods: [{
+        key: "2026-W39",
+        weekLabel: "W39",
+        granularity: "weekly",
+        sourceFiles: ["removed.xlsx", "kept.xlsx"],
+        drivers: [{
+          id: "A123",
+          site: "DLS2",
+          sources: ["removed.xlsx", "kept.xlsx"],
+          rawMetrics: { dcr: 99 },
+        }],
+      }],
+      siteScorecards: [],
+      feedbackEvents: [],
+    },
+    plan: { files: [kept], logicalDuplicateGroups: [] },
+    staging: {
+      writesEnabled: false,
+      totalFiles: 1,
+      readyFiles: 1,
+      blockedFiles: 0,
+      exactDuplicatesSkipped: 0,
+      logicalConflictGroups: 0,
+      sourceRows: 1,
+      feedbackRows: 0,
+      scorecardRows: 0,
+      destinations: { imports: 1, driver_metrics: 1 },
+      files: [{ fileName: "kept.xlsx", targets: ["imports", "driver_metrics"] }],
+    },
+    exactDuplicates: [],
+  });
+
+  assert.equal(payload.records.length, 1);
+  assert.equal(payload.records[0].sourceFileName, "kept.xlsx");
+});
