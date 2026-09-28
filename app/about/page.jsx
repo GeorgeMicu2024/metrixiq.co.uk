@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PublicPageShell from "../../components/PublicPageShell";
-import { buildPageMetadata } from "../../lib/seo/site";
+import StructuredData from "../../components/StructuredData";
+import { buildPageMetadata, organizationSchema, SITE_URL } from "../../lib/seo/site";
 
 export const metadata = buildPageMetadata({
   title: "About MetrixIQ Fleet Performance Software",
@@ -8,8 +9,23 @@ export const metadata = buildPageMetadata({
   path: "/about",
 });
 
+const aboutPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  "@id": `${SITE_URL}/about#webpage`,
+  url: `${SITE_URL}/about`,
+  name: "About MetrixIQ Fleet Performance Software",
+  description:
+    "MetrixIQ is fleet and driver performance software for delivery operations, scorecards, compliance, coaching and operational reporting.",
+  mainEntity: { "@id": organizationSchema["@id"] },
+  isPartOf: { "@id": `${SITE_URL}/#website` },
+  inLanguage: "en-GB",
+};
+
 export default function AboutPage() {
   return (
+    <>
+      <StructuredData data={aboutPageSchema} />
     <PublicPageShell
       eyebrow="ABOUT METRIXIQ"
       title="Operational intelligence built around the way delivery teams actually work."
@@ -59,5 +75,6 @@ export default function AboutPage() {
         </div>
       </section>
     </PublicPageShell>
+    </>
   );
 }
