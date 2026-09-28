@@ -21,6 +21,15 @@ function label(state) {
   return "Review";
 }
 
+function granularityLabel(value) {
+  if (value === "weekly_with_daily_detail") return "Weekly + daily detail";
+  if (value === "needs_review") return "Needs review";
+  if (value === "daily") return "Daily";
+  if (value === "weekly") return "Weekly";
+  if (value === "mixed") return "Mixed";
+  return value || "Unknown";
+}
+
 export default function SmartImportLab({ sites = [] }) {
   const input = useRef(null);
   const [files, setFiles] = useState([]);
@@ -264,23 +273,25 @@ export default function SmartImportLab({ sites = [] }) {
             <tbody>
               {plan.files.map((row) => {
                 const smart = row.smart || {};
-                const warningText = (smart.warnings || []).map((warning) => warning.message).join(" · ");
+                const notes = smart.warnings || [];
+                const warningText = notes.map((warning) => warning.message).join(" · ");
+                const warningIcon = notes.some((warning) => warning?.severity !== "info") ? "⚠" : "ⓘ";
                 return <tr key={row.name}>
                   <td data-label="File">
                     <b>{row.name}</b>
-                    {warningText && <small style={{ display: "block", marginTop: 4 }}>⚠ {warningText}</small>}
+                    {warningText && <small style={{ display: "block", marginTop: 4 }}>{warningIcon} {warningText}</small>}
                     {(smart.segments || []).length > 1 && <details style={{ marginTop: 6 }}>
                       <summary>{smart.segments.length} detected sheets/segments</summary>
                       {(smart.segments || []).map((segment, index) =>
                         <div key={segment.label + index} style={{ marginTop: 4 }}>
-                          {segment.label}: {segment.reportType} · {segment.site || "site ?"} · {segment.granularity} · {segment.confidence}%
+                          {segment.label}: {segment.reportType} · {segment.site || "site ?"} · {granularityLabel(segment.granularity)} · {segment.confidence}%
                         </div>
                       )}
                     </details>}
                   </td>
                   <td data-label="Report">{(smart.reportTypes || []).join(", ") || row.reportType || "Unknown"}</td>
                   <td data-label="Site">{smart.site || "Needs review"}</td>
-                  <td data-label="Period">{smart.granularity || row.period?.granularity || "unknown"}</td>
+                  <td data-label="Period">{granularityLabel(smart.granularity || row.period?.granularity)}</td>
                   <td data-label="Confidence"><b>{smart.confidence ?? 0}%</b></td>
                   <td data-label="Status"><span className={"importv2-readiness " + tone(row.smartState)}>{label(row.smartState)}</span></td>
                 </tr>;
