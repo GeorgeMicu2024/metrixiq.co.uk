@@ -43,3 +43,19 @@ test("entity clarification does not invent company identifiers or social profile
   assert.equal(site.includes("sameAs:"), false);
   assert.equal(site.includes("telephone:"), false);
 });
+
+
+test("About page publishes explicit AboutPage schema for the MetrixIQ entity", () => {
+  const about = read("app/about/page.jsx");
+
+  assert.ok(about.includes('"@type": "AboutPage"'));
+  assert.ok(about.includes('mainEntity: { "@id": organizationSchema["@id"] }'));
+  assert.ok(about.includes('inLanguage: "en-GB"'));
+});
+
+test("software schema has an explicit Brand node", () => {
+  const site = read("lib/seo/site.js");
+
+  assert.ok(site.includes('"@type": "Brand"'));
+  assert.ok(site.includes("name: SITE_NAME"));
+});
