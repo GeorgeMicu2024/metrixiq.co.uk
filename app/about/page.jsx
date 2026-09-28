@@ -1,7 +1,7 @@
 import Link from "next/link";
 import PublicPageShell from "../../components/PublicPageShell";
 import StructuredData from "../../components/StructuredData";
-import { buildPageMetadata, organizationSchema, SITE_URL } from "../../lib/seo/site";
+import { buildPageMetadata, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164, organizationSchema, SITE_URL } from "../../lib/seo/site";
 
 export const metadata = buildPageMetadata({
   title: "About MetrixIQ Fleet Performance Software",
@@ -32,6 +32,19 @@ export default function AboutPage() {
       intro="MetrixIQ is fleet and driver performance software for delivery operations. It brings scorecards, compliance, coaching and operational reporting into one structured workspace so managers can spend less time reconciling files and more time improving results."
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
     >
+      <section className="public-card official-brand-card">
+        <h2>Official MetrixIQ information</h2>
+        <div className="official-brand-grid">
+          <div><span>Product category</span><b>Fleet & driver performance software</b></div>
+          <div><span>Primary market</span><b>United Kingdom</b></div>
+          <div><span>Official website</span><a href={SITE_URL}>www.metrixiq.co.uk</a></div>
+          <div><span>Contact</span><a href={`tel:${CONTACT_PHONE_E164}`}>{CONTACT_PHONE_DISPLAY}</a></div>
+        </div>
+        <p>
+          MetrixIQ is the UK-focused fleet and driver performance software platform described on this website. It is built for delivery operators, fleet managers and site managers who need clearer scorecards, compliance monitoring, coaching workflows and operational analytics.
+        </p>
+      </section>
+
       <section>
         <h2>Why MetrixIQ exists</h2>
         <p>
