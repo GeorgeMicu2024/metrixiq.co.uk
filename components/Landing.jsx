@@ -46,7 +46,7 @@ export default function Landing(){
  const plans=PLAN_CATALOG;
  const planPrice=(plan)=>formatPlanPrice(plan,"month");
  return <main className="marketing mk-home">
-  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><a href="#solutions">Solutions</a><a href="#pricing">Pricing</a><a href="#faq">Resources</a><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><Link className="mk-get" href="/login?mode=register">Get started</Link></div></header>
+  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><a href="#pricing">Pricing</a><a href="#faq">Resources</a><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><Link className="mk-get" href="/login?mode=register">Get started</Link></div></header>
 
   <section className="mk-hero"><div className="mk-hero-bg"/><div className="mk-hero-copy"><span>FLEET PERFORMANCE INTELLIGENCE</span><h1>Smarter data.<br/>Stronger teams.<br/><em>Better results.</em></h1><p>Turn operational data into real performance. MetrixIQ helps delivery operations monitor, analyse and improve driver and fleet performance with powerful AI-driven insights.</p><div className="mk-actions"><Link href="/login?mode=register">Get started <b>→</b></Link><a href="#solutions">▶ &nbsp; See how it works</a></div><div className="mk-benefits">{benefits.map((x,i)=><span key={x}>{i===1?"↗":"◇"} {x}</span>)}</div></div><div className="mk-script">Data<br/>People<br/>Performance<i/></div><LandingSignInCard/></section>
 
