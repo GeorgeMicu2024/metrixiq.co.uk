@@ -13,6 +13,9 @@ import {
   websiteSchema,
 } from "../lib/seo/site";
 
+const googleSiteVerification =
+  process.env.GOOGLE_SITE_VERIFICATION || process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "";
+
 export const metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -28,6 +31,7 @@ export const metadata = {
     type: "website",
     url: "/",
     siteName: SITE_NAME,
+    locale: "en_GB",
     title: DEFAULT_TITLE,
     description: DEFAULT_DESCRIPTION,
     images: [
@@ -69,6 +73,9 @@ export const metadata = {
   formatDetection: {
     telephone: false,
   },
+  ...(googleSiteVerification
+    ? { verification: { google: googleSiteVerification } }
+    : {}),
 };
 
 export const viewport = {
@@ -80,7 +87,7 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en-GB">
       <body>
         <StructuredData data={[organizationSchema, websiteSchema, softwareSchema]} />
         <PwaBootstrap />
