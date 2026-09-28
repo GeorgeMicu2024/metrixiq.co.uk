@@ -38,7 +38,7 @@ test("below-the-fold homepage sections use content visibility containment", () =
 test("mobile hero keeps the visual redesign while using a cheaper card shadow", () => {
   const marketing = read("app/marketing-base.css");
 
-  assert.ok(marketing.includes(".mk-hero{min-height:560px"));
+  assert.ok(marketing.includes(".mk-hero{min-height:520px"));
   assert.ok(marketing.includes("box-shadow:0 14px 32px"));
 });
 
