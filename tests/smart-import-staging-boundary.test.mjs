@@ -56,3 +56,15 @@ test("Stage control locks after a successful remote stage", () => {
 test("Edge Function calls the idempotent v3 staging function", () => {
   assert.match(edge, /smart_import_lab\.stage_payload_v3/);
 });
+
+
+test("cross-batch overlap remains staging evidence instead of being excluded", () => {
+  const migration = readFileSync(
+    new URL("../supabase/staging/20260928_preserve_cross_batch_overlap.sql", import.meta.url),
+    "utf8"
+  );
+  assert.match(migration, /previouslyStaged/);
+  assert.match(migration, /current_file\.state in \('ready','warning'\)/);
+  assert.doesNotMatch(migration, /set\s+state = 'duplicate',[\s\S]*previousBatchId/);
+  assert.match(migration, /Partial-overlap batches must retain all current normalized evidence/);
+});
