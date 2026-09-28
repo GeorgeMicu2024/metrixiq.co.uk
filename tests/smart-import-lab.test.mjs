@@ -133,10 +133,10 @@ test("ZIP is accepted and expanded in memory without persistence", async () => {
 test("eMentor parser evidence feeds Smart Import daily classification", () => {
   const matrix = [
     ["First Name","Last Name","FICO Safe Driving Score","Acceleration Rating","Braking Rating","Cornering Rating","Distraction Rating","Speeding Rating","Station","Total Driver Trips"],
-    ["Ana","Driver",830,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
-    ["Ben","Driver",820,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
-    ["Cara","Driver",810,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
-    ["Dan","Driver",800,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",2],
+    ["Ana","Popescu",830,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
+    ["Ben","Smith",820,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
+    ["Cara","Jones",810,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
+    ["Dan","Miller",800,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",2],
   ];
   const parsed = parseMentorMatrix(matrix, "Driver Report_2026-09-27.xlsx", "Driver Report (VRM)");
   const smart = buildSmartFileDetection([parsed], "Driver Report_2026-09-27.xlsx", { granularity: "daily" });
@@ -150,10 +150,10 @@ test("eMentor parser evidence feeds Smart Import daily classification", () => {
 test("eMentor parser evidence overrides date filename for weekly classification", () => {
   const matrix = [
     ["First Name","Last Name","FICO Safe Driving Score","Acceleration Rating","Braking Rating","Cornering Rating","Distraction Rating","Speeding Rating","Station","Total Driver Trips"],
-    ["Ana","Driver",830,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",4],
-    ["Ben","Driver",820,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",5],
-    ["Cara","Driver",810,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",3],
-    ["Dan","Driver",800,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",6],
+    ["Ana","Popescu",830,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",4],
+    ["Ben","Smith",820,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",5],
+    ["Cara","Jones",810,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",3],
+    ["Dan","Miller",800,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",6],
   ];
   const parsed = parseMentorMatrix(matrix, "Driver Report_2026-09-20.xlsx", "Driver Report (VRM)");
   const smart = buildSmartFileDetection([parsed], "Driver Report_2026-09-20.xlsx", { granularity: "daily" });
