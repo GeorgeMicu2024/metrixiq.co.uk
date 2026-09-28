@@ -255,3 +255,55 @@ test("uses an available staged source when the first driver source was excluded"
   assert.equal(payload.records.length, 1);
   assert.equal(payload.records[0].sourceFileName, "kept.xlsx");
 });
+
+
+test("payload exposes normalized counts separately from raw evidence counts", () => {
+  const file = smartFile(
+    "multi-source.xlsx",
+    "e".repeat(64),
+    "DSP_SCORECARD",
+    "DLS2",
+    "2026-W39",
+    2
+  );
+
+  const payload = buildRemoteStagingPayload({
+    organizationId: "11111111-1111-4111-8111-111111111111",
+    analysis: {
+      periods: [{
+        key: "2026-W39",
+        weekLabel: "W39",
+        granularity: "weekly",
+        sourceFiles: [file.name],
+        drivers: [
+          { id: "A123", site: "DLS2", sources: [file.name], rawMetrics: { dcr: 99 } },
+          { id: "A123", site: "DLS2", sources: [file.name], rawMetrics: { pod: 100 } },
+        ],
+      }],
+      siteScorecards: [],
+      feedbackEvents: [],
+    },
+    plan: { files: [file], logicalDuplicateGroups: [] },
+    staging: {
+      writesEnabled: false,
+      totalFiles: 1,
+      readyFiles: 1,
+      blockedFiles: 0,
+      exactDuplicatesSkipped: 0,
+      logicalConflictGroups: 0,
+      sourceRows: 2,
+      feedbackRows: 0,
+      scorecardRows: 0,
+      destinations: { imports: 1, driver_metrics: 1 },
+      files: [{ fileName: file.name, targets: ["imports", "driver_metrics"] }],
+    },
+    exactDuplicates: [],
+  });
+
+  assert.equal(payload.summary.sourceRows, 2);
+  assert.equal(payload.summary.normalizedDriverRecords, 1);
+  assert.equal(payload.summary.normalizedFeedbackRecords, 0);
+  assert.equal(payload.summary.normalizedScorecardRecords, 0);
+  assert.equal(payload.summary.normalizedRecordCount, 1);
+  assert.equal(payload.records.length, 1);
+});
