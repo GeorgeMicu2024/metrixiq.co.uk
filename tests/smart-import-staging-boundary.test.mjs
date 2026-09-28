@@ -30,3 +30,17 @@ test("staging Edge Function validates production user and owner or manager membe
   assert.match(edge, /site_scope/);
   assert.match(edge, /writesToProduction: false/);
 });
+
+
+test("staging failures are rendered inline beside the staging controls", () => {
+  assert.match(lab, /const \[remoteError, setRemoteError\]/);
+  assert.match(lab, /Test DB staging failed:/);
+  assert.match(lab, /Sending validated batch to MetrixIQ Staging/);
+  assert.match(lab, /setRemoteError\(failure\)/);
+});
+
+test("Edge Function exposes safe reconciliation failures without leaking arbitrary database errors", () => {
+  assert.match(edge, /rawMessage\.startsWith\("Staging reconciliation failed\."\)/);
+  assert.match(edge, /RECONCILIATION_FAILED/);
+  assert.match(edge, /STAGING_WRITE_FAILED/);
+});
