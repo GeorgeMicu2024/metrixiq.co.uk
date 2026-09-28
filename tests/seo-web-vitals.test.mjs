@@ -24,3 +24,14 @@ test("CLS is scaled for GA event value while timing metrics are rounded", () => 
   assert.ok(reporter.includes("metric.value * 1000"));
   assert.ok(reporter.includes("Math.round(metric.value)"));
 });
+
+
+test("Web Vitals code is lazy-loaded only after analytics consent", () => {
+  const analytics = read("components/GoogleAnalytics.jsx");
+  const layout = read("app/layout.jsx");
+
+  assert.ok(analytics.includes('lazy(() => import("./WebVitalsReporter"))'));
+  assert.ok(analytics.includes('consent === "accepted"'));
+  assert.ok(analytics.includes("<WebVitalsReporter />"));
+  assert.equal(layout.includes("WebVitalsReporter"), false);
+});
