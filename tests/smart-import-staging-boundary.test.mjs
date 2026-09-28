@@ -8,10 +8,14 @@ const center = readFileSync(new URL("../components/imports/ImportCenterV2.jsx", 
 const edge = readFileSync(new URL("../supabase/functions/smart-import-stage/index.ts", import.meta.url), "utf8");
 const approveEdge = readFileSync(new URL("../supabase/functions/smart-import-approve/index.ts", import.meta.url), "utf8");
 const approveSql = readFileSync(new URL("../supabase/staging/20260928_approve_reconciled_batch.sql", import.meta.url), "utf8");
+const identityApprovalSql = readFileSync(new URL("../supabase/staging/20260929_reject_invalid_driver_identity_before_approval.sql", import.meta.url), "utf8");
+const productionEdge = readFileSync(new URL("../supabase/functions/smart-import-production/index.ts", import.meta.url), "utf8");
+const productionSql = readFileSync(new URL("../supabase/production/20260929_smart_import_preflight.sql", import.meta.url), "utf8");
 
-test("remote staging targets only the isolated staging project", () => {
-  assert.match(remote, /hsbxqiuvciwalxogqceb\.supabase\.co\/functions\/v1\/smart-import-stage/);
-  assert.doesNotMatch(remote, /bbljkuwfejslsqoqqwzh\.supabase\.co\/functions/);
+test("staging and Production preflight use explicit isolated endpoints", () => {
+  assert.match(remote, /STAGING_FUNCTION_URL = "https:\/\/hsbxqiuvciwalxogqceb\.supabase\.co\/functions\/v1\/smart-import-stage"/);
+  assert.match(remote, /APPROVE_FUNCTION_URL = "https:\/\/hsbxqiuvciwalxogqceb\.supabase\.co\/functions\/v1\/smart-import-approve"/);
+  assert.match(remote, /PRODUCTION_PREFLIGHT_URL = "https:\/\/bbljkuwfejslsqoqqwzh\.supabase\.co\/functions\/v1\/smart-import-production"/);
 });
 
 test("remote staging authenticates with the active MetrixIQ session", () => {
@@ -105,4 +109,38 @@ test("approval UI is a separate gate after staging and never claims a production
   assert.match(lab, /Approved ✓/);
   assert.match(lab, /PRODUCTION STILL OFF/);
   assert.match(lab, /Production remains untouched/);
+});
+
+
+test("approval rejects structural or non-TRID driver identities", () => {
+  assert.match(identityApprovalSql, /invalid driver identities/i);
+  assert.match(identityApprovalSql, /entity_key !~ '\^A\[A-Z0-9\]\{8,\}\$'/);
+  assert.match(approveEdge, /Batch contains invalid driver identities/);
+});
+
+test("Production endpoint is preflight-only and fetches approved data server-to-server", () => {
+  assert.match(productionEdge, /STAGING_EXPORT_URL/);
+  assert.match(productionEdge, /smart-import-export/);
+  assert.match(productionEdge, /action \|\| "preflight"/);
+  assert.match(productionEdge, /Production commit is not enabled yet/);
+  assert.match(productionEdge, /writesToProduction: false/);
+  assert.match(productionEdge, /private\.smart_import_preflight/);
+});
+
+test("Production preflight remains private and does not expose a commit writer", () => {
+  assert.match(productionSql, /private\.smart_import_commits/);
+  assert.match(productionSql, /private\.smart_import_preflight/);
+  assert.match(productionSql, /dailyDetailSkipped/);
+  assert.match(productionSql, /concessions_weekly_snapshots/);
+  assert.doesNotMatch(productionSql, /insert into public\.driver_metrics/i);
+  assert.doesNotMatch(productionSql, /update public\.driver_metrics/i);
+  assert.doesNotMatch(productionSql, /delete from public\.driver_metrics/i);
+});
+
+test("Production preflight UI keeps commit disabled", () => {
+  assert.match(lab, /PRODUCTION PREFLIGHT/);
+  assert.match(lab, /Run Production Preflight/);
+  assert.match(lab, /Commit to Production/);
+  assert.match(lab, /COMMIT LOCKED UNTIL NEXT GATE/);
+  assert.match(lab, /zero writes/);
 });
