@@ -24,7 +24,9 @@ test("Import Center does not render escaped newline text between tabs", () => {
   assert.doesNotMatch(importCenter, /SmartImportLab sites=\{sites\}\/>\}\\n\\n/);
 });
 
-test("mobile staging action uses compact copy", () => {
-  assert.match(component, />Discard stage<\/button>/);
+test("mobile staging actions separate local dry run from isolated test DB", () => {
+  assert.match(component, />Discard dry run<\/button>/);
+  assert.match(component, /Stage to Test DB/);
+  assert.match(component, /PRODUCTION OFF/);
   assert.doesNotMatch(component, />Discard dry-run stage<\/button>/);
 });
