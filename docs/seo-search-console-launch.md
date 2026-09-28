@@ -105,3 +105,6 @@ After the deployment containing that file is promoted to production:
 5. Bing Webmaster API access is optional and can be connected later for Bing-specific crawl/index reporting.
 
 Do not rotate the IndexNow key casually. If it is rotated, update both the public key file and the configured key before submitting new batches.
+
+
+IndexNow production submission trigger prepared after the 28 September 2026 production promotion.
