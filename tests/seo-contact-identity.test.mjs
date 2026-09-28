@@ -24,3 +24,15 @@ test("Contact page displays a clickable phone link and ContactPage schema", () =
   assert.ok(contact.includes('href={`tel:${CONTACT_PHONE_E164}`}'));
   assert.ok(contact.includes("Call MetrixIQ"));
 });
+
+
+test("verified contact number is visible across public footers", () => {
+  const shell = read("components/PublicPageShell.jsx");
+  const landing = read("components/Landing.jsx");
+
+  for (const source of [shell, landing]) {
+    assert.ok(source.includes("CONTACT_PHONE_E164"));
+    assert.ok(source.includes("CONTACT_PHONE_DISPLAY"));
+    assert.ok(source.includes("tel:${CONTACT_PHONE_E164}"));
+  }
+});
