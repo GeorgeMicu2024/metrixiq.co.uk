@@ -26,6 +26,7 @@ export const metadata = {
   applicationName: SITE_NAME,
   alternates: {
     canonical: "/",
+    languages: { "en-GB": "/" },
   },
   openGraph: {
     type: "website",
