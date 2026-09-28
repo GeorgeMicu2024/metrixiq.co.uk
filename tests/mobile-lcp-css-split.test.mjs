@@ -125,8 +125,29 @@ test("homepage visual redesign replaces long text walls with operational visuals
 test("delivery network examples are shown without implying affiliation", () => {
   const landing = read("components/Landing.jsx");
 
-  for (const brand of ["Amazon Logistics", "Evri", "DPD", "DHL", "Royal Mail"]) {
+  for (const brand of ["Amazon Logistics", "Evri", "DPD", "DHL", "UPS", "FedEx", "Yodel"]) {
     assert.ok(landing.includes(brand));
   }
+  assert.equal(landing.includes("Royal Mail"), false);
   assert.ok(landing.includes("no affiliation implied"));
+});
+
+
+test("carrier strip uses compact brand marks instead of plain text pills", () => {
+  const landing = read("components/Landing.jsx");
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(landing.includes("function CarrierLogo"));
+  for (const cls of [
+    "carrier-amazon",
+    "carrier-evri",
+    "carrier-dpd",
+    "carrier-dhl",
+    "carrier-ups",
+    "carrier-fedex",
+    "carrier-yodel",
+  ]) {
+    assert.ok(marketing.includes("." + cls));
+  }
+  assert.ok(marketing.includes(".carrier-logo{height:36px"));
 });
