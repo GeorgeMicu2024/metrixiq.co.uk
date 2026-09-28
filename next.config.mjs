@@ -18,6 +18,7 @@ const nextConfig = {
 
   async redirects() {
     return [
+      { source: "/security.txt", destination: "/.well-known/security.txt", permanent: true },
       { source: "/guides", destination: "/resources", permanent: true },
       { source: "/blog", destination: "/resources", permanent: true },
       { source: "/driver-scorecards", destination: "/driver-performance-scorecards", permanent: true },
