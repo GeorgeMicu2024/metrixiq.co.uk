@@ -8,7 +8,7 @@ import { deduplicateFilesByContent } from "../../lib/imports/contentFingerprint"
 import { IMPORT_ACCEPT, classifyImportFile, fileExtension, formatFileSize } from "../../lib/imports/preflight";
 import { buildStagingPlan } from "../../lib/imports/stagingPlan";
 import { buildRemoteStagingPayload } from "../../lib/imports/stagingPayload";
-import { stageSmartImportPayload } from "../../lib/imports/stagingRemote";
+import { approveSmartImportBatch, stageSmartImportPayload } from "../../lib/imports/stagingRemote";
 import { clearBrowserStaging, loadBrowserStaging, saveBrowserStaging } from "../../lib/imports/browserStaging";
 import { APPROVED_REVIEW_REPORT_TYPES, applyReviewResolutions, canManuallyEditDetection, validManualPeriod } from "../../lib/imports/reviewResolution";
 
@@ -98,6 +98,9 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
   const [remoteStage, setRemoteStage] = useState(null);
   const [remoteBusy, setRemoteBusy] = useState(false);
   const [remoteError, setRemoteError] = useState("");
+  const [approvalBusy, setApprovalBusy] = useState(false);
+  const [approvalError, setApprovalError] = useState("");
+  const [approvedBatch, setApprovedBatch] = useState(null);
   const [reviewOverrides, setReviewOverrides] = useState({});
   const [excludedDetections, setExcludedDetections] = useState([]);
   const [editingFile, setEditingFile] = useState("");
@@ -284,6 +287,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       const staged = await stageSmartImportPayload(payload);
       setRemoteStage(staged);
       setRemoteError("");
+      setApprovedBatch(null);
+      setApprovalError("");
       setMessage(
         "Safely staged in MetrixIQ Staging · " +
         staged.readyFiles + " ready · " +
@@ -300,6 +305,33 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       setMessage(failure);
     } finally {
       setRemoteBusy(false);
+    }
+  }
+
+  async function approveStagedBatch() {
+    if (!remoteStage?.batchId || approvalBusy || approvedBatch) return;
+    if (!organizationId) {
+      setApprovalError("Workspace organisation is missing.");
+      return;
+    }
+
+    setApprovalBusy(true);
+    setApprovalError("");
+    try {
+      const approved = await approveSmartImportBatch({
+        batchId: remoteStage.batchId,
+        organizationId,
+      });
+      setApprovedBatch(approved);
+      setMessage(
+        approved.alreadyApproved
+          ? "This reconciled batch was already approved in MetrixIQ Staging. Production remains untouched."
+          : "Batch approved in MetrixIQ Staging. Production remains untouched."
+      );
+    } catch (error) {
+      setApprovalError(error?.message || "Could not approve this staging batch.");
+    } finally {
+      setApprovalBusy(false);
     }
   }
 
@@ -639,6 +671,36 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
           {remoteStage.reconciled && <small style={{ display: "block", marginTop: 6 }}>
             Stored: {remoteStage.driverRecords || 0} driver-period · {remoteStage.feedbackRecords || 0} feedback · {remoteStage.scorecardRecords || 0} site scorecards.
           </small>}
+        </div>}
+        {remoteStage && <div className="smartlab-approval-card" style={{ marginTop: 12 }}>
+          <div>
+            <span className="page-kicker">APPROVAL GATE</span>
+            <h3>{approvedBatch ? "Approved for production handoff" : "Approve reconciled batch"}</h3>
+            <p>
+              {approvedBatch
+                ? "This batch is frozen as approved in MetrixIQ Staging. No Production tables have been changed."
+                : "Approval freezes this reconciled batch in Staging. It does not write anything to Production."}
+            </p>
+          </div>
+          <div className="smartlab-approval-actions">
+            <button
+              className="btn primary"
+              type="button"
+              onClick={approveStagedBatch}
+              disabled={approvalBusy || !!approvedBatch || !remoteStage.reconciled}
+            >
+              {approvalBusy ? "Approving…" : approvedBatch ? "Approved ✓" : "Approve Batch"}
+            </button>
+            <span className="importv2-readiness good">PRODUCTION STILL OFF</span>
+          </div>
+          {approvalError && <div className="importv2-message error">
+            ✕ Approval failed: {approvalError}
+          </div>}
+          {approvedBatch && <div className="importv2-message good">
+            ✓ Batch <b>{String(approvedBatch.batchId || "").slice(0, 8)}</b> approved
+            {approvedBatch.approvedAt ? " · " + new Date(approvedBatch.approvedAt).toLocaleString("en-GB") : ""}
+            {approvedBatch.alreadyApproved ? " · already approved" : ""} · production untouched.
+          </div>}
         </div>}
         <div className="importv2-preview-grid" style={{ marginTop: 14 }}>
           <article>
