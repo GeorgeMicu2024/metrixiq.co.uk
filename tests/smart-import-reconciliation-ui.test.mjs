@@ -27,3 +27,13 @@ test("remote stage UI exposes reconciliation and stored record breakdown", () =>
   assert.match(lab, /feedback/);
   assert.match(lab, /site scorecards/);
 });
+
+
+test("preview shows normalized record expectations and raw evidence provenance", () => {
+  assert.match(lab, /normalizedPreview/);
+  assert.match(lab, /normalizedDriverRecords/);
+  assert.match(lab, /normalizedFeedbackRecords/);
+  assert.match(lab, /normalizedScorecardRecords/);
+  assert.match(lab, /normalized from/);
+  assert.match(lab, /raw evidence rows/);
+});
