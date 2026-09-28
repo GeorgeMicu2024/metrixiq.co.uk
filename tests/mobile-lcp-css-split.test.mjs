@@ -42,12 +42,14 @@ test("mobile hero keeps the approved design while using a cheaper card shadow", 
 });
 
 
-test("PWA service worker registration is deferred beyond initial render", () => {
-  const pwa = read("components/pwa/PwaBootstrap.jsx");
+test("PWA service worker uses a non-hydrated deferred bootstrap", () => {
+  const root = read("app/layout.jsx");
 
-  assert.ok(pwa.includes("requestIdleCallback"));
-  assert.ok(pwa.includes('window.addEventListener("load",deferServiceWorker'));
-  assert.ok(pwa.includes('navigator.serviceWorker.register("/sw.js"'));
+  assert.ok(root.includes('id="metrixiq-pwa-bootstrap"'));
+  assert.ok(root.includes("requestIdleCallback"));
+  assert.ok(root.includes('window.addEventListener("load", deferServiceWorker'));
+  assert.ok(root.includes('navigator.serviceWorker.register("/sw.js"'));
+  assert.equal(root.includes('import PwaBootstrap'), false);
 });
 
 test("mobile sign-in card can skip offscreen rendering before LCP", () => {
