@@ -1,3 +1,4 @@
+import "../app/public-pages.css";
 import Link from "next/link";
 import Brand from "./Brand";
 import CookieSettingsButton from "./CookieSettingsButton";
