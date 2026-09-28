@@ -30,3 +30,11 @@ test("mobile staging actions separate local dry run from isolated test DB", () =
   assert.match(component, /PRODUCTION OFF/);
   assert.doesNotMatch(component, />Discard dry-run stage<\/button>/);
 });
+
+
+test("unavailable files can be removed without clearing the whole batch", () => {
+  assert.match(component, /0 B \/ unavailable on this device/);
+  assert.match(component, /smartlab-remove-file/);
+  assert.match(component, />Remove<\/button>/);
+  assert.match(css, /Smart Import unavailable file state/);
+});
