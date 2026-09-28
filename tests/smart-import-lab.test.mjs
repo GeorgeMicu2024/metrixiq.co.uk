@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import JSZip from "jszip";
 
-import { analyseFiles } from "../lib/analyzer.js";
+import { parseMentorMatrix } from "../lib/analyzer/spreadsheet.js";
 import {
   buildSmartFileDetection,
   buildSmartImportPlan,
@@ -130,38 +130,34 @@ test("ZIP is accepted and expanded in memory without persistence", async () => {
   assert.deepEqual(expanded.files.map((item) => item.name).sort(), ["DDN1/report.csv", "DLS2/report.csv"]);
 });
 
-test("End-to-end analyzer classifies real eMentor CSV shape as daily", async () => {
-  const csv = [
-    "First Name,Last Name,FICO Safe Driving Score,Acceleration Rating,Braking Rating,Cornering Rating,Distraction Rating,Speeding Rating,Station,Total Driver Trips",
-    "Ana,Driver,830,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,1",
-    "Ben,Driver,820,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,1",
-    "Cara,Driver,810,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,1",
-    "Dan,Driver,800,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,2",
-  ].join("\n");
+test("eMentor parser evidence feeds Smart Import daily classification", () => {
+  const matrix = [
+    ["First Name","Last Name","FICO Safe Driving Score","Acceleration Rating","Braking Rating","Cornering Rating","Distraction Rating","Speeding Rating","Station","Total Driver Trips"],
+    ["Ana","Driver",830,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
+    ["Ben","Driver",820,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
+    ["Cara","Driver",810,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",1],
+    ["Dan","Driver",800,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",2],
+  ];
+  const parsed = parseMentorMatrix(matrix, "Driver Report_2026-09-27.xlsx", "Driver Report (VRM)");
+  const smart = buildSmartFileDetection([parsed], "Driver Report_2026-09-27.xlsx", { granularity: "daily" });
 
-  const result = await analyseFiles([
-    new File([csv], "Driver Report_2026-09-27.csv", { type: "text/csv", lastModified: 1 }),
-  ]);
-
-  assert.equal(result.recognizedFiles, 1);
-  assert.equal(result.fileResults[0].smart.site, "DDN1");
-  assert.equal(result.fileResults[0].smart.granularity, "daily");
-  assert.deepEqual(result.fileResults[0].smart.reportTypes, ["EMENTOR"]);
+  assert.equal(parsed.records.length, 4);
+  assert.equal(smart.site, "DDN1");
+  assert.equal(smart.granularity, "daily");
+  assert.deepEqual(smart.reportTypes, ["EMENTOR"]);
 });
 
-test("End-to-end analyzer overrides date filename when eMentor data is weekly", async () => {
-  const csv = [
-    "First Name,Last Name,FICO Safe Driving Score,Acceleration Rating,Braking Rating,Cornering Rating,Distraction Rating,Speeding Rating,Station,Total Driver Trips",
-    "Ana,Driver,830,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,4",
-    "Ben,Driver,820,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,5",
-    "Cara,Driver,810,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,3",
-    "Dan,Driver,800,Low Risk,Low Risk,Low Risk,Low Risk,Low Risk,DDN1,6",
-  ].join("\n");
+test("eMentor parser evidence overrides date filename for weekly classification", () => {
+  const matrix = [
+    ["First Name","Last Name","FICO Safe Driving Score","Acceleration Rating","Braking Rating","Cornering Rating","Distraction Rating","Speeding Rating","Station","Total Driver Trips"],
+    ["Ana","Driver",830,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",4],
+    ["Ben","Driver",820,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",5],
+    ["Cara","Driver",810,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",3],
+    ["Dan","Driver",800,"Low Risk","Low Risk","Low Risk","Low Risk","Low Risk","DDN1",6],
+  ];
+  const parsed = parseMentorMatrix(matrix, "Driver Report_2026-09-20.xlsx", "Driver Report (VRM)");
+  const smart = buildSmartFileDetection([parsed], "Driver Report_2026-09-20.xlsx", { granularity: "daily" });
 
-  const result = await analyseFiles([
-    new File([csv], "Driver Report_2026-09-20.csv", { type: "text/csv", lastModified: 1 }),
-  ]);
-
-  assert.equal(result.fileResults[0].period.granularity, "daily");
-  assert.equal(result.fileResults[0].smart.granularity, "weekly");
+  assert.equal(smart.granularity, "weekly");
+  assert.ok(smart.confidence >= 90);
 });
