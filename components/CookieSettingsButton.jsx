@@ -1,7 +1,3 @@
-"use client";
-
-import { CONSENT_EVENT } from "./GoogleAnalytics";
-
 export default function CookieSettingsButton() {
   const enabled = Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID);
 
@@ -11,7 +7,7 @@ export default function CookieSettingsButton() {
     <button
       type="button"
       className="cookie-settings-button"
-      onClick={() => window.dispatchEvent(new Event(CONSENT_EVENT))}
+      data-cookie-settings="true"
     >
       Cookie settings
     </button>
