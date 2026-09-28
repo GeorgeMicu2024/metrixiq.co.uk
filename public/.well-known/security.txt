@@ -1,0 +1,5 @@
+Contact: https://www.metrixiq.co.uk/contact
+Expires: 2027-09-28T23:59:59Z
+Preferred-Languages: en
+Canonical: https://www.metrixiq.co.uk/.well-known/security.txt
+Policy: https://www.metrixiq.co.uk/security
