@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicPageShell from "../../components/PublicPageShell";
+import TrackedLink from "../../components/TrackedLink";
 import StructuredData from "../../components/StructuredData";
 import { buildPageMetadata, SITE_URL } from "../../lib/seo/site";
 import { SOLUTION_PAGE_LIST } from "../../lib/seo/solutionPages";
@@ -32,6 +33,7 @@ export default function SolutionsPage() {
         eyebrow="SOLUTIONS"
         title="Operational intelligence for the performance workflows delivery teams manage every week."
         intro="Explore MetrixIQ by workflow: driver scorecards, compliance, coaching, fleet analytics, delivery operations and performance management."
+        breadcrumbs={[{ label: "Home", href: "/" }, { label: "Solutions" }]}
       >
         <section>
           <h2>Choose the workflow you want to improve</h2>
@@ -56,8 +58,8 @@ export default function SolutionsPage() {
             Start with the operational reports your managers already review. MetrixIQ can organise those recurring inputs into driver, site and fleet views, then connect the results to coaching, compliance and management reporting.
           </p>
           <div className="public-actions">
-            <Link className="primary" href="/login?mode=register">Get started</Link>
-            <Link href="/contact">Contact MetrixIQ</Link>
+            <TrackedLink className="primary" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "solutions_hub" }}>Get started</TrackedLink>
+            <TrackedLink href="/contact" eventParams={{ cta_label: "Contact MetrixIQ", cta_location: "solutions_hub" }}>Contact MetrixIQ</TrackedLink>
           </div>
         </section>
       </PublicPageShell>
