@@ -44,3 +44,15 @@ test("Edge Function exposes safe reconciliation failures without leaking arbitra
   assert.match(edge, /RECONCILIATION_FAILED/);
   assert.match(edge, /STAGING_WRITE_FAILED/);
 });
+
+
+test("Stage control locks after a successful remote stage", () => {
+  assert.match(lab, /!remoteStage/);
+  assert.match(lab, /"Staged ✓"/);
+  assert.match(lab, /"Already staged ✓"/);
+  assert.doesNotMatch(lab, /"Stage again"/);
+});
+
+test("Edge Function calls the idempotent v3 staging function", () => {
+  assert.match(edge, /smart_import_lab\.stage_payload_v3/);
+});
