@@ -121,7 +121,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const rows = await db`
-      select smart_import_lab.stage_payload(
+      select smart_import_lab.stage_payload_v2(
         ${db.json(body)}::jsonb,
         ${auth.user.id}::uuid
       ) as result
