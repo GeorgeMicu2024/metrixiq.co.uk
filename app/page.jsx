@@ -5,7 +5,7 @@ import { buildPageMetadata, SITE_URL } from "../lib/seo/site";
 export const metadata = buildPageMetadata({
   title: "Fleet & Driver Performance Intelligence",
   description:
-    "AI-powered fleet and driver performance intelligence for delivery operations. Manage scorecards, compliance, coaching and operational reporting in one workspace.",
+    "AI-powered fleet and driver performance intelligence for delivery operations. Manage scorecards, compliance, coaching and reporting in one workspace.",
   path: "/",
 });
 
