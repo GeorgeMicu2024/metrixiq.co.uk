@@ -104,9 +104,6 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
   const [productionPreflight, setProductionPreflight] = useState(null);
   const [productionBusy, setProductionBusy] = useState(false);
   const [productionError, setProductionError] = useState("");
-  const [productionPreflight, setProductionPreflight] = useState(null);
-  const [productionBusy, setProductionBusy] = useState(false);
-  const [productionError, setProductionError] = useState("");
   const [reviewOverrides, setReviewOverrides] = useState({});
   const [excludedDetections, setExcludedDetections] = useState([]);
   const [editingFile, setEditingFile] = useState("");
