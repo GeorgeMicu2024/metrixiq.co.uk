@@ -280,7 +280,7 @@ export default function ImportCenterV2({
       </>}
     </>}
 
-    {tab==="lab"&&<SmartImportLab sites={sites}/>}    {tab==="history"&&<section className="panel importv2-history">
+    {tab==="lab"&&<SmartImportLab sites={sites} organizationId={organizationId}/>}    {tab==="history"&&<section className="panel importv2-history">
       <div className="panel-head"><div><h2>Import history</h2><p>Every stored source file with rollback controls. Merged evidence is preserved when removal would be unsafe.</p></div><button className="btn ghost" onClick={loadHistory}>Refresh</button></div>
       <div className="table-wrap"><table className="data-table"><thead><tr><th>Imported</th><th>File</th><th>Detected report</th><th>Period</th><th>Status</th><th>Mode</th><th>Action</th></tr></thead><tbody>
         {history.map((item)=><tr key={item.id}><td>{importDate(item.created_at)}</td><td><b>{item.file_name}</b><small className="history-date">{item.file_size_bytes?Math.round(item.file_size_bytes/1024)+" KB":"—"}</small></td><td>{item.detected_report_type||"—"}</td><td>{item.period_start||"—"} → {item.period_end||"—"}</td><td><span className={"import-status "+(item.metadata?.rolled_back?"read":item.status)}>{item.metadata?.rolled_back?"rolled back":item.status}</span></td><td>{item.metadata?.import_mode||"standard"}</td><td><button className="btn ghost compact" disabled={!canManage||busyImport===item.id||item.metadata?.rolled_back} onClick={()=>rollback(item)}>{busyImport===item.id?"Checking…":"Rollback"}</button></td></tr>)}
