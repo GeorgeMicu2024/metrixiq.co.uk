@@ -8,7 +8,7 @@ import { deduplicateFilesByContent } from "../../lib/imports/contentFingerprint"
 import { IMPORT_ACCEPT, classifyImportFile, fileExtension, formatFileSize } from "../../lib/imports/preflight";
 import { buildStagingPlan } from "../../lib/imports/stagingPlan";
 import { buildRemoteStagingPayload } from "../../lib/imports/stagingPayload";
-import { approveSmartImportBatch, stageSmartImportPayload } from "../../lib/imports/stagingRemote";
+import { approveSmartImportBatch, preflightSmartImportProduction, stageSmartImportPayload } from "../../lib/imports/stagingRemote";
 import { clearBrowserStaging, loadBrowserStaging, saveBrowserStaging } from "../../lib/imports/browserStaging";
 import { APPROVED_REVIEW_REPORT_TYPES, applyReviewResolutions, canManuallyEditDetection, validManualPeriod } from "../../lib/imports/reviewResolution";
 
@@ -101,6 +101,9 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
   const [approvalBusy, setApprovalBusy] = useState(false);
   const [approvalError, setApprovalError] = useState("");
   const [approvedBatch, setApprovedBatch] = useState(null);
+  const [productionPreflight, setProductionPreflight] = useState(null);
+  const [productionBusy, setProductionBusy] = useState(false);
+  const [productionError, setProductionError] = useState("");
   const [reviewOverrides, setReviewOverrides] = useState({});
   const [excludedDetections, setExcludedDetections] = useState([]);
   const [editingFile, setEditingFile] = useState("");
@@ -131,6 +134,12 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setResult(null);
     setRemoteStage(null);
     setRemoteError("");
+    setApprovedBatch(null);
+    setProductionPreflight(null);
+    setProductionError("");
+    setApprovedBatch(null);
+    setProductionPreflight(null);
+    setProductionError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
@@ -146,6 +155,12 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setResult(null);
     setRemoteStage(null);
     setRemoteError("");
+    setApprovedBatch(null);
+    setProductionPreflight(null);
+    setProductionError("");
+    setApprovedBatch(null);
+    setProductionPreflight(null);
+    setProductionError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
@@ -162,6 +177,12 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setResult(null);
     setRemoteStage(null);
     setRemoteError("");
+    setApprovedBatch(null);
+    setProductionPreflight(null);
+    setProductionError("");
+    setApprovedBatch(null);
+    setProductionPreflight(null);
+    setProductionError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
@@ -190,6 +211,9 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     }));
     setRemoteStage(null);
     setRemoteError("");
+    setApprovedBatch(null);
+    setProductionPreflight(null);
+    setProductionError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage(
@@ -289,6 +313,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       setRemoteError("");
       setApprovedBatch(null);
       setApprovalError("");
+      setProductionPreflight(null);
+      setProductionError("");
       setMessage(
         "Safely staged in MetrixIQ Staging · " +
         staged.readyFiles + " ready · " +
@@ -323,6 +349,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         organizationId,
       });
       setApprovedBatch(approved);
+      setProductionPreflight(null);
+      setProductionError("");
       setMessage(
         approved.alreadyApproved
           ? "This reconciled batch was already approved in MetrixIQ Staging. Production remains untouched."
@@ -332,6 +360,29 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       setApprovalError(error?.message || "Could not approve this staging batch.");
     } finally {
       setApprovalBusy(false);
+    }
+  }
+
+  async function runProductionPreflight() {
+    if (!approvedBatch?.batchId || productionBusy) return;
+    setProductionBusy(true);
+    setProductionError("");
+    setProductionPreflight(null);
+    try {
+      const preflight = await preflightSmartImportProduction({
+        batchId: approvedBatch.batchId,
+        organizationId,
+      });
+      setProductionPreflight(preflight);
+      setMessage(
+        preflight.ready
+          ? "Production preflight passed. No Production rows were changed."
+          : "Production preflight found blocking issues. No Production rows were changed."
+      );
+    } catch (error) {
+      setProductionError(error?.message || "Production preflight failed.");
+    } finally {
+      setProductionBusy(false);
     }
   }
 
@@ -702,6 +753,60 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
             {approvedBatch.alreadyApproved ? " · already approved" : ""} · production untouched.
           </div>}
         </div>}
+        {approvedBatch && <div className="smartlab-production-preflight" style={{ marginTop: 12 }}>
+          <div className="smartlab-production-head">
+            <div>
+              <span className="page-kicker">PRODUCTION PREFLIGHT</span>
+              <h3>Validate the approved batch against Production</h3>
+              <p>No Production rows are written during this check.</p>
+            </div>
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={runProductionPreflight}
+              disabled={productionBusy}
+            >
+              {productionBusy ? "Checking…" : productionPreflight ? "Run again" : "Run Production Preflight"}
+            </button>
+          </div>
+
+          {productionError && <div className="importv2-message error">
+            ✕ Production preflight failed: {productionError}
+          </div>}
+
+          {productionPreflight && <div className="smartlab-production-result">
+            <div className={"importv2-message " + (productionPreflight.ready ? "good" : "error")}>
+              {productionPreflight.ready
+                ? "✓ Production preflight passed · zero writes."
+                : "✕ Production preflight blocked · zero writes."}
+            </div>
+
+            <div className="smartlab-production-grid">
+              <article><span>Imports</span><strong>{productionPreflight.imports?.files || 0}</strong><small>files to register</small></article>
+              <article><span>Drivers</span><strong>{productionPreflight.drivers?.toCreate || 0}</strong><small>new driver identities</small></article>
+              <article><span>Driver metrics</span><strong>{productionPreflight.driverMetrics?.records || 0}</strong><small>{productionPreflight.driverMetrics?.inserts || 0} insert · {productionPreflight.driverMetrics?.updates || 0} update</small></article>
+              <article><span>Feedback</span><strong>{productionPreflight.feedbackEvents?.records || 0}</strong><small>{productionPreflight.feedbackEvents?.inserts || 0} insert · {productionPreflight.feedbackEvents?.updates || 0} update</small></article>
+              <article><span>Scorecards</span><strong>{productionPreflight.siteScorecards?.records || 0}</strong><small>{productionPreflight.siteScorecards?.inserts || 0} insert · {productionPreflight.siteScorecards?.updates || 0} update</small></article>
+              <article><span>DNR snapshots</span><strong>{productionPreflight.concessionsWeekly?.records || 0}</strong><small>{productionPreflight.concessionsWeekly?.inserts || 0} insert · {productionPreflight.concessionsWeekly?.updates || 0} update</small></article>
+              <article><span>Daily detail held</span><strong>{productionPreflight.driverMetrics?.dailyDetailSkipped || 0}</strong><small>kept out of weekly driver_metrics</small></article>
+            </div>
+
+            {(productionPreflight.invalidDriverIdentities > 0 || (productionPreflight.unsupportedTargets || []).length > 0) && <div className="importv2-message error">
+              Commit blocked · invalid identities: {productionPreflight.invalidDriverIdentities || 0}
+              {(productionPreflight.unsupportedTargets || []).length
+                ? " · unsupported targets: " + productionPreflight.unsupportedTargets.join(", ")
+                : ""}
+            </div>}
+
+            <div className="smartlab-production-actions">
+              <button className="btn primary" type="button" disabled>
+                Commit to Production
+              </button>
+              <span className="importv2-readiness good">COMMIT LOCKED UNTIL NEXT GATE</span>
+            </div>
+          </div>}
+        </div>}
+
         <div className="importv2-preview-grid" style={{ marginTop: 14 }}>
           <article>
             <h3>Approved destinations</h3>
