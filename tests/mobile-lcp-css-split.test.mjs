@@ -88,3 +88,22 @@ test("secondary public-page CSS is route-scoped away from the homepage", () => {
   assert.ok(shell.includes('import "../app/public-pages.css"'));
   assert.ok(notFound.includes('import "./public-pages.css"'));
 });
+
+
+test("homepage sign-in card keeps complete lightweight form styling", () => {
+  const marketing = read("app/marketing-base.css");
+
+  for (const selector of [
+    ".mk-login-form",
+    ".mk-login-card label input",
+    ".mk-password-toggle",
+    ".mk-remember button",
+    ".mk-signin,.mk-google",
+    ".mk-auth-message",
+  ]) {
+    assert.ok(marketing.includes(selector), selector + " missing from marketing CSS");
+  }
+
+  assert.ok(marketing.includes(".mk-login-card label:focus-within"));
+  assert.ok(marketing.includes("appearance:none"));
+});
