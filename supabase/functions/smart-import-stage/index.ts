@@ -134,6 +134,15 @@ Deno.serve(async (req: Request) => {
     }, 201);
   } catch (error) {
     console.error("smart-import-stage failed", error);
-    return reply(req, { error: "Staging database write failed." }, 500);
+    const rawMessage = String(error?.message || "");
+    const safeMessage = rawMessage.startsWith("Staging reconciliation failed.")
+      ? rawMessage
+      : "Staging database write failed.";
+    return reply(req, {
+      error: safeMessage,
+      code: rawMessage.startsWith("Staging reconciliation failed.")
+        ? "RECONCILIATION_FAILED"
+        : "STAGING_WRITE_FAILED",
+    }, 500);
   }
 });
