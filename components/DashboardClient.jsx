@@ -27,7 +27,7 @@ import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
-import { hydrateWorkspaceData, loadWorkspaceCore, loadWorkspaceContext } from "../lib/data/workspace";
+import { loadWorkspaceCore, loadWorkspaceContext, refreshWorkspacePerformance } from "../lib/data/workspace";
 import { fetchCommandCenterSummary } from "../lib/data/commandCenter";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
@@ -249,7 +249,7 @@ export default function DashboardClient() {
 
         const organizationId = context.resolved.organization.id;
         Promise.allSettled([
-          hydrateWorkspaceData(supabase, organizationId),
+          refreshWorkspacePerformance(supabase, organizationId),
           supabase.rpc("touch_last_login"),
         ]).then(([hydratedResult]) => {
           if (!alive) return;
@@ -257,7 +257,6 @@ export default function DashboardClient() {
             const hydrated = hydratedResult.value;
             setDbDrivers((hydrated.scorecards || []).map(mapScorecardRow));
             setMetricHistoryRows(hydrated.metricRows || []);
-            setCommandCenter(hydrated.commandCenter || null);
           } else {
             setCommandCenterError("Operational data is still loading or could not be refreshed. Retry from the dashboard if needed.");
           }
