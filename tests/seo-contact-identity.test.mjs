@@ -44,10 +44,13 @@ test("verified contact number stays on Contact page but not in public footers", 
 });
 
 
-test("phone conversions emit a consent-dependent analytics event", () => {
+test("phone conversions use delegated consent-dependent analytics", () => {
   const trackedPhone = read("components/TrackedPhoneLink.jsx");
+  const analytics = read("components/GoogleAnalytics.jsx");
 
-  assert.ok(trackedPhone.includes('window.gtag("event", "phone_click"'));
-  assert.ok(trackedPhone.includes('typeof window.gtag !== "function"'));
-  assert.ok(trackedPhone.includes("contact_method: \"phone\""));
+  assert.equal(trackedPhone.includes('"use client"'), false);
+  assert.ok(trackedPhone.includes('data-track-event="phone_click"'));
+  assert.ok(trackedPhone.includes('contact_method: "phone"'));
+  assert.ok(analytics.includes('closest?.("[data-track-event]")'));
+  assert.ok(analytics.includes('window.gtag("event"'));
 });
