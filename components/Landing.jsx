@@ -53,7 +53,7 @@ export default function Landing(){
  const plans=PLAN_CATALOG;
  const planPrice=(plan)=>formatPlanPrice(plan,"month");
  return <main className="marketing mk-home">
-  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><Link className="mk-get" href="/login?mode=register">Get started</Link></div></header>
+  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><Link className="mk-get" href="/login?mode=register">Get started</Link></div></header>
 
   <section className="mk-hero"><div className="mk-hero-bg"/><div className="mk-hero-copy"><span>FLEET PERFORMANCE INTELLIGENCE</span><h1>Smarter data.<br/>Stronger teams.<br/><em>Better results.</em></h1><p>Turn operational data into real performance. MetrixIQ helps delivery operations monitor, analyse and improve driver and fleet performance with powerful AI-driven insights.</p><div className="mk-actions"><Link href="/login?mode=register">Get started <b>→</b></Link><a href="#solutions">▶ &nbsp; See how it works</a></div><div className="mk-benefits">{benefits.map((x,i)=><span key={x}>{i===1?"↗":"◇"} {x}</span>)}</div></div><div className="mk-script">Data<br/>People<br/>Performance<i/></div><LandingSignInCard/></section>
 
@@ -93,6 +93,7 @@ export default function Landing(){
       <article><b>02</b><h3>Driver performance reviews</h3><p>Bring scorecards and supporting metrics into a driver-level view that makes strengths, risks, movement and coaching priorities easier to understand.</p></article>
       <article><b>03</b><h3>Site and fleet reporting</h3><p>Compare operational performance across sites and reporting periods, then summarise the movement and root causes that matter to senior management.</p></article>
     </div>
+    <div className="mk-use-cases-more"><Link href="/use-cases">Explore all use cases →</Link></div>
   </section>
 
   <section className="mk-solution-links">
@@ -131,7 +132,7 @@ export default function Landing(){
   <footer className="mk-public-footer">
     <Link href="/"><Brand /></Link>
     <p>Fleet and driver performance intelligence for modern delivery operations.</p>
-    <nav><Link href="/resources">Resources</Link><Link href="/about">About</Link><Link href="/contact">Contact</Link><Link href="/security">Security</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><CookieSettingsButton /></nav>
+    <nav><Link href="/use-cases">Use cases</Link><Link href="/resources">Resources</Link><Link href="/about">About</Link><Link href="/contact">Contact</Link><Link href="/security">Security</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><CookieSettingsButton /></nav>
   </footer>
  </main>
 }
