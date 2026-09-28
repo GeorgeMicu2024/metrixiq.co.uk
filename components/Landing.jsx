@@ -2,6 +2,7 @@ import Link from "next/link";
 import Brand from "./Brand";
 import LandingSignInCard from "./LandingSignInCard";
 import CookieSettingsButton from "./CookieSettingsButton";
+import TrackedLink from "./TrackedLink";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans";
 
 const benefits=["Improve compliance","Boost driver performance","Reduce operational risk"];
@@ -53,9 +54,9 @@ export default function Landing(){
  const plans=PLAN_CATALOG;
  const planPrice=(plan)=>formatPlanPrice(plan,"month");
  return <main className="marketing mk-home">
-  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><Link className="mk-get" href="/login?mode=register">Get started</Link></div></header>
+  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><TrackedLink className="mk-get" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_header" }}>Get started</TrackedLink></div></header>
 
-  <section className="mk-hero"><div className="mk-hero-bg"/><div className="mk-hero-copy"><span>FLEET PERFORMANCE INTELLIGENCE</span><h1>Smarter data.<br/>Stronger teams.<br/><em>Better results.</em></h1><p>Turn operational data into real performance. MetrixIQ helps delivery operations monitor, analyse and improve driver and fleet performance with powerful AI-driven insights.</p><div className="mk-actions"><Link href="/login?mode=register">Get started <b>→</b></Link><a href="#solutions">▶ &nbsp; See how it works</a></div><div className="mk-benefits">{benefits.map((x,i)=><span key={x}>{i===1?"↗":"◇"} {x}</span>)}</div></div><div className="mk-script">Data<br/>People<br/>Performance<i/></div><LandingSignInCard/></section>
+  <section className="mk-hero"><div className="mk-hero-bg"/><div className="mk-hero-copy"><span>FLEET PERFORMANCE INTELLIGENCE</span><h1>Smarter data.<br/>Stronger teams.<br/><em>Better results.</em></h1><p>Turn operational data into real performance. MetrixIQ helps delivery operations monitor, analyse and improve driver and fleet performance with powerful AI-driven insights.</p><div className="mk-actions"><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_hero" }}>Get started <b>→</b></TrackedLink><a href="#solutions">▶ &nbsp; See how it works</a></div><div className="mk-benefits">{benefits.map((x,i)=><span key={x}>{i===1?"↗":"◇"} {x}</span>)}</div></div><div className="mk-script">Data<br/>People<br/>Performance<i/></div><LandingSignInCard/></section>
 
   <section className="mk-stats" aria-label="Product outcomes">{[["↗","+25%","Driver performance"],["◷","-40%","Operational issues"],["◇","+30%","Compliance rate"],["♟","Happier","and more productive teams"]].map(x=><article key={x[1]}><i>{x[0]}</i><div><strong>{x[1]}</strong><span>{x[2]}</span></div></article>)}</section>
 
@@ -127,7 +128,7 @@ export default function Landing(){
     <div className="mk-faq-grid">{faqs.map(([q,a])=><article key={q}><h3>{q}</h3><p>{a}</p></article>)}</div>
   </section>
 
-  <section id="pricing" className="mk-closing" data-plan-count={plans.length} data-starting-price={planPrice(plans[0])}><b>MetrixIQ.</b> More insight. A stronger tomorrow. <Link href="/login?mode=register">Get started →</Link></section>
+  <section id="pricing" className="mk-closing" data-plan-count={plans.length} data-starting-price={planPrice(plans[0])}><b>MetrixIQ.</b> More insight. A stronger tomorrow. <TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_closing" }}>Get started →</TrackedLink></section>
 
   <footer className="mk-public-footer">
     <Link href="/"><Brand /></Link>
