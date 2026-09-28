@@ -23,6 +23,12 @@ const solutionLinks=[
   ["/fleet-performance-management","Fleet Performance Management","Move from KPI movement into operational management action."],
 ];
 
+const resourceLinks=[
+  ["/resources/driver-performance-scorecard-guide","Driver Performance Scorecard Guide","Build a scorecard that connects metrics, trends, data quality and coaching action."],
+  ["/resources/fleet-performance-kpis","Fleet Performance KPIs","Choose fleet KPIs that managers can trace from fleet to site to driver."],
+  ["/resources/delivery-driver-coaching-guide","Delivery Driver Coaching Guide","Use evidence and follow-up to make driver coaching more focused and measurable."],
+];
+
 const faqs=[
   ["What is MetrixIQ?","MetrixIQ is a fleet and driver performance intelligence platform for delivery operations. It brings operational reports, driver scorecards, compliance metrics, coaching workflows and management reporting into one workspace."],
   ["Who is MetrixIQ designed for?","The platform is designed for delivery operators, fleet managers, site managers and operations teams that need a clearer way to monitor driver and site performance across recurring reporting periods."],
@@ -98,6 +104,18 @@ export default function Landing(){
     <div className="mk-solution-links-grid">
       {solutionLinks.map(([href,title,body])=><Link href={href} key={href}><b>{title}</b><p>{body}</p><span>Explore →</span></Link>)}
     </div>
+  </section>
+
+  <section className="mk-resource-links">
+    <div className="mk-feature-intro compact">
+      <span>OPERATIONS RESOURCES</span>
+      <h2>Practical guidance for the management work behind the metrics.</h2>
+      <p>Use the MetrixIQ resource library to improve scorecards, KPI review, compliance monitoring and driver coaching workflows.</p>
+    </div>
+    <div className="mk-resource-links-grid">
+      {resourceLinks.map(([href,title,body])=><Link href={href} key={href}><b>{title}</b><p>{body}</p><span>Read guide →</span></Link>)}
+    </div>
+    <div className="mk-resource-more"><Link href="/resources">View all resources →</Link></div>
   </section>
 
   <section id="faq" className="mk-faq">
