@@ -13,6 +13,7 @@ export default function PrivacyPage() {
       eyebrow="PRIVACY"
       title="Privacy Policy"
       intro="This policy explains the main categories of information MetrixIQ may process when you visit the website or use the platform."
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Privacy" }]}
     >
       <section>
         <p><b>Last updated:</b> 28 September 2026</p>
