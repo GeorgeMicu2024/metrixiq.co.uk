@@ -97,6 +97,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
   const [browserStage, setBrowserStage] = useState(null);
   const [remoteStage, setRemoteStage] = useState(null);
   const [remoteBusy, setRemoteBusy] = useState(false);
+  const [remoteError, setRemoteError] = useState("");
   const [reviewOverrides, setReviewOverrides] = useState({});
   const [excludedDetections, setExcludedDetections] = useState([]);
   const [editingFile, setEditingFile] = useState("");
@@ -126,6 +127,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setFiles(next);
     setResult(null);
     setRemoteStage(null);
+    setRemoteError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
@@ -140,6 +142,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setFiles([]);
     setResult(null);
     setRemoteStage(null);
+    setRemoteError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
@@ -155,6 +158,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     setFiles((current) => current.filter((file) => file !== target));
     setResult(null);
     setRemoteStage(null);
+    setRemoteError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
@@ -182,6 +186,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       excludedCount: nextExcluded.length,
     }));
     setRemoteStage(null);
+    setRemoteError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage(
@@ -266,6 +271,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     }
 
     setRemoteBusy(true);
+    setRemoteError("");
     setMessage("");
     try {
       const payload = buildRemoteStagingPayload({
@@ -277,6 +283,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       });
       const staged = await stageSmartImportPayload(payload);
       setRemoteStage(staged);
+      setRemoteError("");
       setMessage(
         "Safely staged in MetrixIQ Staging · " +
         staged.readyFiles + " ready · " +
@@ -286,7 +293,10 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         "production untouched."
       );
     } catch (error) {
-      setMessage(error?.message || "Could not write this batch to MetrixIQ Staging.");
+      const failure = error?.message || "Could not write this batch to MetrixIQ Staging.";
+      setRemoteError(failure);
+      setRemoteStage(null);
+      setMessage(failure);
     } finally {
       setRemoteBusy(false);
     }
@@ -560,6 +570,12 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
             <span className="importv2-readiness good">PRODUCTION OFF</span>
           </div>
         </div>
+        {remoteBusy && <div className="importv2-message" style={{ marginTop: 12 }}>
+          ⏳ Sending validated batch to MetrixIQ Staging and reconciling stored records…
+        </div>}
+        {remoteError && <div className="importv2-message error smartlab-remote-error" style={{ marginTop: 12 }}>
+          ✕ Test DB staging failed: {remoteError}
+        </div>}
         <div className="importv2-kpis">
           <article className="good"><span>Ready files</span><strong>{result.staging?.readyFiles || 0}</strong><small>eligible for staging</small></article>
           <article className={result.staging?.blockedFiles ? "bad" : "good"}><span>Blocked</span><strong>{result.staging?.blockedFiles || 0}</strong><small>must be reviewed first</small></article>
