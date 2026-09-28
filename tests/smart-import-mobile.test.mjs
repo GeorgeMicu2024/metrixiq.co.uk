@@ -66,3 +66,14 @@ test("Approval gate stays mobile-friendly and production-safe", () => {
   assert.match(css, /\.smartlab-approval-card/);
   assert.match(css, /@media\(max-width:680px\)[\s\S]*\.smartlab-approval-card/);
 });
+
+
+test("Production preflight is mobile-friendly and commit remains disabled", () => {
+  assert.match(component, /smartlab-production-preflight/);
+  assert.match(component, /Run Production Preflight/);
+  assert.match(component, /Commit to Production/);
+  assert.match(component, /COMMIT LOCKED UNTIL NEXT GATE/);
+  assert.match(css, /Smart Import Production preflight/);
+  assert.match(css, /\.smartlab-production-grid/);
+  assert.match(css, /@media\(max-width:680px\)[\s\S]*\.smartlab-production-grid/);
+});
