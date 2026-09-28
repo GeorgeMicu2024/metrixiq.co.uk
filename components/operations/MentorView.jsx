@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { fetchMentorDailyRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
+import { fetchMentorDailyRows, fetchMentorReconciliationRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
+import { fetchDailyDispatchAssignments } from "../../lib/data/dailyDispatch";
 import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
@@ -40,6 +41,16 @@ function formatDate(value) {
     month: "short",
     year: "numeric",
   });
+}
+
+function normalizedPersonName(value) {
+  return String(value || "")
+    .replace(/\s*[•·]\s*[A-Z]{2,5}\d+\s*$/i, "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function splitDriverName(driver) {
@@ -219,6 +230,7 @@ export default function MentorView({
   organizationId,
   onOpenDriver,
   onImport,
+  onSiteFilterChange,
   siteFilter = "all",
   refreshKey = 0,
 }) {
@@ -227,6 +239,14 @@ export default function MentorView({
     loading: true,
     error: "",
     rows: [],
+  });
+  const [reconciliationRows, setReconciliationRows] = useState([]);
+  const [dispatchLoad, setDispatchLoad] = useState({
+    loading: false,
+    error: "",
+    rows: [],
+    site: "",
+    date: "",
   });
   const [mode, setMode] = useState("daily");
   const [selectedDate, setSelectedDate] = useState("");
@@ -243,17 +263,21 @@ export default function MentorView({
 
     if (!organizationId) {
       setDailyLoad({ loading: false, error: "", rows: [] });
+      setReconciliationRows([]);
       return () => {};
     }
 
     (async () => {
       try {
         setDailyLoad((currentState) => ({ ...currentState, loading: true, error: "" }));
-        const rows = await fetchMentorDailyRows(
-          getSupabaseBrowserClient(),
-          organizationId
-        );
-        if (alive) setDailyLoad({ loading: false, error: "", rows });
+        const [rows, reconciliation] = await Promise.all([
+          fetchMentorDailyRows(getSupabaseBrowserClient(), organizationId),
+          fetchMentorReconciliationRows(getSupabaseBrowserClient(), organizationId),
+        ]);
+        if (alive) {
+          setDailyLoad({ loading: false, error: "", rows });
+          setReconciliationRows(reconciliation);
+        }
       } catch (error) {
         if (alive) {
           setDailyLoad({
@@ -261,6 +285,7 @@ export default function MentorView({
             error: error?.message || "Could not load daily eMentor history.",
             rows: [],
           });
+          setReconciliationRows([]);
         }
       }
     })();
@@ -292,6 +317,24 @@ export default function MentorView({
     () => filterRowsBySite(allDailyRows, siteFilter),
     [allDailyRows, siteFilter]
   );
+  const normalizedSelectedSite = String(siteFilter || "all").trim().toUpperCase();
+  const globalLatestDate = useMemo(
+    () => [...new Set(allDailyRows.map((row) => row.report_date).filter(Boolean))].sort().reverse()[0] || "",
+    [allDailyRows]
+  );
+  const siteMismatch = useMemo(() => {
+    if (!globalLatestDate || normalizedSelectedSite === "ALL") return null;
+    const latestRows = allDailyRows.filter((row) => row.report_date === globalLatestDate);
+    if (latestRows.some((row) => String(row.site || "").trim().toUpperCase() === normalizedSelectedSite)) return null;
+    const counts = new Map();
+    for (const row of latestRows) {
+      const rowSite = String(row.site || row.raw_data?.activity_site || "").trim().toUpperCase();
+      if (!rowSite || rowSite === normalizedSelectedSite) continue;
+      counts.set(rowSite, (counts.get(rowSite) || 0) + 1);
+    }
+    const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    return best ? { site: best[0], count: best[1], date: globalLatestDate } : null;
+  }, [allDailyRows, globalLatestDate, normalizedSelectedSite]);
 
   const dates = useMemo(
     () =>
@@ -318,6 +361,54 @@ export default function MentorView({
     if (!weeks.length && selectedWeek) setSelectedWeek("");
   }, [weeks, selectedWeek]);
 
+  useEffect(() => {
+    let alive = true;
+    const selectedSite = normalizedSelectedSite;
+
+    if (
+      !organizationId ||
+      !selectedDate ||
+      !selectedSite ||
+      selectedSite === "ALL"
+    ) {
+      setDispatchLoad({ loading: false, error: "", rows: [], site: "", date: "" });
+      return () => {};
+    }
+
+    setDispatchLoad((current) => ({
+      ...current,
+      loading: true,
+      error: "",
+      site: selectedSite,
+      date: selectedDate,
+    }));
+
+    fetchDailyDispatchAssignments(
+      getSupabaseBrowserClient(),
+      organizationId,
+      selectedSite,
+      selectedDate
+    )
+      .then((rows) => {
+        if (alive) setDispatchLoad({ loading: false, error: "", rows, site: selectedSite, date: selectedDate });
+      })
+      .catch((error) => {
+        if (alive) {
+          setDispatchLoad({
+            loading: false,
+            error: error?.message || "Could not load the Daily Dispatch roster.",
+            rows: [],
+            site: selectedSite,
+            date: selectedDate,
+          });
+        }
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [organizationId, normalizedSelectedSite, selectedDate, refreshKey]);
+
   const dailyMap = useMemo(
     () =>
       dailyRows
@@ -335,6 +426,65 @@ export default function MentorView({
         .filter((item) => item.score != null || item.details),
     [weeklyRows, selectedWeek]
   );
+
+  const unmatchedForDate = useMemo(() => reconciliationRows.filter((row) => {
+    if (row.status !== "open") return false;
+    if (String(row.payload?.reportDate || "") !== String(selectedDate || "")) return false;
+    if (normalizedSelectedSite === "ALL") return true;
+    const rowSite = String(row.site || row.payload?.driver?.site || row.payload?.driver?.details?.mentor?.station || "").trim().toUpperCase();
+    return rowSite === normalizedSelectedSite;
+  }), [reconciliationRows, selectedDate, normalizedSelectedSite]);
+
+  const noTripRows = useMemo(() => {
+    if (!selectedDate || normalizedSelectedSite === "ALL" || !dispatchLoad.rows.length) return [];
+    const recordedIds = new Set();
+    const recordedTrids = new Set();
+    const recordedNames = new Set();
+
+    dailyRows
+      .filter((row) => row.report_date === selectedDate)
+      .forEach((row) => {
+        if (row.driver_id) recordedIds.add(String(row.driver_id));
+        const driverTrid = String(row.drivers?.trid || "").trim().toUpperCase();
+        if (driverTrid) recordedTrids.add(driverTrid);
+        const driverName = normalizedPersonName(row.drivers?.full_name);
+        if (driverName) recordedNames.add(driverName);
+      });
+
+    const missing = new Map();
+    for (const assignment of dispatchLoad.rows) {
+      const driverId = String(assignment.driver_id || assignment.drivers?.id || "").trim();
+      const driverTrid = String(assignment.trid || assignment.drivers?.trid || "").trim().toUpperCase();
+      const driverName = String(assignment.driver_name || assignment.drivers?.full_name || "").trim();
+      const normalizedName = normalizedPersonName(driverName);
+      const recorded =
+        (driverId && recordedIds.has(driverId)) ||
+        (driverTrid && recordedTrids.has(driverTrid)) ||
+        (normalizedName && recordedNames.has(normalizedName));
+      if (recorded || !driverName) continue;
+
+      const identityKey = driverId || driverTrid || normalizedName || assignment.id;
+      const current = missing.get(identityKey) || {
+        id: identityKey,
+        driverName,
+        trid: driverTrid || "—",
+        routes: [],
+      };
+      if (assignment.route_code && !current.routes.includes(assignment.route_code)) current.routes.push(assignment.route_code);
+      missing.set(identityKey, current);
+    }
+    return [...missing.values()].sort((a, b) => a.driverName.localeCompare(b.driverName));
+  }, [dailyRows, dispatchLoad.rows, normalizedSelectedSite, selectedDate]);
+
+  const recordedCount = useMemo(() => new Set(
+    dailyMap.map((item) => String(item.row?.driver_id || item.row?.source_identity_key || item.id || ""))
+  ).size, [dailyMap]);
+  const dispatchRosterReady =
+    dispatchLoad.site === normalizedSelectedSite &&
+    dispatchLoad.date === selectedDate &&
+    !dispatchLoad.loading &&
+    !dispatchLoad.error &&
+    dispatchLoad.rows.length > 0;
 
   function applySort(items) {
     return [...items].sort((a, b) => {
@@ -482,10 +632,30 @@ export default function MentorView({
             </div>
           </div>
 
+          {siteMismatch && (
+            <div className="mentor-site-mismatch">
+              <div>
+                <b>Latest daily eMentor upload: {siteMismatch.site}</b>
+                <span>{formatDate(siteMismatch.date)} · {siteMismatch.count} recorded row(s). You are viewing {normalizedSelectedSite}.</span>
+              </div>
+              {onSiteFilterChange && (
+                <button type="button" className="btn primary" onClick={() => onSiteFilterChange(siteMismatch.site)}>
+                  Switch to {siteMismatch.site}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="mentor-mode-switch">
             <button type="button" className="active">Daily</button>
             <button type="button" onClick={() => setMode("weekly")}>Weekly scorecard</button>
             <span>Minimum required score: <b>{TARGETS.mentor}+</b></span>
+          </div>
+
+          <div className="mentor-daily-kpis">
+            <article><span>Recorded</span><strong>{recordedCount}</strong><small>eMentor trips matched to drivers</small></article>
+            <article className={unmatchedForDate.length ? "warn" : ""}><span>Unmatched</span><strong>{unmatchedForDate.length}</strong><small>Identity mapping required</small></article>
+            <article className={dispatchRosterReady && noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{dispatchRosterReady ? noTripRows.length : "—"}</strong><small>{dispatchLoad.loading ? "Checking Daily Dispatch…" : dispatchRosterReady ? "Scheduled drivers missing from eMentor" : "Generate Daily Dispatch to enable"}</small></article>
           </div>
 
           <MentorReportTable
@@ -497,6 +667,24 @@ export default function MentorView({
             onRestore={(item) => setDailyItemHidden(item, false)}
             visibilityBusy={visibilityBusy}
           />
+          <section className={"mentor-no-trip "+(dispatchRosterReady && noTripRows.length ? "has-missing" : "")}>
+            <div className="mentor-no-trip-head">
+              <div><span className="page-kicker">DISPATCH RECONCILIATION</span><h2>No Trip Recorder</h2></div>
+              <strong>{dispatchRosterReady ? noTripRows.length : "—"}</strong>
+            </div>
+            {dispatchLoad.loading ? (
+              <p className="mentor-no-trip-info">Checking the saved Daily Dispatch roster for {formatDate(selectedDate)}…</p>
+            ) : dispatchLoad.error ? (
+              <p className="mentor-no-trip-info error">{dispatchLoad.error}</p>
+            ) : !dispatchRosterReady ? (
+              <p className="mentor-no-trip-info">No saved Daily Dispatch roster exists for {formatDate(selectedDate)} · {siteLabel}. Generate the Wave Plan for this date first; MetrixIQ will then compare scheduled drivers with recorded eMentor trips.</p>
+            ) : noTripRows.length ? (
+              <div className="mentor-no-trip-table-wrap"><table className="mentor-no-trip-table"><thead><tr><th>Driver</th><th>TRID</th><th>Route</th><th>Status</th></tr></thead><tbody>{noTripRows.map((row) => <tr key={row.id}><td><b>{row.driverName}</b></td><td>{row.trid}</td><td>{row.routes.join(" / ") || "—"}</td><td><span>● No eMentor trip</span></td></tr>)}</tbody></table></div>
+            ) : (
+              <p className="mentor-no-trip-info ok">✓ All drivers in the saved Daily Dispatch roster have a recorded eMentor trip.</p>
+            )}
+          </section>
+
           <div className="mentor-mode-switch">
             <button type="button" className={showHidden ? "active" : ""} onClick={() => setShowHidden((value) => !value)}>
               {showHidden ? "Hide hidden rows" : "Show hidden rows"}
