@@ -59,10 +59,15 @@ export default function SmartImportLab({ sites = [] }) {
       const expanded = await expandImportFiles(files);
       const deduped = await deduplicateFilesByContent(expanded.files);
       const analysis = await analyseFiles(deduped.uniqueFiles);
-      const plan = buildSmartImportPlan(analysis.fileResults, sites);
+      const fileResults = (analysis.fileResults || []).map((row, index) => ({
+        ...row,
+        contentHash: deduped.hashes.get(deduped.uniqueFiles[index]) || "",
+      }));
+      const analysed = { ...analysis, fileResults };
+      const plan = buildSmartImportPlan(fileResults, sites);
 
       setResult({
-        analysis,
+        analysis: analysed,
         plan,
         archives: expanded.archives,
         archiveWarnings: expanded.warnings,
@@ -72,7 +77,7 @@ export default function SmartImportLab({ sites = [] }) {
       });
       setPhase("done");
       setMessage(
-        `Dry run complete. ${plan.ready} ready · ${plan.warnings} warning · ${plan.review} review · ${deduped.duplicates.length} exact duplicate${deduped.duplicates.length === 1 ? "" : "s"} skipped.`
+        `Dry run complete. ${plan.ready} ready · ${plan.warnings} warning · ${plan.review} review · ${deduped.duplicates.length} exact duplicate${deduped.duplicates.length === 1 ? "" : "s"} skipped · ${plan.logicalDuplicateGroups?.length || 0} logical conflict group${(plan.logicalDuplicateGroups?.length || 0) === 1 ? "" : "s"}.`
       );
     } catch (error) {
       setPhase("error");
@@ -155,7 +160,8 @@ export default function SmartImportLab({ sites = [] }) {
         <article className="good"><span>Ready</span><strong>{plan.ready}</strong><small>automatic classification</small></article>
         <article className={plan.warnings ? "warn" : ""}><span>Warnings</span><strong>{plan.warnings}</strong><small>safe to inspect</small></article>
         <article className={plan.review ? "bad" : "good"}><span>Needs review</span><strong>{plan.review}</strong><small>no automatic commit</small></article>
-        <article className={result.exactDuplicates.length ? "warn" : "good"}><span>Duplicates</span><strong>{result.exactDuplicates.length}</strong><small>exact content skipped</small></article>
+        <article className={result.exactDuplicates.length ? "warn" : "good"}><span>Exact duplicates</span><strong>{result.exactDuplicates.length}</strong><small>SHA-256 matches skipped</small></article>
+        <article className={plan.logicalDuplicateGroups?.length ? "bad" : "good"}><span>Logical conflicts</span><strong>{plan.logicalDuplicateGroups?.length || 0}</strong><small>same site/report/period, changed bytes</small></article>
       </section>
 
       <section className="panel" style={{ marginTop: 16 }}>
@@ -209,6 +215,15 @@ export default function SmartImportLab({ sites = [] }) {
           </div>
         </article>
       </section>
+
+      {(plan.logicalDuplicateGroups?.length || 0) > 0 && <section className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head"><div><h2>Possible updated/conflicting reports</h2><p>Same site, report family and period, but different file content. Review before any future persistence step.</p></div></div>
+        <div className="importv2-actions-list">
+          {plan.logicalDuplicateGroups.map((group) => <div key={[group.site, group.reportType, group.periodKey].join("|")}>
+            <b>!</b><p><strong>{group.site} · {group.reportType} · {group.periodKey}</strong><br/>{group.files.join(" · ")}</p>
+          </div>)}
+        </div>
+      </section>}
 
       {result.exactDuplicates.length > 0 && <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head"><div><h2>Exact duplicates skipped</h2><p>Different filenames with identical bytes are detected by SHA-256.</p></div></div>
