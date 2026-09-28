@@ -13,6 +13,7 @@ export default function SecurityPage() {
       eyebrow="SECURITY"
       title="Security controls designed for operational data and multi-site teams."
       intro="MetrixIQ is built around scoped access, controlled data operations and clear separation between public product pages and authenticated workspace data."
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Security" }]}
     >
       <section>
         <h2>Access control</h2>
