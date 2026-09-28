@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import Script from "next/script";
 
 const CONSENT_COOKIE = "metrixiq_analytics_consent";
 const CONSENT_EVENT = "metrixiq:open-cookie-settings";
+const WebVitalsReporter = lazy(() => import("./WebVitalsReporter"));
 
 function readConsent() {
   if (typeof document === "undefined") return null;
@@ -50,6 +51,9 @@ export default function GoogleAnalytics() {
     <>
       {consent === "accepted" && (
         <>
+          <Suspense fallback={null}>
+            <WebVitalsReporter />
+          </Suspense>
           <Script
             src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`}
             strategy="afterInteractive"
