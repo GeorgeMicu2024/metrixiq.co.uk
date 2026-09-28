@@ -40,6 +40,7 @@ test("site selector remains the single global site control and full pill is inte
     1
   );
   assert.ok(dashboard.includes('<span className="site-switcher-mark">SITE</span>'));
+  assert.ok(dashboard.includes('className="site-switcher-value"'));
   assert.ok(css.includes("pointer-events:none!important"));
   assert.ok(css.includes("cursor:pointer!important"));
 });
