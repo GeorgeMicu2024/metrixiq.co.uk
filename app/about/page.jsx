@@ -3,8 +3,8 @@ import PublicPageShell from "../../components/PublicPageShell";
 import { buildPageMetadata } from "../../lib/seo/site";
 
 export const metadata = buildPageMetadata({
-  title: "About",
-  description: "Learn how MetrixIQ helps delivery operations turn fleet, driver and compliance data into clearer decisions and stronger performance.",
+  title: "About MetrixIQ Fleet Performance Software",
+  description: "Learn how MetrixIQ fleet and driver performance software helps delivery operations manage scorecards, compliance, coaching and reporting.",
   path: "/about",
 });
 
@@ -13,7 +13,7 @@ export default function AboutPage() {
     <PublicPageShell
       eyebrow="ABOUT METRIXIQ"
       title="Operational intelligence built around the way delivery teams actually work."
-      intro="MetrixIQ brings driver performance, compliance, coaching and operational reporting into one structured workspace so managers can spend less time reconciling files and more time improving results."
+      intro="MetrixIQ is fleet and driver performance software for delivery operations. It brings scorecards, compliance, coaching and operational reporting into one structured workspace so managers can spend less time reconciling files and more time improving results."
       breadcrumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
     >
       <section>
