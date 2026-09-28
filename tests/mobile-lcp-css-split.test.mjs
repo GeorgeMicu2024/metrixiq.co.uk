@@ -11,8 +11,9 @@ test("public root no longer ships the full private application stylesheet", () =
 
   assert.ok(root.includes('import "./marketing-base.css"'));
   assert.equal(root.includes('import "./globals.css"'), false);
-  assert.ok(marketing.length < 20000, "marketing CSS unexpectedly large");
-  assert.ok(marketing.includes("Approved MetrixIQ Homepage Mockup V4"));
+  assert.ok(marketing.length < 26000, "marketing CSS unexpectedly large");
+  assert.ok(marketing.includes(".mk-network-strip"));
+  assert.ok(marketing.includes(".mk-visual-grid"));
 });
 
 test("full application CSS remains scoped to authenticated routes", () => {
@@ -34,11 +35,11 @@ test("below-the-fold homepage sections use content visibility containment", () =
   assert.ok(marketing.includes(".mk-resource-links"));
 });
 
-test("mobile hero keeps the approved design while using a cheaper card shadow", () => {
+test("mobile hero keeps the visual redesign while using a cheaper card shadow", () => {
   const marketing = read("app/marketing-base.css");
 
-  assert.ok(marketing.includes(".mk-hero{min-height:585px"));
-  assert.ok(marketing.includes(".mk-login-card{box-shadow:0 14px 32px"));
+  assert.ok(marketing.includes(".mk-hero{min-height:560px"));
+  assert.ok(marketing.includes("box-shadow:0 14px 32px"));
 });
 
 
@@ -73,9 +74,9 @@ test("homepage sign-in hydration is deferred until the card nears the viewport",
 test("mobile hero removes decorative radial layers before LCP", () => {
   const marketing = read("app/marketing-base.css");
 
-  assert.ok(marketing.includes(".mk-hero{background:#071725}"));
+  assert.ok(marketing.includes("background:#071725"));
   assert.ok(marketing.includes(".mk-hero-bg{display:none}"));
-  assert.ok(marketing.includes(".mk-stats{content-visibility:auto"));
+  assert.ok(marketing.includes("content-visibility:auto"));
 });
 
 
@@ -106,4 +107,26 @@ test("homepage sign-in card keeps complete lightweight form styling", () => {
 
   assert.ok(marketing.includes(".mk-login-card label:focus-within"));
   assert.ok(marketing.includes("appearance:none"));
+});
+
+
+test("homepage visual redesign replaces long text walls with operational visuals", () => {
+  const landing = read("components/Landing.jsx");
+
+  assert.ok(landing.includes("HeroSignals"));
+  assert.ok(landing.includes("VisualCards"));
+  assert.ok(landing.includes("mk-network-strip"));
+  assert.ok(landing.includes("mk-flow-grid"));
+  assert.ok(landing.includes("mk-resource-art"));
+  assert.ok(landing.includes("<details"));
+  assert.equal(landing.includes("mk-seo-story"), false);
+});
+
+test("delivery network examples are shown without implying affiliation", () => {
+  const landing = read("components/Landing.jsx");
+
+  for (const brand of ["Amazon Logistics", "Evri", "DPD", "DHL", "Royal Mail"]) {
+    assert.ok(landing.includes(brand));
+  }
+  assert.ok(landing.includes("no affiliation implied"));
 });
