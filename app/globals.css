@@ -2694,3 +2694,19 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     grid-template-columns:70px minmax(0,1fr) minmax(0,1fr);
   }
 }
+
+
+/* Daily Dispatch persistence state */
+.waveplan-roster-save{
+  margin-top:-4px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid #dbe4ee;
+  background:#f8fafc;
+  color:#475467;
+  font-size:11px;
+  font-weight:750;
+}
+.waveplan-roster-save.ok{border-color:#a6e1c7;background:#ecfdf3;color:#067647}
+.waveplan-roster-save.error{border-color:#f3b5b5;background:#fff1f1;color:#b42318}
+.waveplan-roster-save small{display:block;margin-top:2px;font-weight:600;opacity:.82}
