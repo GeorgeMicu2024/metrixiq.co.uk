@@ -27,7 +27,7 @@ import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
-import { loadWorkspaceContext } from "../lib/data/workspace";
+import { hydrateWorkspaceData, loadWorkspaceCore, loadWorkspaceContext } from "../lib/data/workspace";
 import { fetchCommandCenterSummary } from "../lib/data/commandCenter";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
@@ -70,6 +70,7 @@ export default function DashboardClient() {
   const [analysis, setAnalysis] = useState(null);
   const [mobile, setMobile] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [workspaceHydrating, setWorkspaceHydrating] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [commandCenterError, setCommandCenterError] = useState("");
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -176,9 +177,11 @@ export default function DashboardClient() {
     setSiteRegistry([]);
   }
 
-  async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null) {
+  async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null, { hydrate = true } = {}) {
     const supabase = getSupabaseBrowserClient();
-    const context = await loadWorkspaceContext(supabase, user, preferredOrganizationId);
+    const context = hydrate
+      ? await loadWorkspaceContext(supabase, user, preferredOrganizationId)
+      : await loadWorkspaceCore(supabase, user, preferredOrganizationId);
     const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
       p_organization_id: context.resolved.organization.id,
     });
@@ -223,17 +226,43 @@ export default function DashboardClient() {
       try {
         const requestedView = new URLSearchParams(window.location.search).get("view");
         if (requestedView) setActive(requestedView);
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) {
+
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        const user = sessionData?.session?.user;
+        if (sessionError || !user) {
           router.replace("/login");
           return;
         }
 
         const preferredOrganizationId = localStorage.getItem("metrixiq.organizationId");
-        const { context, permissionState } = await fetchWorkspaceContextForUser(userData.user, preferredOrganizationId);
+        const { context, permissionState } = await fetchWorkspaceContextForUser(
+          user,
+          preferredOrganizationId,
+          { hydrate: false }
+        );
         if (!alive) return;
-        applyWorkspaceContext(context, userData.user, permissionState);
+
+        applyWorkspaceContext(context, user, permissionState);
         localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
+        setAuthLoading(false);
+        setWorkspaceHydrating(true);
+
+        const organizationId = context.resolved.organization.id;
+        Promise.allSettled([
+          hydrateWorkspaceData(supabase, organizationId),
+          supabase.rpc("touch_last_login"),
+        ]).then(([hydratedResult]) => {
+          if (!alive) return;
+          if (hydratedResult.status === "fulfilled") {
+            const hydrated = hydratedResult.value;
+            setDbDrivers((hydrated.scorecards || []).map(mapScorecardRow));
+            setMetricHistoryRows(hydrated.metricRows || []);
+            setCommandCenter(hydrated.commandCenter || null);
+          } else {
+            setCommandCenterError("Operational data is still loading or could not be refreshed. Retry from the dashboard if needed.");
+          }
+          setWorkspaceHydrating(false);
+        });
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
       } finally {
@@ -503,7 +532,15 @@ export default function DashboardClient() {
     default: view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
   }
 
-  if (authLoading) return null;
+  if (authLoading) return <main className="app-boot-screen" aria-busy="true" aria-live="polite">
+    <div className="app-boot-card">
+      <Brand />
+      <div className="app-boot-spinner" aria-hidden="true"><span /><span /><span /></div>
+      <h1>Opening your workspace</h1>
+      <p>Loading access, sites and permissions…</p>
+      <div className="app-boot-progress"><i /></div>
+    </div>
+  </main>;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
@@ -563,5 +600,9 @@ export default function DashboardClient() {
       </div>}
     </div>
   </div>
-</header><main className="app-main">{view}</main></div>{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy)setSiteCreateOpen(false);}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">Add new site</h2><p>Create a station in this workspace. Existing DLS2 drivers and historical data are not changed.</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
+</header>{workspaceHydrating && <div className="app-hydration-banner" role="status">
+  <span className="app-hydration-dot" />
+  Loading operational data…
+</div>}
+<main className="app-main">{view}</main></div>{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy)setSiteCreateOpen(false);}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">Add new site</h2><p>Create a station in this workspace. Existing DLS2 drivers and historical data are not changed.</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
 }
