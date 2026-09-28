@@ -27,15 +27,20 @@ test("Contact page displays a clickable phone link and ContactPage schema", () =
 });
 
 
-test("verified contact number is visible across public footers", () => {
+test("verified contact number stays on Contact page but not in public footers", () => {
   const shell = read("components/PublicPageShell.jsx");
   const landing = read("components/Landing.jsx");
+  const contact = read("app/contact/page.jsx");
 
   for (const source of [shell, landing]) {
-    assert.ok(source.includes("CONTACT_PHONE_E164"));
-    assert.ok(source.includes("CONTACT_PHONE_DISPLAY"));
-    assert.ok(source.includes("TrackedPhoneLink"));
+    assert.equal(source.includes("CONTACT_PHONE_E164"), false);
+    assert.equal(source.includes("CONTACT_PHONE_DISPLAY"), false);
+    assert.equal(source.includes("TrackedPhoneLink"), false);
   }
+
+  assert.ok(contact.includes("CONTACT_PHONE_E164"));
+  assert.ok(contact.includes("CONTACT_PHONE_DISPLAY"));
+  assert.ok(contact.includes("TrackedPhoneLink"));
 });
 
 
