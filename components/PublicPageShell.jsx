@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Brand from "./Brand";
+import CookieSettingsButton from "./CookieSettingsButton";
 
 export default function PublicPageShell({ eyebrow, title, intro, children }) {
   return (
@@ -39,6 +40,7 @@ export default function PublicPageShell({ eyebrow, title, intro, children }) {
             <Link href="/security">Security</Link>
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>
+            <CookieSettingsButton />
           </nav>
         </div>
       </footer>
