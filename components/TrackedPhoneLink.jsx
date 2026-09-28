@@ -1,5 +1,3 @@
-"use client";
-
 export default function TrackedPhoneLink({
   phoneE164,
   display,
@@ -7,17 +5,19 @@ export default function TrackedPhoneLink({
   children,
   ...props
 }) {
-  const handleClick = () => {
-    if (typeof window === "undefined" || typeof window.gtag !== "function") return;
-    window.gtag("event", "phone_click", {
-      contact_method: "phone",
-      phone_number: phoneE164,
-      cta_location: location || "unknown",
-    });
-  };
+  const params = JSON.stringify({
+    contact_method: "phone",
+    phone_number: phoneE164,
+    cta_location: location || "unknown",
+  });
 
   return (
-    <a href={`tel:${phoneE164}`} onClick={handleClick} {...props}>
+    <a
+      href={`tel:${phoneE164}`}
+      data-track-event="phone_click"
+      data-track-params={params}
+      {...props}
+    >
       {children || display}
     </a>
   );
