@@ -59,3 +59,20 @@ test("software schema has an explicit Brand node", () => {
   assert.ok(site.includes('"@type": "Brand"'));
   assert.ok(site.includes("name: SITE_NAME"));
 });
+
+
+test("authority profiles and public email are emitted only from verified environment values", () => {
+  const site = read("lib/seo/site.js");
+  const envExample = read(".env.example");
+  const contact = read("app/contact/page.jsx");
+
+  assert.ok(site.includes("PUBLIC_CONTACT_EMAIL"));
+  assert.ok(site.includes("PUBLIC_AUTHORITY_URLS"));
+  assert.ok(site.includes("LINKEDIN_COMPANY_URL"));
+  assert.ok(site.includes("PUBLIC_SOCIAL_PROFILE_URLS"));
+  assert.ok(site.includes("PUBLIC_AUTHORITY_URLS.length ? { sameAs: PUBLIC_AUTHORITY_URLS } : {}"));
+  assert.ok(site.includes("PUBLIC_CONTACT_EMAIL ? { email: PUBLIC_CONTACT_EMAIL } : {}"));
+  assert.ok(envExample.includes("LINKEDIN_COMPANY_URL="));
+  assert.ok(envExample.includes("PUBLIC_SOCIAL_PROFILE_URLS="));
+  assert.ok(contact.includes("const contactEmail = PUBLIC_CONTACT_EMAIL"));
+});
