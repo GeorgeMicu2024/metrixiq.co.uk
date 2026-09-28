@@ -1,4 +1,3 @@
-"use client";
 import Link from "next/link";
 import Brand from "./Brand";
 import LandingSignInCard from "./LandingSignInCard";
