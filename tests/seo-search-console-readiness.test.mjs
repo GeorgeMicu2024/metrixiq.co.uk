@@ -23,9 +23,12 @@ test("conversion CTAs track only when consent-loaded gtag is available", () => {
   const analytics = read("components/GoogleAnalytics.jsx");
   const solution = read("components/SolutionLandingPage.jsx");
 
-  assert.ok(tracked.includes('typeof window.gtag !== "function"'));
-  assert.ok(tracked.includes('window.gtag("event", eventName'));
+  assert.equal(tracked.includes('"use client"'), false);
+  assert.ok(tracked.includes("data-track-event={eventName}"));
+  assert.ok(tracked.includes("data-track-params={params}"));
   assert.ok(analytics.includes('consent === "accepted"'));
+  assert.ok(analytics.includes('typeof window.gtag !== "function"'));
+  assert.ok(analytics.includes('window.gtag("event"'));
   assert.ok(solution.includes("TrackedLink"));
   assert.ok(solution.includes('cta_location: "solution_page"'));
 });
