@@ -5,12 +5,15 @@ import fs from "node:fs";
 const read = (path) =>
   fs.readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("SEO host canonicalization is left to Vercel domain settings", () => {
+test("SEO host canonicalization is left to Vercel while internal aliases can redirect safely", () => {
   const nextConfig = read("next.config.mjs");
   const site = read("lib/seo/site.js");
 
-  assert.equal(nextConfig.includes("async redirects()"), false);
   assert.ok(site.includes('SITE_URL = "https://www.metrixiq.co.uk"'));
+  assert.equal(nextConfig.includes('type: "host"'), false);
+  assert.equal(nextConfig.includes('destination: "https://metrixiq.co.uk'), false);
+  assert.equal(nextConfig.includes('destination: "https://www.metrixiq.co.uk'), false);
+  assert.ok(nextConfig.includes('source: "/driver-scorecards"'));
 });
 
 test("private, auth, login and API routes send noindex directives", () => {
