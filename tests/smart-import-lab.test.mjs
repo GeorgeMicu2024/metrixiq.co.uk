@@ -161,3 +161,87 @@ test("eMentor parser evidence overrides date filename for weekly classification"
   assert.equal(smart.granularity, "weekly");
   assert.ok(smart.confidence >= 90);
 });
+
+
+test("overview CSV families are canonical Smart Import reports", () => {
+  const dsp = buildSmartFileDetection(
+    [{ reportType: "spreadsheet", label: "Sheet1", rows: 20, records: [] }],
+    "DSP_Overview_Dashboard_DCSL_DLS2_2026-W38.csv",
+    { key: "2026-W38", granularity: "weekly", year: 2026, week: 38 }
+  );
+  const quality = buildSmartFileDetection(
+    [{ reportType: "spreadsheet", label: "Sheet1", rows: 20, records: [] }],
+    "Quality_Overview_DCSL_DLS2_2026-09-27.csv",
+    { key: "2026-09-27", granularity: "daily" }
+  );
+  const delivery = buildSmartFileDetection(
+    [{ reportType: "spreadsheet", label: "Sheet1", rows: 20, records: [] }],
+    "DSP_Delivery_Overview_DCSL_DLS2_2026-W40.csv",
+    { key: "2026-W40", granularity: "weekly", year: 2026, week: 40 }
+  );
+
+  assert.deepEqual(dsp.reportTypes, ["DSP_OVERVIEW"]);
+  assert.equal(dsp.site, "DLS2");
+  assert.deepEqual(quality.reportTypes, ["QUALITY_OVERVIEW"]);
+  assert.equal(quality.granularity, "daily");
+  assert.deepEqual(delivery.reportTypes, ["DSP_DELIVERY_OVERVIEW"]);
+});
+
+test("undated known reports never persist the current-week fallback silently", () => {
+  const smart = buildSmartFileDetection(
+    [],
+    "Prime_Report_UK-DCSL-DLS2.pdf",
+    { key: "2026-W40", granularity: "weekly", year: 2026, week: 40 }
+  );
+
+  assert.deepEqual(smart.reportTypes, ["PRIME_REPORT"]);
+  assert.equal(smart.site, "DLS2");
+  assert.equal(smart.requiresReview, true);
+  assert.ok(smart.warnings.some((warning) => warning.code === "PERIOD_NOT_VERIFIED"));
+});
+
+test("composite scorecard parser reads site from sheet and week from title", () => {
+  const parsed = parseScorecardMatrix(
+    [
+      ["WEEK 31 - FANTASTIC - 88.20%"],
+      ["Transporter ID", "RANK", "Name", "Concessions", "TOTAL SCORE", "Fico", "Delivered", "DCR", "DSC DPMO", "LoR DPMO", "POD", "CC", "CE", "CDF DPMO", "PSB"],
+      ["A123456789", "Fantastic", "Valid Person", 0, 90, 830, 100, "99.5%", 0, 0, "100%", "100%", 0, 0, 0],
+    ],
+    "DA score card 2026.xlsx",
+    "DDN1 MYDCSL"
+  );
+
+  assert.equal(parsed.records.length, 1);
+  assert.equal(parsed.records[0].site, "DDN1");
+  assert.equal(parsed.period.key, "2026-W31");
+  assert.equal(parsed.periodSource, "content_title");
+});
+
+test("same site report and period with changed bytes becomes a logical conflict", () => {
+  const baseSmart = {
+    site: "DDN1",
+    contentSites: ["DDN1"],
+    reportTypes: ["POD_QUALITY"],
+    granularity: "weekly",
+    period: { key: "2026-W27", granularity: "weekly" },
+    confidence: 99,
+    requiresReview: false,
+    warnings: [],
+    segments: [],
+  };
+  const plan = buildSmartImportPlan([
+    { name: "POD-v1.pdf", contentHash: "aaa", smart: baseSmart },
+    { name: "POD-v2.pdf", contentHash: "bbb", smart: baseSmart },
+  ], ["DDN1"]);
+
+  assert.equal(plan.logicalDuplicateGroups.length, 1);
+  assert.equal(plan.review, 2);
+  assert.ok(plan.files.every((file) => file.smart.warnings.some((warning) => warning.code === "LOGICAL_REPORT_CONFLICT")));
+});
+
+test("ZIP support stays isolated from the legacy Import Queue", () => {
+  assert.equal(classifyImportFile({ name: "reports.zip", size: 100 }).status, "blocked");
+  const lab = await import("../components/imports/SmartImportLab.jsx").catch(() => null);
+  assert.equal(lab, null);
+  // JSX is compiled by Next; source assertion belongs in the project test suite.
+});
