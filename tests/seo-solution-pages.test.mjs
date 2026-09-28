@@ -14,8 +14,10 @@ const slugs = [
   "fleet-performance-management",
 ];
 
-test("SEO Batch 2 exposes six indexable solution routes", () => {
+test("SEO Batch 2 exposes the solutions hub and six indexable solution routes", () => {
   const site = read("lib/seo/site.js");
+  assert.ok(fs.existsSync(new URL("../app/solutions/page.jsx", import.meta.url)));
+  assert.ok(site.includes('path: "/solutions"'));
 
   for (const slug of slugs) {
     assert.ok(
@@ -60,4 +62,12 @@ test("solution page copy has structured H2/H3 content and CTA", () => {
   assert.ok(component.includes("Frequently asked questions"));
   assert.ok(component.includes('href="/login?mode=register"'));
   assert.ok(component.includes('href="/contact"'));
+});
+
+
+test("solutions hub exposes the six workflows as an ItemList", () => {
+  const hub = read("app/solutions/page.jsx");
+  assert.ok(hub.includes('"@type": "ItemList"'));
+  assert.ok(hub.includes("SOLUTION_PAGE_LIST.map"));
+  assert.ok(hub.includes("Explore solution"));
 });
