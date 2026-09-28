@@ -2,7 +2,7 @@ import Link from "next/link";
 import PublicPageShell from "../../components/PublicPageShell";
 import StructuredData from "../../components/StructuredData";
 import TrackedPhoneLink from "../../components/TrackedPhoneLink";
-import { buildPageMetadata, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164, organizationSchema, SITE_URL } from "../../lib/seo/site";
+import { buildPageMetadata, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164, PUBLIC_CONTACT_EMAIL, PUBLIC_LINKEDIN_URL, organizationSchema, SITE_URL } from "../../lib/seo/site";
 
 export const metadata = buildPageMetadata({
   title: "Contact MetrixIQ",
@@ -22,9 +22,6 @@ const contactPageSchema = {
 };
 
 export default function ContactPage() {
-  const contactEmail =
-    process.env.CONTACT_EMAIL || process.env.NEXT_PUBLIC_CONTACT_EMAIL || "";
-
   return (
     <>
       <StructuredData data={contactPageSchema} />
@@ -57,13 +54,22 @@ export default function ContactPage() {
           </div>
           <TrackedPhoneLink phoneE164={CONTACT_PHONE_E164} display={CONTACT_PHONE_DISPLAY} location="contact_page">{CONTACT_PHONE_DISPLAY} →</TrackedPhoneLink>
         </div>
+        {PUBLIC_LINKEDIN_URL ? (
+          <div className="public-contact-option">
+            <div>
+              <b>LinkedIn</b>
+              <span>Follow the official MetrixIQ company profile.</span>
+            </div>
+            <a href={PUBLIC_LINKEDIN_URL} rel="me noopener noreferrer" target="_blank">View LinkedIn →</a>
+          </div>
+        ) : null}
         <div className="public-contact-option">
           <div>
             <b>General enquiry</b>
             <span>Questions about features, rollout or operational use cases.</span>
           </div>
-          {contactEmail ? (
-            <a href={`mailto:${contactEmail}`}>Email us →</a>
+          {PUBLIC_CONTACT_EMAIL ? (
+            <a href={`mailto:${PUBLIC_CONTACT_EMAIL}`}>Email us →</a>
           ) : (
             <Link href="/login?mode=register">Start here →</Link>
           )}
