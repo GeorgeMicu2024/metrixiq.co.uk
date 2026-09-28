@@ -1,18 +1,32 @@
 import Link from "next/link";
 import PublicPageShell from "../../components/PublicPageShell";
-import { buildPageMetadata } from "../../lib/seo/site";
+import StructuredData from "../../components/StructuredData";
+import { buildPageMetadata, organizationSchema, SITE_URL } from "../../lib/seo/site";
 
 export const metadata = buildPageMetadata({
-  title: "Contact",
-  description: "Contact MetrixIQ about fleet performance intelligence, driver scorecards, compliance monitoring or product access.",
+  title: "Contact MetrixIQ",
+  description: "Contact MetrixIQ about fleet and driver performance software, scorecards, compliance monitoring, coaching or product access.",
   path: "/contact",
 });
+
+const contactPageSchema = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  "@id": `${SITE_URL}/contact#webpage`,
+  url: `${SITE_URL}/contact`,
+  name: "Contact MetrixIQ",
+  mainEntity: { "@id": organizationSchema["@id"] },
+  isPartOf: { "@id": `${SITE_URL}/#website` },
+  inLanguage: "en-GB",
+};
 
 export default function ContactPage() {
   const contactEmail =
     process.env.CONTACT_EMAIL || process.env.NEXT_PUBLIC_CONTACT_EMAIL || "";
 
   return (
+    <>
+      <StructuredData data={contactPageSchema} />
     <PublicPageShell
       eyebrow="CONTACT"
       title="Talk to us about your delivery operation."
@@ -37,6 +51,13 @@ export default function ContactPage() {
         </div>
         <div className="public-contact-option">
           <div>
+            <b>Call MetrixIQ</b>
+            <span>Product, rollout or account enquiries.</span>
+          </div>
+          <a href="tel:+447490544199">07490 544199 →</a>
+        </div>
+        <div className="public-contact-option">
+          <div>
             <b>General enquiry</b>
             <span>Questions about features, rollout or operational use cases.</span>
           </div>
@@ -55,5 +76,6 @@ export default function ContactPage() {
         </p>
       </section>
     </PublicPageShell>
+    </>
   );
 }
