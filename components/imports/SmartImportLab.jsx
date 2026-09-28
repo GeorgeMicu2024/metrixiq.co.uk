@@ -281,7 +281,9 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         "Safely staged in MetrixIQ Staging · " +
         staged.readyFiles + " ready · " +
         staged.duplicateFiles + " duplicate" + (staged.duplicateFiles === 1 ? "" : "s") + " · " +
-        staged.records + " evidence records · production untouched."
+        staged.records + " evidence records · " +
+        (staged.reconciled ? "reconciled · " : "") +
+        "production untouched."
       );
     } catch (error) {
       setMessage(error?.message || "Could not write this batch to MetrixIQ Staging.");
@@ -561,15 +563,18 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         <div className="importv2-kpis">
           <article className="good"><span>Ready files</span><strong>{result.staging?.readyFiles || 0}</strong><small>eligible for staging</small></article>
           <article className={result.staging?.blockedFiles ? "bad" : "good"}><span>Blocked</span><strong>{result.staging?.blockedFiles || 0}</strong><small>must be reviewed first</small></article>
-          <article><span>Source rows</span><strong>{result.staging?.sourceRows || 0}</strong><small>driver-period evidence</small></article>
-          <article><span>Feedback rows</span><strong>{result.staging?.feedbackRows || 0}</strong><small>CDF / escalation evidence</small></article>
-          <article><span>Site scorecards</span><strong>{result.staging?.scorecardRows || 0}</strong><small>detected site snapshots</small></article>
+          <article><span>Driver-period rows</span><strong>{result.staging?.sourceRows || 0}</strong><small>expected before DB reconciliation</small></article>
+          <article><span>Feedback events</span><strong>{result.staging?.feedbackRows || 0}</strong><small>expected CDF / escalation events</small></article>
+          <article><span>Site scorecards</span><strong>{result.staging?.scorecardRows || 0}</strong><small>expected site snapshots</small></article>
         </div>
         {browserStage && <div className="importv2-message good" style={{ marginTop: 12 }}>
           ✓ Local dry-run snapshot · {browserStage.summary?.readyFiles || 0} ready files · session-only metadata.
         </div>}
         {remoteStage && <div className="importv2-message good smartlab-remote-stage" style={{ marginTop: 12 }}>
-          ✓ MetrixIQ Staging · Batch <b>{String(remoteStage.batchId || "").slice(0, 8)}</b> · {remoteStage.readyFiles || 0} ready · {remoteStage.duplicateFiles || 0} duplicates · {remoteStage.records || 0} evidence records · production untouched.
+          ✓ MetrixIQ Staging · Batch <b>{String(remoteStage.batchId || "").slice(0, 8)}</b> · {remoteStage.readyFiles || 0} ready · {remoteStage.duplicateFiles || 0} duplicates · {remoteStage.records || 0} evidence records · {remoteStage.reconciled ? "reconciled · " : ""}production untouched.
+          {remoteStage.reconciled && <small style={{ display: "block", marginTop: 6 }}>
+            Stored: {remoteStage.driverRecords || 0} driver-period · {remoteStage.feedbackRecords || 0} feedback · {remoteStage.scorecardRecords || 0} site scorecards.
+          </small>}
         </div>}
         <div className="importv2-preview-grid" style={{ marginTop: 14 }}>
           <article>
