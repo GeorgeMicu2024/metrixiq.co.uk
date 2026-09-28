@@ -23,6 +23,7 @@ jobs:
 
     env:
       SEO_AUDIT_BASE_URL: ${{ inputs.base_url }}
+      PERF_AUDIT_BASE_URL: ${{ inputs.base_url }}
 
     steps:
       - name: Checkout
@@ -53,6 +54,9 @@ jobs:
 
       - name: Run full live SEO audit
         run: node scripts/seo-live-audit.mjs
+
+      - name: Enforce public performance budgets
+        run: node scripts/public-performance-budget.mjs
 
       - name: Verify IndexNow production readiness
         run: node scripts/indexnow-submit.mjs
