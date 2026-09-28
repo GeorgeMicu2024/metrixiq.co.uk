@@ -1,6 +1,5 @@
 import "./marketing-base.css";
 import "./public-pages.css";
-import PwaBootstrap from "../components/pwa/PwaBootstrap";
 import StructuredData from "../components/StructuredData";
 import GoogleAnalytics from "../components/GoogleAnalytics";
 import {
@@ -15,6 +14,50 @@ import {
 
 const googleSiteVerification =
   process.env.GOOGLE_SITE_VERIFICATION || process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "";
+
+
+const PWA_BOOTSTRAP_SCRIPT = `
+(() => {
+  const captureInstall = (event) => {
+    event.preventDefault();
+    window.__metrixiqInstallPrompt = event;
+    window.dispatchEvent(new CustomEvent("metrixiq:pwa-install-available"));
+  };
+
+  const installed = () => {
+    window.__metrixiqInstallPrompt = null;
+    window.dispatchEvent(new CustomEvent("metrixiq:pwa-installed"));
+  };
+
+  window.addEventListener("beforeinstallprompt", captureInstall);
+  window.addEventListener("appinstalled", installed);
+
+  const registerServiceWorker = () => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+    }
+  };
+
+  const deferServiceWorker = () => {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(registerServiceWorker, { timeout: 2500 });
+    } else {
+      window.setTimeout(registerServiceWorker, 1800);
+    }
+  };
+
+  if (document.readyState === "complete") {
+    deferServiceWorker();
+  } else {
+    window.addEventListener("load", deferServiceWorker, { once: true });
+  }
+
+  const standalone =
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.navigator.standalone === true;
+  document.documentElement.dataset.pwa = standalone ? "standalone" : "browser";
+})();
+`;
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
@@ -91,7 +134,7 @@ export default function RootLayout({ children }) {
     <html lang="en-GB">
       <body>
         <StructuredData data={[organizationSchema, websiteSchema, softwareSchema]} />
-        <PwaBootstrap />
+        <script id="metrixiq-pwa-bootstrap" dangerouslySetInnerHTML={{ __html: PWA_BOOTSTRAP_SCRIPT }} />
         <GoogleAnalytics />
         {children}
       </body>
