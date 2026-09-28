@@ -1,9 +1,9 @@
+import { PUBLIC_PAGES, SITE_URL } from "../lib/seo/site";
+
 export default function sitemap() {
-  return [
-    {
-      url: "https://www.metrixiq.co.uk",
-      changeFrequency: "weekly",
-      priority: 1,
-    },
-  ];
+  return PUBLIC_PAGES.map((page) => ({
+    url: `${SITE_URL}${page.path === "/" ? "" : page.path}`,
+    changeFrequency: page.changeFrequency,
+    priority: page.priority,
+  }));
 }
