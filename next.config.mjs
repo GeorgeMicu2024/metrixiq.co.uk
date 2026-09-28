@@ -16,6 +16,18 @@ const nextConfig = {
   poweredByHeader: false,
   allowedDevOrigins: ["localhost", "127.0.0.1", "192.168.68.111"],
 
+  async redirects() {
+    return [
+      { source: "/guides", destination: "/resources", permanent: true },
+      { source: "/blog", destination: "/resources", permanent: true },
+      { source: "/driver-scorecards", destination: "/driver-performance-scorecards", permanent: true },
+      { source: "/fleet-management-software", destination: "/fleet-performance-management", permanent: true },
+      { source: "/fleet-compliance-software", destination: "/fleet-compliance-monitoring", permanent: true },
+      { source: "/driver-coaching", destination: "/driver-coaching-software", permanent: true },
+      { source: "/fleet-analytics", destination: "/fleet-data-analytics", permanent: true },
+    ];
+  },
+
   async headers() {
     return [
       {
