@@ -38,3 +38,21 @@ test("unavailable files can be removed without clearing the whole batch", () => 
   assert.match(component, />Remove<\/button>/);
   assert.match(css, /Smart Import unavailable file state/);
 });
+
+
+test("Review Center exposes edit and remove actions on mobile", () => {
+  assert.match(component, /REVIEW CENTER/);
+  assert.match(component, /Edit detection/);
+  assert.match(component, /Remove from batch/);
+  assert.match(component, /Save correction/);
+  assert.match(component, /2026-W39 or 2026-09-22/);
+  assert.match(css, /Smart Import Review Center/);
+  assert.match(css, /\.smartlab-review-editor/);
+});
+
+test("Stage to Test DB stays safety-gated until review is resolved", () => {
+  assert.match(component, /!result\?\.staging\?\.blockedFiles/);
+  assert.match(component, /!result\?\.staging\?\.logicalConflictGroups/);
+  assert.match(component, /!plan\?\.review/);
+  assert.match(component, /disabled=\{!canStageRemote\}/);
+});
