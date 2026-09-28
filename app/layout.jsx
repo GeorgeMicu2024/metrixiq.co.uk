@@ -1,4 +1,4 @@
-import "./globals.css";
+import "./marketing-base.css";
 import "./public-pages.css";
 import PwaBootstrap from "../components/pwa/PwaBootstrap";
 import StructuredData from "../components/StructuredData";
