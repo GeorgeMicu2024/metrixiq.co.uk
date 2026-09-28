@@ -36,12 +36,12 @@ test("homepage and About page define MetrixIQ as fleet and driver performance so
   assert.ok(about.includes("MetrixIQ is fleet and driver performance software for delivery operations."));
 });
 
-test("entity clarification does not invent company identifiers or social profiles", () => {
+test("entity clarification avoids invented legal identifiers and social profiles", () => {
   const site = read("lib/seo/site.js");
 
   assert.equal(site.includes("legalName:"), false);
   assert.equal(site.includes("sameAs:"), false);
-  assert.equal(site.includes("telephone:"), false);
+  assert.ok(site.includes("telephone: CONTACT_PHONE_E164"));
 });
 
 
