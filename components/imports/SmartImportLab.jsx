@@ -205,7 +205,7 @@ export default function SmartImportLab({ sites = [] }) {
           </div>
           <div className="importv2-head-actions">
             {browserStage
-              ? <button className="btn ghost" onClick={discardDryRunStage}>Discard dry-run stage</button>
+              ? <button className="btn ghost" onClick={discardDryRunStage}>Discard stage</button>
               : <button className="btn primary" onClick={stageDryRun} disabled={!result.staging?.readyFiles}>Stage Dry Run</button>}
             <span className="importv2-readiness good">DB WRITES OFF</span>
           </div>
@@ -258,15 +258,15 @@ export default function SmartImportLab({ sites = [] }) {
         <div className="panel-head">
           <div><h2>Detection results</h2><p>Content evidence wins over filename. Conflicts are surfaced instead of guessed.</p></div>
         </div>
-        <div className="table-wrap">
-          <table className="data-table">
+        <div className="table-wrap smartlab-detection-wrap">
+          <table className="data-table smartlab-detection-table">
             <thead><tr><th>File</th><th>Report</th><th>Site</th><th>Period</th><th>Confidence</th><th>Status</th></tr></thead>
             <tbody>
               {plan.files.map((row) => {
                 const smart = row.smart || {};
                 const warningText = (smart.warnings || []).map((warning) => warning.message).join(" · ");
                 return <tr key={row.name}>
-                  <td>
+                  <td data-label="File">
                     <b>{row.name}</b>
                     {warningText && <small style={{ display: "block", marginTop: 4 }}>⚠ {warningText}</small>}
                     {(smart.segments || []).length > 1 && <details style={{ marginTop: 6 }}>
@@ -278,11 +278,11 @@ export default function SmartImportLab({ sites = [] }) {
                       )}
                     </details>}
                   </td>
-                  <td>{(smart.reportTypes || []).join(", ") || row.reportType || "Unknown"}</td>
-                  <td>{smart.site || "Needs review"}</td>
-                  <td>{smart.granularity || row.period?.granularity || "unknown"}</td>
-                  <td><b>{smart.confidence ?? 0}%</b></td>
-                  <td><span className={"importv2-readiness " + tone(row.smartState)}>{label(row.smartState)}</span></td>
+                  <td data-label="Report">{(smart.reportTypes || []).join(", ") || row.reportType || "Unknown"}</td>
+                  <td data-label="Site">{smart.site || "Needs review"}</td>
+                  <td data-label="Period">{smart.granularity || row.period?.granularity || "unknown"}</td>
+                  <td data-label="Confidence"><b>{smart.confidence ?? 0}%</b></td>
+                  <td data-label="Status"><span className={"importv2-readiness " + tone(row.smartState)}>{label(row.smartState)}</span></td>
                 </tr>;
               })}
             </tbody>
