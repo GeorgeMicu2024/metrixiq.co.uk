@@ -6,9 +6,9 @@ import { buildPageMetadata } from "../../lib/seo/site";
 import { RESOURCE_LIST, resourceHubSchema } from "../../lib/seo/resources";
 
 export const metadata = buildPageMetadata({
-  title: "Resources",
+  title: "Delivery Operations Performance Resources",
   description:
-    "Practical guides for delivery operations covering driver performance scorecards, fleet KPIs, compliance monitoring, coaching and data quality.",
+    "Practical delivery-operations guides covering driver scorecards, fleet KPIs, compliance monitoring, coaching and data quality.",
   path: "/resources",
 });
 
@@ -24,6 +24,9 @@ export default function ResourcesPage() {
       >
         <section>
           <h2>Performance and operations guides</h2>
+          <p>
+            These guides focus on the management work behind the metrics: choosing useful KPIs, separating performance from data-quality problems, reviewing trends across reporting periods and turning operational evidence into consistent follow-up.
+          </p>
           <div className="resource-grid">
             {RESOURCE_LIST.map((article) => (
               <Link href={article.path} key={article.slug}>
