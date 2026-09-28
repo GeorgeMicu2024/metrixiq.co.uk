@@ -40,3 +40,17 @@ test("production release gate defaults to verification-only mode", () => {
   assert.ok(workflow.includes('default: false'));
   assert.ok(workflow.includes('default: "https://www.metrixiq.co.uk"'));
 });
+
+
+test("production SEO release gate enforces public performance budgets before IndexNow", () => {
+  const workflow = read(".github/workflows/production-seo-release.yml");
+
+  const liveAudit = workflow.indexOf("Run full live SEO audit");
+  const performance = workflow.indexOf("Enforce public performance budgets");
+  const readiness = workflow.indexOf("Verify IndexNow production readiness");
+
+  assert.ok(performance > liveAudit);
+  assert.ok(readiness > performance);
+  assert.ok(workflow.includes("node scripts/public-performance-budget.mjs"));
+  assert.ok(workflow.includes("PERF_AUDIT_BASE_URL"));
+});
