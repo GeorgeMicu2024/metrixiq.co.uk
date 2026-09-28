@@ -17,6 +17,7 @@ export default function ContactPage() {
       eyebrow="CONTACT"
       title="Talk to us about your delivery operation."
       intro="Whether you are evaluating MetrixIQ, planning a rollout or already using the platform, choose the route below that best fits what you need."
+      breadcrumbs={[{ label: "Home", href: "/" }, { label: "Contact" }]}
     >
       <section>
         <h2>How can we help?</h2>
