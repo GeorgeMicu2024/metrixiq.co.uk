@@ -55,3 +55,23 @@ test("mobile sign-in card can skip offscreen rendering before LCP", () => {
 
   assert.ok(marketing.includes("content-visibility:auto;contain-intrinsic-size:auto 430px"));
 });
+
+
+test("homepage sign-in hydration is deferred until the card nears the viewport", () => {
+  const landing = read("components/Landing.jsx");
+  const deferred = read("components/DeferredLandingSignInCard.jsx");
+
+  assert.ok(landing.includes('DeferredLandingSignInCard'));
+  assert.equal(landing.includes('import LandingSignInCard from "./LandingSignInCard"'), false);
+  assert.ok(deferred.includes('lazy(() => import("./LandingSignInCard"))'));
+  assert.ok(deferred.includes("IntersectionObserver"));
+  assert.ok(deferred.includes('rootMargin: "220px"'));
+});
+
+test("mobile hero removes decorative radial layers before LCP", () => {
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(marketing.includes(".mk-hero{background:#071725}"));
+  assert.ok(marketing.includes(".mk-hero-bg{display:none}"));
+  assert.ok(marketing.includes(".mk-stats{content-visibility:auto"));
+});
