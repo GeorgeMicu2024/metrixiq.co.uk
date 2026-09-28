@@ -1,8 +1,10 @@
 import Link from "next/link";
 import Brand from "./Brand";
 import CookieSettingsButton from "./CookieSettingsButton";
+import PublicBreadcrumbs from "./PublicBreadcrumbs";
+import TrackedLink from "./TrackedLink";
 
-export default function PublicPageShell({ eyebrow, title, intro, children }) {
+export default function PublicPageShell({ eyebrow, title, intro, breadcrumbs = [], children }) {
   return (
     <main className="public-page">
       <header className="public-header">
@@ -18,9 +20,11 @@ export default function PublicPageShell({ eyebrow, title, intro, children }) {
         </nav>
         <div className="public-header-actions">
           <Link href="/login">Sign in</Link>
-          <Link className="primary-btn small" href="/login?mode=register">Get started</Link>
+          <TrackedLink className="primary-btn small" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "public_header" }}>Get started</TrackedLink>
         </div>
       </header>
+
+      {breadcrumbs.length ? <div className="public-breadcrumb-wrap"><PublicBreadcrumbs items={breadcrumbs} /></div> : null}
 
       <section className="public-hero">
         <div>
