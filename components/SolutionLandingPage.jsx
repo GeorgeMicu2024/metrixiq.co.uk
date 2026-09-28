@@ -3,9 +3,11 @@ import PublicPageShell from "./PublicPageShell";
 import StructuredData from "./StructuredData";
 import { SOLUTION_PAGES, buildSolutionSchemas } from "../lib/seo/solutionPages";
 import { RESOURCE_LIST } from "../lib/seo/resources";
+import { USE_CASE_LIST } from "../lib/seo/useCasePages";
 
 export default function SolutionLandingPage({ page }) {
   const resources = RESOURCE_LIST.filter((article) => article.relatedSolution === page.path).slice(0, 2);
+  const useCases = USE_CASE_LIST.filter((item) => item.relatedSolution === page.path).slice(0, 2);
 
   return (
     <>
@@ -74,6 +76,21 @@ export default function SolutionLandingPage({ page }) {
             <Link href="/contact">Contact MetrixIQ</Link>
           </div>
         </section>
+
+        {useCases.length ? (
+          <section className="solution-use-cases">
+            <h2>Operational use cases</h2>
+            <div>
+              {useCases.map((item) => (
+                <Link href={item.path} key={item.slug}>
+                  <span>{item.eyebrow}</span>
+                  <b>{item.title}</b>
+                  <small>Explore use case →</small>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {resources.length ? (
           <section className="solution-learning">
