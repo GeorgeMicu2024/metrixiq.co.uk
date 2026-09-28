@@ -3,10 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import Brand from "./Brand";
-import { getSupabaseBrowserClient } from "../lib/supabase/client";
 
 function validEmail(value) {
   return /^\S+@\S+\.\S+$/.test(String(value || "").trim());
+}
+
+async function loadSupabase() {
+  const { getSupabaseBrowserClient } = await import("../lib/supabase/client");
+  return getSupabaseBrowserClient();
 }
 
 export default function LandingSignInCard() {
@@ -39,7 +43,7 @@ export default function LandingSignInCard() {
 
     setBusy(true);
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = await loadSupabase();
       const { error } = await supabase.auth.signInWithPassword({
         email: clean,
         password,
@@ -63,7 +67,7 @@ export default function LandingSignInCard() {
     setGoogleBusy(true);
 
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = await loadSupabase();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -91,7 +95,7 @@ export default function LandingSignInCard() {
 
     setBusy(true);
     try {
-      const supabase = getSupabaseBrowserClient();
+      const supabase = await loadSupabase();
       const { error } = await supabase.auth.resetPasswordForEmail(clean, {
         redirectTo: `${window.location.origin}/auth/reset-password`,
       });
