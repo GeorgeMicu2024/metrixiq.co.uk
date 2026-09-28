@@ -1,3 +1,4 @@
+import "./public-pages.css";
 import Link from "next/link";
 import Brand from "../components/Brand";
 
