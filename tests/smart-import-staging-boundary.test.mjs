@@ -6,6 +6,8 @@ const remote = readFileSync(new URL("../lib/imports/stagingRemote.js", import.me
 const lab = readFileSync(new URL("../components/imports/SmartImportLab.jsx", import.meta.url), "utf8");
 const center = readFileSync(new URL("../components/imports/ImportCenterV2.jsx", import.meta.url), "utf8");
 const edge = readFileSync(new URL("../supabase/functions/smart-import-stage/index.ts", import.meta.url), "utf8");
+const approveEdge = readFileSync(new URL("../supabase/functions/smart-import-approve/index.ts", import.meta.url), "utf8");
+const approveSql = readFileSync(new URL("../supabase/staging/20260928_approve_reconciled_batch.sql", import.meta.url), "utf8");
 
 test("remote staging targets only the isolated staging project", () => {
   assert.match(remote, /hsbxqiuvciwalxogqceb\.supabase\.co\/functions\/v1\/smart-import-stage/);
@@ -67,4 +69,40 @@ test("cross-batch overlap remains staging evidence instead of being excluded", (
   assert.match(migration, /current_file\.state in \('ready','warning'\)/);
   assert.doesNotMatch(migration, /set\s+state = 'duplicate',[\s\S]*previousBatchId/);
   assert.match(migration, /Partial-overlap batches must retain all current normalized evidence/);
+});
+
+
+test("approval endpoint is isolated to MetrixIQ Staging and uses the active session", () => {
+  assert.match(remote, /smart-import-approve/);
+  assert.match(remote, /approveSmartImportBatch/);
+  assert.match(remote, /auth\.getSession\(\)/);
+  assert.match(remote, /Authorization: "Bearer " \+ token/);
+});
+
+test("approval Edge Function validates production identity, membership and site scope", () => {
+  assert.match(approveEdge, /auth\.getUser\(token\)/);
+  assert.match(approveEdge, /organization_members/);
+  assert.match(approveEdge, /"owner", "manager"/);
+  assert.match(approveEdge, /site_scope/);
+  assert.match(approveEdge, /smart_import_lab\.approve_batch/);
+  assert.match(approveEdge, /writesToProduction: false/);
+});
+
+test("database approval gate requires reconciled, conflict-free staging data", () => {
+  assert.match(approveSql, /status <> 'staging'/);
+  assert.match(approveSql, /reconciliationStatus/);
+  assert.match(approveSql, /blocked_file_count <> 0/);
+  assert.match(approveSql, /logical_conflict_count <> 0/);
+  assert.match(approveSql, /Stored evidence changed after reconciliation/);
+  assert.match(approveSql, /status = 'approved'/);
+  assert.match(approveSql, /approved_by = p_actor/);
+  assert.match(approveSql, /writesToProduction', false/);
+});
+
+test("approval UI is a separate gate after staging and never claims a production write", () => {
+  assert.match(lab, /APPROVAL GATE/);
+  assert.match(lab, /Approve Batch/);
+  assert.match(lab, /Approved ✓/);
+  assert.match(lab, /PRODUCTION STILL OFF/);
+  assert.match(lab, /Production remains untouched/);
 });
