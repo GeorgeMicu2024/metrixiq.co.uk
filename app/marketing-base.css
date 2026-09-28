@@ -40,7 +40,7 @@ svg{display:block;max-width:100%}
   contain-intrinsic-size:auto 720px;
 }
 @media(max-width:720px){
-  .mk-login-card{box-shadow:0 14px 32px rgba(0,0,0,.22)}
+  .mk-login-card{box-shadow:0 14px 32px rgba(0,0,0,.22);content-visibility:auto;contain-intrinsic-size:auto 430px}
   .mk-operations,.mk-feature-section,.mk-seo-story,.mk-use-cases,.mk-solution-links,.mk-resource-links,.mk-faq,.mk-closing,.mk-public-footer{
     contain-intrinsic-size:auto 900px;
   }
