@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicPageShell from "./PublicPageShell";
+import TrackedLink from "./TrackedLink";
 import StructuredData from "./StructuredData";
 import { SOLUTION_PAGES, buildSolutionSchemas } from "../lib/seo/solutionPages";
 import { RESOURCE_LIST } from "../lib/seo/resources";
@@ -16,6 +17,11 @@ export default function SolutionLandingPage({ page }) {
         eyebrow={page.eyebrow}
         title={page.h1}
         intro={page.intro}
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Solutions", href: "/solutions" },
+          { label: page.title },
+        ]}
       >
         <section>
           <h2>{page.problemTitle}</h2>
@@ -72,8 +78,8 @@ export default function SolutionLandingPage({ page }) {
             Start with the operational reports and workflows your team already uses, then bring the performance, compliance and management context into one structured workspace.
           </p>
           <div className="public-actions">
-            <Link className="primary" href="/login?mode=register">Get started</Link>
-            <Link href="/contact">Contact MetrixIQ</Link>
+            <TrackedLink className="primary" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "solution_page", solution: page.path }}>Get started</TrackedLink>
+            <TrackedLink href="/contact" eventParams={{ cta_label: "Contact MetrixIQ", cta_location: "solution_page", solution: page.path }}>Contact MetrixIQ</TrackedLink>
           </div>
         </section>
 
