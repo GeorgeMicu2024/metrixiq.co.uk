@@ -5,12 +5,12 @@ import fs from "node:fs";
 const read = (path) =>
   fs.readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("SEO Batch 3 permanently redirects www to the canonical non-www host", () => {
+test("SEO host canonicalization is left to Vercel domain settings", () => {
   const nextConfig = read("next.config.mjs");
+  const site = read("lib/seo/site.js");
 
-  assert.ok(nextConfig.includes('type: "host", value: "www.metrixiq.co.uk"'));
-  assert.ok(nextConfig.includes('destination: "https://metrixiq.co.uk/:path*"'));
-  assert.ok(nextConfig.includes("permanent: true"));
+  assert.equal(nextConfig.includes("async redirects()"), false);
+  assert.ok(site.includes('SITE_URL = "https://www.metrixiq.co.uk"'));
 });
 
 test("private, auth, login and API routes send noindex directives", () => {
