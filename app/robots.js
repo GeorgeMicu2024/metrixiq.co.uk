@@ -1,3 +1,5 @@
+import { SITE_URL } from "../lib/seo/site";
+
 export default function robots() {
   return {
     rules: {
@@ -5,6 +7,7 @@ export default function robots() {
       allow: "/",
       disallow: ["/app", "/auth", "/api"],
     },
-    sitemap: "https://www.metrixiq.co.uk/sitemap.xml",
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }
