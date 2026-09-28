@@ -6,9 +6,9 @@ import { buildPageMetadata, SITE_URL } from "../../lib/seo/site";
 import { USE_CASE_LIST } from "../../lib/seo/useCasePages";
 
 export const metadata = buildPageMetadata({
-  title: "Use Cases",
+  title: "Delivery Operations Software Use Cases",
   description:
-    "Explore MetrixIQ use cases for multi-site delivery performance, fleet dashboards, driver safety analytics, compliance dashboards and management reporting.",
+    "Explore MetrixIQ use cases for multi-site performance, fleet dashboards, driver safety, compliance and delivery management reporting.",
   path: "/use-cases",
 });
 
@@ -37,6 +37,9 @@ export default function UseCasesPage() {
       >
         <section>
           <h2>Choose an operational use case</h2>
+          <p>
+            Each use case shows how recurring operational reports can be structured around a specific management problem. The goal is to keep source evidence, driver identity, site scope and historical context connected from the first review through to the management action.
+          </p>
           <div className="use-case-hub-grid">
             {USE_CASE_LIST.map((page) => (
               <Link href={page.path} key={page.slug}>
