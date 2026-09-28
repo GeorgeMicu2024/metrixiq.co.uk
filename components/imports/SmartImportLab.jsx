@@ -290,6 +290,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         staged.duplicateFiles + " duplicate" + (staged.duplicateFiles === 1 ? "" : "s") + " · " +
         staged.records + " evidence records · " +
         (staged.reconciled ? "reconciled · " : "") +
+        (staged.alreadyStaged ? "already staged · " : "") +
         "production untouched."
       );
     } catch (error) {
@@ -382,7 +383,8 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
     !result?.staging?.logicalConflictGroups &&
     !plan?.review &&
     organizationId &&
-    !remoteBusy
+    !remoteBusy &&
+    !remoteStage
   );
 
   return <section className="smartlab-root">
@@ -565,7 +567,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
               onClick={stageToTestDb}
               disabled={!canStageRemote}
             >
-              {remoteBusy ? "Staging…" : remoteStage ? "Stage again" : "Stage to Test DB"}
+              {remoteBusy ? "Staging…" : remoteStage ? (remoteStage.alreadyStaged ? "Already staged ✓" : "Staged ✓") : "Stage to Test DB"}
             </button>
             <span className="importv2-readiness good">PRODUCTION OFF</span>
           </div>
@@ -587,7 +589,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
           ✓ Local dry-run snapshot · {browserStage.summary?.readyFiles || 0} ready files · session-only metadata.
         </div>}
         {remoteStage && <div className="importv2-message good smartlab-remote-stage" style={{ marginTop: 12 }}>
-          ✓ MetrixIQ Staging · Batch <b>{String(remoteStage.batchId || "").slice(0, 8)}</b> · {remoteStage.readyFiles || 0} ready · {remoteStage.duplicateFiles || 0} duplicates · {remoteStage.records || 0} evidence records · {remoteStage.reconciled ? "reconciled · " : ""}production untouched.
+          ✓ MetrixIQ Staging · Batch <b>{String(remoteStage.batchId || "").slice(0, 8)}</b> · {remoteStage.readyFiles || 0} ready · {remoteStage.duplicateFiles || 0} duplicates · {remoteStage.records || 0} evidence records · {remoteStage.reconciled ? "reconciled · " : ""}{remoteStage.alreadyStaged ? "already staged · " : ""}production untouched.
           {remoteStage.reconciled && <small style={{ display: "block", marginTop: 6 }}>
             Stored: {remoteStage.driverRecords || 0} driver-period · {remoteStage.feedbackRecords || 0} feedback · {remoteStage.scorecardRecords || 0} site scorecards.
           </small>}
