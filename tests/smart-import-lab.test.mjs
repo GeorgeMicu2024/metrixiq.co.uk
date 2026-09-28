@@ -242,3 +242,39 @@ test("same site report and period with changed bytes becomes a logical conflict"
 test("ZIP support stays isolated from the legacy Import Queue", () => {
   assert.equal(classifyImportFile({ name: "reports.zip", size: 100 }).status, "blocked");
 });
+
+
+test("DWC IADC weekly file with daily detail remains Ready, not Warning", () => {
+  const smart = buildSmartFileDetection([
+    {
+      reportType: "iadc-weekly",
+      label: "Weekly",
+      rows: 10,
+      site: "DDN1",
+      period: { key: "2026-W39", granularity: "weekly", year: 2026, week: 39 },
+      records: [],
+    },
+    {
+      reportType: "iadc-daily",
+      label: "2026-09-21",
+      rows: 10,
+      site: "DDN1",
+      period: { key: "2026-09-21", granularity: "daily" },
+      records: [],
+    },
+  ], "UK-DCSL-DDN1-DWC-IADC-Report_2026-39.html", {
+    key: "2026-W39",
+    granularity: "weekly",
+    year: 2026,
+    week: 39,
+  });
+
+  assert.equal(smart.granularity, "weekly_with_daily_detail");
+  assert.equal(smart.requiresReview, false);
+  assert.ok(smart.warnings.some((warning) => warning.code === "DAILY_DETAIL_INCLUDED" && warning.severity === "info"));
+
+  const plan = buildSmartImportPlan([{ name: "iadc.html", smart }], ["DDN1"]);
+  assert.equal(plan.ready, 1);
+  assert.equal(plan.warnings, 0);
+  assert.equal(plan.review, 0);
+});
