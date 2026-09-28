@@ -132,7 +132,8 @@ Deno.serve(async (req: Request) => {
       message.startsWith("Ready file count changed") ||
       message.startsWith("Blocking conflicts") ||
       message.startsWith("Stored evidence changed") ||
-      message.startsWith("Batch fingerprint")
+      message.startsWith("Batch fingerprint") ||
+      message.startsWith("Batch contains invalid driver identities")
         ? message
         : "Batch approval failed.";
     return reply(req, { error: safe, code: "APPROVAL_FAILED" }, 409);
