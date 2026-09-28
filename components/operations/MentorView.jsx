@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchMentorDailyRows, fetchMentorReconciliationRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
-import { fetchDailyDispatchAssignments } from "../../lib/data/dailyDispatch";
 import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
@@ -41,16 +40,6 @@ function formatDate(value) {
     month: "short",
     year: "numeric",
   });
-}
-
-function normalizedPersonName(value) {
-  return String(value || "")
-    .replace(/\s*[•·]\s*[A-Z]{2,5}\d+\s*$/i, "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 function splitDriverName(driver) {
@@ -241,13 +230,6 @@ export default function MentorView({
     rows: [],
   });
   const [reconciliationRows, setReconciliationRows] = useState([]);
-  const [dispatchLoad, setDispatchLoad] = useState({
-    loading: false,
-    error: "",
-    rows: [],
-    site: "",
-    date: "",
-  });
   const [mode, setMode] = useState("daily");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -361,61 +343,18 @@ export default function MentorView({
     if (!weeks.length && selectedWeek) setSelectedWeek("");
   }, [weeks, selectedWeek]);
 
-  useEffect(() => {
-    let alive = true;
-    const selectedSite = normalizedSelectedSite;
 
-    if (
-      !organizationId ||
-      !selectedDate ||
-      !selectedSite ||
-      selectedSite === "ALL"
-    ) {
-      setDispatchLoad({ loading: false, error: "", rows: [], site: "", date: "" });
-      return () => {};
-    }
-
-    setDispatchLoad((current) => ({
-      ...current,
-      loading: true,
-      error: "",
-      site: selectedSite,
-      date: selectedDate,
-    }));
-
-    fetchDailyDispatchAssignments(
-      getSupabaseBrowserClient(),
-      organizationId,
-      selectedSite,
-      selectedDate
-    )
-      .then((rows) => {
-        if (alive) setDispatchLoad({ loading: false, error: "", rows, site: selectedSite, date: selectedDate });
-      })
-      .catch((error) => {
-        if (alive) {
-          setDispatchLoad({
-            loading: false,
-            error: error?.message || "Could not load the Daily Dispatch roster.",
-            rows: [],
-            site: selectedSite,
-            date: selectedDate,
-          });
-        }
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [organizationId, normalizedSelectedSite, selectedDate, refreshKey]);
+  const selectedDailyRows = useMemo(
+    () => dailyRows.filter((row) => row.report_date === selectedDate),
+    [dailyRows, selectedDate]
+  );
 
   const dailyMap = useMemo(
     () =>
-      dailyRows
-        .filter((row) => row.report_date === selectedDate)
+      selectedDailyRows
         .map(makeItem)
-        .filter((item) => item.score != null || item.details),
-    [dailyRows, selectedDate]
+        .filter((item) => item.score != null),
+    [selectedDailyRows]
   );
 
   const weeklyMap = useMemo(
@@ -436,55 +375,49 @@ export default function MentorView({
   }), [reconciliationRows, selectedDate, normalizedSelectedSite]);
 
   const noTripRows = useMemo(() => {
-    if (!selectedDate || normalizedSelectedSite === "ALL" || !dispatchLoad.rows.length) return [];
-    const recordedIds = new Set();
-    const recordedTrids = new Set();
-    const recordedNames = new Set();
-
-    dailyRows
-      .filter((row) => row.report_date === selectedDate)
-      .forEach((row) => {
-        if (row.driver_id) recordedIds.add(String(row.driver_id));
-        const driverTrid = String(row.drivers?.trid || "").trim().toUpperCase();
-        if (driverTrid) recordedTrids.add(driverTrid);
-        const driverName = normalizedPersonName(row.drivers?.full_name);
-        if (driverName) recordedNames.add(driverName);
-      });
-
-    const missing = new Map();
-    for (const assignment of dispatchLoad.rows) {
-      const driverId = String(assignment.driver_id || assignment.drivers?.id || "").trim();
-      const driverTrid = String(assignment.trid || assignment.drivers?.trid || "").trim().toUpperCase();
-      const driverName = String(assignment.driver_name || assignment.drivers?.full_name || "").trim();
-      const normalizedName = normalizedPersonName(driverName);
-      const recorded =
-        (driverId && recordedIds.has(driverId)) ||
-        (driverTrid && recordedTrids.has(driverTrid)) ||
-        (normalizedName && recordedNames.has(normalizedName));
-      if (recorded || !driverName) continue;
-
-      const identityKey = driverId || driverTrid || normalizedName || assignment.id;
-      const current = missing.get(identityKey) || {
-        id: identityKey,
+    const rows = new Map();
+    for (const row of selectedDailyRows) {
+      const details = row.raw_data?.mentor || {};
+      const trips = n(details.totalTrips);
+      if (trips == null || trips > 0) continue;
+      const driverName = String(dname(row.drivers || {}) || "Unresolved driver").trim();
+      const driverTrid = String(trid(row.drivers || {}) || "—").trim();
+      const key = String(row.driver_id || driverTrid || driverName || row.source_identity_key || row.id);
+      if (rows.has(key)) continue;
+      rows.set(key, {
+        id: key,
         driverName,
         trid: driverTrid || "—",
-        routes: [],
-      };
-      if (assignment.route_code && !current.routes.includes(assignment.route_code)) current.routes.push(assignment.route_code);
-      missing.set(identityKey, current);
+        beginRouteTime: details.beginRouteTime || "—",
+        endRouteTime: details.endRouteTime || "—",
+        status: details.tripStatusReason || "No trip registered",
+      });
     }
-    return [...missing.values()].sort((a, b) => a.driverName.localeCompare(b.driverName));
-  }, [dailyRows, dispatchLoad.rows, normalizedSelectedSite, selectedDate]);
+    return [...rows.values()].sort((a, b) => a.driverName.localeCompare(b.driverName));
+  }, [selectedDailyRows]);
 
-  const recordedCount = useMemo(() => new Set(
-    dailyMap.map((item) => String(item.row?.driver_id || item.row?.source_identity_key || item.id || ""))
-  ).size, [dailyMap]);
-  const dispatchRosterReady =
-    dispatchLoad.site === normalizedSelectedSite &&
-    dispatchLoad.date === selectedDate &&
-    !dispatchLoad.loading &&
-    !dispatchLoad.error &&
-    dispatchLoad.rows.length > 0;
+  const tripEvidenceComplete = useMemo(
+    () => selectedDailyRows.some((row) => {
+      const details = row.raw_data?.mentor || {};
+      if (details.tripEvidenceSource === "ementor_shift_report") return true;
+      return (row.raw_data?.source_files || []).some((name) => /shift.?report/i.test(String(name || "")));
+    }),
+    [selectedDailyRows]
+  );
+
+  const recordedCount = useMemo(() => {
+    const recorded = new Set();
+    for (const row of selectedDailyRows) {
+      const details = row.raw_data?.mentor || {};
+      const trips = n(details.totalTrips);
+      if (!(trips > 0) && row.mentor_score == null) continue;
+      recorded.add(String(row.driver_id || row.source_identity_key || row.id || ""));
+    }
+    recorded.delete("");
+    return recorded.size;
+  }, [selectedDailyRows]);
+
+  const noTripCountReady = tripEvidenceComplete || noTripRows.length > 0;
 
   function applySort(items) {
     return [...items].sort((a, b) => {
@@ -653,9 +586,9 @@ export default function MentorView({
           </div>
 
           <div className="mentor-daily-kpis">
-            <article><span>Recorded</span><strong>{recordedCount}</strong><small>eMentor trips matched to drivers</small></article>
+            <article><span>Recorded</span><strong>{recordedCount}</strong><small>eMentor trips registered for this date</small></article>
             <article className={unmatchedForDate.length ? "warn" : ""}><span>Unmatched</span><strong>{unmatchedForDate.length}</strong><small>Identity mapping required</small></article>
-            <article className={dispatchRosterReady && noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{dispatchRosterReady ? noTripRows.length : "—"}</strong><small>{dispatchLoad.loading ? "Checking Daily Dispatch…" : dispatchRosterReady ? "Scheduled drivers missing from eMentor" : "Generate Daily Dispatch to enable"}</small></article>
+            <article className={noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{noTripCountReady ? noTripRows.length : "—"}</strong><small>{tripEvidenceComplete ? "From eMentor Shift Report trip evidence" : noTripRows.length ? "Explicit Trip = 0 rows found in eMentor" : "Import eMentor Shift Report (VRM) to verify"}</small></article>
           </div>
 
           <MentorReportTable
@@ -667,21 +600,20 @@ export default function MentorView({
             onRestore={(item) => setDailyItemHidden(item, false)}
             visibilityBusy={visibilityBusy}
           />
-          <section className={"mentor-no-trip "+(dispatchRosterReady && noTripRows.length ? "has-missing" : "")}>
+          <section className={"mentor-no-trip "+(noTripRows.length ? "has-missing" : "")}>
             <div className="mentor-no-trip-head">
-              <div><span className="page-kicker">DISPATCH RECONCILIATION</span><h2>No Trip Recorder</h2></div>
-              <strong>{dispatchRosterReady ? noTripRows.length : "—"}</strong>
+              <div><span className="page-kicker">EMENTOR TRIP CHECK</span><h2>No Trip Recorder</h2></div>
+              <strong>{noTripCountReady ? noTripRows.length : "—"}</strong>
             </div>
-            {dispatchLoad.loading ? (
-              <p className="mentor-no-trip-info">Checking the saved Daily Dispatch roster for {formatDate(selectedDate)}…</p>
-            ) : dispatchLoad.error ? (
-              <p className="mentor-no-trip-info error">{dispatchLoad.error}</p>
-            ) : !dispatchRosterReady ? (
-              <p className="mentor-no-trip-info">No saved Daily Dispatch roster exists for {formatDate(selectedDate)} · {siteLabel}. Generate the Wave Plan for this date first; MetrixIQ will then compare scheduled drivers with recorded eMentor trips.</p>
-            ) : noTripRows.length ? (
-              <div className="mentor-no-trip-table-wrap"><table className="mentor-no-trip-table"><thead><tr><th>Driver</th><th>TRID</th><th>Route</th><th>Status</th></tr></thead><tbody>{noTripRows.map((row) => <tr key={row.id}><td><b>{row.driverName}</b></td><td>{row.trid}</td><td>{row.routes.join(" / ") || "—"}</td><td><span>● No eMentor trip</span></td></tr>)}</tbody></table></div>
+            {noTripRows.length ? (
+              <>
+                <div className="mentor-no-trip-table-wrap"><table className="mentor-no-trip-table"><thead><tr><th>Driver</th><th>TRID</th><th>Begin</th><th>End</th><th>Status</th></tr></thead><tbody>{noTripRows.map((row) => <tr key={row.id}><td><b>{row.driverName}</b></td><td>{row.trid}</td><td>{row.beginRouteTime}</td><td>{row.endRouteTime}</td><td><span>● {row.status}</span></td></tr>)}</tbody></table></div>
+                {!tripEvidenceComplete && <p className="mentor-no-trip-info">These are explicit Trip = 0 rows from eMentor. Import the eMentor Shift Report (VRM) for the same date to verify the complete trip list.</p>}
+              </>
+            ) : tripEvidenceComplete ? (
+              <p className="mentor-no-trip-info ok">✓ No Trip = 0 rows were found in the eMentor Shift Report for {formatDate(selectedDate)}.</p>
             ) : (
-              <p className="mentor-no-trip-info ok">✓ All drivers in the saved Daily Dispatch roster have a recorded eMentor trip.</p>
+              <p className="mentor-no-trip-info">To identify drivers whose eMentor trip was not registered, was left open, or reached 23:59 without being closed, import the <b>eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)}. MetrixIQ reads the eMentor Trip / Begin Route Time / End Route Time fields directly. Daily Dispatch is not used.</p>
             )}
           </section>
 
