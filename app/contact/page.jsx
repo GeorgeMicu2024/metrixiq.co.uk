@@ -1,6 +1,7 @@
 import Link from "next/link";
 import PublicPageShell from "../../components/PublicPageShell";
 import StructuredData from "../../components/StructuredData";
+import TrackedPhoneLink from "../../components/TrackedPhoneLink";
 import { buildPageMetadata, CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164, organizationSchema, SITE_URL } from "../../lib/seo/site";
 
 export const metadata = buildPageMetadata({
@@ -54,7 +55,7 @@ export default function ContactPage() {
             <b>Call MetrixIQ</b>
             <span>Product, rollout or account enquiries.</span>
           </div>
-          <a href={`tel:${CONTACT_PHONE_E164}`}>{CONTACT_PHONE_DISPLAY} →</a>
+          <TrackedPhoneLink phoneE164={CONTACT_PHONE_E164} display={CONTACT_PHONE_DISPLAY} location="contact_page">{CONTACT_PHONE_DISPLAY} →</TrackedPhoneLink>
         </div>
         <div className="public-contact-option">
           <div>
