@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { analyseFiles } from "../../lib/analyzer";
 import { buildSmartImportPlan } from "../../lib/analyzer/smartDetection";
 import { expandImportFiles } from "../../lib/imports/archive";
@@ -29,12 +29,11 @@ export default function SmartImportLab({ sites = [] }) {
   const [result, setResult] = useState(null);
   const [browserStage, setBrowserStage] = useState(null);
 
-  useState(() => {
+  useEffect(() => {
     try {
-      if (typeof window !== "undefined") setBrowserStage(loadBrowserStaging(sessionStorage));
+      setBrowserStage(loadBrowserStaging(sessionStorage));
     } catch {}
-    return null;
-  });
+  }, []);
 
   function addFiles(incoming) {
     const next = [...files];
