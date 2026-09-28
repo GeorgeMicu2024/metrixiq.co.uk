@@ -12,41 +12,68 @@ import "./automation-workflows-v8.css";
 import "./integration-delivery-v9.css";
 import "./account-settings.css";
 import PwaBootstrap from "../components/pwa/PwaBootstrap";
+import StructuredData from "../components/StructuredData";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  SITE_NAME,
+  SITE_URL,
+  organizationSchema,
+  softwareSchema,
+  websiteSchema,
+} from "../lib/seo/site";
 
 export const metadata = {
-  metadataBase: new URL("https://www.metrixiq.co.uk"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "MetrixIQ — Fleet & Driver Intelligence",
+    default: DEFAULT_TITLE,
     template: "%s | MetrixIQ",
   },
-  description: "Fleet and driver performance intelligence for modern delivery operations.",
-  applicationName: "MetrixIQ",
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "MetrixIQ",
-    title: "MetrixIQ — Fleet & Driver Intelligence",
-    description: "Fleet and driver performance intelligence for modern delivery operations.",
+    siteName: SITE_NAME,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "MetrixIQ fleet and driver performance intelligence",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MetrixIQ — Fleet & Driver Intelligence",
-    description: "Fleet and driver performance intelligence for modern delivery operations.",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: ["/twitter-image"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
   icons: {
-    icon: "/favicon.svg",
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/favicon.svg",
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "MetrixIQ",
+    title: SITE_NAME,
     statusBarStyle: "black-translucent",
   },
   formatDetection: {
@@ -64,7 +91,11 @@ export const viewport = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body><PwaBootstrap />{children}</body>
+      <body>
+        <StructuredData data={[organizationSchema, websiteSchema, softwareSchema]} />
+        <PwaBootstrap />
+        {children}
+      </body>
     </html>
   );
 }
