@@ -27,7 +27,7 @@ test("eMentor Shift Report keeps Trip = 0 drivers as No Trip Recorder evidence",
 test("eMentor Driver Report no longer discards explicit Total Driver Trips = 0 rows", () => {
   const matrix = [
     ["First Name","Last Name","FICO Safe Driving Score","Station","Total Driver Trips","Acceleration Rating"],
-    ["Test","Driver",800,"DLS2",0,"Low Risk"],
+    ["John","Smith",800,"DLS2",0,"Low Risk"],
   ];
 
   const parsed = parseMentorMatrix(matrix, "Driver Report_2026-09-27.xlsx", "Driver Report (VRM)");
