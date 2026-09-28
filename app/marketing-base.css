@@ -47,6 +47,147 @@ svg{display:block;max-width:100%}
 }
 
 
+/* Homepage inline auth — premium one-step sign in */
+.mk-login-form{display:block}
+.mk-login-card{
+  border:1px solid rgba(11,31,51,.08);
+  box-shadow:0 24px 70px rgba(0,0,0,.28);
+}
+.mk-login-card label{
+  position:relative;
+  height:46px;
+  border:1px solid #d9e2e8;
+  border-radius:10px;
+  margin:10px 0;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 13px;
+  background:#fbfcfd;
+  color:#7b8a99;
+  font-size:12px;
+  box-shadow:0 1px 2px rgba(11,31,51,.025);
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+.mk-login-card label:focus-within{
+  border-color:#27c98a;
+  background:#fff;
+  box-shadow:0 0 0 3px rgba(39,201,138,.12);
+}
+.mk-login-card label .mk-field-icon{
+  flex:0 0 auto;
+  width:18px;
+  color:#8291a0;
+  font-size:12px;
+  text-align:center;
+}
+.mk-login-card label input{
+  flex:1;
+  min-width:0;
+  width:100%;
+  height:100%;
+  border:0;
+  outline:0;
+  appearance:none;
+  background:transparent;
+  color:#173047;
+  font:inherit;
+  font-size:12px;
+  padding:0;
+}
+.mk-login-card label input::placeholder{color:#8b99a7;opacity:1}
+.mk-login-card label input:disabled{cursor:not-allowed;opacity:.68}
+.mk-password-toggle{
+  flex:0 0 auto;
+  width:28px;
+  height:28px;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#6f7e8d;
+  padding:0;
+  cursor:pointer;
+  font-size:12px;
+  appearance:none;
+}
+.mk-password-toggle:hover{background:#eef4f5;color:#173047}
+.mk-remember{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  font-size:10px;
+  margin:12px 1px 14px;
+  color:#526474;
+}
+.mk-remember span{color:#667786}
+.mk-remember button{
+  border:0;
+  background:transparent;
+  padding:0;
+  color:#178e68;
+  font:inherit;
+  font-size:10px;
+  font-weight:750;
+  cursor:pointer;
+  appearance:none;
+}
+.mk-remember button:hover{color:#0f6f51;text-decoration:underline}
+.mk-remember button:disabled,.mk-password-toggle:disabled{opacity:.55;cursor:not-allowed}
+.mk-signin,.mk-google{
+  width:100%;
+  min-height:44px;
+  border:0;
+  border-radius:10px;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+  appearance:none;
+  transition:transform .16s ease,box-shadow .16s ease,background .16s ease;
+}
+.mk-signin{
+  background:linear-gradient(90deg,#24c979,#35d98d);
+  color:#062119;
+  box-shadow:0 10px 24px rgba(36,201,121,.22);
+}
+.mk-signin:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 13px 28px rgba(36,201,121,.28)}
+.mk-or{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:18px 0 14px;
+  color:#94a1ad;
+  font-size:8px;
+  font-weight:850;
+  letter-spacing:.1em;
+}
+.mk-or span{height:1px;background:#e3e9ed;flex:1}
+.mk-google{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  color:#173047;
+  border:1px solid #dce4e9;
+  box-shadow:0 2px 5px rgba(11,31,51,.04);
+}
+.mk-google:hover:not(:disabled){background:#f7fafb;border-color:#cdd9df;transform:translateY(-1px)}
+.mk-signin:disabled,.mk-google:disabled{opacity:.62;cursor:wait;transform:none;box-shadow:none}
+.mk-auth-message{
+  margin:9px 0 11px;
+  padding:9px 11px;
+  border-radius:8px;
+  font-size:10px;
+  line-height:1.4;
+}
+.mk-auth-message.error{background:#fff0f1;border:1px solid #f1c6ca;color:#9d3640}
+.mk-auth-message.success{background:#eef9f4;border:1px solid #c9e8d9;color:#227154}
+#sign-in{scroll-margin-top:90px}
+
+
 /* Lightweight placeholder keeps hero geometry stable until the interactive sign-in card is near view. */
 .mk-login-card-placeholder{min-height:408px;display:flex;flex-direction:column}
 .mk-login-placeholder-brand{text-align:center;font-size:25px;font-weight:700;letter-spacing:-.055em;color:#0b1f33;margin:4px 0 12px}
