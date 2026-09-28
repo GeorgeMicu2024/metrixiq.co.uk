@@ -20,6 +20,6 @@ test("public performance audit enforces CSS and JS budgets", () => {
 test("performance budgets preserve the post-LCP CSS reduction", () => {
   const script = read("scripts/public-performance-budget.mjs");
 
-  assert.ok(script.includes("45000"));
+  assert.ok(script.includes("20000"));
   assert.ok(script.includes("625000"));
 });
