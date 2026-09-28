@@ -1,6 +1,5 @@
 import "./globals.css";
 import "./public-pages.css";
-import PwaBootstrap from "../components/pwa/PwaBootstrap";
 import StructuredData from "../components/StructuredData";
 import GoogleAnalytics from "../components/GoogleAnalytics";
 import {
@@ -83,7 +82,6 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <StructuredData data={[organizationSchema, websiteSchema, softwareSchema]} />
-        <PwaBootstrap />
         <GoogleAnalytics />
         {children}
       </body>
