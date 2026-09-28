@@ -9,6 +9,7 @@ import {
   summarizePreflight,
 } from "../../lib/imports/preflight";
 import { buildImportIntelligence } from "../../lib/imports/analysisSummary";
+import SmartImportLab from "./SmartImportLab";
 import { isoWeekDetails, isoWeekFromDate } from "../../lib/analyzer/core";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import {
@@ -238,7 +239,7 @@ export default function ImportCenterV2({
       <div><span className="page-kicker">IMPORT CENTER V2</span><h1>Smart Data Ingestion</h1><p>Analyse first, review duplicates and data quality, then write trusted evidence to the workspace.</p></div>
       <div><button className="btn ghost" onClick={()=>setTab("history")}>Import history</button><button className="btn primary" onClick={()=>input.current?.click()} disabled={busy}>Add files</button></div>
     </div>
-    <div className="importv2-tabs"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Import Queue</button><button className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History & Rollback</button></div>
+    <div className="importv2-tabs"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Import Queue</button><button className={tab==="lab"?"active":""} onClick={()=>setTab("lab")}>Smart Import Lab</button><button className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History & Rollback</button></div>
     {tab==="queue"&&<section className="panel" style={{marginBottom:16}}><div className="panel-head"><div><span className="page-kicker">SITE ISOLATION</span><h2>Activity Site</h2><p>Every saved import and driver metric is attributed to this station. Home Site does not override operational evidence.</p></div><select aria-label="Activity Site" value={activitySite} onChange={(e)=>{setActivitySite(e.target.value);setPreview(null);setPhase("idle");setMessage("");}} disabled={busy}><option value="">Choose site…</option>{sites.map((site)=><option key={site} value={site}>{site}</option>)}</select></div>{!activitySite&&<div className="importv2-notice">Select a site before analysis. MetrixIQ will not infer a station from the driver's Home Site.</div>}</section>}
     <input ref={input} type="file" multiple hidden accept={IMPORT_ACCEPT} onChange={(event)=>{addFiles(event.target.files||[]);event.target.value="";}}/>
 
@@ -279,7 +280,7 @@ export default function ImportCenterV2({
       </>}
     </>}
 
-    {tab==="history"&&<section className="panel importv2-history">
+    {tab==="lab"&&<SmartImportLab sites={sites}/>}\n\n    {tab==="history"&&<section className="panel importv2-history">
       <div className="panel-head"><div><h2>Import history</h2><p>Every stored source file with rollback controls. Merged evidence is preserved when removal would be unsafe.</p></div><button className="btn ghost" onClick={loadHistory}>Refresh</button></div>
       <div className="table-wrap"><table className="data-table"><thead><tr><th>Imported</th><th>File</th><th>Detected report</th><th>Period</th><th>Status</th><th>Mode</th><th>Action</th></tr></thead><tbody>
         {history.map((item)=><tr key={item.id}><td>{importDate(item.created_at)}</td><td><b>{item.file_name}</b><small className="history-date">{item.file_size_bytes?Math.round(item.file_size_bytes/1024)+" KB":"—"}</small></td><td>{item.detected_report_type||"—"}</td><td>{item.period_start||"—"} → {item.period_end||"—"}</td><td><span className={"import-status "+(item.metadata?.rolled_back?"read":item.status)}>{item.metadata?.rolled_back?"rolled back":item.status}</span></td><td>{item.metadata?.import_mode||"standard"}</td><td><button className="btn ghost compact" disabled={!canManage||busyImport===item.id||item.metadata?.rolled_back} onClick={()=>rollback(item)}>{busyImport===item.id?"Checking…":"Rollback"}</button></td></tr>)}
