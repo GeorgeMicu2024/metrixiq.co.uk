@@ -56,3 +56,13 @@ test("Stage to Test DB stays safety-gated until review is resolved", () => {
   assert.match(component, /!plan\?\.review/);
   assert.match(component, /disabled=\{!canStageRemote\}/);
 });
+
+
+test("Approval gate stays mobile-friendly and production-safe", () => {
+  assert.match(component, /smartlab-approval-card/);
+  assert.match(component, /Approve Batch/);
+  assert.match(component, /PRODUCTION STILL OFF/);
+  assert.match(css, /Smart Import approval gate/);
+  assert.match(css, /\.smartlab-approval-card/);
+  assert.match(css, /@media\(max-width:680px\)[\s\S]*\.smartlab-approval-card/);
+});
