@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { analyseFiles } from "../../lib/analyzer";
 import { buildSmartImportPlan } from "../../lib/analyzer/smartDetection";
 import { expandImportFiles } from "../../lib/imports/archive";
@@ -377,6 +377,28 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
 
   const plan = result?.plan;
   const reviewItems = result?.staging?.blocked || [];
+  const normalizedPreview = useMemo(() => {
+    if (
+      !result?.staging ||
+      !organizationId ||
+      result.staging.blockedFiles ||
+      result.staging.logicalConflictGroups ||
+      !result.staging.readyFiles
+    ) return null;
+
+    try {
+      return buildRemoteStagingPayload({
+        organizationId,
+        analysis: result.analysis,
+        plan: result.plan,
+        staging: result.staging,
+        exactDuplicates: result.exactDuplicates,
+      }).summary;
+    } catch {
+      return null;
+    }
+  }, [result, organizationId]);
+
   const canStageRemote = Boolean(
     result?.staging?.readyFiles &&
     !result?.staging?.blockedFiles &&
@@ -581,9 +603,33 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         <div className="importv2-kpis">
           <article className="good"><span>Ready files</span><strong>{result.staging?.readyFiles || 0}</strong><small>eligible for staging</small></article>
           <article className={result.staging?.blockedFiles ? "bad" : "good"}><span>Blocked</span><strong>{result.staging?.blockedFiles || 0}</strong><small>must be reviewed first</small></article>
-          <article><span>Driver-period rows</span><strong>{result.staging?.sourceRows || 0}</strong><small>expected before DB reconciliation</small></article>
-          <article><span>Feedback events</span><strong>{result.staging?.feedbackRows || 0}</strong><small>expected CDF / escalation events</small></article>
-          <article><span>Site scorecards</span><strong>{result.staging?.scorecardRows || 0}</strong><small>expected site snapshots</small></article>
+          <article>
+            <span>Driver-period records</span>
+            <strong>{normalizedPreview?.normalizedDriverRecords ?? result.staging?.sourceRows ?? 0}</strong>
+            <small>
+              {normalizedPreview && normalizedPreview.normalizedDriverRecords !== result.staging?.sourceRows
+                ? `normalized from ${result.staging?.sourceRows || 0} raw evidence rows`
+                : "normalized records expected in Test DB"}
+            </small>
+          </article>
+          <article>
+            <span>Feedback records</span>
+            <strong>{normalizedPreview?.normalizedFeedbackRecords ?? result.staging?.feedbackRows ?? 0}</strong>
+            <small>
+              {normalizedPreview && normalizedPreview.normalizedFeedbackRecords !== result.staging?.feedbackRows
+                ? `normalized from ${result.staging?.feedbackRows || 0} raw events`
+                : "normalized feedback records expected"}
+            </small>
+          </article>
+          <article>
+            <span>Site scorecards</span>
+            <strong>{normalizedPreview?.normalizedScorecardRecords ?? result.staging?.scorecardRows ?? 0}</strong>
+            <small>
+              {normalizedPreview && normalizedPreview.normalizedScorecardRecords !== result.staging?.scorecardRows
+                ? `normalized from ${result.staging?.scorecardRows || 0} raw snapshots`
+                : "normalized site snapshots expected"}
+            </small>
+          </article>
         </div>
         {browserStage && <div className="importv2-message good" style={{ marginTop: 12 }}>
           ✓ Local dry-run snapshot · {browserStage.summary?.readyFiles || 0} ready files · session-only metadata.
