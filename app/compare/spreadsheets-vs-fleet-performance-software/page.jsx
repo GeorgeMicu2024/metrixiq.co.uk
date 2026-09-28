@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicPageShell from "../../../components/PublicPageShell";
+import TrackedLink from "../../../components/TrackedLink";
 import StructuredData from "../../../components/StructuredData";
 import { buildPageMetadata } from "../../../lib/seo/site";
 import { COMPARISON_PAGE, buildComparisonSchemas } from "../../../lib/seo/useCasePages";
@@ -18,6 +19,11 @@ export default function ComparisonPage() {
         eyebrow={COMPARISON_PAGE.eyebrow}
         title={COMPARISON_PAGE.h1}
         intro={COMPARISON_PAGE.intro}
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Use cases", href: "/use-cases" },
+          { label: COMPARISON_PAGE.title },
+        ]}
       >
         <section>
           <h2>Workflow comparison</h2>
@@ -73,8 +79,8 @@ export default function ComparisonPage() {
             history, compliance and coaching context in a repeatable workspace.
           </p>
           <div className="public-actions">
-            <Link className="primary" href="/fleet-performance-management">Explore Fleet Performance Management</Link>
-            <Link href="/login?mode=register">Get started</Link>
+            <TrackedLink className="primary" href="/fleet-performance-management" eventParams={{ cta_label: "Explore Fleet Performance Management", cta_location: "comparison_page" }}>Explore Fleet Performance Management</TrackedLink>
+            <TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "comparison_page" }}>Get started</TrackedLink>
           </div>
         </section>
       </PublicPageShell>
