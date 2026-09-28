@@ -162,3 +162,46 @@ test("remote staging refuses a write-enabled source plan", () => {
     staging: { writesEnabled: true },
   }), /validated zero-write staging plan/);
 });
+
+
+test("remote staging refuses blocked file batches", () => {
+  assert.throws(() => buildRemoteStagingPayload({
+    organizationId: "11111111-1111-4111-8111-111111111111",
+    analysis: { periods: [], siteScorecards: [], feedbackEvents: [] },
+    plan: { files: [], logicalDuplicateGroups: [] },
+    staging: {
+      writesEnabled: false,
+      totalFiles: 1,
+      readyFiles: 0,
+      blockedFiles: 1,
+      exactDuplicatesSkipped: 0,
+      logicalConflictGroups: 0,
+      sourceRows: 0,
+      feedbackRows: 0,
+      scorecardRows: 0,
+      destinations: {},
+      files: [],
+    },
+  }), /Remove or reselect blocked files/);
+});
+
+test("remote staging refuses unresolved logical conflicts", () => {
+  assert.throws(() => buildRemoteStagingPayload({
+    organizationId: "11111111-1111-4111-8111-111111111111",
+    analysis: { periods: [], siteScorecards: [], feedbackEvents: [] },
+    plan: { files: [], logicalDuplicateGroups: [{}] },
+    staging: {
+      writesEnabled: false,
+      totalFiles: 1,
+      readyFiles: 1,
+      blockedFiles: 0,
+      exactDuplicatesSkipped: 0,
+      logicalConflictGroups: 1,
+      sourceRows: 0,
+      feedbackRows: 0,
+      scorecardRows: 0,
+      destinations: { imports: 1 },
+      files: [],
+    },
+  }), /Resolve logical report conflicts/);
+});
