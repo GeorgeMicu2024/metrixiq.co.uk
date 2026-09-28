@@ -7,14 +7,14 @@ const read = (path) =>
 
 test("Core Web Vitals telemetry uses the Next web-vitals hook", () => {
   const reporter = read("components/WebVitalsReporter.jsx");
-  const layout = read("app/layout.jsx");
+  const analytics = read("components/GoogleAnalytics.jsx");
 
   assert.ok(reporter.includes('useReportWebVitals'));
   assert.ok(reporter.includes('window.gtag("event", "web_vital"'));
   assert.ok(reporter.includes('typeof window.gtag !== "function"'));
   assert.ok(reporter.includes('metric_name: metric.name'));
   assert.ok(reporter.includes('metric_rating: metric.rating'));
-  assert.ok(layout.includes("<WebVitalsReporter />"));
+  assert.ok(analytics.includes("<WebVitalsReporter />"));
 });
 
 test("CLS is scaled for GA event value while timing metrics are rounded", () => {
