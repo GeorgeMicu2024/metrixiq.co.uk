@@ -22,7 +22,7 @@ function storeConsent(value) {
     `${CONSENT_COOKIE}=${value}; Path=/; Max-Age=15552000; SameSite=Lax${secure}`;
 }
 
-export default function GoogleAnalytics() {
+export default function GoogleAnalytics({ openSettingsToken = 0 }) {
   const measurementId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const validMeasurementId =
     typeof measurementId === "string" && /^G-[A-Z0-9]+$/i.test(measurementId);
@@ -32,13 +32,34 @@ export default function GoogleAnalytics() {
   useEffect(() => {
     if (!validMeasurementId) return undefined;
 
-    setConsent(readConsent());
+    setConsent(openSettingsToken ? null : readConsent());
 
     const openSettings = () => setConsent(null);
     window.addEventListener(CONSENT_EVENT, openSettings);
 
     return () => window.removeEventListener(CONSENT_EVENT, openSettings);
-  }, [validMeasurementId]);
+  }, [validMeasurementId, openSettingsToken]);
+
+  useEffect(() => {
+    if (consent !== "accepted") return undefined;
+
+    const trackClick = (event) => {
+      const target = event.target?.closest?.("[data-track-event]");
+      if (!target || typeof window.gtag !== "function") return;
+
+      let params = {};
+      try {
+        params = JSON.parse(target.getAttribute("data-track-params") || "{}");
+      } catch {
+        params = {};
+      }
+
+      window.gtag("event", target.getAttribute("data-track-event") || "cta_click", params);
+    };
+
+    document.addEventListener("click", trackClick, true);
+    return () => document.removeEventListener("click", trackClick, true);
+  }, [consent]);
 
   if (!validMeasurementId) return null;
 
