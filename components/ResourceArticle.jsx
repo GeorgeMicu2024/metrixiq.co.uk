@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicPageShell from "./PublicPageShell";
+import TrackedLink from "./TrackedLink";
 import StructuredData from "./StructuredData";
 import { buildArticleSchemas, RESOURCE_LIST } from "../lib/seo/resources";
 
@@ -9,7 +10,16 @@ export default function ResourceArticle({ article }) {
   return (
     <>
       <StructuredData data={buildArticleSchemas(article)} />
-      <PublicPageShell eyebrow={article.eyebrow} title={article.h1} intro={article.intro}>
+      <PublicPageShell
+        eyebrow={article.eyebrow}
+        title={article.h1}
+        intro={article.intro}
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Resources", href: "/resources" },
+          { label: article.title },
+        ]}
+      >
         <article className="resource-article">
           <div className="resource-meta">
             <span>{article.readingTime}</span>
@@ -30,7 +40,7 @@ export default function ResourceArticle({ article }) {
             <span>RELATED METRIXIQ SOLUTION</span>
             <h2>{article.relatedSolutionLabel}</h2>
             <p>See how the ideas in this guide connect to the product workflow inside MetrixIQ.</p>
-            <Link href={article.relatedSolution}>Explore {article.relatedSolutionLabel} →</Link>
+            <TrackedLink href={article.relatedSolution} eventParams={{ cta_label: "Explore related solution", cta_location: "resource_article", resource: article.path }}>Explore {article.relatedSolutionLabel} →</TrackedLink>
           </section>
 
           <section className="resource-related">
