@@ -1,6 +1,6 @@
 import "./marketing-base.css";
 import StructuredData from "../components/StructuredData";
-import GoogleAnalytics from "../components/GoogleAnalytics";
+import DeferredGoogleAnalytics from "../components/DeferredGoogleAnalytics";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_TITLE,
@@ -134,7 +134,7 @@ export default function RootLayout({ children }) {
       <body>
         <StructuredData data={[organizationSchema, websiteSchema, softwareSchema]} />
         <script id="metrixiq-pwa-bootstrap" dangerouslySetInnerHTML={{ __html: PWA_BOOTSTRAP_SCRIPT }} />
-        <GoogleAnalytics />
+        <DeferredGoogleAnalytics />
         {children}
       </body>
     </html>
