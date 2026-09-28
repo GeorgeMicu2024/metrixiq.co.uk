@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicPageShell from "../../components/PublicPageShell";
+import TrackedLink from "../../components/TrackedLink";
 import StructuredData from "../../components/StructuredData";
 import { buildPageMetadata, SITE_URL } from "../../lib/seo/site";
 import { USE_CASE_LIST } from "../../lib/seo/useCasePages";
@@ -32,6 +33,7 @@ export default function UseCasesPage() {
         eyebrow="USE CASES"
         title="Operational workflows MetrixIQ helps delivery teams manage."
         intro="Explore practical use cases across performance dashboards, multi-site management, driver safety, compliance and recurring management reporting."
+        breadcrumbs={[{ label: "Home", href: "/" }, { label: "Use cases" }]}
       >
         <section>
           <h2>Choose an operational use case</h2>
@@ -54,8 +56,8 @@ export default function UseCasesPage() {
             compare that workflow with a dedicated performance-management layer.
           </p>
           <div className="public-actions">
-            <Link className="primary" href="/compare/spreadsheets-vs-fleet-performance-software">Spreadsheets vs fleet software</Link>
-            <Link href="/solutions">Explore product solutions</Link>
+            <TrackedLink className="primary" href="/compare/spreadsheets-vs-fleet-performance-software" eventParams={{ cta_label: "Spreadsheets vs fleet software", cta_location: "use_cases_hub" }}>Spreadsheets vs fleet software</TrackedLink>
+            <TrackedLink href="/solutions" eventParams={{ cta_label: "Explore product solutions", cta_location: "use_cases_hub" }}>Explore product solutions</TrackedLink>
           </div>
         </section>
       </PublicPageShell>
