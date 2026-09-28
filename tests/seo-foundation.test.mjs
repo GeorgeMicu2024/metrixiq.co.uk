@@ -4,12 +4,12 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("SEO uses the non-www canonical domain", () => {
+test("SEO uses the Vercel primary www canonical domain", () => {
   const site = read("lib/seo/site.js");
   const layout = read("app/layout.jsx");
   const robots = read("app/robots.js");
   const sitemap = read("app/sitemap.js");
-  assert.ok(site.includes('SITE_URL = "https://metrixiq.co.uk"'));
+  assert.ok(site.includes('SITE_URL = "https://www.metrixiq.co.uk"'));
   assert.ok(layout.includes("metadataBase: new URL(SITE_URL)"));
   assert.ok(robots.includes("SITE_URL"));
   assert.ok(sitemap.includes("SITE_URL"));
