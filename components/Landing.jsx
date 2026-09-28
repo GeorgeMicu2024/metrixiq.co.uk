@@ -3,6 +3,7 @@ import Brand from "./Brand";
 import LandingSignInCard from "./LandingSignInCard";
 import CookieSettingsButton from "./CookieSettingsButton";
 import TrackedLink from "./TrackedLink";
+import TrackedPhoneLink from "./TrackedPhoneLink";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans";
 import { CONTACT_PHONE_DISPLAY, CONTACT_PHONE_E164 } from "../lib/seo/site";
 
@@ -134,7 +135,7 @@ export default function Landing(){
   <footer className="mk-public-footer">
     <Link href="/"><Brand /></Link>
     <p>Fleet and driver performance intelligence for modern delivery operations.</p>
-    <nav><Link href="/use-cases">Use cases</Link><Link href="/resources">Resources</Link><Link href="/about">About</Link><Link href="/contact">Contact</Link><a href={`tel:${CONTACT_PHONE_E164}`} aria-label={`Call MetrixIQ on ${CONTACT_PHONE_DISPLAY}`}>{CONTACT_PHONE_DISPLAY}</a><Link href="/security">Security</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><CookieSettingsButton /></nav>
+    <nav><Link href="/use-cases">Use cases</Link><Link href="/resources">Resources</Link><Link href="/about">About</Link><Link href="/contact">Contact</Link><TrackedPhoneLink phoneE164={CONTACT_PHONE_E164} display={CONTACT_PHONE_DISPLAY} location="homepage_footer" aria-label={`Call MetrixIQ on ${CONTACT_PHONE_DISPLAY}`} /><Link href="/security">Security</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><CookieSettingsButton /></nav>
   </footer>
  </main>
 }
