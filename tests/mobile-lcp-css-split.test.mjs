@@ -40,3 +40,18 @@ test("mobile hero keeps the approved design while using a cheaper card shadow", 
   assert.ok(marketing.includes(".mk-hero{min-height:585px"));
   assert.ok(marketing.includes(".mk-login-card{box-shadow:0 14px 32px"));
 });
+
+
+test("PWA service worker registration is deferred beyond initial render", () => {
+  const pwa = read("components/pwa/PwaBootstrap.jsx");
+
+  assert.ok(pwa.includes("requestIdleCallback"));
+  assert.ok(pwa.includes('window.addEventListener("load",deferServiceWorker'));
+  assert.ok(pwa.includes('navigator.serviceWorker.register("/sw.js"'));
+});
+
+test("mobile sign-in card can skip offscreen rendering before LCP", () => {
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(marketing.includes("content-visibility:auto;contain-intrinsic-size:auto 430px"));
+});
