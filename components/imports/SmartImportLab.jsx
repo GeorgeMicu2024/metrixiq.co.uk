@@ -6,6 +6,7 @@ import { buildSmartImportPlan } from "../../lib/analyzer/smartDetection";
 import { expandImportFiles } from "../../lib/imports/archive";
 import { deduplicateFilesByContent } from "../../lib/imports/contentFingerprint";
 import { IMPORT_ACCEPT, formatFileSize } from "../../lib/imports/preflight";
+import { buildStagingPlan } from "../../lib/imports/stagingPlan";
 
 function tone(state) {
   if (state === "ready") return "good";
@@ -65,10 +66,16 @@ export default function SmartImportLab({ sites = [] }) {
       }));
       const analysed = { ...analysis, fileResults };
       const plan = buildSmartImportPlan(fileResults, sites);
+      const staging = buildStagingPlan({
+        analysis: analysed,
+        plan,
+        exactDuplicates: deduped.duplicates,
+      });
 
       setResult({
         analysis: analysed,
         plan,
+        staging,
         archives: expanded.archives,
         archiveWarnings: expanded.warnings,
         exactDuplicates: deduped.duplicates,
@@ -163,6 +170,56 @@ export default function SmartImportLab({ sites = [] }) {
         <article className={result.exactDuplicates.length ? "warn" : "good"}><span>Exact duplicates</span><strong>{result.exactDuplicates.length}</strong><small>SHA-256 matches skipped</small></article>
         <article className={plan.logicalDuplicateGroups?.length ? "bad" : "good"}><span>Logical conflicts</span><strong>{plan.logicalDuplicateGroups?.length || 0}</strong><small>same site/report/period, changed bytes</small></article>
       </section>
+
+      <section className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <div>
+            <span className="page-kicker">STAGING PREVIEW</span>
+            <h2>Where the validated data would go</h2>
+            <p>This is a routing simulation only. No rows are inserted, updated or deleted.</p>
+          </div>
+          <span className="importv2-readiness good">DB WRITES OFF</span>
+        </div>
+        <div className="importv2-kpis">
+          <article className="good"><span>Ready files</span><strong>{result.staging?.readyFiles || 0}</strong><small>eligible for staging</small></article>
+          <article className={result.staging?.blockedFiles ? "bad" : "good"}><span>Blocked</span><strong>{result.staging?.blockedFiles || 0}</strong><small>must be reviewed first</small></article>
+          <article><span>Source rows</span><strong>{result.staging?.sourceRows || 0}</strong><small>driver-period evidence</small></article>
+          <article><span>Feedback rows</span><strong>{result.staging?.feedbackRows || 0}</strong><small>CDF / escalation evidence</small></article>
+          <article><span>Site scorecards</span><strong>{result.staging?.scorecardRows || 0}</strong><small>detected site snapshots</small></article>
+        </div>
+        <div className="importv2-preview-grid" style={{ marginTop: 14 }}>
+          <article>
+            <h3>Approved destinations</h3>
+            <div className="importv2-tags">
+              {Object.entries(result.staging?.destinations || {}).map(([target, count]) => <span key={target}>{target} · {count}</span>)}
+              {!Object.keys(result.staging?.destinations || {}).length && <span>No destination is safe yet</span>}
+            </div>
+          </article>
+          <article>
+            <h3>Safety gate</h3>
+            <p>
+              Exact duplicates: <b>{result.staging?.exactDuplicatesSkipped || 0}</b> ·
+              Logical conflict groups: <b>{result.staging?.logicalConflictGroups || 0}</b> ·
+              Blocked files: <b>{result.staging?.blockedFiles || 0}</b>
+            </p>
+          </article>
+        </div>
+      </section>
+
+      {(result.staging?.blocked?.length || 0) > 0 && <section className="panel" style={{ marginTop: 16 }}>
+        <div className="panel-head">
+          <div><h2>Blocked before staging</h2><p>These items would not be allowed to write anywhere until the issue is resolved.</p></div>
+        </div>
+        <div className="importv2-actions-list">
+          {result.staging.blocked.map((item) => <div key={item.fileName}>
+            <b>!</b>
+            <p>
+              <strong>{item.fileName}</strong><br/>
+              {(item.reasons || []).map((reason) => reason.code + ": " + reason.message).join(" · ")}
+            </p>
+          </div>)}
+        </div>
+      </section>}
 
       <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head">
