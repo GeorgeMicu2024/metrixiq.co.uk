@@ -6,7 +6,7 @@ const read=(path)=>fs.readFileSync(new URL("../"+path,import.meta.url),"utf8");
 
 test("homepage V5 uses Amazon delivery photography and polished network wordmarks",()=>{
   const landing=read("components/Landing.jsx");
-  const css=read("app/globals.css");
+  const css=read("app/marketing-base.css");
   assert.ok(landing.includes("assets.aboutamazon.com"));
   assert.ok(landing.includes('className="mk-hero-photo"'));
   assert.ok(landing.includes("<strong>EVRi</strong>"));
@@ -16,7 +16,7 @@ test("homepage V5 uses Amazon delivery photography and polished network wordmark
 });
 
 test("mobile homepage keeps primary sign-in controls above the fold",()=>{
-  const css=read("app/globals.css");
+  const css=read("app/marketing-base.css");
   assert.ok(css.includes("min-height:calc(100svh - 58px)!important"));
   assert.ok(css.includes(".mk-actions,.mk-benefits,.mk-hero-signals{display:none!important}"));
   assert.ok(css.includes(".mk-login-card{"));
