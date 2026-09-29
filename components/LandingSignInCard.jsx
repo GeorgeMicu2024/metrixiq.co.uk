@@ -115,6 +115,7 @@ export default function LandingSignInCard() {
       <Brand />
       <small>WELCOME BACK</small>
       <h3>Sign in to your account</h3>
+      <div className="mk-login-subtitle">Access dashboards, scorecards and fleet performance insights.</div>
 
       <form className="mk-login-form" onSubmit={submit}>
         <label>
@@ -150,7 +151,7 @@ export default function LandingSignInCard() {
         </label>
 
         <div className="mk-remember">
-          <span>✓ &nbsp; Secure session</span>
+          <span>✓ &nbsp; Keep me signed in</span>
           <button type="button" disabled={busy || googleBusy} onClick={forgotPassword}>
             Forgot password?
           </button>
@@ -175,7 +176,7 @@ export default function LandingSignInCard() {
         disabled={busy || googleBusy}
         onClick={signInWithGoogle}
       >
-        ⓖ &nbsp; {googleBusy ? "Connecting…" : "Continue with Google"}
+        <span className="mk-google-mark" aria-hidden="true">G</span> {googleBusy ? "Connecting…" : "Continue with Google"}
       </button>
 
       <p>
