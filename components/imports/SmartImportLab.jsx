@@ -697,7 +697,8 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     </div>}
 
     {(message || remoteError || approvalError || productionError || commitError) && <div className={"smartlab-flow-message " + ((remoteError || approvalError || productionError || commitError || phase === "error") ? "error" : "good")}>
-      {remoteError || approvalError || productionError || commitError || message}
+      <span>{remoteError || approvalError || productionError || commitError || message}</span>
+      {phase === "error" && files.length > 0 && <button className="smartlab-inline-retry" type="button" onClick={analyse}>Retry detection</button>}
     </div>}
 
     {plan && <>
@@ -802,42 +803,14 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
           ⏳ Sending validated batch to MetrixIQ Staging and reconciling stored records…
         </div>}
         {remoteError && <div className="importv2-message error smartlab-remote-error" style={{ marginTop: 12 }}>
-          ✕ Test DB staging failed: {remoteError}
+          <span>✕ Staging failed: {remoteError}</span>
+          <button className="smartlab-inline-retry" type="button" onClick={() => { autoStageKey.current = ""; stageToTestDb(); }} disabled={remoteBusy}>Retry staging</button>
         </div>}
-        <div className="importv2-kpis">
-          <article className="good"><span>Ready files</span><strong>{result.staging?.readyFiles || 0}</strong><small>eligible for staging</small></article>
-          <article className={result.staging?.blockedFiles ? "bad" : "good"}><span>Blocked</span><strong>{result.staging?.blockedFiles || 0}</strong><small>must be reviewed first</small></article>
-          <article>
-            <span>Driver-period records</span>
-            <strong>{normalizedPreview?.normalizedDriverRecords ?? result.staging?.sourceRows ?? 0}</strong>
-            <small>
-              {normalizedPreview && normalizedPreview.normalizedDriverRecords !== result.staging?.sourceRows
-                ? `normalized from ${result.staging?.sourceRows || 0} raw evidence rows`
-                : "normalized records expected in Test DB"}
-            </small>
-          </article>
-          <article>
-            <span>Feedback records</span>
-            <strong>{normalizedPreview?.normalizedFeedbackRecords ?? result.staging?.feedbackRows ?? 0}</strong>
-            <small>
-              {normalizedPreview && normalizedPreview.normalizedFeedbackRecords !== result.staging?.feedbackRows
-                ? `normalized from ${result.staging?.feedbackRows || 0} raw events`
-                : "normalized feedback records expected"}
-            </small>
-          </article>
-          <article>
-            <span>Site scorecards</span>
-            <strong>{normalizedPreview?.normalizedScorecardRecords ?? result.staging?.scorecardRows ?? 0}</strong>
-            <small>
-              {normalizedPreview && normalizedPreview.normalizedScorecardRecords !== result.staging?.scorecardRows
-                ? `normalized from ${result.staging?.scorecardRows || 0} raw snapshots`
-                : "normalized site snapshots expected"}
-            </small>
-          </article>
+        <div className="smartlab-validation-summary">
+          <article><span>Files</span><strong>{result.staging?.readyFiles || 0}</strong><small>{result.staging?.blockedFiles ? result.staging.blockedFiles + " need review" : "all validated"}</small></article>
+          <article><span>Evidence</span><strong>{(normalizedPreview?.normalizedDriverRecords ?? result.staging?.sourceRows ?? 0) + (normalizedPreview?.normalizedFeedbackRecords ?? result.staging?.feedbackRows ?? 0) + (normalizedPreview?.normalizedScorecardRecords ?? result.staging?.scorecardRows ?? 0)}</strong><small>normalized records</small></article>
+          <article><span>Sites</span><strong>{Object.keys(plan?.siteCounts || {}).length}</strong><small>{Object.keys(plan?.siteCounts || {}).join(" · ") || "detecting"}</small></article>
         </div>
-        {browserStage && <div className="importv2-message good" style={{ marginTop: 12 }}>
-          ✓ Local dry-run snapshot · {browserStage.summary?.readyFiles || 0} ready files · session-only metadata.
-        </div>}
         {remoteStage && <div className="importv2-message good smartlab-remote-stage" style={{ marginTop: 12 }}>
           ✓ MetrixIQ Staging · Batch <b>{String(remoteStage.batchId || "").slice(0, 8)}</b> · {remoteStage.readyFiles || 0} ready · {remoteStage.duplicateFiles || 0} duplicates · {remoteStage.records || 0} evidence records · {remoteStage.reconciled ? "reconciled · " : ""}{remoteStage.alreadyStaged ? "already staged · " : ""}production untouched.
           {remoteStage.reconciled && <small style={{ display: "block", marginTop: 6 }}>
