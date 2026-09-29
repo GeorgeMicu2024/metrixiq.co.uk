@@ -24,18 +24,19 @@ test("Import Center does not render escaped newline text between tabs", () => {
   assert.doesNotMatch(importCenter, /SmartImportLab sites=\{sites\}\/>\}\\n\\n/);
 });
 
-test("mobile staging actions separate local dry run from isolated test DB", () => {
-  assert.match(component, />Discard dry run<\/button>/);
-  assert.match(component, /Stage to Test DB/);
-  assert.match(component, /PRODUCTION OFF/);
-  assert.doesNotMatch(component, />Discard dry-run stage<\/button>/);
+test("mobile Smart Import advances from detection to isolated staging automatically", () => {
+  assert.match(component, /autoAnalyseKey/);
+  assert.match(component, /autoStageKey/);
+  assert.match(component, /stageToTestDb\(\)/);
+  assert.match(component, /AUTOMATED VALIDATION/);
+  assert.doesNotMatch(component, />Stage to Test DB<\/button>/);
 });
 
 
-test("unavailable files can be removed without clearing the whole batch", () => {
+test("unavailable files remain reviewable without clearing the whole batch", () => {
   assert.match(component, /0 B \/ unavailable on this device/);
-  assert.match(component, /smartlab-remove-file/);
-  assert.match(component, />Remove<\/button>/);
+  assert.match(component, /REVIEW CENTER/);
+  assert.match(component, /Remove from batch/);
   assert.match(css, /Smart Import unavailable file state/);
 });
 
@@ -50,33 +51,35 @@ test("Review Center exposes edit and remove actions on mobile", () => {
   assert.match(css, /\.smartlab-review-editor/);
 });
 
-test("Stage to Test DB stays safety-gated until review is resolved", () => {
+test("automatic staging stays safety-gated until review is resolved", () => {
   assert.match(component, /!result\?\.staging\?\.blockedFiles/);
   assert.match(component, /!result\?\.staging\?\.logicalConflictGroups/);
   assert.match(component, /!plan\?\.review/);
-  assert.match(component, /disabled=\{!canStageRemote\}/);
+  assert.match(component, /if \(!canStageRemote \|\| !result\?\.staging\) return/);
 });
 
 
-test("Approval gate stays mobile-friendly and production-safe", () => {
+test("combined approval and safety gate stays mobile-friendly and production-safe", () => {
   assert.match(component, /smartlab-approval-card/);
-  assert.match(component, /Approve Batch/);
-  assert.match(component, /PRODUCTION STILL OFF/);
+  assert.match(component, /Approve & validate/);
+  assert.match(component, /PRODUCTION LOCKED/);
+  assert.match(component, /await runProductionPreflight\(approved\.batchId\)/);
   assert.match(css, /Smart Import approval gate/);
   assert.match(css, /\.smartlab-approval-card/);
   assert.match(css, /@media\(max-width:680px\)[\s\S]*\.smartlab-approval-card/);
 });
 
 
-test("Production commit unlocks only after the approved preflight gate", () => {
+test("Production import unlocks only after the automatic approved preflight gate", () => {
   assert.match(component, /smartlab-production-preflight/);
-  assert.match(component, /Run Production Preflight/);
+  assert.match(component, /Import to Production/);
   assert.match(component, /commitToProduction/);
   assert.match(component, /expectedFingerprint: productionPreflight\.batchFingerprint/);
   assert.match(component, /disabled=\{!productionPreflight\.ready \|\| commitBusy \|\| productionCommit\?\.committed\}/);
-  assert.match(component, /APPROVED FINGERPRINT \+ TRANSACTION GATE READY/);
-  assert.match(component, /PRODUCTION COMMIT COMPLETE/);
+  assert.match(component, /TRANSACTION \+ FINGERPRINT PROTECTION READY/);
+  assert.match(component, /smartlab-success-modal/);
+  assert.match(component, /commitSiteBreakdown/);
   assert.match(css, /Smart Import Production preflight/);
   assert.match(css, /\.smartlab-production-grid/);
-  assert.match(css, /@media\(max-width:680px\)[\s\S]*\.smartlab-production-grid/);
+  assert.match(css, /\.smartlab-success-modal/);
 });
