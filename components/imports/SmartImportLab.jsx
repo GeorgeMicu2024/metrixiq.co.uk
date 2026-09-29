@@ -788,25 +788,15 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
       </section>}
 
       <section className="panel" style={{ marginTop: 16 }}>
-        <div className="panel-head">
+        <div className="panel-head smartlab-stage-head">
           <div>
-            <span className="page-kicker">STAGING PREVIEW</span>
-            <h2>Where the validated data would go</h2>
-            <p>Review routing first, then optionally write this validated batch to the isolated MetrixIQ Staging test database.</p>
+            <span className="page-kicker">AUTOMATED VALIDATION</span>
+            <h2>{remoteStage ? "Validated in isolated staging" : remoteBusy ? "Validating the batch…" : "Preparing safe staging"}</h2>
+            <p>MetrixIQ automatically stages clean batches, reconciles normalized records and keeps Production locked until the final approval.</p>
           </div>
-          <div className="importv2-head-actions smartlab-stage-actions">
-            {browserStage
-              ? <button className="btn ghost" onClick={discardDryRunStage}>Discard dry run</button>
-              : <button className="btn ghost" onClick={stageDryRun} disabled={!result.staging?.readyFiles || remoteBusy}>Save dry run</button>}
-            <button
-              className="btn primary"
-              onClick={stageToTestDb}
-              disabled={!canStageRemote}
-            >
-              {remoteBusy ? "Staging…" : remoteStage ? (remoteStage.alreadyStaged ? "Already staged ✓" : "Staged ✓") : "Stage to Test DB"}
-            </button>
-            <span className="importv2-readiness good">PRODUCTION OFF</span>
-          </div>
+          <span className={"smartlab-auto-badge " + (remoteStage ? "done" : "")}>
+            {remoteStage ? "✓ Staging complete" : remoteBusy ? "Working…" : "Automatic"}
+          </span>
         </div>
         {remoteBusy && <div className="importv2-message" style={{ marginTop: 12 }}>
           ⏳ Sending validated batch to MetrixIQ Staging and reconciling stored records…
@@ -856,12 +846,14 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
         </div>}
         {remoteStage && <div className="smartlab-approval-card" style={{ marginTop: 12 }}>
           <div>
-            <span className="page-kicker">APPROVAL GATE</span>
-            <h3>{approvedBatch ? "Approved for production handoff" : "Approve reconciled batch"}</h3>
+            <span className="page-kicker">FINAL SAFETY GATE</span>
+            <h3>{productionPreflight?.ready ? "Ready for Production" : approvedBatch ? "Running Production safety check" : "Review and approve this batch"}</h3>
             <p>
-              {approvedBatch
-                ? "This batch is frozen as approved in MetrixIQ Staging. No Production tables have been changed."
-                : "Approval freezes this reconciled batch in Staging. It does not write anything to Production."}
+              {productionPreflight?.ready
+                ? "All safety checks passed. Review the totals below, then run the final Production import."
+                : approvedBatch
+                  ? "MetrixIQ is validating the frozen batch against Production automatically."
+                  : "One approval freezes the reconciled staging batch and automatically runs the zero-write Production preflight."}
             </p>
           </div>
           <div className="smartlab-approval-actions">
@@ -871,9 +863,9 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
               onClick={approveStagedBatch}
               disabled={approvalBusy || !!approvedBatch || !remoteStage.reconciled}
             >
-              {approvalBusy ? "Approving…" : approvedBatch ? "Approved ✓" : "Approve Batch"}
+              {approvalBusy || productionBusy ? "Validating…" : approvedBatch ? "Approved ✓" : "Approve & validate"}
             </button>
-            <span className="importv2-readiness good">PRODUCTION STILL OFF</span>
+            <span className="importv2-readiness good">{productionPreflight?.ready ? "SAFETY CHECK PASSED" : "PRODUCTION LOCKED"}</span>
           </div>
           {approvalError && <div className="importv2-message error">
             ✕ Approval failed: {approvalError}
@@ -887,18 +879,11 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
         {approvedBatch && <div className="smartlab-production-preflight" style={{ marginTop: 12 }}>
           <div className="smartlab-production-head">
             <div>
-              <span className="page-kicker">PRODUCTION PREFLIGHT</span>
-              <h3>Validate the approved batch against Production</h3>
-              <p>No Production rows are written during this check.</p>
+              <span className="page-kicker">PRODUCTION SUMMARY</span>
+              <h3>{productionPreflight?.ready ? "Everything is ready to import" : "Production safety check"}</h3>
+              <p>No Production rows are written until you press the final Import button.</p>
             </div>
-            <button
-              className="btn ghost"
-              type="button"
-              onClick={runProductionPreflight}
-              disabled={productionBusy}
-            >
-              {productionBusy ? "Checking…" : productionPreflight ? "Run again" : "Run Production Preflight"}
-            </button>
+            {productionError && <button className="btn ghost" type="button" onClick={() => runProductionPreflight()} disabled={productionBusy}>{productionBusy ? "Retrying…" : "Retry check"}</button>}
           </div>
 
           {productionError && <div className="importv2-message error">
@@ -940,12 +925,12 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
                   ? "Committing…"
                   : productionCommit?.committed
                     ? "Committed ✓"
-                    : "Commit to Production"}
+                    : "Import to Production"}
               </button>
               <span className={"importv2-readiness " + (productionCommit?.committed ? "good" : "warn")}>
                 {productionCommit?.committed
                   ? "PRODUCTION COMMIT COMPLETE"
-                  : "APPROVED FINGERPRINT + TRANSACTION GATE READY"}
+                  : "TRANSACTION + FINGERPRINT PROTECTION READY"}
               </span>
             </div>
             {commitError && <div className="importv2-message error">× {commitError}</div>}
@@ -955,7 +940,12 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
           </div>}
         </div>}
 
-        <div className="importv2-preview-grid" style={{ marginTop: 14 }}>
+        <div className="smartlab-detail-toggle">
+          <button className="smartlab-text-action" type="button" onClick={() => setShowTechnical((value) => !value)}>
+            {showTechnical ? "Hide technical details" : "View technical details"}
+          </button>
+        </div>
+        {showTechnical && <div className="importv2-preview-grid" style={{ marginTop: 10 }}>
           <article>
             <h3>Approved destinations</h3>
             <div className="importv2-tags">
@@ -971,7 +961,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
               Blocked files: <b>{result.staging?.blockedFiles || 0}</b>
             </p>
           </article>
-        </div>
+        </div>}
       </section>
 
       {(result.staging?.blocked?.length || 0) > 0 && <section className="panel" style={{ marginTop: 16 }}>
@@ -989,7 +979,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
         </div>
       </section>}
 
-      <section className="panel" style={{ marginTop: 16 }}>
+      {showTechnical && <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head">
           <div><h2>Detection results</h2><p>Content evidence wins over filename. Conflicts are surfaced instead of guessed.</p></div>
         </div>
@@ -1031,9 +1021,9 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
             </tbody>
           </table>
         </div>
-      </section>
+      </section>}
 
-      <section className="importv2-preview-grid" style={{ marginTop: 16 }}>
+      {showTechnical && <section className="importv2-preview-grid" style={{ marginTop: 16 }}>
         <article className="panel">
           <div className="panel-head"><div><h2>Sites detected</h2><p>No manual site selection was used.</p></div></div>
           <div className="importv2-tags">
@@ -1047,9 +1037,9 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
             {Object.entries(plan.reportCounts).map(([type, count]) => <span key={type}>{type} · {count}</span>)}
           </div>
         </article>
-      </section>
+      </section>}
 
-      {(plan.logicalDuplicateGroups?.length || 0) > 0 && <section className="panel" style={{ marginTop: 16 }}>
+      {showTechnical && (plan.logicalDuplicateGroups?.length || 0) > 0 && <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head"><div><h2>Possible updated/conflicting reports</h2><p>Same site, report family and period, but different file content. Review before any future persistence step.</p></div></div>
         <div className="importv2-actions-list">
           {plan.logicalDuplicateGroups.map((group) => <div key={[group.site, group.reportType, group.periodKey].join("|")}>
@@ -1058,7 +1048,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
         </div>
       </section>}
 
-      {result.exactDuplicates.length > 0 && <section className="panel" style={{ marginTop: 16 }}>
+      {showTechnical && result.exactDuplicates.length > 0 && <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head"><div><h2>Exact duplicates skipped</h2><p>Different filenames with identical bytes are detected by SHA-256.</p></div></div>
         <div className="importv2-actions-list">
           {result.exactDuplicates.map((item) => <div className="good" key={item.file.name + item.hash}>
@@ -1067,12 +1057,44 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
         </div>
       </section>}
 
-      {(result.archiveWarnings?.length || 0) > 0 && <section className="panel" style={{ marginTop: 16 }}>
+      {showTechnical && (result.archiveWarnings?.length || 0) > 0 && <section className="panel" style={{ marginTop: 16 }}>
         <div className="panel-head"><div><h2>Archive warnings</h2></div></div>
         <div className="importv2-actions-list">
           {result.archiveWarnings.map((warning, index) => <div key={warning.code + index}><b>!</b><p>{warning.message}</p></div>)}
         </div>
       </section>}
     </>}
+
+    {showCommitSummary && productionCommit?.committed && <div className="smartlab-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowCommitSummary(false); }}>
+      <div className="smartlab-success-modal" role="dialog" aria-modal="true" aria-labelledby="smart-import-success-title">
+        <div className="smartlab-success-icon">✓</div>
+        <span className="page-kicker">IMPORT COMPLETE</span>
+        <h2 id="smart-import-success-title">Data is live in MetrixIQ</h2>
+        <p>The approved batch was committed successfully. Here is exactly what was processed for each detected site.</p>
+
+        <div className="smartlab-success-totals">
+          <div><span>Files</span><strong>{productionCommit.imports?.files || 0}</strong></div>
+          <div><span>Driver metrics</span><strong>{productionCommit.driverMetrics?.records || 0}</strong></div>
+          <div><span>Feedback</span><strong>{productionCommit.feedbackEvents?.records || 0}</strong></div>
+        </div>
+
+        <div className="smartlab-site-breakdown">
+          {commitSiteBreakdown.map((item) => <article key={item.site}>
+            <div><strong>{item.site}</strong><span>{item.files || 0} file{Number(item.files || 0) === 1 ? "" : "s"}</span></div>
+            <div className="smartlab-site-stats">
+              <span><b>{item.driverMetrics || 0}</b> metrics</span>
+              <span><b>{item.feedbackEvents || 0}</b> feedback</span>
+              <span><b>{item.scorecards || 0}</b> scorecards</span>
+            </div>
+          </article>)}
+          {!commitSiteBreakdown.length && <div className="smartlab-empty-breakdown">Import completed, but no site-level breakdown was returned for this historical batch.</div>}
+        </div>
+
+        <div className="smartlab-success-actions">
+          <button className="btn primary" type="button" onClick={() => setShowCommitSummary(false)}>Done</button>
+          <button className="btn ghost" type="button" onClick={() => { setShowCommitSummary(false); clear(); }}>Import another batch</button>
+        </div>
+      </div>
+    </div>}
   </section>;
 }
