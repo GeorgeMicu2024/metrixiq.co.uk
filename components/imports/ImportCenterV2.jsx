@@ -256,7 +256,7 @@ export default function ImportCenterV2({
         <div className="importv2-heading-meta"><span>Auto detection</span><span>Duplicate protection</span><span>Safe staging</span></div>
       </div>
     </div>
-    <div className="importv2-tabs importv2-tabs-clean"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Queue</button><button className={tab==="lab"?"active":""} onClick={()=>setTab("lab")}>Smart Import</button><button className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History</button></div>
+    <div className="importv2-tabs importv2-tabs-clean"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Queue</button><button className={tab==="lab"?"active":""} onClick={()=>setTab("lab")}>Smart Import</button><button aria-label="History & Rollback" className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History</button></div>
     {tab==="queue"&&<section className="importv2-sitebar">
       <div className="importv2-sitebar-copy">
         <span className="importv2-sitebar-icon">▦</span>
