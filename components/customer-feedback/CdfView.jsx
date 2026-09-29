@@ -31,17 +31,27 @@ function useLoad(loader, deps = []) {
 }
 
 
-export default function CdfView({ organizationId, onImport, siteFilter = "all" }) {
+function eventActivitySite(event) {
+  return String(
+    event?.site ||
+    event?.raw_data?.activity_site ||
+    event?.imports?.site ||
+    event?.drivers?.site ||
+    ""
+  ).trim().toUpperCase();
+}
+
+export default function CdfView({ organizationId, onImport, siteFilter = "all", refreshKey = 0 }) {
   const load = useLoad(
     () => fetchCdfWorkspaceData(getSupabaseBrowserClient(), organizationId),
-    [organizationId]
+    [organizationId, refreshKey]
   );
 
   const events = useMemo(() => {
     const allEvents = load.data?.events || [];
     if (siteFilter === "all") return allEvents;
     return allEvents.filter((event) =>
-      String(event?.drivers?.site || "").trim().toUpperCase() === siteFilter
+      eventActivitySite(event) === siteFilter
     );
   }, [load.data, siteFilter]);
   const weeks = useMemo(() => [...new Set(events.map((e)=>e.week_label).filter(Boolean))].sort((a,b)=>Number(b.replace(/\D/g,""))-Number(a.replace(/\D/g,""))), [events]);
