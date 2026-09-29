@@ -248,17 +248,28 @@ export default function ImportCenterV2({
   }
 
   return <div className="importv2-root">
-    <div className="importv2-heading">
-      <div><span className="page-kicker">IMPORT CENTER V2</span><h1>Smart Data Ingestion</h1><p>Analyse first, review duplicates and data quality, then write trusted evidence to the workspace.</p></div>
-      <div><button className="btn ghost" onClick={()=>setTab("history")}>Import history</button><button className="btn primary" onClick={()=>input.current?.click()} disabled={busy}>Add files</button></div>
+    <div className="importv2-heading importv2-heading-clean">
+      <div>
+        <span className="page-kicker">IMPORT CENTER V2</span>
+        <h1>Smart Data Ingestion</h1>
+        <p>Drop reports, let MetrixIQ identify the data, then review only what needs attention.</p>
+        <div className="importv2-heading-meta"><span>Auto detection</span><span>Duplicate protection</span><span>Safe staging</span></div>
+      </div>
     </div>
-    <div className="importv2-tabs"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Import Queue</button><button className={tab==="lab"?"active":""} onClick={()=>setTab("lab")}>Smart Import Lab</button><button className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History & Rollback</button></div>
-    {tab==="queue"&&<section className="panel" style={{marginBottom:16}}><div className="panel-head"><div><span className="page-kicker">SITE ISOLATION</span><h2>Activity Site</h2><p>Every saved import and driver metric is attributed to this station. Home Site does not override operational evidence.</p></div><select aria-label="Activity Site" value={activitySite} onChange={(e)=>{setActivitySite(e.target.value);setPreview(null);setPhase("idle");setMessage("");}} disabled={busy}><option value="">Choose site…</option>{sites.map((site)=><option key={site} value={site}>{site}</option>)}</select></div>{!activitySite&&<div className="importv2-notice">Select a site before analysis. MetrixIQ will not infer a station from the driver's Home Site.</div>}</section>}
+    <div className="importv2-tabs importv2-tabs-clean"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Queue</button><button className={tab==="lab"?"active":""} onClick={()=>setTab("lab")}>Smart Import</button><button className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History</button></div>
+    {tab==="queue"&&<section className="importv2-sitebar">
+      <div className="importv2-sitebar-copy">
+        <span className="importv2-sitebar-icon">▦</span>
+        <div><span className="page-kicker">ACTIVITY SITE</span><strong>{activitySite||"Choose station"}</strong><small>Imported operational evidence is stored against this site.</small></div>
+      </div>
+      <select aria-label="Activity Site" value={activitySite} onChange={(e)=>{setActivitySite(e.target.value);setPreview(null);setPhase("idle");setMessage("");}} disabled={busy}><option value="">Choose site…</option>{sites.map((site)=><option key={site} value={site}>{site}</option>)}</select>
+      {!activitySite&&<div className="importv2-sitebar-alert">Select a site before analysis.</div>}
+    </section>}
     <input ref={input} type="file" multiple hidden accept={IMPORT_ACCEPT} onChange={(event)=>{addFiles(event.target.files||[]);event.target.value="";}}/>
 
     {tab==="queue"&&<>
-      <section className={"importv2-drop "+(dragActive?"active":"")} onDragEnter={(e)=>{e.preventDefault();setDragActive(true);}} onDragOver={(e)=>{e.preventDefault();setDragActive(true);}} onDragLeave={(e)=>{e.preventDefault();if(e.currentTarget===e.target)setDragActive(false);}} onDrop={(e)=>{e.preventDefault();setDragActive(false);addFiles(e.dataTransfer?.files||[]);}} onClick={()=>input.current?.click()}>
-        <span>⇧</span><div><b>{dragActive?"Drop files here":"Drop operational reports here"}</b><p>Excel, CSV, HTML, PDF, JSON, XML and text · Multi-file · report detection · duplicate review</p></div><em>Browse</em>
+      <section className={"importv2-drop importv2-drop-clean "+(dragActive?"active":"")} onDragEnter={(e)=>{e.preventDefault();setDragActive(true);}} onDragOver={(e)=>{e.preventDefault();setDragActive(true);}} onDragLeave={(e)=>{e.preventDefault();if(e.currentTarget===e.target)setDragActive(false);}} onDrop={(e)=>{e.preventDefault();setDragActive(false);addFiles(e.dataTransfer?.files||[]);}} onClick={()=>input.current?.click()}>
+        <span>⇧</span><div><b>{dragActive?"Drop files here":"Drop reports here"}</b><p>Excel, CSV, HTML, PDF, JSON, XML · automatic report, site and period detection</p></div><em>Choose files</em>
       </section>
 
       {duplicateCount>0&&<div className="importv2-notice">{duplicateCount} exact local duplicate file{duplicateCount===1?" was":"s were"} ignored from the queue.</div>}
