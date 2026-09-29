@@ -620,19 +620,32 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
   }, [productionCommit, plan]);
 
   return <section className="smartlab-root" ref={flowRef}>
-    <div className="panel" style={{ marginBottom: 16 }}>
-      <div className="panel-head">
-        <div>
-          <span className="page-kicker">SMART IMPORT LAB · DRY RUN</span>
-          <h2>Automatic detection without database writes</h2>
-          <p>Drop mixed files or ZIP archives. MetrixIQ detects report type, site, period/granularity, duplicates and conflicts. Test staging is isolated from production.</p>
-        </div>
-        <div className="importv2-head-actions">
-          <button className="btn ghost" onClick={clear} disabled={phase === "analysing"}>Clear</button>
-          <button className="btn primary" onClick={() => input.current?.click()} disabled={phase === "analysing"}>Add files</button>
-        </div>
+    <section className="smartlab-hero-v2">
+      <div className="smartlab-hero-copy">
+        <span className="page-kicker">METRIXIQ SMART IMPORT</span>
+        <h2>Upload once. MetrixIQ handles the workflow.</h2>
+        <p>Report type, site, period, duplicate checks and staging are detected automatically. You only step in when something needs review or before the final Production import.</p>
       </div>
-      <div className="importv2-notice">🔒 PRODUCTION WRITES LOCKED · Detection and staging are isolated. Production unlocks only after approval, zero-write preflight and fingerprint validation.</div>
+      <div className={"smartlab-live-status step-" + workflowStep}>
+        <span className="smartlab-live-dot"></span>
+        <div><small>Current status</small><strong>{workflowStatus}</strong></div>
+      </div>
+    </section>
+
+    <div className="smartlab-stepper" aria-label="Smart Import progress">
+      {[
+        ["1", "Upload", "Select reports"],
+        ["2", "Detect", "Automatic analysis"],
+        ["3", "Validate", "Staging + safety"],
+        ["4", "Import", "Production"],
+      ].map(([number, title, detail], index) => {
+        const step = index + 1;
+        const state = workflowStep > step ? "done" : workflowStep === step ? "active" : "";
+        return <div className={"smartlab-step " + state} key={title}>
+          <span>{workflowStep > step ? "✓" : number}</span>
+          <div><strong>{title}</strong><small>{detail}</small></div>
+        </div>;
+      })}
     </div>
 
     <input
@@ -647,54 +660,45 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
       }}
     />
 
-    <div
-      className="importv2-drop"
+    <section
+      className={"smartlab-drop-v2 " + (files.length ? "has-files" : "")}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
         addFiles(event.dataTransfer?.files || []);
       }}
-      onClick={() => input.current?.click()}
+      onClick={() => !files.length && input.current?.click()}
     >
-      <span>⇧</span>
-      <div>
-        <b>Drop reports or ZIP archives here</b>
-        <p>Excel, CSV, HTML, PDF, JSON, XML, text and ZIP · mixed sites supported · SHA-256 duplicate detection</p>
-      </div>
-      <em>Browse</em>
-    </div>
+      {!files.length ? <>
+        <div className="smartlab-drop-icon">⇧</div>
+        <div className="smartlab-drop-copy">
+          <h3>Drop your operational reports here</h3>
+          <p>Excel, CSV, HTML, PDF, JSON, XML, text or ZIP. Mixed sites and reporting periods are supported.</p>
+        </div>
+        <button className="btn primary smartlab-choose" type="button" onClick={(event) => { event.stopPropagation(); input.current?.click(); }}>Choose reports</button>
+      </> : <>
+        <div className="smartlab-drop-icon ready">✓</div>
+        <div className="smartlab-drop-copy">
+          <h3>{files.length} report{files.length === 1 ? "" : "s"} selected</h3>
+          <p>{phase === "analysing" ? "Smart Detection is running automatically…" : remoteBusy ? "Validated data is being staged automatically…" : workflowStatus}</p>
+        </div>
+        <div className="smartlab-file-actions">
+          <button className="btn ghost" type="button" onClick={(event) => { event.stopPropagation(); input.current?.click(); }} disabled={phase === "analysing" || remoteBusy}>Add more</button>
+          <button className="smartlab-text-action" type="button" onClick={(event) => { event.stopPropagation(); clear(); }} disabled={phase === "analysing" || remoteBusy}>Start over</button>
+        </div>
+      </>}
+    </section>
 
-    {files.length > 0 && <>
-      <section className="panel" style={{ marginTop: 16 }}>
-        <div className="panel-head">
-          <div>
-            <h2>Lab queue</h2>
-            <p>{files.length} selected source{files.length === 1 ? "" : "s"}. ZIP contents are expanded only in memory.</p>
-          </div>
-          <button className="btn primary" onClick={analyse} disabled={phase === "analysing"}>
-            {phase === "analysing" ? "Analysing…" : "Run Smart Detection"}
-          </button>
-        </div>
-        <div className="importv2-file-list">
-          {files.map((file) => {
-            const assessment = labFileAssessment(file);
-            const isBlocked = assessment.status === "blocked";
-            return <article className={"importv2-file " + (isBlocked ? "blocked" : "ready")} key={[file.name, file.size, file.lastModified].join(":")}>
-              <span>{String(file.name).split(".").pop()?.toUpperCase() || "FILE"}</span>
-              <div>
-                <b>{file.name}</b>
-                <small>{formatFileSize(file.size)}{isBlocked ? " · " + assessment.message : ""}</small>
-              </div>
-              <div className="importv2-file-state">
-                <b>{isBlocked ? assessment.label : "Dry run only"}</b>
-                <button className="btn ghost smartlab-remove-file" type="button" onClick={(event) => { event.stopPropagation(); removeFile(file); }}>Remove</button>
-              </div>
-            </article>;
-          })}
-        </div>
-        {message && <div className={"importv2-message " + (phase === "error" ? "error" : "good")}>{message}</div>}
-      </section>
-    </>}
+    {files.length > 0 && <div className="smartlab-file-summary">
+      {files.slice(0, 4).map((file) => <span key={[file.name, file.size, file.lastModified].join(":")} title={file.name}>
+        <b>{String(file.name).split(".").pop()?.toUpperCase() || "FILE"}</b>{file.name}
+      </span>)}
+      {files.length > 4 && <span className="more">+{files.length - 4} more</span>}
+    </div>}
+
+    {(message || remoteError || approvalError || productionError || commitError) && <div className={"smartlab-flow-message " + ((remoteError || approvalError || productionError || commitError || phase === "error") ? "error" : "good")}>
+      {remoteError || approvalError || productionError || commitError || message}
+    </div>}
 
     {plan && <>
       <section className="importv2-kpis" style={{ marginTop: 16 }}>
