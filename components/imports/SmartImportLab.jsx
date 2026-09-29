@@ -8,7 +8,7 @@ import { deduplicateFilesByContent } from "../../lib/imports/contentFingerprint"
 import { IMPORT_ACCEPT, classifyImportFile, fileExtension, formatFileSize } from "../../lib/imports/preflight";
 import { buildStagingPlan } from "../../lib/imports/stagingPlan";
 import { buildRemoteStagingPayload } from "../../lib/imports/stagingPayload";
-import { approveSmartImportBatch, preflightSmartImportProduction, stageSmartImportPayload } from "../../lib/imports/stagingRemote";
+import { approveSmartImportBatch, commitSmartImportProduction, preflightSmartImportProduction, stageSmartImportPayload } from "../../lib/imports/stagingRemote";
 import { clearBrowserStaging, loadBrowserStaging, saveBrowserStaging } from "../../lib/imports/browserStaging";
 import { APPROVED_REVIEW_REPORT_TYPES, applyReviewResolutions, canManuallyEditDetection, validManualPeriod } from "../../lib/imports/reviewResolution";
 
@@ -88,7 +88,7 @@ function blockedFileResult({ file, code, message }) {
   };
 }
 
-export default function SmartImportLab({ sites = [], organizationId = "", onDetectedSite }) {
+export default function SmartImportLab({ sites = [], organizationId = "", onDetectedSite, onProductionCommitted }) {
   const input = useRef(null);
   const [files, setFiles] = useState([]);
   const [phase, setPhase] = useState("idle");
@@ -104,6 +104,9 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
   const [productionPreflight, setProductionPreflight] = useState(null);
   const [productionBusy, setProductionBusy] = useState(false);
   const [productionError, setProductionError] = useState("");
+  const [productionCommit, setProductionCommit] = useState(null);
+  const [commitBusy, setCommitBusy] = useState(false);
+  const [commitError, setCommitError] = useState("");
   const [reviewOverrides, setReviewOverrides] = useState({});
   const [excludedDetections, setExcludedDetections] = useState([]);
   const [editingFile, setEditingFile] = useState("");
@@ -115,6 +118,11 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
       setBrowserStage(loadBrowserStaging(sessionStorage));
     } catch {}
   }, []);
+
+  useEffect(() => {
+    setProductionCommit(null);
+    setCommitError("");
+  }, [approvedBatch?.batchId]);
 
   function syncDetectedSite(plan) {
     const detected = Object.keys(plan?.siteCounts || {}).filter((site) => /^D[A-Z]{2}\d{1,2}$/.test(String(site || "").toUpperCase()));
@@ -391,6 +399,40 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
       setProductionError(error?.message || "Production preflight failed.");
     } finally {
       setProductionBusy(false);
+    }
+  }
+
+  async function commitToProduction() {
+    if (
+      !approvedBatch?.batchId ||
+      !productionPreflight?.ready ||
+      !productionPreflight?.batchFingerprint ||
+      commitBusy ||
+      productionCommit?.committed
+    ) return;
+
+    setCommitBusy(true);
+    setCommitError("");
+    try {
+      const committed = await commitSmartImportProduction({
+        batchId: approvedBatch.batchId,
+        organizationId,
+        expectedFingerprint: productionPreflight.batchFingerprint,
+      });
+      setProductionCommit(committed);
+      setProductionPreflight((current) => ({ ...(current || {}), ...committed }));
+      setMessage(
+        committed.alreadyCommitted
+          ? "This approved batch was already committed to Production. No duplicate writes were made."
+          : "Production commit completed successfully. The approved batch is now live."
+      );
+      if (typeof onProductionCommitted === "function") {
+        await onProductionCommitted(committed);
+      }
+    } catch (error) {
+      setCommitError(error?.message || "Production commit failed.");
+    } finally {
+      setCommitBusy(false);
     }
   }
 
@@ -808,11 +850,28 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
             </div>}
 
             <div className="smartlab-production-actions">
-              <button className="btn primary" type="button" disabled>
-                Commit to Production
+              <button
+                className="btn primary"
+                type="button"
+                onClick={commitToProduction}
+                disabled={!productionPreflight.ready || commitBusy || productionCommit?.committed}
+              >
+                {commitBusy
+                  ? "Committing…"
+                  : productionCommit?.committed
+                    ? "Committed ✓"
+                    : "Commit to Production"}
               </button>
-              <span className="importv2-readiness good">COMMIT LOCKED UNTIL NEXT GATE</span>
+              <span className={"importv2-readiness " + (productionCommit?.committed ? "good" : "warn")}>
+                {productionCommit?.committed
+                  ? "PRODUCTION COMMIT COMPLETE"
+                  : "APPROVED FINGERPRINT + TRANSACTION GATE READY"}
+              </span>
             </div>
+            {commitError && <div className="importv2-message error">× {commitError}</div>}
+            {productionCommit?.committed && <div className="importv2-message good">
+              ✓ Production committed · {productionCommit.imports?.files || 0} imports · {productionCommit.driverMetrics?.records || 0} weekly driver metrics · {productionCommit.feedbackEvents?.records || 0} feedback events.
+            </div>}
           </div>}
         </div>}
 
