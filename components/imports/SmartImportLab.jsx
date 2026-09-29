@@ -556,7 +556,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
           <button className="btn primary" onClick={() => input.current?.click()} disabled={phase === "analysing"}>Add files</button>
         </div>
       </div>
-      <div className="importv2-notice">🔒 PRODUCTION WRITES OFF · Smart Import can write only to the isolated MetrixIQ Staging test database.</div>
+      <div className="importv2-notice">🔒 PRODUCTION WRITES LOCKED · Detection and staging are isolated. Production unlocks only after approval, zero-write preflight and fingerprint validation.</div>
     </div>
 
     <input
