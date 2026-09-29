@@ -11,6 +11,7 @@ const approveSql = readFileSync(new URL("../supabase/staging/20260928_approve_re
 const identityApprovalSql = readFileSync(new URL("../supabase/staging/20260929_reject_invalid_driver_identity_before_approval.sql", import.meta.url), "utf8");
 const productionEdge = readFileSync(new URL("../supabase/functions/smart-import-production/index.ts", import.meta.url), "utf8");
 const productionSql = readFileSync(new URL("../supabase/production/20260929_smart_import_preflight.sql", import.meta.url), "utf8");
+const productionCommitSql = readFileSync(new URL("../supabase/production/20260930_smart_import_commit_gate.sql", import.meta.url), "utf8");
 
 test("staging and Production preflight use explicit isolated endpoints", () => {
   assert.match(remote, /STAGING_FUNCTION_URL = "https:\/\/hsbxqiuvciwalxogqceb\.supabase\.co\/functions\/v1\/smart-import-stage"/);
@@ -23,9 +24,10 @@ test("remote staging authenticates with the active MetrixIQ session", () => {
   assert.match(remote, /Authorization: "Bearer " \+ token/);
 });
 
-test("Smart Import Lab receives organization scope and never claims production writes", () => {
+test("Smart Import Lab receives organization scope and keeps Production locked behind gates", () => {
   assert.match(center, /SmartImportLab sites=\{sites\} organizationId=\{organizationId\}/);
-  assert.match(lab, /PRODUCTION WRITES OFF/);
+  assert.match(lab, /PRODUCTION WRITES LOCKED/);
+  assert.match(lab, /approval, zero-write preflight and fingerprint validation/);
   assert.match(lab, /production untouched/);
 });
 
@@ -118,13 +120,16 @@ test("approval rejects structural or non-TRID driver identities", () => {
   assert.match(approveEdge, /Batch contains invalid driver identities/);
 });
 
-test("Production endpoint is preflight-only and fetches approved data server-to-server", () => {
+test("Production endpoint fetches approved data server-to-server and gates commit explicitly", () => {
   assert.match(productionEdge, /STAGING_EXPORT_URL/);
   assert.match(productionEdge, /smart-import-export/);
-  assert.match(productionEdge, /action \|\| "preflight"/);
-  assert.match(productionEdge, /Production commit is not enabled yet/);
-  assert.match(productionEdge, /writesToProduction: false/);
+  assert.match(productionEdge, /const action = body\?\.action \|\| "preflight"/);
+  assert.match(productionEdge, /"preflight", "commit"/);
+  assert.match(productionEdge, /COMMIT_APPROVED_BATCH/);
+  assert.match(productionEdge, /expectedFingerprint/);
+  assert.match(productionEdge, /PREFLIGHT_FINGERPRINT_MISMATCH/);
   assert.match(productionEdge, /private\.smart_import_preflight/);
+  assert.match(productionEdge, /private\.smart_import_commit/);
 });
 
 test("Production preflight remains private and does not expose a commit writer", () => {
@@ -137,10 +142,25 @@ test("Production preflight remains private and does not expose a commit writer",
   assert.doesNotMatch(productionSql, /delete from public\.driver_metrics/i);
 });
 
-test("Production preflight UI keeps commit disabled", () => {
+test("Production commit UI unlocks only after a successful preflight", () => {
   assert.match(lab, /PRODUCTION PREFLIGHT/);
   assert.match(lab, /Run Production Preflight/);
-  assert.match(lab, /Commit to Production/);
-  assert.match(lab, /COMMIT LOCKED UNTIL NEXT GATE/);
+  assert.match(lab, /commitToProduction/);
+  assert.match(lab, /expectedFingerprint: productionPreflight\.batchFingerprint/);
+  assert.match(lab, /disabled=\{!productionPreflight\.ready \|\| commitBusy \|\| productionCommit\?\.committed\}/);
+  assert.match(lab, /APPROVED FINGERPRINT \+ TRANSACTION GATE READY/);
+  assert.match(lab, /PRODUCTION COMMIT COMPLETE/);
   assert.match(lab, /zero writes/);
+});
+
+
+test("Production commit function is transactional, fingerprint-bound and idempotent", () => {
+  assert.match(productionCommitSql, /pg_advisory_xact_lock/);
+  assert.match(productionCommitSql, /batch_fingerprint changed after approval/i);
+  assert.match(productionCommitSql, /status='committed'/);
+  assert.match(productionCommitSql, /alreadyCommitted/);
+  assert.match(productionCommitSql, /private\.smart_import_preflight/);
+  assert.match(productionCommitSql, /insert into public\.driver_metrics/i);
+  assert.match(productionCommitSql, /insert into public\.feedback_events/i);
+  assert.match(productionCommitSql, /insert into public\.audit_events/i);
 });
