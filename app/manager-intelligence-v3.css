@@ -1430,3 +1430,76 @@
     font-size:6px;
   }
 }
+
+
+.smartlab-flow-message{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.smartlab-inline-retry{
+  flex:0 0 auto;
+  border:1px solid currentColor;
+  border-radius:8px;
+  background:transparent;
+  color:inherit;
+  padding:5px 8px;
+  font:inherit;
+  font-size:7px;
+  font-weight:900;
+  cursor:pointer;
+}
+.smartlab-validation-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.smartlab-validation-summary article{
+  min-width:0;
+  padding:12px 13px;
+  border:1px solid #dfe8ea;
+  border-radius:12px;
+  background:#fff;
+}
+.smartlab-validation-summary span,
+.smartlab-validation-summary strong,
+.smartlab-validation-summary small{
+  display:block;
+}
+.smartlab-validation-summary span{
+  color:#83929d;
+  font-size:7px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.smartlab-validation-summary strong{
+  margin-top:5px;
+  color:#213a4c;
+  font-size:21px;
+}
+.smartlab-validation-summary small{
+  margin-top:4px;
+  color:#8997a1;
+  font-size:7px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+@media(max-width:680px){
+  .smartlab-flow-message{
+    align-items:flex-start;
+  }
+  .smartlab-validation-summary{
+    grid-template-columns:repeat(3,1fr);
+    gap:6px;
+  }
+  .smartlab-validation-summary article{
+    padding:10px 8px;
+  }
+  .smartlab-validation-summary strong{
+    font-size:18px;
+  }
+}
