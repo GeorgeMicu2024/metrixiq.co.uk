@@ -90,6 +90,9 @@ function blockedFileResult({ file, code, message }) {
 
 export default function SmartImportLab({ sites = [], organizationId = "", onDetectedSite, onProductionCommitted }) {
   const input = useRef(null);
+  const flowRef = useRef(null);
+  const autoAnalyseKey = useRef("");
+  const autoStageKey = useRef("");
   const [files, setFiles] = useState([]);
   const [phase, setPhase] = useState("idle");
   const [message, setMessage] = useState("");
@@ -107,6 +110,8 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
   const [productionCommit, setProductionCommit] = useState(null);
   const [commitBusy, setCommitBusy] = useState(false);
   const [commitError, setCommitError] = useState("");
+  const [showCommitSummary, setShowCommitSummary] = useState(false);
+  const [showTechnical, setShowTechnical] = useState(false);
   const [reviewOverrides, setReviewOverrides] = useState({});
   const [excludedDetections, setExcludedDetections] = useState([]);
   const [editingFile, setEditingFile] = useState("");
@@ -156,6 +161,8 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
+    setShowCommitSummary(false);
+    setShowTechnical(false);
     setPhase("idle");
     setReviewOverrides({});
     setExcludedDetections([]);
@@ -177,6 +184,10 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
+    setShowCommitSummary(false);
+    setShowTechnical(false);
+    autoAnalyseKey.current = "";
+    autoStageKey.current = "";
     setPhase("idle");
     setReviewOverrides({});
     setExcludedDetections([]);
@@ -199,6 +210,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
     setMessage("");
+    setShowCommitSummary(false);
     setPhase("idle");
   }
 
@@ -350,6 +362,31 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     }
   }
 
+  async function runProductionPreflight(batchId = approvedBatch?.batchId) {
+    if (!batchId || productionBusy) return null;
+    setProductionBusy(true);
+    setProductionError("");
+    setProductionPreflight(null);
+    try {
+      const preflight = await preflightSmartImportProduction({
+        batchId,
+        organizationId,
+      });
+      setProductionPreflight(preflight);
+      setMessage(
+        preflight.ready
+          ? "Safety check passed. This batch is ready for the final Production import."
+          : "Production safety check found blocking issues. No Production rows were changed."
+      );
+      return preflight;
+    } catch (error) {
+      setProductionError(error?.message || "Production preflight failed.");
+      return null;
+    } finally {
+      setProductionBusy(false);
+    }
+  }
+
   async function approveStagedBatch() {
     if (!remoteStage?.batchId || approvalBusy || approvedBatch) return;
     if (!organizationId) {
@@ -367,38 +404,12 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
       setApprovedBatch(approved);
       setProductionPreflight(null);
       setProductionError("");
-      setMessage(
-        approved.alreadyApproved
-          ? "This reconciled batch was already approved in MetrixIQ Staging. Production remains untouched."
-          : "Batch approved in MetrixIQ Staging. Production remains untouched."
-      );
+      setMessage("Batch approved. Running the final Production safety check automatically…");
+      await runProductionPreflight(approved.batchId);
     } catch (error) {
       setApprovalError(error?.message || "Could not approve this staging batch.");
     } finally {
       setApprovalBusy(false);
-    }
-  }
-
-  async function runProductionPreflight() {
-    if (!approvedBatch?.batchId || productionBusy) return;
-    setProductionBusy(true);
-    setProductionError("");
-    setProductionPreflight(null);
-    try {
-      const preflight = await preflightSmartImportProduction({
-        batchId: approvedBatch.batchId,
-        organizationId,
-      });
-      setProductionPreflight(preflight);
-      setMessage(
-        preflight.ready
-          ? "Production preflight passed. No Production rows were changed."
-          : "Production preflight found blocking issues. No Production rows were changed."
-      );
-    } catch (error) {
-      setProductionError(error?.message || "Production preflight failed.");
-    } finally {
-      setProductionBusy(false);
     }
   }
 
@@ -421,6 +432,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
       });
       setProductionCommit(committed);
       setProductionPreflight((current) => ({ ...(current || {}), ...committed }));
+      setShowCommitSummary(true);
       setMessage(
         committed.alreadyCommitted
           ? "This approved batch was already committed to Production. No duplicate writes were made."
@@ -543,7 +555,71 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     !remoteStage
   );
 
-  return <section className="smartlab-root">
+  const fileSignature = files.map((file) => [file.name, file.size, file.lastModified].join(":")).join("|");
+
+  useEffect(() => {
+    if (!files.length || phase !== "idle" || result) return;
+    if (!fileSignature || autoAnalyseKey.current === fileSignature) return;
+    autoAnalyseKey.current = fileSignature;
+    const timer = window.setTimeout(() => {
+      analyse();
+      window.setTimeout(() => flowRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+    }, 180);
+    return () => window.clearTimeout(timer);
+  }, [fileSignature, files.length, phase, result]);
+
+  useEffect(() => {
+    if (!canStageRemote || !result?.staging) return;
+    const key = [fileSignature, result.staging.readyFiles, result.staging.sourceRows, result.staging.feedbackRows].join("|");
+    if (!key || autoStageKey.current === key) return;
+    autoStageKey.current = key;
+    const timer = window.setTimeout(() => stageToTestDb(), 220);
+    return () => window.clearTimeout(timer);
+  }, [canStageRemote, fileSignature, result?.staging?.readyFiles, result?.staging?.sourceRows, result?.staging?.feedbackRows]);
+
+  const workflowStep = productionCommit?.committed
+    ? 4
+    : productionPreflight?.ready
+      ? 4
+      : remoteStage
+        ? 3
+        : files.length
+          ? 2
+          : 1;
+
+  const workflowStatus = productionCommit?.committed
+    ? "Import complete"
+    : commitBusy
+      ? "Writing to Production…"
+      : productionPreflight?.ready
+        ? "Ready for Production"
+        : productionBusy || approvalBusy
+          ? "Validating safety gates…"
+          : remoteBusy
+            ? "Staging automatically…"
+            : remoteStage
+              ? "Ready for approval"
+              : phase === "analysing"
+                ? "Detecting reports…"
+                : files.length
+                  ? "Preparing batch…"
+                  : "Ready for files";
+
+  const commitSiteBreakdown = useMemo(() => {
+    if (Array.isArray(productionCommit?.siteBreakdown) && productionCommit.siteBreakdown.length) {
+      return productionCommit.siteBreakdown;
+    }
+    return Object.entries(plan?.siteCounts || {}).map(([site, count]) => ({
+      site,
+      files: count,
+      driverMetrics: 0,
+      feedbackEvents: 0,
+      scorecards: 0,
+      records: 0,
+    }));
+  }, [productionCommit, plan]);
+
+  return <section className="smartlab-root" ref={flowRef}>
     <div className="panel" style={{ marginBottom: 16 }}>
       <div className="panel-head">
         <div>
