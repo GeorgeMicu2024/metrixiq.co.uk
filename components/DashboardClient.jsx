@@ -462,6 +462,31 @@ export default function DashboardClient() {
 
     return saved;
   }
+
+  async function refreshAfterSmartImportCommit() {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) return;
+
+    const supabase = getSupabaseBrowserClient();
+    const [{ scorecards, metricRows }, nextCommandCenter] = await Promise.all([
+      refreshWorkspacePerformance(supabase, organizationId),
+      fetchCommandCenterSummary(supabase, organizationId, siteFilter),
+    ]);
+
+    setDbDrivers(scorecards.map(mapScorecardRow));
+    setMetricHistoryRows(metricRows);
+    setCommandCenter(nextCommandCenter);
+    setOperationalRefreshKey((value) => value + 1);
+
+    if (platformAdmin || permissions?.manage_automations) {
+      await Promise.allSettled([
+        runAutomationEngine(supabase, organizationId, false, "smart_import_committed"),
+        refreshSlaEscalations(supabase, organizationId),
+        autoReassessAiInterventions(supabase, organizationId),
+      ]);
+    }
+  }
+
   async function logout() { try { await getSupabaseBrowserClient().auth.signOut(); } finally { localStorage.removeItem("metrixiq.analysis"); router.replace("/login"); } }
   async function openDriver(driver) {
     setPreviousActive(active === "driver-profile" ? "drivers" : active);
@@ -532,7 +557,7 @@ export default function DashboardClient() {
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
-    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} onDetectedSite={handleDetectedImportSite} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
+    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} onDetectedSite={handleDetectedImportSite} onProductionCommitted={refreshAfterSmartImportCommit} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
     case "management-views": view = <SavedViewsBulkActions organizationId={workspace?.organization?.id} siteFilter={siteFilter} canBulk={platformAdmin || permissions?.bulk_actions} />; break;
     case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
