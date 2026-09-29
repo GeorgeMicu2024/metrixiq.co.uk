@@ -24,11 +24,11 @@ test("remote staging authenticates with the active MetrixIQ session", () => {
   assert.match(remote, /Authorization: "Bearer " \+ token/);
 });
 
-test("Smart Import Lab receives organization scope and keeps Production locked behind gates", () => {
+test("Smart Import Lab receives organization scope and keeps Production behind explicit safety gates", () => {
   assert.match(center, /SmartImportLab sites=\{sites\} organizationId=\{organizationId\}/);
-  assert.match(lab, /PRODUCTION WRITES LOCKED/);
-  assert.match(lab, /approval, zero-write preflight and fingerprint validation/);
-  assert.match(lab, /production untouched/);
+  assert.match(lab, /Approve & validate/);
+  assert.match(lab, /No Production rows are written until you press the final Import button/);
+  assert.match(lab, /expectedFingerprint: productionPreflight\.batchFingerprint/);
 });
 
 test("staging Edge Function validates production user and owner or manager membership", () => {
@@ -54,11 +54,11 @@ test("Edge Function exposes safe reconciliation failures without leaking arbitra
 });
 
 
-test("Stage control locks after a successful remote stage", () => {
+test("automatic staging is idempotent and stops after a successful remote stage", () => {
   assert.match(lab, /!remoteStage/);
-  assert.match(lab, /"Staged ✓"/);
-  assert.match(lab, /"Already staged ✓"/);
-  assert.doesNotMatch(lab, /"Stage again"/);
+  assert.match(lab, /autoStageKey/);
+  assert.match(lab, /if \(!canStageRemote \|\| !result\?\.staging\) return/);
+  assert.match(lab, /stageToTestDb\(\)/);
 });
 
 test("Edge Function calls the idempotent v3 staging function", () => {
@@ -105,12 +105,12 @@ test("database approval gate requires reconciled, conflict-free staging data", (
   assert.match(approveSql, /writesToProduction', false/);
 });
 
-test("approval UI is a separate gate after staging and never claims a production write", () => {
-  assert.match(lab, /APPROVAL GATE/);
-  assert.match(lab, /Approve Batch/);
+test("approval UI combines approval with a zero-write Production safety check", () => {
+  assert.match(lab, /FINAL SAFETY GATE/);
+  assert.match(lab, /Approve & validate/);
   assert.match(lab, /Approved ✓/);
-  assert.match(lab, /PRODUCTION STILL OFF/);
-  assert.match(lab, /Production remains untouched/);
+  assert.match(lab, /PRODUCTION LOCKED/);
+  assert.match(lab, /await runProductionPreflight\(approved\.batchId\)/);
 });
 
 
@@ -142,15 +142,14 @@ test("Production preflight remains private and does not expose a commit writer",
   assert.doesNotMatch(productionSql, /delete from public\.driver_metrics/i);
 });
 
-test("Production commit UI unlocks only after a successful preflight", () => {
-  assert.match(lab, /PRODUCTION PREFLIGHT/);
-  assert.match(lab, /Run Production Preflight/);
+test("Production import UI unlocks only after a successful automatic preflight", () => {
+  assert.match(lab, /PRODUCTION SUMMARY/);
+  assert.match(lab, /Import to Production/);
   assert.match(lab, /commitToProduction/);
   assert.match(lab, /expectedFingerprint: productionPreflight\.batchFingerprint/);
   assert.match(lab, /disabled=\{!productionPreflight\.ready \|\| commitBusy \|\| productionCommit\?\.committed\}/);
-  assert.match(lab, /APPROVED FINGERPRINT \+ TRANSACTION GATE READY/);
-  assert.match(lab, /PRODUCTION COMMIT COMPLETE/);
-  assert.match(lab, /zero writes/);
+  assert.match(lab, /TRANSACTION \+ FINGERPRINT PROTECTION READY/);
+  assert.match(lab, /smartlab-success-modal/);
 });
 
 
@@ -163,4 +162,7 @@ test("Production commit function is transactional, fingerprint-bound and idempot
   assert.match(productionCommitSql, /insert into public\.driver_metrics/i);
   assert.match(productionCommitSql, /insert into public\.feedback_events/i);
   assert.match(productionCommitSql, /insert into public\.audit_events/i);
+  assert.match(productionCommitSql, /siteBreakdown/);
+  assert.match(productionCommitSql, /driverMetrics/);
+  assert.match(productionCommitSql, /feedbackEvents/);
 });
