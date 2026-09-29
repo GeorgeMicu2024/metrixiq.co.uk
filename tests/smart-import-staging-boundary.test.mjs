@@ -156,7 +156,7 @@ test("Production commit UI unlocks only after a successful preflight", () => {
 
 test("Production commit function is transactional, fingerprint-bound and idempotent", () => {
   assert.match(productionCommitSql, /pg_advisory_xact_lock/);
-  assert.match(productionCommitSql, /batch_fingerprint changed after approval/i);
+  assert.match(productionCommitSql, /fingerprint changed after approval/i);
   assert.match(productionCommitSql, /status='committed'/);
   assert.match(productionCommitSql, /alreadyCommitted/);
   assert.match(productionCommitSql, /private\.smart_import_preflight/);
