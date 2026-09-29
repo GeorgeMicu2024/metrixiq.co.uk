@@ -242,6 +242,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     setProductionError("");
     try { clearBrowserStaging(sessionStorage); } catch {}
     setBrowserStage(null);
+    autoStageKey.current = "";
     setMessage(
       feedbackMessage ||
       ("Review updated. " + plan.review + " review · " + staging.blockedFiles + " blocked · " + (plan.logicalDuplicateGroups?.length || 0) + " logical conflicts.")
