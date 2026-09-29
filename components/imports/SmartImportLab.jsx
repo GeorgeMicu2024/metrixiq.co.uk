@@ -703,13 +703,10 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
     </div>}
 
     {plan && <>
-      <section className="importv2-kpis" style={{ marginTop: 16 }}>
-        <article><span>Extracted</span><strong>{result.extractedCount}</strong><small>{result.uniqueCount} unique by SHA-256</small></article>
-        <article className="good"><span>Ready</span><strong>{plan.ready}</strong><small>automatic classification</small></article>
-        <article className={plan.warnings ? "warn" : ""}><span>Warnings</span><strong>{plan.warnings}</strong><small>safe to inspect</small></article>
-        <article className={plan.review ? "bad" : "good"}><span>Needs review</span><strong>{plan.review}</strong><small>no automatic commit</small></article>
-        <article className={result.exactDuplicates.length ? "warn" : "good"}><span>Exact duplicates</span><strong>{result.exactDuplicates.length}</strong><small>SHA-256 matches skipped</small></article>
-        <article className={plan.logicalDuplicateGroups?.length ? "bad" : "good"}><span>Logical conflicts</span><strong>{plan.logicalDuplicateGroups?.length || 0}</strong><small>same site/report/period, changed bytes</small></article>
+      <section className="smartlab-detection-summary">
+        <article><span>Detected</span><strong>{plan.ready}/{result.uniqueCount}</strong><small>reports classified</small></article>
+        <article className={plan.review ? "bad" : "good"}><span>Review</span><strong>{plan.review + plan.warnings}</strong><small>{plan.review ? "action required" : plan.warnings ? "warnings only" : "nothing blocked"}</small></article>
+        <article className={(result.exactDuplicates.length || plan.logicalDuplicateGroups?.length) ? "warn" : "good"}><span>Duplicates</span><strong>{result.exactDuplicates.length + (plan.logicalDuplicateGroups?.length || 0)}</strong><small>exact + logical checks</small></article>
       </section>
 
       {reviewItems.length > 0 && <section className="panel smartlab-review-center" style={{ marginTop: 16 }}>
