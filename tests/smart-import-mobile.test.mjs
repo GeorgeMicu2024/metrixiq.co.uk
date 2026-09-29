@@ -68,11 +68,14 @@ test("Approval gate stays mobile-friendly and production-safe", () => {
 });
 
 
-test("Production preflight is mobile-friendly and commit remains disabled", () => {
+test("Production commit unlocks only after the approved preflight gate", () => {
   assert.match(component, /smartlab-production-preflight/);
   assert.match(component, /Run Production Preflight/);
-  assert.match(component, /Commit to Production/);
-  assert.match(component, /COMMIT LOCKED UNTIL NEXT GATE/);
+  assert.match(component, /commitToProduction/);
+  assert.match(component, /expectedFingerprint: productionPreflight\.batchFingerprint/);
+  assert.match(component, /disabled=\{!productionPreflight\.ready \|\| commitBusy \|\| productionCommit\?\.committed\}/);
+  assert.match(component, /APPROVED FINGERPRINT \+ TRANSACTION GATE READY/);
+  assert.match(component, /PRODUCTION COMMIT COMPLETE/);
   assert.match(css, /Smart Import Production preflight/);
   assert.match(css, /\.smartlab-production-grid/);
   assert.match(css, /@media\(max-width:680px\)[\s\S]*\.smartlab-production-grid/);
