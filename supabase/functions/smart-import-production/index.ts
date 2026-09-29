@@ -100,10 +100,34 @@ Deno.serve(async (req: Request) => {
       }, stagingResponse.status);
     }
 
-    const rows = await db.unsafe(
-      "select private.smart_import_preflight($1::jsonb,$2::uuid) as result",
-      [JSON.stringify(staging), user.id]
-    );
+    const stagingPayload = {
+      ...staging,
+      organizationId: staging?.organizationId || staging?.organization_id || body.organizationId,
+      batch: {
+        ...(staging?.batch || {}),
+        id: staging?.batch?.id || staging?.batch_id || body.batchId,
+        batchFingerprint:
+          staging?.batch?.batchFingerprint ||
+          staging?.batch?.batch_fingerprint ||
+          staging?.batch?.metadata?.batchFingerprint ||
+          staging?.batchFingerprint ||
+          null,
+      },
+    };
+
+    if (!stagingPayload.organizationId || !stagingPayload.batch?.id || !stagingPayload.batch?.batchFingerprint) {
+      return reply(req, {
+        error: "Approved staging export is incomplete.",
+        source: "staging",
+      }, 409);
+    }
+
+    const rows = await db`
+      select private.smart_import_preflight(
+        ${db.json(stagingPayload)}::jsonb,
+        ${user.id}::uuid
+      ) as result
+    `;
     const result = rows[0]?.result || {};
 
     return reply(req, {
