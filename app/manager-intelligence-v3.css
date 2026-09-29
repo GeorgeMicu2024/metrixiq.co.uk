@@ -1503,3 +1503,61 @@
     font-size:18px;
   }
 }
+
+
+.smartlab-detection-summary{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  margin-top:12px;
+}
+.smartlab-detection-summary article{
+  padding:11px 12px;
+  border:1px solid #dfe8ea;
+  border-radius:12px;
+  background:rgba(255,255,255,.82);
+}
+.smartlab-detection-summary span,
+.smartlab-detection-summary strong,
+.smartlab-detection-summary small{
+  display:block;
+}
+.smartlab-detection-summary span{
+  color:#82919c;
+  font-size:7px;
+  text-transform:uppercase;
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.smartlab-detection-summary strong{
+  margin-top:4px;
+  color:#20394b;
+  font-size:20px;
+}
+.smartlab-detection-summary small{
+  margin-top:3px;
+  color:#8997a1;
+  font-size:7px;
+}
+.smartlab-detection-summary .good{
+  border-color:#d7e9e4;
+}
+.smartlab-detection-summary .warn{
+  border-color:#ebdfbd;
+  background:#fffdf7;
+}
+.smartlab-detection-summary .bad{
+  border-color:#efcfd2;
+  background:#fff8f8;
+}
+@media(max-width:680px){
+  .smartlab-detection-summary{
+    gap:6px;
+  }
+  .smartlab-detection-summary article{
+    padding:9px 8px;
+  }
+  .smartlab-detection-summary strong{
+    font-size:17px;
+  }
+}
