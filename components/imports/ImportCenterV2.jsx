@@ -112,7 +112,7 @@ export default function ImportCenterV2({
   canManage=true,
 }){
   const input=useRef(null);
-  const [tab,setTab]=useState("queue");
+  const [tab,setTab]=useState("lab");
   const [files,setFiles]=useState([]);
   const [phase,setPhase]=useState("idle");
   const [message,setMessage]=useState("");
@@ -248,15 +248,16 @@ export default function ImportCenterV2({
   }
 
   return <div className="importv2-root">
-    <div className="importv2-heading importv2-heading-clean">
-      <div>
-        <span className="page-kicker">IMPORT CENTER V2</span>
-        <h1>Smart Data Ingestion</h1>
-        <p>Drop reports, let MetrixIQ identify the data, then review only what needs attention.</p>
-        <div className="importv2-heading-meta"><span>Auto detection</span><span>Duplicate protection</span><span>Safe staging</span></div>
+    <div className="importv2-smartbar">
+      <div className="importv2-smartbar-title">
+        <span className="importv2-smartbar-mark">↯</span>
+        <div><span className="page-kicker">IMPORT CENTER</span><strong>Smart Import</strong></div>
+      </div>
+      <div className="importv2-smartbar-nav">
+        <button className={tab==="lab"?"active":""} onClick={()=>setTab("lab")}>Smart Import</button>
+        <button aria-label="History & Rollback" className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History</button>
       </div>
     </div>
-    <div className="importv2-tabs importv2-tabs-clean"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Queue</button><button className={tab==="lab"?"active":""} onClick={()=>setTab("lab")}>Smart Import</button><button aria-label="History & Rollback" className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History</button></div>
     {tab==="queue"&&<section className="importv2-sitebar">
       <div className="importv2-sitebar-copy">
         <span className="importv2-sitebar-icon">▦</span>
