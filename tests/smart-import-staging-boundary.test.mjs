@@ -40,10 +40,11 @@ test("staging Edge Function validates production user and owner or manager membe
 });
 
 
-test("staging failures are rendered inline beside the staging controls", () => {
+test("automatic staging failures are rendered inline with an explicit retry", () => {
   assert.match(lab, /const \[remoteError, setRemoteError\]/);
-  assert.match(lab, /Test DB staging failed:/);
+  assert.match(lab, /Staging failed:/);
   assert.match(lab, /Sending validated batch to MetrixIQ Staging/);
+  assert.match(lab, /Retry staging/);
   assert.match(lab, /setRemoteError\(failure\)/);
 });
 
