@@ -88,7 +88,7 @@ function blockedFileResult({ file, code, message }) {
   };
 }
 
-export default function SmartImportLab({ sites = [], organizationId = "" }) {
+export default function SmartImportLab({ sites = [], organizationId = "", onDetectedSite }) {
   const input = useRef(null);
   const [files, setFiles] = useState([]);
   const [phase, setPhase] = useState("idle");
@@ -115,6 +115,11 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       setBrowserStage(loadBrowserStaging(sessionStorage));
     } catch {}
   }, []);
+
+  function syncDetectedSite(plan) {
+    const detected = Object.keys(plan?.siteCounts || {}).filter((site) => /^D[A-Z]{2}\d{1,2}$/.test(String(site || "").toUpperCase()));
+    if (detected.length === 1 && typeof onDetectedSite === "function") onDetectedSite(detected[0].toUpperCase());
+  }
 
   const siteOptions = [...new Set((sites || []).map((site) => {
     if (typeof site === "string") return site.trim().toUpperCase();
@@ -202,6 +207,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
       plan,
       exactDuplicates: result.exactDuplicates,
     });
+    syncDetectedSite(plan);
     setResult((current) => ({
       ...current,
       analysis: analysed,
@@ -437,6 +443,7 @@ export default function SmartImportLab({ sites = [], organizationId = "" }) {
         plan,
         exactDuplicates: deduped.duplicates,
       });
+      syncDetectedSite(plan);
 
       setResult({
         analysis: analysed,

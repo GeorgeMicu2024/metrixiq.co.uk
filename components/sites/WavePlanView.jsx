@@ -37,6 +37,7 @@ const candidate=(c,route,time,stage)=>c.map(clean).find(x=>x&&x!==route&&x!==tim
 const toMinutes=v=>{const m=clean(v).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(!m)return null;let h=+m[1],n=+m[2],a=(m[3]||"").toUpperCase();if(a==="PM"&&h<12)h+=12;if(a==="AM"&&h===12)h=0;return h*60+n};
 const formatMinutes=n=>{n=(n+1440)%1440;let h=Math.floor(n/60),m=n%60,a=h>=12?"PM":"AM";return `${h%12||12}:${String(m).padStart(2,"0")} ${a}`};
 const adjustTime=(v,delta)=>{const n=toMinutes(v);return n==null?clean(v):formatMinutes(n+delta)};
+const detectActivitySite=(file,rows=[])=>{const fromContent=[...new Set((rows||[]).slice(0,180).flatMap(row=>row.cells||[]).map(clean).join(" ").toUpperCase().match(/\bD[A-Z]{2}\d{1,2}\b/g)||[])];if(fromContent.length===1)return fromContent[0];const fromName=[...new Set((String(file?.name||"").toUpperCase().match(/\bD[A-Z]{2}\d{1,2}\b/g)||[]))];return fromName.length===1?fromName[0]:""};
 async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array",cellStyles:true}),rows=[];for(const sheetName of wb.SheetNames){const sheet=wb.Sheets[sheetName],range=XLSX.utils.decode_range(sheet["!ref"]||"A1");XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet:sheetName,row:i+1,cells,rowColour:excelRowColour(sheet,range.s.r+i,range)}))}return rows}
 async function imageCanvas(file){const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)throw new Error("Canvas unavailable");if(typeof createImageBitmap==="function"){const bitmap=await createImageBitmap(file);canvas.width=bitmap.width;canvas.height=bitmap.height;ctx.drawImage(bitmap,0,0);bitmap.close?.();return{ctx,width:canvas.width,height:canvas.height}}const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const node=new Image();node.onload=()=>resolve(node);node.onerror=reject;node.src=url});canvas.width=img.naturalWidth||img.width;canvas.height=img.naturalHeight||img.height;ctx.drawImage(img,0,0);return{ctx,width:canvas.width,height:canvas.height}}finally{URL.revokeObjectURL(url)}}
 function sampledRowColour(ctx,width,height,bbox){if(!ctx||!bbox||!width||!height)return"";const center=Math.max(0,Math.min(height-1,Math.round((bbox.y0+bbox.y1)/2))),rowHeight=Math.max(2,Math.round((bbox.y1-bbox.y0)/2)),ys=[center,Math.max(0,center-rowHeight),Math.min(height-1,center+rowHeight)],step=Math.max(3,Math.floor(width/220)),colours=[];for(const y of ys){let data;try{data=ctx.getImageData(0,y,width,1).data}catch{return""}for(let x=Math.floor(width*.03);x<Math.floor(width*.97);x+=step){const i=x*4,r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];if(a<180)continue;const max=Math.max(r,g,b),min=Math.min(r,g,b),sat=max?((max-min)/max):0,luma=(.2126*r+.7152*g+.0722*b)/255;if(luma<.12||luma>.94)continue;colours.push(quantiseColour("#"+[r,g,b].map(n=>n.toString(16).padStart(2,"0")).join("")))}}return dominantColour(colours)}
@@ -60,12 +61,15 @@ async function imageRows(file,onProgress){
  }
  return rows;
 }
-export default function WavePlanView({site="DLS2",drivers=[]}){
+export default function WavePlanView({site="DLS2",drivers=[],onDetectedSite}){
  const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Good morning,\n\nPlease find below the list of your Atlas shipment of the day - Total Tracking IDs: {count}\n\nTracking ID - Route code - Driver Name\n\n{rows}\n\nBest regards,"),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium");
- const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),sheetRef=useRef(null);
+ const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),sheetRef=useRef(null),pendingDetectedSiteRef=useRef("");
  const [dragging,setDragging]=useState(false),[uploadStatus,setUploadStatus]=useState([]),[editorTab,setEditorTab]=useState("waves");
  const [editNamesOpen,setEditNamesOpen]=useState(false),[editDraft,setEditDraft]=useState({});
  useEffect(()=>{
+   const detectedSite=pendingDetectedSiteRef.current;
+   if(detectedSite&&detectedSite===norm(site)){pendingDetectedSiteRef.current="";return;}
+   pendingDetectedSiteRef.current="";
    setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);
    setOverrides({});setDismissedConflicts(new Set());setHiddenWaves(new Set());setUploadStatus([]);
    setEditNamesOpen(false);setEditDraft({});
@@ -102,7 +106,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    }
    setUploadStatus(status);
  };
- const load=async(file,setFile,setRows)=>{if(!file)return;setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(await imageRows(file,setOcrProgress));setOcrProgress(null)}else setRows(await workbookRows(file))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
+ const load=async(file,setFile,setRows)=>{if(!file)return;setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{let parsedRows;if(file.type?.startsWith("image/")){setOcrProgress(0);parsedRows=await imageRows(file,setOcrProgress);setOcrProgress(null)}else parsedRows=await workbookRows(file);setRows(parsedRows);const detectedSite=detectActivitySite(file,parsedRows);if(detectedSite&&detectedSite!==norm(site)&&typeof onDetectedSite==="function"){pendingDetectedSiteRef.current=detectedSite;onDetectedSite(detectedSite)}}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
  const driverByTrid=useMemo(()=>new Map(drivers.map(d=>{
    const trid=d?.trid||d?.id||d?.transporter_id||d?.rawData?.trid||d?.raw_data?.trid;
    const name=d?.full_name||d?.name||d?.driver_name;

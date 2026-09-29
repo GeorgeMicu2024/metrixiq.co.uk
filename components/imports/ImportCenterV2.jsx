@@ -85,6 +85,16 @@ function statusLabel(status){
   return status||"Read";
 }
 
+function detectedActivitySite(result){
+  const values=[
+    ...(result?.fileResults||[]).flatMap((row)=>[row?.smart?.site,...(row?.smart?.contentSites||[])]),
+    ...(result?.siteScorecards||[]).map((row)=>row?.site),
+    ...(result?.feedbackEvents||[]).map((row)=>row?.site),
+  ].map((value)=>String(value||"").trim().toUpperCase()).filter((value)=>/^D[A-Z]{2}\d{1,2}$/.test(value));
+  const unique=[...new Set(values)];
+  return unique.length===1?unique[0]:"";
+}
+
 function importDate(value){
   if(!value)return"—";
   const date=new Date(value);
@@ -96,6 +106,7 @@ export default function ImportCenterV2({
   sites = [],
   siteFilter = "all",
   onImported,
+  onDetectedSite,
   analysis:latestAnalysis,
   canManage=true,
 }){
@@ -155,12 +166,13 @@ export default function ImportCenterV2({
 
   async function analyseQueue(){
     if(!importableFiles.length||busy)return;
-    if(!activitySite){setMessage("Choose the Activity Site before analysing this import.");setPhase("error");return;}
     setPhase("analysing");setMessage("");
     try{
       let result=await analyseFiles(importableFiles);
       if(!result.recognizedFiles)throw new Error("No supported report structure was detected in the selected files.");
       if(mentorCandidate)result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);
+      const detectedSite=detectedActivitySite(result);
+      if(detectedSite){const accepted=typeof onDetectedSite==="function"?onDetectedSite(detectedSite):true;if(accepted!==false)setActivitySite(detectedSite);}
       const dup=await findPotentialDuplicateImports(getSupabaseBrowserClient(),organizationId,importableFiles);
       const nextActions={};
       for(const file of importableFiles){
@@ -280,7 +292,7 @@ export default function ImportCenterV2({
       </>}
     </>}
 
-    {tab==="lab"&&<SmartImportLab sites={sites} organizationId={organizationId}/>}    {tab==="history"&&<section className="panel importv2-history">
+    {tab==="lab"&&<SmartImportLab sites={sites} organizationId={organizationId} onDetectedSite={onDetectedSite}/>}    {tab==="history"&&<section className="panel importv2-history">
       <div className="panel-head"><div><h2>Import history</h2><p>Every stored source file with rollback controls. Merged evidence is preserved when removal would be unsafe.</p></div><button className="btn ghost" onClick={loadHistory}>Refresh</button></div>
       <div className="table-wrap"><table className="data-table"><thead><tr><th>Imported</th><th>File</th><th>Detected report</th><th>Period</th><th>Status</th><th>Mode</th><th>Action</th></tr></thead><tbody>
         {history.map((item)=><tr key={item.id}><td>{importDate(item.created_at)}</td><td><b>{item.file_name}</b><small className="history-date">{item.file_size_bytes?Math.round(item.file_size_bytes/1024)+" KB":"—"}</small></td><td>{item.detected_report_type||"—"}</td><td>{item.period_start||"—"} → {item.period_end||"—"}</td><td><span className={"import-status "+(item.metadata?.rolled_back?"read":item.status)}>{item.metadata?.rolled_back?"rolled back":item.status}</span></td><td>{item.metadata?.import_mode||"standard"}</td><td><button className="btn ghost compact" disabled={!canManage||busyImport===item.id||item.metadata?.rolled_back} onClick={()=>rollback(item)}>{busyImport===item.id?"Checking…":"Rollback"}</button></td></tr>)}
