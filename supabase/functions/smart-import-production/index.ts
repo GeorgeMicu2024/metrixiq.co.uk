@@ -51,8 +51,12 @@ Deno.serve(async (req: Request) => {
     return reply(req, { error: "Invalid batch or organization identifier." }, 400);
   }
 
-  if ((body?.action || "preflight") !== "preflight") {
-    return reply(req, { error: "Production commit is not enabled yet. Run preflight only." }, 409);
+  const action = body?.action || "preflight";
+  if (!["preflight", "commit"].includes(action)) {
+    return reply(req, { error: "Unsupported Production action." }, 400);
+  }
+  if (action === "commit" && body?.confirmation !== "COMMIT_APPROVED_BATCH") {
+    return reply(req, { error: "Explicit Production commit confirmation is required." }, 409);
   }
 
   const header = req.headers.get("authorization") || "";
@@ -122,26 +126,74 @@ Deno.serve(async (req: Request) => {
       }, 409);
     }
 
-    const rows = await db`
+    if (
+      action === "commit" &&
+      body?.expectedFingerprint &&
+      body.expectedFingerprint !== stagingPayload.batch.batchFingerprint
+    ) {
+      return reply(req, {
+        error: "The approved batch changed after preflight. Run Production preflight again.",
+        code: "PREFLIGHT_FINGERPRINT_MISMATCH",
+      }, 409);
+    }
+
+    const preflightRows = await db`
       select private.smart_import_preflight(
         ${db.json(stagingPayload)}::jsonb,
         ${user.id}::uuid
       ) as result
     `;
-    const result = rows[0]?.result || {};
+    const preflight = preflightRows[0]?.result || {};
+
+    if (action === "preflight") {
+      return reply(req, {
+        ok: true,
+        environment: "MetrixIQ Production",
+        action: "preflight",
+        writesToProduction: false,
+        ...preflight,
+      }, 200);
+    }
+
+    if (!preflight?.ready) {
+      if (preflight?.alreadyCommitted) {
+        return reply(req, {
+          ok: true,
+          environment: "MetrixIQ Production",
+          action: "commit",
+          writesToProduction: false,
+          committed: true,
+          alreadyCommitted: true,
+          ...preflight,
+        }, 200);
+      }
+      return reply(req, {
+        error: "Production preflight is no longer ready. Run preflight again.",
+        code: "PREFLIGHT_NOT_READY",
+        preflight,
+      }, 409);
+    }
+
+    const commitRows = await db`
+      select private.smart_import_commit(
+        ${db.json(stagingPayload)}::jsonb,
+        ${user.id}::uuid
+      ) as result
+    `;
+    const result = commitRows[0]?.result || {};
 
     return reply(req, {
       ok: true,
       environment: "MetrixIQ Production",
-      action: "preflight",
-      writesToProduction: false,
+      action: "commit",
+      writesToProduction: true,
       ...result,
     }, 200);
   } catch (error) {
-    console.error("smart-import-production preflight failed", error);
+    console.error("smart-import-production action failed", action, error);
     return reply(req, {
-      error: "Production preflight failed.",
-      code: "PRODUCTION_PREFLIGHT_FAILED",
+      error: action === "commit" ? "Production commit failed." : "Production preflight failed.",
+      code: action === "commit" ? "PRODUCTION_COMMIT_FAILED" : "PRODUCTION_PREFLIGHT_FAILED",
     }, 500);
   }
 });
