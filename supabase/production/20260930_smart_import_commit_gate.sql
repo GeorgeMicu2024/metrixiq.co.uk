@@ -129,6 +129,7 @@ declare
   v_period_end date;
   v_now timestamptz := clock_timestamp();
   v_summary jsonb;
+  v_site_breakdown jsonb;
 begin
   v_org := nullif(p_payload->>'organizationId','')::uuid;
   v_batch_id := nullif(p_payload->'batch'->>'id','')::uuid;
@@ -628,10 +629,72 @@ begin
     driver_id=excluded.driver_id,driver_name=excluded.driver_name,dnr=excluded.dnr,
     source_file=excluded.source_file,updated_at=v_now;
 
+  with records as (
+    select *
+    from jsonb_to_recordset(coalesce(p_payload->'records','[]'::jsonb)) as r(
+      source_file_name text,report_type text,entity_key text,site text,period_key text,payload jsonb
+    )
+  ),
+  resolved as (
+    select
+      coalesce(
+        upper(nullif(r.site,'')),
+        upper(nullif(r.payload->'driver'->>'site','')),
+        upper(nullif(r.payload->>'site','')),
+        case when cardinality(fm.sites)=1 then upper(fm.sites[1]) end
+      ) as site,
+      r.report_type,
+      coalesce(r.payload->'period'->>'granularity','') as granularity,
+      r.source_file_name
+    from records r
+    join smart_import_file_map fm on fm.file_name=r.source_file_name
+  ),
+  file_sites as (
+    select upper(s.site) as site,count(distinct fm.file_name)::integer as files
+    from smart_import_file_map fm
+    cross join lateral unnest(fm.sites) as s(site)
+    where nullif(s.site,'') is not null
+    group by upper(s.site)
+  ),
+  record_counts as (
+    select
+      site,
+      count(*) filter (where report_type='DRIVER_PERIOD' and granularity='weekly')::integer as driver_metrics,
+      count(*) filter (where report_type='FEEDBACK_EVENT')::integer as feedback_events,
+      count(*) filter (where report_type='SITE_SCORECARD')::integer as scorecards
+    from resolved
+    where site is not null
+    group by site
+  ),
+  all_sites as (
+    select site from file_sites
+    union
+    select site from record_counts
+  )
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'site',s.site,
+        'files',coalesce(f.files,0),
+        'driverMetrics',coalesce(r.driver_metrics,0),
+        'feedbackEvents',coalesce(r.feedback_events,0),
+        'scorecards',coalesce(r.scorecards,0),
+        'records',coalesce(r.driver_metrics,0)+coalesce(r.feedback_events,0)+coalesce(r.scorecards,0)
+      )
+      order by s.site
+    ),
+    '[]'::jsonb
+  )
+  into v_site_breakdown
+  from all_sites s
+  left join file_sites f on f.site=s.site
+  left join record_counts r on r.site=s.site;
+
   v_summary := v_preflight || jsonb_build_object(
     'committed',true,'alreadyCommitted',false,'commitId',v_commit_id,
     'stagingBatchId',v_batch_id,'batchFingerprint',v_fingerprint,
-    'importIds',to_jsonb(v_import_ids),'committedAt',v_now,'writesToProduction',true
+    'importIds',to_jsonb(v_import_ids),'committedAt',v_now,'writesToProduction',true,
+    'siteBreakdown',coalesce(v_site_breakdown,'[]'::jsonb)
   );
 
   update private.smart_import_commits
