@@ -107,8 +107,16 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     try {
       const supabase = getSupabaseBrowserClient();
       const driver = await createMentorMappingDriver(supabase, organizationId, newDriver);
-      await resolveMentorMapping(supabase, organizationId, createFor, driver.id);
-      setCreateNotice(driver.reused_existing ? "Existing driver linked successfully." : "New driver created and linked successfully.");
+      const mapping = await resolveMentorMapping(supabase, organizationId, createFor, driver.id);
+      const resolvedCount = Number(mapping?.resolved_count || 1);
+      const historical = resolvedCount > 1 ? ` ${resolvedCount} matching eMentor rows were resolved.` : "";
+      setCreateNotice(
+        mapping?.mapping_persisted
+          ? `Permanent eMentor mapping saved for ${driver.full_name || driver.trid || "this driver"}. Future imports will match automatically.${historical}`
+          : driver.reused_existing
+            ? "Existing driver linked successfully."
+            : "New driver created and linked successfully."
+      );
       setCreateFor(null); setNewDriver({ full_name: "", trid: "", site: "" });
       await load(); onChanged?.();
     } catch (e) { setError(e?.message || "Could not create and link driver."); }
@@ -117,9 +125,17 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
 
   async function resolve(row, driverId) {
     if (!driverId) return;
-    setBusy(row.id); setError("");
+    const driver = drivers.find((item) => item.id === driverId);
+    setBusy(row.id); setError(""); setCreateNotice("");
     try {
-      await resolveMentorMapping(getSupabaseBrowserClient(), organizationId, row, driverId);
+      const mapping = await resolveMentorMapping(getSupabaseBrowserClient(), organizationId, row, driverId);
+      const resolvedCount = Number(mapping?.resolved_count || 1);
+      const historical = resolvedCount > 1 ? ` ${resolvedCount} matching eMentor rows were resolved.` : "";
+      setCreateNotice(
+        mapping?.mapping_persisted
+          ? `Permanent eMentor mapping saved for ${driver?.full_name || driver?.trid || "this driver"}. Future imports will match automatically.${historical}`
+          : "Driver linked successfully."
+      );
       await load(); onChanged?.();
     } catch (e) { setError(e?.message || "Could not save mapping."); }
     finally { setBusy(""); }
