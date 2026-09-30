@@ -17,3 +17,10 @@ test("eMentor mapping modal explains when the TRID already belongs to a driver",
   assert.match(panel, /Driver already exists/);
   assert.match(panel, /Link Existing/);
 });
+
+
+test("eMentor driver search tolerates spacing and partial-name token order", () => {
+  assert.match(panel, /function normalizeDriverSearch/);
+  assert.match(panel, /query\.split\(" "\)\.filter\(Boolean\)\.every/);
+  assert.match(panel, /driverMatchesQuery\(driver, driverQueries\[row\.id\]\)/);
+});
