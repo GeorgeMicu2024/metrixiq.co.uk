@@ -20,10 +20,10 @@ test("editing or reanalysing invalidates stale browser dry-run snapshots", () =>
   assert.match(analyse, /setBrowserStage\(null\)/);
 });
 
-test("remote stage UI exposes reconciliation and stored record breakdown", () => {
+test("remote stage UI exposes reconciliation and normalized evidence status", () => {
   assert.match(lab, /reconciled/);
-  assert.match(lab, /Stored:/);
-  assert.match(lab, /driver-period/);
+  assert.match(lab, /Stored and reconciled:/);
+  assert.match(lab, /normalized evidence records/);
   assert.match(lab, /feedback/);
   assert.match(lab, /site scorecards/);
 });
