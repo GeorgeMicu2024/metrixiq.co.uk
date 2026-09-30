@@ -1577,3 +1577,39 @@
     grid-template-columns:1fr;
   }
 }
+
+
+.mentor-existing-driver-hint{
+  display:grid;
+  gap:3px;
+  margin:2px 0 4px;
+  padding:10px 12px;
+  border:1px solid #cfe5de;
+  border-radius:10px;
+  background:#f3faf8;
+}
+.mentor-existing-driver-hint span{
+  color:#1f806a;
+  font-size:7px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.mentor-existing-driver-hint b{
+  color:#243d4d;
+  font-size:10px;
+}
+.mentor-existing-driver-hint small{
+  color:#70828e;
+  font-size:7px;
+}
+.mentor-mapping-success{
+  margin:10px 16px 0;
+  padding:9px 11px;
+  border:1px solid #d3e8e1;
+  border-radius:9px;
+  background:#edf8f5;
+  color:#25745f;
+  font-size:8px;
+  font-weight:750;
+}
