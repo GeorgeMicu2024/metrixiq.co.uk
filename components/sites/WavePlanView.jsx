@@ -38,6 +38,7 @@ const toMinutes=v=>{const m=clean(v).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(!
 const formatMinutes=n=>{n=(n+1440)%1440;let h=Math.floor(n/60),m=n%60,a=h>=12?"PM":"AM";return `${h%12||12}:${String(m).padStart(2,"0")} ${a}`};
 const adjustTime=(v,delta)=>{const n=toMinutes(v);return n==null?clean(v):formatMinutes(n+delta)};
 const detectActivitySite=(file,rows=[])=>{const fromContent=[...new Set((rows||[]).slice(0,180).flatMap(row=>row.cells||[]).map(clean).join(" ").toUpperCase().match(/\bD[A-Z]{2}\d{1,2}\b/g)||[])];if(fromContent.length===1)return fromContent[0];const fromName=[...new Set((String(file?.name||"").toUpperCase().match(/\bD[A-Z]{2}\d{1,2}\b/g)||[]))];return fromName.length===1?fromName[0]:""};
+const headerlessWaveEvidence=rows=>(rows||[]).filter(row=>{const cells=row?.cells||[];const route=routeOf(cells),time=timeOf(cells),stage=stageOf(cells)||stageLoose(cells.join(" "));return !!(route&&time&&stage)}).length;
 async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array",cellStyles:true}),rows=[];for(const sheetName of wb.SheetNames){const sheet=wb.Sheets[sheetName],range=XLSX.utils.decode_range(sheet["!ref"]||"A1");XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet:sheetName,row:i+1,cells,rowColour:excelRowColour(sheet,range.s.r+i,range)}))}return rows}
 async function imageCanvas(file){const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)throw new Error("Canvas unavailable");if(typeof createImageBitmap==="function"){const bitmap=await createImageBitmap(file);canvas.width=bitmap.width;canvas.height=bitmap.height;ctx.drawImage(bitmap,0,0);bitmap.close?.();return{ctx,width:canvas.width,height:canvas.height}}const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const node=new Image();node.onload=()=>resolve(node);node.onerror=reject;node.src=url});canvas.width=img.naturalWidth||img.width;canvas.height=img.naturalHeight||img.height;ctx.drawImage(img,0,0);return{ctx,width:canvas.width,height:canvas.height}}finally{URL.revokeObjectURL(url)}}
 function sampledRowColour(ctx,width,height,bbox){if(!ctx||!bbox||!width||!height)return"";const center=Math.max(0,Math.min(height-1,Math.round((bbox.y0+bbox.y1)/2))),rowHeight=Math.max(2,Math.round((bbox.y1-bbox.y0)/2)),ys=[center,Math.max(0,center-rowHeight),Math.min(height-1,center+rowHeight)],step=Math.max(3,Math.floor(width/220)),colours=[];for(const y of ys){let data;try{data=ctx.getImageData(0,y,width,1).data}catch{return""}for(let x=Math.floor(width*.03);x<Math.floor(width*.97);x+=step){const i=x*4,r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];if(a<180)continue;const max=Math.max(r,g,b),min=Math.min(r,g,b),sat=max?((max-min)/max):0,luma=(.2126*r+.7152*g+.0722*b)/255;if(luma<.12||luma>.94)continue;colours.push(quantiseColour("#"+[r,g,b].map(n=>n.toString(16).padStart(2,"0")).join("")))}}return dominantColour(colours)}
@@ -90,6 +91,10 @@ export default function WavePlanView({site="DLS2",drivers=[],onDetectedSite}){
        const sample=norm(rows.slice(0,30).flatMap(r=>r.cells).join(" "));
        if(/TRANSPORTER ID|DRIVER NAME/.test(sample)&&/ROUTE CODE/.test(sample))return "route";
        if(/STAGING LOCATION|WAVE/.test(sample)&&/ROUTE CODE/.test(sample))return "wave";
+       // Amazon/DCSL wave exports can be headerless: route, service, time and STG colour
+       // start directly on row 2. Detect them from repeated route+time+staging evidence
+       // instead of relying on a filename or header label.
+       if(headerlessWaveEvidence(rows)>=2)return "wave";
      }
    }catch{}
    return "unknown";
