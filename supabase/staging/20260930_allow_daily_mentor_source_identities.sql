@@ -37,8 +37,7 @@ begin
   into v_invalid_driver_identities
   from smart_import_lab.records r
   join smart_import_lab.files f
-    on f.batch_id = r.batch_id
-   and f.file_name = r.source_file_name
+    on f.id = r.file_id
   where r.batch_id = p_batch_id
     and r.report_type = 'DRIVER_PERIOD'
     and (r.entity_key is null or r.entity_key !~ '^A[A-Z0-9]{8,}$')
@@ -55,8 +54,7 @@ begin
   into v_mentor_daily
   from smart_import_lab.records r
   join smart_import_lab.files f
-    on f.batch_id = r.batch_id
-   and f.file_name = r.source_file_name
+    on f.id = r.file_id
   where r.batch_id = p_batch_id
     and r.report_type = 'DRIVER_PERIOD'
     and 'mentor_daily_snapshots' = any(coalesce(f.targets,'{}'::text[]));
