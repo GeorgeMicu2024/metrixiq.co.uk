@@ -19,6 +19,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
   const [driverQueries, setDriverQueries] = useState({});
   const [createFor, setCreateFor] = useState(null);
   const [newDriver, setNewDriver] = useState({ full_name: "", trid: "", site: "" });
+  const [createNotice, setCreateNotice] = useState("");
 
   async function load() {
     if (!organizationId) return;
@@ -83,13 +84,20 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     ? actionable
     : actionable.filter((r) => filter === "hidden" ? r.status === "ignored" : r.status === filter);
 
+  const existingDriverForNewTrid = useMemo(() => {
+    const trid = String(newDriver.trid || "").trim().toUpperCase();
+    if (!trid) return null;
+    return drivers.find((driver) => String(driver.trid || "").trim().toUpperCase() === trid) || null;
+  }, [drivers, newDriver.trid]);
+
   async function createAndResolve() {
     if (!createFor || !newDriver.full_name.trim()) return;
-    setBusy(createFor.id); setError("");
+    setBusy(createFor.id); setError(""); setCreateNotice("");
     try {
       const supabase = getSupabaseBrowserClient();
       const driver = await createMentorMappingDriver(supabase, organizationId, newDriver);
       await resolveMentorMapping(supabase, organizationId, createFor, driver.id);
+      setCreateNotice(driver.reused_existing ? "Existing driver linked successfully." : "New driver created and linked successfully.");
       setCreateFor(null); setNewDriver({ full_name: "", trid: "", site: "" });
       await load(); onChanged?.();
     } catch (e) { setError(e?.message || "Could not create and link driver."); }
@@ -139,6 +147,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
         ))}
       </div>
       {error && <div className="mentor-mapping-error">{error}</div>}
+      {createNotice && <div className="mentor-mapping-success">{createNotice}</div>}
       <div className="mentor-mapping-scroll">
         <table className="mentor-mapping-table">
           <thead><tr><th>Visibility</th><th>Source name</th><th>Source ID</th><th>Site</th><th>Score</th><th>Match to driver</th></tr></thead>
@@ -193,6 +202,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                         }) && <div className="mentor-driver-empty">No matching driver</div>}
                         <button type="button" className="mentor-create-driver" onMouseDown={(e) => e.preventDefault()} onClick={() => {
                           setCreateFor(row);
+                          setCreateNotice("");
                           setNewDriver({ full_name: driverQueries[row.id] || "", trid: "", site: row.site || "" });
                         }}><b>+ Create new driver</b><span>Create and permanently link this eMentor account</span></button>
                       </div>
@@ -205,7 +215,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
           </tbody>
         </table>
       </div>
-      {createFor && <div className="mentor-create-backdrop" role="presentation" onMouseDown={() => setCreateFor(null)}><div className="mentor-create-modal" role="dialog" aria-modal="true" aria-label="Add new driver" onMouseDown={(e) => e.stopPropagation()}><div className="mentor-create-title"><div><b>Add New Driver</b><small>Create a new driver and link it to this eMentor account.</small></div><button type="button" onClick={() => setCreateFor(null)}>×</button></div><label>Full name *<input autoFocus value={newDriver.full_name} onChange={(e) => setNewDriver(v => ({...v,full_name:e.target.value}))} placeholder="e.g. John Smith" /></label><label>TRID (optional)<input value={newDriver.trid} onChange={(e) => setNewDriver(v => ({...v,trid:e.target.value}))} placeholder="e.g. A123B456" /></label><label>Site<input value={newDriver.site} onChange={(e) => setNewDriver(v => ({...v,site:e.target.value}))} placeholder="DLS2" /></label><div className="mentor-create-actions"><button type="button" className="btn ghost" onClick={() => setCreateFor(null)}>Cancel</button><button type="button" className="btn primary" disabled={!newDriver.full_name.trim() || busy === createFor.id} onClick={createAndResolve}>Create & Link</button></div></div></div>}
+      {createFor && <div className="mentor-create-backdrop" role="presentation" onMouseDown={() => setCreateFor(null)}><div className="mentor-create-modal" role="dialog" aria-modal="true" aria-label="Add new driver" onMouseDown={(e) => e.stopPropagation()}><div className="mentor-create-title"><div><b>{existingDriverForNewTrid ? "Link Existing Driver" : "Add New Driver"}</b><small>{existingDriverForNewTrid ? "This TRID already exists in Driver Master. The eMentor account will be linked to the existing driver." : "Create a new driver and link it to this eMentor account."}</small></div><button type="button" onClick={() => setCreateFor(null)}>×</button></div><label>Full name *<input autoFocus value={newDriver.full_name} onChange={(e) => setNewDriver(v => ({...v,full_name:e.target.value}))} placeholder="e.g. John Smith" /></label><label>TRID (optional)<input value={newDriver.trid} onChange={(e) => setNewDriver(v => ({...v,trid:e.target.value.toUpperCase()}))} placeholder="e.g. A123B456" /></label>{existingDriverForNewTrid && <div className="mentor-existing-driver-hint"><span>✓ Driver already exists</span><b>{existingDriverForNewTrid.full_name}</b><small>{existingDriverForNewTrid.trid}{existingDriverForNewTrid.site ? " · " + existingDriverForNewTrid.site : ""}</small></div>}<label>Site<input value={newDriver.site} onChange={(e) => setNewDriver(v => ({...v,site:e.target.value.toUpperCase()}))} placeholder="DLS2" /></label><div className="mentor-create-actions"><button type="button" className="btn ghost" onClick={() => setCreateFor(null)}>Cancel</button><button type="button" className="btn primary" disabled={!newDriver.full_name.trim() || busy === createFor.id} onClick={createAndResolve}>{busy === createFor.id ? "Linking…" : existingDriverForNewTrid ? "Link Existing" : "Create & Link"}</button></div></div></div>}
     </section>
   );
 }
