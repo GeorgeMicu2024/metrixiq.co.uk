@@ -120,10 +120,14 @@ Deno.serve(async (req: Request) => {
       [body.batchId]
     );
 
-    const invalidDrivers = records.filter((record: any) =>
-      record.report_type === "DRIVER_PERIOD" &&
-      !/^A[A-Z0-9]{8,}$/i.test(String(record.entity_key || ""))
-    );
+    const fileById = new Map(files.map((file: any) => [String(file.id), file]));
+    const invalidDrivers = records.filter((record: any) => {
+      if (record.report_type !== "DRIVER_PERIOD") return false;
+      if (/^A[A-Z0-9]{8,}$/i.test(String(record.entity_key || ""))) return false;
+      const sourceFile = fileById.get(String(record.file_id));
+      const targets = Array.isArray(sourceFile?.targets) ? sourceFile.targets : [];
+      return targets.includes("driver_metrics") || targets.includes("concessions_weekly_snapshots");
+    });
     if (invalidDrivers.length) {
       return reply(req, {
         error: "Approved batch contains invalid driver identities and must be reanalysed.",
