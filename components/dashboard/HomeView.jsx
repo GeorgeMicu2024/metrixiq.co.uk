@@ -85,22 +85,7 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
  };
  const sourceMetric=(card,key)=>{
   const direct=card?.metrics?.[key]&&typeof card.metrics[key]==="object"?card.metrics[key].value:card?.metrics?.[key];
-  if(safe(direct)!=null)return safe(direct);
-  const rows=scorecardRowsFor(card);
-  const aliases=metricAliases[key]||[key];
-  const values=[];
-  for(const row of rows){
-   for(const alias of aliases){
-    const value=safe(row?.[alias]??row?.raw_data?.[alias]??row?.raw_data?.scorecard?.[alias]);
-    if(value!=null){values.push(value);break;}
-   }
-  }
-  if(!values.length)return null;
-  // Site scorecard driver rows repeat site-level values in some imports. Median
-  // avoids multiplying/re-averaging DPMO fields while remaining stable on legacy rows.
-  const sorted=values.slice().sort((a,b)=>a-b);
-  const mid=Math.floor(sorted.length/2);
-  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+  return safe(direct);
  };
  const siteMetric=(card,key,format="plain")=>{
   const value=safe(sourceMetric(card,key));
