@@ -54,7 +54,7 @@ DCSL at DLS2
 Week 38 - 2026
 Rank at DLS2: 5 (↓1 WoW)
 Overall Score: 79.39 | Great
-? Safe Driving Metric (FICO) 817|Fantastic
+? Safe Driving Metric (FICO)\n817|Fantastic
 ? Speeding Event Rate (Per 100 Trips) 2.02|Fair
 ? Mentor Adoption Rate 94.52%|Fantastic
 `;
