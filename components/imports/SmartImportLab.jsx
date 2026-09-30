@@ -812,7 +812,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
         {remoteStage && <div className="importv2-message good smartlab-remote-stage" style={{ marginTop: 12 }}>
           ✓ MetrixIQ Staging · Batch <b>{String(remoteStage.batchId || "").slice(0, 8)}</b> · {remoteStage.readyFiles || 0} ready · {remoteStage.duplicateFiles || 0} duplicates · {remoteStage.records || 0} evidence records · {remoteStage.reconciled ? "reconciled · " : ""}{remoteStage.alreadyStaged ? "already staged · " : ""}production untouched.
           {remoteStage.reconciled && <small style={{ display: "block", marginTop: 6 }}>
-            Stored: {remoteStage.driverRecords || 0} driver-period · {remoteStage.feedbackRecords || 0} feedback · {remoteStage.scorecardRecords || 0} site scorecards.
+            Stored and reconciled: {remoteStage.records || 0} normalized evidence records.
           </small>}
         </div>}
         {remoteStage && <div className="smartlab-approval-card" style={{ marginTop: 12 }}>
@@ -872,14 +872,16 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
               <article><span>Imports</span><strong>{productionPreflight.imports?.files || 0}</strong><small>files to register</small></article>
               <article><span>Drivers</span><strong>{productionPreflight.drivers?.toCreate || 0}</strong><small>new driver identities</small></article>
               <article><span>Driver metrics</span><strong>{productionPreflight.driverMetrics?.records || 0}</strong><small>{productionPreflight.driverMetrics?.inserts || 0} insert · {productionPreflight.driverMetrics?.updates || 0} update</small></article>
+              {(productionPreflight.mentorDaily?.records || 0) > 0 && <article><span>eMentor daily</span><strong>{productionPreflight.mentorDaily?.records || 0}</strong><small>{productionPreflight.mentorDaily?.matched || 0} matched · {productionPreflight.mentorDaily?.unmatched || 0} need mapping</small></article>}
               <article><span>Feedback</span><strong>{productionPreflight.feedbackEvents?.records || 0}</strong><small>{productionPreflight.feedbackEvents?.inserts || 0} insert · {productionPreflight.feedbackEvents?.updates || 0} update</small></article>
               <article><span>Scorecards</span><strong>{productionPreflight.siteScorecards?.records || 0}</strong><small>{productionPreflight.siteScorecards?.inserts || 0} insert · {productionPreflight.siteScorecards?.updates || 0} update</small></article>
               <article><span>DNR snapshots</span><strong>{productionPreflight.concessionsWeekly?.records || 0}</strong><small>{productionPreflight.concessionsWeekly?.inserts || 0} insert · {productionPreflight.concessionsWeekly?.updates || 0} update</small></article>
               <article><span>Daily detail held</span><strong>{productionPreflight.driverMetrics?.dailyDetailSkipped || 0}</strong><small>kept out of weekly driver_metrics</small></article>
             </div>
 
-            {(productionPreflight.invalidDriverIdentities > 0 || (productionPreflight.unsupportedTargets || []).length > 0) && <div className="importv2-message error">
-              Commit blocked · invalid identities: {productionPreflight.invalidDriverIdentities || 0}
+            {((productionPreflight.invalidDriverIdentities || 0) > 0 || (productionPreflight.invalidMentorRecords || 0) > 0 || (productionPreflight.unsupportedTargets || []).length > 0) && <div className="importv2-message error">
+              Import blocked · invalid driver identities: {productionPreflight.invalidDriverIdentities || 0}
+              {(productionPreflight.invalidMentorRecords || 0) > 0 ? " · invalid eMentor rows: " + productionPreflight.invalidMentorRecords : ""}
               {(productionPreflight.unsupportedTargets || []).length
                 ? " · unsupported targets: " + productionPreflight.unsupportedTargets.join(", ")
                 : ""}
@@ -906,7 +908,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
             </div>
             {commitError && <div className="importv2-message error">× {commitError}</div>}
             {productionCommit?.committed && <div className="importv2-message good">
-              ✓ Production committed · {productionCommit.imports?.files || 0} imports · {productionCommit.driverMetrics?.records || 0} weekly driver metrics · {productionCommit.feedbackEvents?.records || 0} feedback events.
+              ✓ Production committed · {productionCommit.imports?.files || 0} files · {productionCommit.driverMetrics?.records || 0} weekly metrics · {productionCommit.mentorDaily?.records || 0} eMentor daily · {productionCommit.feedbackEvents?.records || 0} feedback.
             </div>}
           </div>}
         </div>}
@@ -1043,9 +1045,10 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
         <h2 id="smart-import-success-title">Data is live in MetrixIQ</h2>
         <p>The approved batch was committed successfully. Here is exactly what was processed for each detected site.</p>
 
-        <div className="smartlab-success-totals">
+        <div className={"smartlab-success-totals " + ((productionCommit.mentorDaily?.records || 0) > 0 ? "has-mentor" : "")}>
           <div><span>Files</span><strong>{productionCommit.imports?.files || 0}</strong></div>
           <div><span>Driver metrics</span><strong>{productionCommit.driverMetrics?.records || 0}</strong></div>
+          {(productionCommit.mentorDaily?.records || 0) > 0 && <div><span>eMentor daily</span><strong>{productionCommit.mentorDaily?.records || 0}</strong></div>}
           <div><span>Feedback</span><strong>{productionCommit.feedbackEvents?.records || 0}</strong></div>
         </div>
 
@@ -1054,6 +1057,7 @@ export default function SmartImportLab({ sites = [], organizationId = "", onDete
             <div><strong>{item.site}</strong><span>{item.files || 0} file{Number(item.files || 0) === 1 ? "" : "s"}</span></div>
             <div className="smartlab-site-stats">
               <span><b>{item.driverMetrics || 0}</b> metrics</span>
+              {(item.mentorDaily || 0) > 0 && <span><b>{item.mentorDaily || 0}</b> eMentor</span>}
               <span><b>{item.feedbackEvents || 0}</b> feedback</span>
               <span><b>{item.scorecards || 0}</b> scorecards</span>
             </div>
