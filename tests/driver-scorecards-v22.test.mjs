@@ -74,3 +74,28 @@ test("Site Scorecard stays scorecard-first and excludes driver leaderboards", ()
   assert.equal(siteView.includes("onOpenDriver"), false);
   assert.equal(siteView.includes("\\n        <button"), false);
 });
+
+
+test("DSP scorecard parser isolates the site summary page before reading site KPIs", () => {
+  const parser = read("lib/analyzer/pdf.js");
+
+  assert.ok(parser.includes("selectScorecardSummaryText"));
+  assert.ok(parser.includes("const summaryText = selectScorecardSummaryText(extracted.pageTexts, extracted.text)"));
+  assert.ok(parser.includes("siteScorecard: scorecardSiteSummary(file.name, summaryText, period)"));
+  assert.ok(parser.includes("const SCORECARD_STANDING_PATTERN"));
+  assert.equal(
+    parser.includes("siteScorecard: scorecardSiteSummary(file.name, extracted.text, period)"),
+    false
+  );
+});
+
+test("Home site performance never replaces a malformed stored site KPI with driver medians", () => {
+  const home = read("components/dashboard/HomeView.jsx");
+  const sourceStart = home.indexOf("const sourceMetric=(card,key)=>");
+  const sourceEnd = home.indexOf("const siteMetric=", sourceStart);
+  const sourceMetric = home.slice(sourceStart, sourceEnd);
+
+  assert.ok(sourceMetric.includes("hasSourceMetric"));
+  assert.ok(sourceMetric.includes("if(hasSourceMetric)return null"));
+  assert.ok(sourceMetric.indexOf("if(hasSourceMetric)return null") < sourceMetric.indexOf("const rows=scorecardRowsFor(card)"));
+});
