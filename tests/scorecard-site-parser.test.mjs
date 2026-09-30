@@ -48,9 +48,23 @@ Recommended Focus Areas
 Current Week Tips
 `;
 
+  const streamWeekly = `
+DSP WEEKLY SCORECARD
+DCSL at DLS2
+Week 38 - 2026
+Rank at DLS2: 5 (↓1 WoW)
+Overall Score: 79.39 | Great
+? Safe Driving Metric (FICO) 817|Fantastic
+? Speeding Event Rate (Per 100 Trips) 2.02|Fair
+? Mentor Adoption Rate 94.52%|Fantastic
+`;
+
   const summary = scorecardSiteSummary(
     "UK-DCSL-DLS2-Week38-DSP-Scorecard-3.0.pdf",
-    [resources, weekly],
+    {
+      pageTexts: [resources, streamWeekly],
+      layoutPageTexts: [resources, weekly],
+    },
     period
   );
 
@@ -59,6 +73,7 @@ Current Week Tips
   assert.equal(summary.standing, "Great");
   assert.equal(summary.siteRank, 5);
   assert.equal(summary.rankDelta, -1);
+  assert.deepEqual(summary.metrics.mentor_score, { value: 817, standing: "Fantastic" });
   assert.deepEqual(summary.metrics.dcr, { value: 98.94, standing: "Great" });
   assert.deepEqual(summary.metrics.cc, { value: 99.43, standing: "Fantastic" });
   assert.deepEqual(summary.metrics.lor, { value: 15, standing: "Fantastic" });
