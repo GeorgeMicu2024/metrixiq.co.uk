@@ -84,8 +84,14 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
   cc:["cc","contact_compliance"],
  };
  const sourceMetric=(card,key)=>{
+  const hasSourceMetric=Boolean(card?.metrics&&Object.prototype.hasOwnProperty.call(card.metrics,key));
   const direct=card?.metrics?.[key]&&typeof card.metrics[key]==="object"?card.metrics[key].value:card?.metrics?.[key];
   if(safe(direct)!=null)return safe(direct);
+  // A stored site scorecard is the authoritative source for site-level KPIs.
+  // If parsing produced an invalid/non-numeric value, do not silently replace
+  // it with a median of driver rows (which caused false 100% CC / 0 LoR and
+  // rounded DCR values such as 99.20 instead of the scorecard's 99.14).
+  if(hasSourceMetric)return null;
   const rows=scorecardRowsFor(card);
   const aliases=metricAliases[key]||[key];
   const values=[];
