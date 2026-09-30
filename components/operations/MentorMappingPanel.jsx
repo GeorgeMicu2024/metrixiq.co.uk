@@ -10,6 +10,17 @@ import {
   resolveMentorMapping,
 } from "../../lib/data/mentorMapping";
 
+function normalizeDriverSearch(value) {
+  return String(value || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function driverMatchesQuery(driver, value) {
+  const query = normalizeDriverSearch(value);
+  if (!query) return true;
+  const haystack = normalizeDriverSearch([driver?.full_name, driver?.trid, driver?.site].filter(Boolean).join(" "));
+  return query.split(" ").filter(Boolean).every((token) => haystack.includes(token));
+}
+
 export default function MentorMappingPanel({ organizationId, reportDate, onChanged }) {
   const [rows, setRows] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -177,10 +188,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                     {(driverQueries[row.id] || "").trim() && (
                       <div className="mentor-driver-results">
                         {drivers
-                          .filter((driver) => {
-                            const query = (driverQueries[row.id] || "").trim().toLowerCase();
-                            return !query || `${driver.full_name || ""} ${driver.trid || ""} ${driver.site || ""}`.toLowerCase().includes(query);
-                          })
+                          .filter((driver) => driverMatchesQuery(driver, driverQueries[row.id]))
                           .slice(0, 12)
                           .map((driver) => (
                             <button
@@ -196,10 +204,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                               <span>{driver.trid || "no TRID"}{driver.site ? " · " + driver.site : ""}</span>
                             </button>
                           ))}
-                        {!drivers.some((driver) => {
-                          const query = (driverQueries[row.id] || "").trim().toLowerCase();
-                          return `${driver.full_name || ""} ${driver.trid || ""} ${driver.site || ""}`.toLowerCase().includes(query);
-                        }) && <div className="mentor-driver-empty">No matching driver</div>}
+                        {!drivers.some((driver) => driverMatchesQuery(driver, driverQueries[row.id])) && <div className="mentor-driver-empty">No matching driver</div>}
                         <button type="button" className="mentor-create-driver" onMouseDown={(e) => e.preventDefault()} onClick={() => {
                           setCreateFor(row);
                           setCreateNotice("");
