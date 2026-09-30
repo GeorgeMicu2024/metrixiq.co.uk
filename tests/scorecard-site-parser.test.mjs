@@ -31,8 +31,8 @@ Breach of Contract (BOC) None
 Working Hours Compliance (WHC) 99.03%|Great
 Comprehensive Audit Score (CAS) In Compliance
 Delivery Quality & SWC: Great
-Customer Escalation DPMO 30|Great Delivery Completion Rate (DCR) 98.94%|Great
-Customer Delivery Feedback 5328|Great Delivered Not Received(DNR DPMO) 1308|N/A
+Customer Escalation DPMO 30|Great ? Delivery Completion Rate (DCR) 98.94%|Great
+Customer Delivery Feedback 5328|Great ? Delivered Not Received(DNR DPMO) 1308|N/A
 Lost on Road (LoR) DPMO 15|Fantastic
 Photo-On-Delivery N/A
 Contact Compliance 99.43%|Fantastic
