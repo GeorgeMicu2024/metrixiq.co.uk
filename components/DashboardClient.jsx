@@ -27,7 +27,7 @@ import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
-import { loadWorkspaceContext } from "../lib/data/workspace";
+import { loadWorkspaceCore, loadWorkspaceContext, refreshWorkspacePerformance } from "../lib/data/workspace";
 import { fetchCommandCenterSummary } from "../lib/data/commandCenter";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
@@ -70,6 +70,7 @@ export default function DashboardClient() {
   const [analysis, setAnalysis] = useState(null);
   const [mobile, setMobile] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [workspaceHydrating, setWorkspaceHydrating] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [commandCenterError, setCommandCenterError] = useState("");
   const [selectedDriver, setSelectedDriver] = useState(null);
@@ -84,6 +85,7 @@ export default function DashboardClient() {
   const [siteCreateOpen, setSiteCreateOpen] = useState(false);
   const [siteCreateBusy, setSiteCreateBusy] = useState(false);
   const [siteCreateError, setSiteCreateError] = useState("");
+  const [siteCreateDetected, setSiteCreateDetected] = useState("");
   const [siteDraft, setSiteDraft] = useState({ code: "", displayName: "", region: "", country: "United Kingdom" });
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [access, setAccess] = useState(null);
@@ -176,9 +178,11 @@ export default function DashboardClient() {
     setSiteRegistry([]);
   }
 
-  async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null) {
+  async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null, { hydrate = true } = {}) {
     const supabase = getSupabaseBrowserClient();
-    const context = await loadWorkspaceContext(supabase, user, preferredOrganizationId);
+    const context = hydrate
+      ? await loadWorkspaceContext(supabase, user, preferredOrganizationId)
+      : await loadWorkspaceCore(supabase, user, preferredOrganizationId);
     const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
       p_organization_id: context.resolved.organization.id,
     });
@@ -223,17 +227,42 @@ export default function DashboardClient() {
       try {
         const requestedView = new URLSearchParams(window.location.search).get("view");
         if (requestedView) setActive(requestedView);
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) {
+
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        const user = sessionData?.session?.user;
+        if (sessionError || !user) {
           router.replace("/login");
           return;
         }
 
         const preferredOrganizationId = localStorage.getItem("metrixiq.organizationId");
-        const { context, permissionState } = await fetchWorkspaceContextForUser(userData.user, preferredOrganizationId);
+        const { context, permissionState } = await fetchWorkspaceContextForUser(
+          user,
+          preferredOrganizationId,
+          { hydrate: false }
+        );
         if (!alive) return;
-        applyWorkspaceContext(context, userData.user, permissionState);
+
+        applyWorkspaceContext(context, user, permissionState);
         localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
+        setAuthLoading(false);
+        setWorkspaceHydrating(true);
+
+        const organizationId = context.resolved.organization.id;
+        Promise.allSettled([
+          refreshWorkspacePerformance(supabase, organizationId),
+          supabase.rpc("touch_last_login"),
+        ]).then(([hydratedResult]) => {
+          if (!alive) return;
+          if (hydratedResult.status === "fulfilled") {
+            const hydrated = hydratedResult.value;
+            setDbDrivers((hydrated.scorecards || []).map(mapScorecardRow));
+            setMetricHistoryRows(hydrated.metricRows || []);
+          } else {
+            setCommandCenterError("Operational data is still loading or could not be refreshed. Retry from the dashboard if needed.");
+          }
+          setWorkspaceHydrating(false);
+        });
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
       } finally {
@@ -315,6 +344,21 @@ export default function DashboardClient() {
     if (siteFilter !== "all") localStorage.setItem("metrixiq.activeSite", siteFilter);
   }, [siteFilter]);
 
+  function handleDetectedImportSite(value) {
+    const code = validSiteCode(value);
+    if (!code) return false;
+    if (registeredSites.includes(code)) {
+      setSiteFilter(code);
+      localStorage.setItem("metrixiq.activeSite", code);
+      return true;
+    }
+    setSiteCreateError("");
+    setSiteCreateDetected(code);
+    setSiteDraft({ code, displayName: code + " Operations", region: "", country: "United Kingdom" });
+    setSiteCreateOpen(true);
+    return false;
+  }
+
   async function createSiteFromDashboard() {
     const organizationId = workspace?.organization?.id;
     const code = String(siteDraft.code || "").trim().toUpperCase();
@@ -323,7 +367,7 @@ export default function DashboardClient() {
       setSiteCreateError("Use a valid station code such as DLS2, DXM3 or DDN1.");
       return;
     }
-    if (sites.includes(code)) {
+    if (registeredSites.includes(code)) {
       setSiteCreateError(code + " already exists in this workspace.");
       return;
     }
@@ -342,6 +386,7 @@ export default function DashboardClient() {
       setSiteRegistry(rows || []);
       setSiteFilter(code);
       setSiteDraft({ code: "", displayName: "", region: "", country: "United Kingdom" });
+      setSiteCreateDetected("");
       setSiteCreateOpen(false);
     } catch (error) {
       setSiteCreateError(error?.message || "Could not create site.");
@@ -417,6 +462,31 @@ export default function DashboardClient() {
 
     return saved;
   }
+
+  async function refreshAfterSmartImportCommit() {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId) return;
+
+    const supabase = getSupabaseBrowserClient();
+    const [{ scorecards, metricRows }, nextCommandCenter] = await Promise.all([
+      refreshWorkspacePerformance(supabase, organizationId),
+      fetchCommandCenterSummary(supabase, organizationId, siteFilter),
+    ]);
+
+    setDbDrivers(scorecards.map(mapScorecardRow));
+    setMetricHistoryRows(metricRows);
+    setCommandCenter(nextCommandCenter);
+    setOperationalRefreshKey((value) => value + 1);
+
+    if (platformAdmin || permissions?.manage_automations) {
+      await Promise.allSettled([
+        runAutomationEngine(supabase, organizationId, false, "smart_import_committed"),
+        refreshSlaEscalations(supabase, organizationId),
+        autoReassessAiInterventions(supabase, organizationId),
+      ]);
+    }
+  }
+
   async function logout() { try { await getSupabaseBrowserClient().auth.signOut(); } finally { localStorage.removeItem("metrixiq.analysis"); router.replace("/login"); } }
   async function openDriver(driver) {
     setPreviousActive(active === "driver-profile" ? "drivers" : active);
@@ -466,7 +536,7 @@ export default function DashboardClient() {
             {sites.map((site)=><button key={site} className="btn ghost" onClick={()=>setSiteFilter(site)}>{site}</button>)}
           </div>
         </div>
-      : <WavePlanView site={siteFilter} drivers={dbDrivers} />; break;
+      : <WavePlanView site={siteFilter} drivers={dbDrivers} onDetectedSite={handleDetectedImportSite} />; break;
     case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
@@ -477,7 +547,7 @@ export default function DashboardClient() {
     case "pod": view = <PodQualityView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
-    case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
+    case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onSiteFilterChange={setSiteFilter} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
@@ -487,7 +557,7 @@ export default function DashboardClient() {
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
-    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
+    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} onDetectedSite={handleDetectedImportSite} onProductionCommitted={refreshAfterSmartImportCommit} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
     case "management-views": view = <SavedViewsBulkActions organizationId={workspace?.organization?.id} siteFilter={siteFilter} canBulk={platformAdmin || permissions?.bulk_actions} />; break;
     case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
@@ -503,7 +573,15 @@ export default function DashboardClient() {
     default: view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
   }
 
-  if (authLoading) return null;
+  if (authLoading) return <main className="app-boot-screen" aria-busy="true" aria-live="polite">
+    <div className="app-boot-card">
+      <Brand />
+      <div className="app-boot-spinner" aria-hidden="true"><span /><span /><span /></div>
+      <h1>Opening your workspace</h1>
+      <p>Loading access, sites and permissions…</p>
+      <div className="app-boot-progress"><i /></div>
+    </div>
+  </main>;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
@@ -527,7 +605,7 @@ export default function DashboardClient() {
       <span className="site-switcher-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M4 21V7.5L12 3v18M4 21h16M8 10h1M8 14h1M8 18h1M15 9h5v12M16.5 13h1M16.5 17h1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
       <span className="site-switcher-mark">SITE</span>
       <span className="site-switcher-value">{siteFilter==="all"?"All Sites":siteFilter}</span>
-      <select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}>
+      <select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateDetected("");setSiteDraft({code:"",displayName:"",region:"",country:"United Kingdom"});setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}>
         <option value="all">All Sites</option>
         {sites.map(site=><option key={site} value={site}>{site}</option>)}
         <option value="__add_site__">＋ Add new site</option>
@@ -563,5 +641,9 @@ export default function DashboardClient() {
       </div>}
     </div>
   </div>
-</header><main className="app-main">{view}</main></div>{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy)setSiteCreateOpen(false);}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">Add new site</h2><p>Create a station in this workspace. Existing DLS2 drivers and historical data are not changed.</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
+</header>{workspaceHydrating && <div className="app-hydration-banner" role="status">
+  <span className="app-hydration-dot" />
+  Loading operational data…
+</div>}
+<main className="app-main">{view}</main></div>{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy){setSiteCreateOpen(false);setSiteCreateDetected("");}}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">{siteCreateDetected?"Create detected site":"Add new site"}</h2><p>{siteCreateDetected?`MetrixIQ detected ${siteCreateDetected} in the uploaded file, but it is not registered in this workspace. Create it to continue with the correct site selected.`:"Create a station in this workspace. Existing driver and historical data is not changed."}</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>{setSiteCreateOpen(false);setSiteCreateDetected("");}}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>{setSiteCreateOpen(false);setSiteCreateDetected("");}}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
 }

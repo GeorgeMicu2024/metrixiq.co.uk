@@ -22,6 +22,7 @@ export default function LoginClient() {
   const redirectingRef = useRef(false);
 
   useEffect(() => {
+    router.prefetch("/app");
     try {
       const params = new URLSearchParams(window.location.search);
       const invited = params.get("invite") === "1";
