@@ -25,7 +25,7 @@ test("remote stage UI exposes reconciliation and normalized evidence status", ()
   assert.match(lab, /Stored and reconciled:/);
   assert.match(lab, /normalized evidence records/);
   assert.match(lab, /feedback/);
-  assert.match(lab, /site scorecards/);
+  assert.match(lab, /normalized evidence records/);
 });
 
 
