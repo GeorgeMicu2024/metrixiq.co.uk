@@ -197,3 +197,24 @@ test("Scorecard compact fit clears legacy sticky third-column gap", () => {
   assert.ok(css.includes("left:auto!important"));
   assert.ok(css.includes("opacity:.08!important"));
 });
+
+
+test("Driver Scorecards persists font sizing and keeps all metric headers sticky", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const css = read("app/scorecards-v22.css");
+
+  assert.ok(view.includes("SCORECARD_FONT_STORAGE_KEY"));
+  assert.ok(view.includes('useState("medium")'));
+  assert.ok(view.includes("A−"));
+  assert.ok(view.includes("A+"));
+  assert.ok(view.includes("font-${tableFontSize}"));
+
+  assert.ok(css.includes("V2.9 font controls + sticky metric header"));
+  assert.ok(css.includes(".scorex3-table thead th:nth-child(n)"));
+  assert.ok(css.includes("position:sticky!important"));
+  assert.ok(css.includes("top:0!important"));
+  assert.ok(css.includes(".scorex3-table .scorex3-tier-row td"));
+  assert.ok(css.includes("top:var(--score-header-height)!important"));
+  assert.ok(css.includes(".scorex3-table.font-large"));
+  assert.ok(css.includes("border-right:1px solid #b7c6d0!important"));
+});
