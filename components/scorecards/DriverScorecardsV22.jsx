@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchDriverScorecardData } from "../../lib/data/scorecardData";
 import { displayDriverName } from "../../lib/identity";
@@ -13,6 +13,31 @@ import {
   fetchDriverScorecardConcessionSnapshots,
 } from "../../lib/data/concessions";
 import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimitives";
+
+
+const SCORECARD_COLUMNS = [
+  { key: "rank", label: "Rank", width: 58, min: 52, max: 90 },
+  { key: "name", label: "Driver Name", width: 180, min: 135, max: 340 },
+  { key: "concessions", label: "Concessions", width: 92, min: 78, max: 150 },
+  { key: "displayScore", label: "Total Score", width: 90, min: 78, max: 145 },
+  { key: "fico", label: "FICO", width: 74, min: 64, max: 120 },
+  { key: "delivered", label: "Delivered", width: 84, min: 72, max: 130 },
+  { key: "dcr", label: "DCR", width: 82, min: 72, max: 125 },
+  { key: "dsc_dpmo", label: "DSC DPMO", width: 90, min: 78, max: 145 },
+  { key: "lor", label: "LoR DPMO", width: 84, min: 74, max: 140 },
+  { key: "pod", label: "POD", width: 78, min: 70, max: 120 },
+  { key: "cc", label: "CC", width: 74, min: 66, max: 115 },
+  { key: "ce_dpmo", label: "CE", width: 68, min: 60, max: 110 },
+  { key: "cdf_dpmo", label: "CDF DPMO", width: 90, min: 78, max: 145 },
+  { key: "psb", label: "PSB", width: 66, min: 58, max: 110 },
+];
+
+const SCORECARD_DEFAULT_WIDTHS = Object.fromEntries(
+  SCORECARD_COLUMNS.map((column) => [column.key, column.width])
+);
+
+const SCORECARD_COLUMN_STORAGE_KEY = "metrixiq.driver-scorecards.column-widths.v1";
+const SCORECARD_DENSITY_STORAGE_KEY = "metrixiq.driver-scorecards.density.v1";
 
 export default function DriverScorecardsV22({
   organizationId,
@@ -243,6 +268,92 @@ export default function DriverScorecardsV22({
   const [editFico, setEditFico] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editMessage, setEditMessage] = useState("");
+  const [columnWidths, setColumnWidths] = useState(SCORECARD_DEFAULT_WIDTHS);
+  const [tableDensity, setTableDensity] = useState("compact");
+  const [resizingColumn, setResizingColumn] = useState("");
+  const resizeStateRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      const savedWidths = JSON.parse(window.localStorage.getItem(SCORECARD_COLUMN_STORAGE_KEY) || "null");
+      if (savedWidths && typeof savedWidths === "object") {
+        setColumnWidths((current) => ({ ...current, ...savedWidths }));
+      }
+      const savedDensity = window.localStorage.getItem(SCORECARD_DENSITY_STORAGE_KEY);
+      if (savedDensity === "compact" || savedDensity === "comfortable") {
+        setTableDensity(savedDensity);
+      }
+    } catch {
+      // Keep safe defaults if browser storage is unavailable or malformed.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SCORECARD_COLUMN_STORAGE_KEY, JSON.stringify(columnWidths));
+    } catch {
+      // Column resizing still works for this session.
+    }
+  }, [columnWidths]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SCORECARD_DENSITY_STORAGE_KEY, tableDensity);
+    } catch {
+      // Density still works for this session.
+    }
+  }, [tableDensity]);
+
+  const resetColumnWidths = () => setColumnWidths(SCORECARD_DEFAULT_WIDTHS);
+
+  const resetSingleColumnWidth = (columnKey) => {
+    const defaultWidth = SCORECARD_DEFAULT_WIDTHS[columnKey];
+    if (defaultWidth == null) return;
+    setColumnWidths((current) => ({ ...current, [columnKey]: defaultWidth }));
+  };
+
+  const startColumnResize = (event, columnKey) => {
+    const column = SCORECARD_COLUMNS.find((item) => item.key === columnKey);
+    if (!column) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    resizeStateRef.current = {
+      columnKey,
+      startX: event.clientX,
+      startWidth: columnWidths[columnKey] || column.width,
+      min: column.min,
+      max: column.max,
+    };
+    setResizingColumn(columnKey);
+    document.body.classList.add("scorex3-resizing-columns");
+
+    const onPointerMove = (moveEvent) => {
+      const state = resizeStateRef.current;
+      if (!state) return;
+      const nextWidth = Math.max(
+        state.min,
+        Math.min(state.max, Math.round(state.startWidth + moveEvent.clientX - state.startX))
+      );
+      setColumnWidths((current) =>
+        current[state.columnKey] === nextWidth
+          ? current
+          : { ...current, [state.columnKey]: nextWidth }
+      );
+    };
+
+    const onPointerUp = () => {
+      resizeStateRef.current = null;
+      setResizingColumn("");
+      document.body.classList.remove("scorex3-resizing-columns");
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
 
   useEffect(() => {
     if (periodMap.length && !periodMap.some((periodItem) => periodItem.key === periodKey)) {
@@ -649,11 +760,24 @@ export default function DriverScorecardsV22({
   };
 
   const SortHeader = ({ columnKey, children }) => (
-    <th>
+    <th className={resizingColumn === columnKey ? "is-resizing" : ""}>
       <button type="button" onClick={() => toggleSort(columnKey)}>
         <span>{children}</span>
         <small>{sortArrow(columnKey)}</small>
       </button>
+      <span
+        className="scorex3-column-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`Resize ${children} column`}
+        title="Drag to resize · double-click to reset"
+        onPointerDown={(event) => startColumnResize(event, columnKey)}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          resetSingleColumnWidth(columnKey);
+        }}
+      />
     </th>
   );
 
@@ -940,16 +1064,60 @@ export default function DriverScorecardsV22({
           <span>SCORECARD REGISTER</span>
           <h2>{period?.weekLabel} driver ranking</h2>
         </div>
-        <div>
-          <b>{periodRows.length}/{totalDrivers}</b>
-          <span>
-            Showing drivers · sorted by {sortLabels[sort.key] || "Score"} {sort.direction === "asc" ? "↑" : "↓"}
-          </span>
+        <div className="scorex3-register-actions">
+          <div className="scorex3-density-toggle" aria-label="Table density">
+            <button
+              type="button"
+              className={tableDensity === "compact" ? "active" : ""}
+              onClick={() => setTableDensity("compact")}
+            >
+              Compact
+            </button>
+            <button
+              type="button"
+              className={tableDensity === "comfortable" ? "active" : ""}
+              onClick={() => setTableDensity("comfortable")}
+            >
+              Comfortable
+            </button>
+          </div>
+          <button type="button" className="scorex3-reset-columns" onClick={resetColumnWidths}>
+            Reset columns
+          </button>
+          <div className="scorex3-register-count">
+            <b>{periodRows.length}/{totalDrivers}</b>
+            <span>
+              Sorted by {sortLabels[sort.key] || "Score"} {sort.direction === "asc" ? "↑" : "↓"}
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="scorex3-table-wrap">
-        <table className="scorex3-table">
+        <table
+          className={`scorex3-table density-${tableDensity}`}
+          style={{
+            "--score-col-rank": `${columnWidths.rank}px`,
+            "--score-col-name": `${columnWidths.name}px`,
+            "--score-col-concessions": `${columnWidths.concessions}px`,
+            "--score-col-score": `${columnWidths.displayScore}px`,
+            "--score-col-fico": `${columnWidths.fico}px`,
+            "--score-col-delivered": `${columnWidths.delivered}px`,
+            "--score-col-dcr": `${columnWidths.dcr}px`,
+            "--score-col-dsc": `${columnWidths.dsc_dpmo}px`,
+            "--score-col-lor": `${columnWidths.lor}px`,
+            "--score-col-pod": `${columnWidths.pod}px`,
+            "--score-col-cc": `${columnWidths.cc}px`,
+            "--score-col-ce": `${columnWidths.ce_dpmo}px`,
+            "--score-col-cdf": `${columnWidths.cdf_dpmo}px`,
+            "--score-col-psb": `${columnWidths.psb}px`,
+          }}
+        >
+          <colgroup>
+            {SCORECARD_COLUMNS.map((column) => (
+              <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <SortHeader columnKey="rank">Rank</SortHeader>
@@ -998,7 +1166,7 @@ export default function DriverScorecardsV22({
                       <button
                         type="button"
                         onClick={() => onOpenDriver?.(driverShape(row))}
-                        title="Open Driver 360"
+                        title={`${displayDriverName(driver)} · Open Driver 360`}
                       >
                         {displayDriverName(driver)}
                       </button>
