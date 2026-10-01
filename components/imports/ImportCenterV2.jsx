@@ -9,7 +9,7 @@ import {
   summarizePreflight,
 } from "../../lib/imports/preflight";
 import { buildImportIntelligence } from "../../lib/imports/analysisSummary";
-import { isoWeekDetails, isoWeekFromDate } from "../../lib/analyzer/core";
+import { isoWeekDetails, isoWeekFromDate, normalizeSiteCode } from "../../lib/analyzer/core";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import {
   duplicateMatchesForFile,
@@ -65,6 +65,37 @@ function prepareMentorAnalysis(result,mode,reportDate,targetWeek){
     periods:(result.periods||[]).map((item)=>({...item,...period})),
     importContext,
   };
+}
+
+function detectedSitesForAnalysis(result){
+  const sites=new Set();
+  for(const item of result?.fileResults||[]){
+    const direct=normalizeSiteCode(item?.site);
+    if(direct)sites.add(direct);
+    for(const value of item?.detectedSites||[]){
+      const site=normalizeSiteCode(value);
+      if(site)sites.add(site);
+    }
+  }
+  for(const period of result?.periods||[]){
+    for(const driver of period?.drivers||[]){
+      const site=normalizeSiteCode(driver?.site);
+      if(site)sites.add(site);
+    }
+  }
+  for(const scorecard of result?.siteScorecards||[]){
+    const site=normalizeSiteCode(scorecard?.site);
+    if(site)sites.add(site);
+  }
+  return [...sites].sort();
+}
+
+function filesNeedingFallbackSite(result){
+  return (result?.fileResults||[]).filter((item)=>{
+    if(!item?.recognized)return false;
+    if(normalizeSiteCode(item?.site))return false;
+    return !(item?.detectedSites||[]).some((value)=>normalizeSiteCode(value));
+  });
 }
 
 function phaseLabel(phase){
@@ -154,12 +185,18 @@ export default function ImportCenterV2({
 
   async function analyseQueue(){
     if(!importableFiles.length||busy)return;
-    if(!activitySite){setMessage("Choose the Activity Site before analysing this import.");setPhase("error");return;}
     setPhase("analysing");setMessage("");
     try{
       let result=await analyseFiles(importableFiles);
       if(!result.recognizedFiles)throw new Error("No supported report structure was detected in the selected files.");
       if(mentorCandidate)result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);
+      const detectedSites=detectedSitesForAnalysis(result);
+      const missingSiteFiles=filesNeedingFallbackSite(result);
+      if(detectedSites.length===1&&missingSiteFiles.length===0){
+        setActivitySite(detectedSites[0]);
+      }else if(detectedSites.length>1&&missingSiteFiles.length===0){
+        setActivitySite("");
+      }
       const dup=await findPotentialDuplicateImports(getSupabaseBrowserClient(),organizationId,importableFiles);
       const nextActions={};
       for(const file of importableFiles){
@@ -168,13 +205,29 @@ export default function ImportCenterV2({
       }
       setDuplicates(dup);setActions(nextActions);setPreview(result);setPhase("review");
       const duplicateFiles=importableFiles.filter((file)=>duplicateMatchesForFile(dup,file).length).length;
-      setMessage(duplicateFiles?duplicateFiles+" existing file match"+(duplicateFiles===1?"":"es")+" found. Choose Merge, Replace or Ignore before saving.":"Analysis complete. No stored file duplicates found.");
+      const routeText=detectedSites.length
+        ?" Detected site"+(detectedSites.length===1?" ":"s ")+detectedSites.join(", ")+"."
+        :" No site detected yet.";
+      const fallbackText=missingSiteFiles.length
+        ?" "+missingSiteFiles.length+" recognised file"+(missingSiteFiles.length===1?" needs":"s need")+" a fallback site."
+        :"";
+      setMessage(
+        (duplicateFiles
+          ? duplicateFiles+" existing file match"+(duplicateFiles===1?"":"es")+" found. Choose Merge, Replace or Ignore before saving."
+          : "Analysis complete. No stored file duplicates found.")+
+        routeText+fallbackText
+      );
     }catch(e){setMessage(e?.message||"Import analysis failed.");setPhase("error");}
   }
 
   async function saveQueue(){
     if(!preview||busy||!canManage)return;
-    if(!activitySite){setMessage("Activity Site is required. MetrixIQ will not guess where operational evidence belongs.");setPhase("error");return;}
+    const missingSiteFiles=filesNeedingFallbackSite(preview);
+    if(missingSiteFiles.length&&!activitySite){
+      setMessage("Choose a fallback site for "+missingSiteFiles.length+" recognised file"+(missingSiteFiles.length===1?"":"s")+" where no station could be detected.");
+      setPhase("error");
+      return;
+    }
     const accepted=importableFiles.filter((file)=>actions[fileFingerprint(file)]!=="ignore");
     if(!accepted.length){setMessage("All files are set to Ignore.");return;}
     setPhase("saving");setMessage("");
@@ -194,8 +247,8 @@ export default function ImportCenterV2({
       if(mentorCandidate&&accepted.some((file)=>MENTOR_FILE_HINT.test(file.name))){
         result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);
       }
-      result={...result,importContext:{...(result.importContext||{}),activitySite}};
-      const saved=await onImported(result,accepted,activitySite);
+      result={...result,importContext:{...(result.importContext||{}),activitySite:activitySite||null,fallbackSite:activitySite||null,detectedSites:detectedSitesForAnalysis(result)}};
+      const saved=await onImported(result,accepted,activitySite||null);
       setPreview(result);
       setPhase("done");
       const rec=saved?.reconciliation;
@@ -239,7 +292,7 @@ export default function ImportCenterV2({
       <div><button className="btn ghost" onClick={()=>setTab("history")}>Import history</button><button className="btn primary" onClick={()=>input.current?.click()} disabled={busy}>Add files</button></div>
     </div>
     <div className="importv2-tabs"><button className={tab==="queue"?"active":""} onClick={()=>setTab("queue")}>Import Queue</button><button className={tab==="history"?"active":""} onClick={()=>setTab("history")}>History & Rollback</button></div>
-    {tab==="queue"&&<section className="panel" style={{marginBottom:16}}><div className="panel-head"><div><span className="page-kicker">SITE ISOLATION</span><h2>Activity Site</h2><p>Every saved import and driver metric is attributed to this station. Home Site does not override operational evidence.</p></div><select aria-label="Activity Site" value={activitySite} onChange={(e)=>{setActivitySite(e.target.value);setPreview(null);setPhase("idle");setMessage("");}} disabled={busy}><option value="">Choose site…</option>{sites.map((site)=><option key={site} value={site}>{site}</option>)}</select></div>{!activitySite&&<div className="importv2-notice">Select a site before analysis. MetrixIQ will not infer a station from the driver's Home Site.</div>}</section>}
+    {tab==="queue"&&<section className="panel" style={{marginBottom:16}}><div className="panel-head"><div><span className="page-kicker">SMART SITE ROUTING</span><h2>Automatic site detection</h2><p>Each file is routed to the station detected from its filename or report content. The selector is only a fallback for files with no detectable site.</p></div><select aria-label="Fallback Site" value={activitySite} onChange={(e)=>{setActivitySite(e.target.value);setMessage("");}} disabled={busy}><option value="">Auto-detect per file</option>{sites.map((site)=><option key={site} value={site}>{site}</option>)}</select></div>{preview&&<div className="importv2-notice">{detectedSitesForAnalysis(preview).length?"Detected: "+detectedSitesForAnalysis(preview).join(" · "):"No station detected in the analysed files yet."}{filesNeedingFallbackSite(preview).length?" · "+filesNeedingFallbackSite(preview).length+" file"+(filesNeedingFallbackSite(preview).length===1?" needs":"s need")+" the fallback selector.":" · All recognised files are site-routed automatically."}</div>}</section>}
     <input ref={input} type="file" multiple hidden accept={IMPORT_ACCEPT} onChange={(event)=>{addFiles(event.target.files||[]);event.target.value="";}}/>
 
     {tab==="queue"&&<>
@@ -263,7 +316,7 @@ export default function ImportCenterV2({
               const fp=fileFingerprint(item.file);
               return <article key={fp} className={"importv2-file "+item.assessment.status}>
                 <span>{item.extension.toUpperCase()}</span>
-                <div><b>{item.file.name}</b><small>{item.sizeLabel} · {item.assessment.message}</small>{result&&<em>{result.reportType||statusLabel(result.status)} · {result.rows??0} rows</em>}</div>
+                <div><b>{item.file.name}</b><small>{item.sizeLabel} · {item.assessment.message}</small>{result&&<em>{normalizeSiteCode(result.site)||(result.detectedSites||[]).map(normalizeSiteCode).filter(Boolean).join("+")||"SITE ?"} · {result.reportType||statusLabel(result.status)} · {result.rows??0} rows</em>}</div>
                 <div className="importv2-file-state"><b>{matches.length?matches.length+" stored match"+(matches.length===1?"":"es"):item.assessment.label}</b>{matches.length>0&&<select value={actions[fp]||"merge"} onChange={(e)=>setActions((current)=>({...current,[fp]:e.target.value}))}><option value="merge">Merge</option><option value="replace">Replace previous</option><option value="ignore">Ignore</option></select>}</div>
                 <button onClick={(e)=>{e.stopPropagation();removeFile(item.file);}} disabled={busy}>×</button>
               </article>;
