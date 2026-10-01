@@ -272,6 +272,7 @@ export default function DriverScorecardsV22({
   const [columnWidths, setColumnWidths] = useState(SCORECARD_DEFAULT_WIDTHS);
   const [tableDensity, setTableDensity] = useState("compact");
   const [tableFontSize, setTableFontSize] = useState("medium");
+  const [tableFocus, setTableFocus] = useState(false);
   const [resizingColumn, setResizingColumn] = useState("");
   const resizeStateRef = useRef(null);
 
@@ -847,6 +848,16 @@ export default function DriverScorecardsV22({
     return ranked;
   }, [enrichedRows, shareScope]);
 
+  const exportSharePdf = () => {
+    document.documentElement.classList.add("scorex3-printing-share");
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(() => {
+        document.documentElement.classList.remove("scorex3-printing-share");
+      }, 400);
+    }, 50);
+  };
+
   async function copyShareSummary() {
     const lines = [
       `${period?.weekLabel || "Week"} Driver Scorecard · ${period?.site || "All sites"}`,
@@ -952,7 +963,7 @@ export default function DriverScorecardsV22({
     </>;
   }
 
-  return <div className="scorex3-root">
+  return <div className={`scorex3-root ${tableFocus ? "scorex3-focus-mode" : ""}`}>
     <section className="scorex3-header">
       <div className="scorex3-title">
         <span className="page-kicker">DRIVER SCORECARDS</span>
@@ -1126,6 +1137,14 @@ export default function DriverScorecardsV22({
               A+
             </button>
           </div>
+          <button
+            type="button"
+            className={`scorex3-focus-button ${tableFocus ? "active" : ""}`}
+            onClick={() => setTableFocus((value) => !value)}
+            title={tableFocus ? "Exit table focus mode" : "Maximise scorecard visibility"}
+          >
+            {tableFocus ? "Exit focus" : "Focus table"}
+          </button>
           <button type="button" className="scorex3-reset-columns" onClick={resetColumnWidths}>
             Reset columns
           </button>
@@ -1483,7 +1502,7 @@ export default function DriverScorecardsV22({
               </button>
             ))}
             </div>
-            <button type="button" className="btn ghost scorex3-share-export" onClick={() => window.print()}>
+            <button type="button" className="btn ghost scorex3-share-export" onClick={exportSharePdf}>
               Export
             </button>
           </div>
