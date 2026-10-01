@@ -99,6 +99,7 @@ test("remote staging payload preserves files, hashes and normalized evidence", (
     exactDuplicates: [],
   });
 
+  assert.equal(payload.parserVersion, "smart-import-scorecard-v2");
   assert.equal(payload.writesEnabled, false);
   assert.equal(payload.files.length, 1);
   assert.equal(payload.files[0].contentHash, "a".repeat(64));
