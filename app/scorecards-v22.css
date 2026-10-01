@@ -1197,8 +1197,10 @@ body.scorex3-resizing-columns *{
 /* Give enlarged text enough vertical room while retaining compact/comfortable modes. */
 .scorex3-table.font-large.density-compact td{height:34px!important}
 .scorex3-table.font-large.density-comfortable td{height:41px!important}
-.scorex3-table.font-large.density-compact th{height:34px!important;--score-header-height:34px}
-.scorex3-table.font-large.density-comfortable th{height:40px!important;--score-header-height:40px}
+.scorex3-table.font-large.density-compact{--score-header-height:34px}
+.scorex3-table.font-large.density-comfortable{--score-header-height:40px}
+.scorex3-table.font-large.density-compact th{height:34px!important}
+.scorex3-table.font-large.density-comfortable th{height:40px!important}
 
 @media(max-width:700px){
   .scorex3-font-toggle{flex:1}
