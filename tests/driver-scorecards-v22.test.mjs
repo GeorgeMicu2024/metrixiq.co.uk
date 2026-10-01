@@ -134,3 +134,28 @@ test("Driver Scorecards uses the latest trusted same-week concession snapshot", 
   assert.ok(concessions.includes("parseTrustedConcessionsFile(row.source_file)"));
   assert.ok(concessions.includes("stamp >= currentStamp"));
 });
+
+
+test("Share View keeps approved coloured metrics and removes WoW and flags", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const css = read("app/scorecards-v22.css");
+
+  const shareStart = view.indexOf('{shareOpen && (');
+  const shareEnd = view.indexOf('  </div>;', shareStart);
+  const shareView = view.slice(shareStart, shareEnd);
+
+  assert.ok(shareView.includes("<th>FICO</th>"));
+  assert.ok(shareView.includes("<th>PSB</th>"));
+  assert.ok(shareView.includes('metricTone("fico", fico)'));
+  assert.ok(shareView.includes('metricTone("psb", row.psb)'));
+  assert.equal(shareView.includes("<th>WoW</th>"), false);
+  assert.equal(shareView.includes("<th>Flags</th>"), false);
+  assert.equal(shareView.includes("<span>WoW</span>"), false);
+
+  assert.ok(css.includes(".share-rank-badge.fantastic-plus"));
+  assert.ok(css.includes(".share-rank-badge.fantastic"));
+  assert.ok(css.includes(".share-rank-badge.great"));
+  assert.ok(css.includes(".share-rank-badge.fair"));
+  assert.ok(css.includes(".share-rank-badge.poor"));
+  assert.ok(css.includes("print-color-adjust:exact"));
+});
