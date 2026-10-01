@@ -709,12 +709,10 @@ export default function DriverScorecardsV22({
       `${period?.weekLabel || "Week"} Driver Scorecard · ${period?.site || "All sites"}`,
       `Team score: ${headlineScore == null ? "—" : headlineScore.toFixed(2)} · ${overallStanding}`,
       `Drivers: ${totalDrivers} · Improved: ${improvedCount} · Attention: ${attentionCount}`,
-      `WoW: ${weekDelta == null ? "n/a" : `${weekDelta > 0 ? "+" : ""}${weekDelta.toFixed(1)} pts`}`,
       "",
       ...shareRows.slice(0, 30).map((row, index) => {
         const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
-        const flags = row.flags.map((flag) => flag.label).join(", ") || "OK";
-        return `${index + 1}. ${displayDriverName(row.drivers)} — ${row.displayScore == null ? "—" : row.displayScore.toFixed(0)} · FICO ${fico ?? "—"} · ${flags}`;
+        return `${index + 1}. ${displayDriverName(row.drivers)} — ${row.displayScore == null ? "—" : row.displayScore.toFixed(0)} · FICO ${fico ?? "—"} · PSB ${plain(row.psb)}`;
       }),
     ];
 
@@ -1247,13 +1245,13 @@ export default function DriverScorecardsV22({
           </header>
 
           <section className="scorex3-share-kpis">
-            <article><span>Drivers</span><strong>{totalDrivers}</strong></article>
-            <article><span>WoW</span><strong>{weekDelta == null ? "—" : `${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)}`}</strong></article>
-            <article><span>Improved</span><strong>{improvedCount}</strong></article>
-            <article><span>Attention</span><strong>{attentionCount}</strong></article>
+            <article className="drivers"><span>Drivers</span><strong>{totalDrivers}</strong></article>
+            <article className="improved"><span>Improved</span><strong>{improvedCount}</strong></article>
+            <article className="attention"><span>Attention</span><strong>{attentionCount}</strong></article>
           </section>
 
           <div className="scorex3-share-tabs">
+            <div className="scorex3-share-scope-tabs">
             {[
               ["all", "Full team"],
               ["attention", "Needs improvement"],
@@ -1269,6 +1267,10 @@ export default function DriverScorecardsV22({
                 {label}
               </button>
             ))}
+            </div>
+            <button type="button" className="btn ghost scorex3-share-export" onClick={() => window.print()}>
+              Export
+            </button>
           </div>
 
           <div className="scorex3-share-table-wrap">
@@ -1279,31 +1281,32 @@ export default function DriverScorecardsV22({
                   <th>Driver</th>
                   <th>Rank</th>
                   <th>Score</th>
-                  <th>WoW</th>
                   <th>FICO</th>
                   <th>Con</th>
                   <th>DCR</th>
                   <th>POD</th>
                   <th>CC</th>
-                  <th>Flags</th>
+                  <th>PSB</th>
                 </tr>
               </thead>
               <tbody>
-                {shareRows.map((row, index) => (
-                  <tr key={`share-${driverKey(row)}-${index}`}>
-                    <td>{index + 1}</td>
-                    <td><b>{displayDriverName(row.drivers)}</b></td>
-                    <td className={`tier ${row.sourceRank.cls}`}>{row.sourceRank.label}</td>
-                    <td><b>{row.displayScore == null ? "—" : row.displayScore.toFixed(0)}</b></td>
-                    <td className={scoreDeltaClass(row.scoreDelta)}>{row.scoreDelta == null ? "—" : scoreDeltaLabel(row.scoreDelta)}</td>
-                    <td>{plain(row.mentor_score ?? row.ementor ?? row.fico)}</td>
-                    <td>{plain(row.concessions)}</td>
-                    <td>{fmtPercentFlexible(row.dcr)}</td>
-                    <td>{fmtPercentFlexible(row.pod)}</td>
-                    <td>{fmtPercentFlexible(row.cc)}</td>
-                    <td>{row.flags.slice(0, 3).map((flag) => flag.label).join(" · ") || "OK"}</td>
-                  </tr>
-                ))}
+                {shareRows.map((row, index) => {
+                  const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
+                  return (
+                    <tr key={`share-${driverKey(row)}-${index}`} className={`share-tier-${row.sourceRank.cls}`}>
+                      <td className="share-index">{index + 1}</td>
+                      <td className="share-driver"><b>{displayDriverName(row.drivers)}</b></td>
+                      <td><span className={`share-rank-badge ${row.sourceRank.cls}`}>{row.sourceRank.label}</span></td>
+                      <td className={`share-score ${row.sourceRank.cls}`}><b>{row.displayScore == null ? "—" : row.displayScore.toFixed(0)}</b></td>
+                      <td className={`share-metric ${metricTone("fico", fico)}`}>{plain(fico)}</td>
+                      <td className={`share-metric ${metricTone("concessions", row.concessions)}`}>{plain(row.concessions)}</td>
+                      <td className={`share-metric ${metricTone("dcr", row.dcr)}`}>{fmtPercentFlexible(row.dcr)}</td>
+                      <td className={`share-metric ${metricTone("pod", row.pod)}`}>{fmtPercentFlexible(row.pod)}</td>
+                      <td className={`share-metric ${metricTone("cc", row.cc)}`}>{fmtPercentFlexible(row.cc)}</td>
+                      <td className={`share-metric ${metricTone("psb", row.psb)}`}>{plain(row.psb)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1314,8 +1317,7 @@ export default function DriverScorecardsV22({
               <button type="button" className="btn ghost" onClick={copyShareSummary}>
                 {copyStatus || "Copy summary"}
               </button>
-              <button type="button" className="btn ghost" onClick={() => setShareOpen(false)}>Close</button>
-              <button type="button" className="btn primary" onClick={() => window.print()}>Print / Save</button>
+              <button type="button" className="btn primary" onClick={() => setShareOpen(false)}>Close</button>
             </div>
           </footer>
         </section>
