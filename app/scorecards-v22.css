@@ -996,3 +996,105 @@ body.scorex3-resizing-columns *{
   .scorex3-reset-columns{flex:1}
   .scorex3-register-count{width:100%;margin-left:0;padding-left:0;border-left:0;text-align:left}
 }
+
+
+/* ===== V2.8 compact fit + sticky-column cleanup ===== */
+.scorex3-table{
+  min-width:0!important;
+}
+.scorex3-table th:nth-child(1),
+.scorex3-table td:nth-child(1){
+  position:sticky!important;
+  left:0!important;
+  z-index:7!important;
+}
+.scorex3-table th:nth-child(2),
+.scorex3-table td:nth-child(2){
+  position:sticky!important;
+  left:var(--score-col-rank)!important;
+  z-index:7!important;
+  box-shadow:4px 0 8px -7px rgba(19,43,60,.75)!important;
+}
+/* Legacy CSS made the third column sticky; explicitly reset every data column after Driver Name. */
+.scorex3-table th:nth-child(n+3),
+.scorex3-table td:nth-child(n+3){
+  position:static!important;
+  left:auto!important;
+  z-index:auto!important;
+  box-shadow:none!important;
+}
+.scorex3-table thead th:nth-child(1),
+.scorex3-table thead th:nth-child(2){
+  z-index:12!important;
+}
+.scorex3-table .scorex3-tier-row td{
+  position:sticky!important;
+  left:0!important;
+  z-index:8!important;
+}
+
+.scorex3-column-resizer:after{
+  opacity:.08!important;
+  background:#647b8b!important;
+}
+.scorex3-table th:hover .scorex3-column-resizer:after,
+.scorex3-table th.is-resizing .scorex3-column-resizer:after{
+  opacity:.95!important;
+  background:#2189a5!important;
+}
+.scorex3-column-resizer:hover{
+  background:linear-gradient(90deg,transparent,rgba(33,137,165,.05),transparent);
+}
+
+.scorex3-table.density-compact th{
+  font-size:6.9px!important;
+}
+.scorex3-table.density-compact .scorex3-name-cell button{
+  font-size:8.5px!important;
+}
+.scorex3-table.density-compact .scorex3-concession-badge{
+  min-width:31px!important;
+  padding-inline:6px!important;
+}
+.scorex3-table.density-compact .scorex3-score-cell b{
+  font-size:9.2px!important;
+}
+.scorex3-table.density-compact .scorex3-fico-cell>span,
+.scorex3-table.density-compact .scorex3-metric,
+.scorex3-table.density-compact .scorex3-delivered-cell{
+  font-size:7.7px!important;
+}
+
+/* Slightly cleaner, more professional table chrome. */
+.scorex3-register{
+  border-color:#b9c7d0!important;
+  box-shadow:0 8px 24px rgba(22,49,70,.045)!important;
+}
+.scorex3-table th{
+  color:#20384d!important;
+  background:linear-gradient(180deg,#edf3f7 0%,#e2e9ee 100%)!important;
+}
+.scorex3-table td{
+  border-right-color:#c9d4dc!important;
+  border-bottom-color:#d1dbe1!important;
+}
+.scorex3-table tbody tr.scorex3-driver-row:nth-child(odd) td:not(.scorex3-metric):not(.scorex3-score-cell){
+  background:#fff!important;
+}
+.scorex3-table tbody tr.scorex3-driver-row:nth-child(even) td:not(.scorex3-metric):not(.scorex3-score-cell){
+  background:#f7fafc!important;
+}
+.scorex3-name-cell{
+  padding-left:8px!important;
+  padding-right:7px!important;
+}
+.scorex3-name-cell button{
+  max-width:100%!important;
+}
+.scorex3-register-actions{
+  gap:6px!important;
+}
+.scorex3-density-toggle,
+.scorex3-reset-columns{
+  border-color:#d6e0e6!important;
+}
