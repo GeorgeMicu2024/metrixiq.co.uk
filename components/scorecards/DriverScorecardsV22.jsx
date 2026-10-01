@@ -126,8 +126,34 @@ export default function DriverScorecardsV22({
   };
 
   const siteForRow = (row) => {
-    const value = String(row?.drivers?.site || "").trim().toUpperCase();
+    const value = String(
+      row?.site ||
+      row?.raw_data?.activity_site ||
+      row?.drivers?.site ||
+      ""
+    ).trim().toUpperCase();
     return value || "UNASSIGNED";
+  };
+
+  const isScorecardCohortRow = (row) => {
+    const files = Array.isArray(row?.raw_data?.source_files)
+      ? row.raw_data.source_files
+      : [];
+    const sourceBacked = files.some((file) => /score\s*card/i.test(String(file || "")));
+    if (sourceBacked) return true;
+
+    const scorecardMetricCount = [
+      row?.dcr,
+      row?.dsc_dpmo,
+      row?.lor,
+      row?.pod,
+      row?.cc,
+      row?.ce_dpmo,
+      row?.cdf_dpmo,
+      row?.psb,
+    ].filter((value) => num(value) != null).length;
+
+    return num(row?.delivered) != null && scorecardMetricCount >= 5;
   };
 
   const periodKeyForRow = (row) =>
@@ -140,7 +166,7 @@ export default function DriverScorecardsV22({
     const map = new Map();
 
     for (const row of rows) {
-      if (!row.week_label) continue;
+      if (!row.week_label || !isScorecardCohortRow(row)) continue;
       const rowSite = siteForRow(row);
       if (siteFilter !== "all" && rowSite !== siteFilter) continue;
 
