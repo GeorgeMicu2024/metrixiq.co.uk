@@ -175,8 +175,25 @@ export default function DriverScorecardsV22({
     const files = Array.isArray(row?.raw_data?.source_files)
       ? row.raw_data.source_files
       : [];
-    const sourceBacked = files.some((file) => /score\s*card/i.test(String(file || "")));
-    if (sourceBacked) return true;
+    const rowSite = siteForRow(row);
+    const scorecardFiles = files.filter((file) =>
+      /score\s*card/i.test(String(file || ""))
+    );
+
+    // A weekly driver belongs to the scorecard cohort only when the evidence
+    // includes that site's DSP scorecard. Other weekly files (driver masters,
+    // concessions, POD, CC, CDF, etc.) may contain the same TRID and metrics,
+    // but must never inflate the driver count.
+    if (scorecardFiles.length) {
+      return scorecardFiles.some((file) => {
+        const sourceName = String(file || "").toUpperCase();
+        return rowSite === "UNASSIGNED" || sourceName.includes(rowSite);
+      });
+    }
+
+    // Legacy scorecard rows predate source_files lineage. Only allow the old
+    // metric-shape fallback when no source file metadata exists at all.
+    if (files.length) return false;
 
     const scorecardMetricCount = [
       row?.dcr,
@@ -189,7 +206,10 @@ export default function DriverScorecardsV22({
       row?.psb,
     ].filter((value) => num(value) != null).length;
 
-    return num(row?.delivered) != null && scorecardMetricCount >= 5;
+    return (
+      num(row?.scorecard_score ?? row?.raw_data?.scorecard_score) != null ||
+      (num(row?.delivered) != null && scorecardMetricCount >= 5)
+    );
   };
 
   const periodKeyForRow = (row) =>
