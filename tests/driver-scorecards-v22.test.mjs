@@ -165,7 +165,7 @@ test("Driver Scorecards supports persisted Excel-style column resizing and densi
   const view = read("components/scorecards/DriverScorecardsV22.jsx");
   const css = read("app/scorecards-v22.css");
 
-  assert.ok(view.includes('{ key: "name", label: "Driver Name", width: 180'));
+  assert.ok(view.includes('{ key: "name", label: "Driver Name", width: 165'));
   assert.ok(view.includes("SCORECARD_COLUMN_STORAGE_KEY"));
   assert.ok(view.includes("startColumnResize"));
   assert.ok(view.includes('className="scorex3-column-resizer"'));
@@ -181,4 +181,19 @@ test("Driver Scorecards supports persisted Excel-style column resizing and densi
   assert.ok(css.includes("var(--score-col-name)"));
   assert.ok(css.includes(".scorex3-table.density-compact"));
   assert.ok(css.includes(".scorex3-table.density-comfortable"));
+});
+
+
+test("Scorecard compact fit clears legacy sticky third-column gap", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const css = read("app/scorecards-v22.css");
+
+  assert.ok(view.includes('column-widths.v2'));
+  assert.ok(view.includes('{ key: "rank", label: "Rank", width: 54'));
+  assert.ok(view.includes('{ key: "name", label: "Driver Name", width: 165'));
+  assert.ok(css.includes("V2.8 compact fit + sticky-column cleanup"));
+  assert.ok(css.includes(".scorex3-table th:nth-child(n+3)"));
+  assert.ok(css.includes("position:static!important"));
+  assert.ok(css.includes("left:auto!important"));
+  assert.ok(css.includes("opacity:.08!important"));
 });
