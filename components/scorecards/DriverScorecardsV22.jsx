@@ -16,27 +16,27 @@ import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimit
 
 
 const SCORECARD_COLUMNS = [
-  { key: "rank", label: "Rank", width: 58, min: 52, max: 90 },
-  { key: "name", label: "Driver Name", width: 180, min: 135, max: 340 },
-  { key: "concessions", label: "Concessions", width: 92, min: 78, max: 150 },
-  { key: "displayScore", label: "Total Score", width: 90, min: 78, max: 145 },
-  { key: "fico", label: "FICO", width: 74, min: 64, max: 120 },
-  { key: "delivered", label: "Delivered", width: 84, min: 72, max: 130 },
-  { key: "dcr", label: "DCR", width: 82, min: 72, max: 125 },
-  { key: "dsc_dpmo", label: "DSC DPMO", width: 90, min: 78, max: 145 },
-  { key: "lor", label: "LoR DPMO", width: 84, min: 74, max: 140 },
-  { key: "pod", label: "POD", width: 78, min: 70, max: 120 },
-  { key: "cc", label: "CC", width: 74, min: 66, max: 115 },
-  { key: "ce_dpmo", label: "CE", width: 68, min: 60, max: 110 },
-  { key: "cdf_dpmo", label: "CDF DPMO", width: 90, min: 78, max: 145 },
-  { key: "psb", label: "PSB", width: 66, min: 58, max: 110 },
+  { key: "rank", label: "Rank", width: 54, min: 48, max: 88 },
+  { key: "name", label: "Driver Name", width: 165, min: 130, max: 320 },
+  { key: "concessions", label: "Concessions", width: 84, min: 74, max: 145 },
+  { key: "displayScore", label: "Total Score", width: 88, min: 82, max: 140 },
+  { key: "fico", label: "FICO", width: 68, min: 60, max: 115 },
+  { key: "delivered", label: "Delivered", width: 76, min: 68, max: 125 },
+  { key: "dcr", label: "DCR", width: 74, min: 66, max: 120 },
+  { key: "dsc_dpmo", label: "DSC DPMO", width: 82, min: 74, max: 138 },
+  { key: "lor", label: "LoR DPMO", width: 78, min: 70, max: 132 },
+  { key: "pod", label: "POD", width: 72, min: 64, max: 115 },
+  { key: "cc", label: "CC", width: 68, min: 60, max: 110 },
+  { key: "ce_dpmo", label: "CE", width: 62, min: 56, max: 105 },
+  { key: "cdf_dpmo", label: "CDF DPMO", width: 84, min: 74, max: 138 },
+  { key: "psb", label: "PSB", width: 62, min: 56, max: 105 },
 ];
 
 const SCORECARD_DEFAULT_WIDTHS = Object.fromEntries(
   SCORECARD_COLUMNS.map((column) => [column.key, column.width])
 );
 
-const SCORECARD_COLUMN_STORAGE_KEY = "metrixiq.driver-scorecards.column-widths.v1";
+const SCORECARD_COLUMN_STORAGE_KEY = "metrixiq.driver-scorecards.column-widths.v2";
 const SCORECARD_DENSITY_STORAGE_KEY = "metrixiq.driver-scorecards.density.v1";
 
 export default function DriverScorecardsV22({
