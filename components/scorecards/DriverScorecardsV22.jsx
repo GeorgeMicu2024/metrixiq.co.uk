@@ -8,6 +8,10 @@ import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
 import { calculateDriverScorecard } from "../../lib/scorecards/driverScoreFormula";
 import { applyMetricOverrides, fetchMetricOverrides, setMetricOverride } from "../../lib/data/governanceV2";
+import {
+  buildDriverScorecardConcessionMap,
+  fetchDriverScorecardConcessionSnapshots,
+} from "../../lib/data/concessions";
 import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimitives";
 
 export default function DriverScorecardsV22({
@@ -18,19 +22,25 @@ export default function DriverScorecardsV22({
 }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-    const [scorecardData, overrides] = await Promise.all([
+    const [scorecardData, overrides, concessionSnapshots] = await Promise.all([
       fetchDriverScorecardData(supabase, organizationId),
       fetchMetricOverrides(supabase, organizationId, "active"),
+      fetchDriverScorecardConcessionSnapshots(supabase, organizationId),
     ]);
     return {
       ...scorecardData,
       rows: applyMetricOverrides(scorecardData.rows || [], overrides),
       overrides,
+      concessionSnapshots,
     };
   }, [organizationId]);
 
   const rows = load.data?.rows || [];
   const cards = load.data?.cards || [];
+  const concessionSnapshotMap = useMemo(
+    () => buildDriverScorecardConcessionMap(load.data?.concessionSnapshots || []),
+    [load.data?.concessionSnapshots]
+  );
 
   const clamp = (value, min = 0, max = 100) =>
     Math.max(min, Math.min(max, Number(value)));
@@ -251,7 +261,16 @@ export default function DriverScorecardsV22({
   const enrichBaseRows = (periodItem) => {
     if (!periodItem) return [];
     return periodItem.rows.map((sourceRow) => {
-      const row = withEffectiveFico(sourceRow);
+      const site = siteForRow(sourceRow);
+      const week = sourceRow.week_label || periodItem.weekLabel;
+      const trid = String(sourceRow?.drivers?.trid || "").trim().toUpperCase();
+      const concessionKey = `${site}::${week}::${trid}`;
+      const sameWeekConcessions = concessionSnapshotMap.get(concessionKey);
+      const row = withEffectiveFico(
+        sameWeekConcessions
+          ? { ...sourceRow, concessions: sameWeekConcessions.dnr }
+          : sourceRow
+      );
       const score = calculatedDriverScore(row);
       const tier = sourceTier(
         score.value,
@@ -275,7 +294,7 @@ export default function DriverScorecardsV22({
 
   const previousRows = useMemo(
     () => enrichBaseRows(previousPeriod),
-    [previousPeriod, manualFicoOverrides]
+    [previousPeriod, manualFicoOverrides, concessionSnapshotMap]
   );
 
   const previousByDriver = useMemo(() => {
@@ -360,7 +379,7 @@ export default function DriverScorecardsV22({
         flags: performanceFlags(merged),
       };
     });
-  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides]);
+  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides, concessionSnapshotMap]);
 
   const groupOrder = [
     { label: "Fantastic Plus", cls: "fantastic-plus", min: "93+" },
