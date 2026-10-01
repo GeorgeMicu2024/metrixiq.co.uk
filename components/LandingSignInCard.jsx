@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Brand from "./Brand";
 
 function validEmail(value) {
@@ -14,6 +15,7 @@ async function loadSupabase() {
 }
 
 export default function LandingSignInCard() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,6 +23,10 @@ export default function LandingSignInCard() {
   const [googleBusy, setGoogleBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    router.prefetch("/app");
+  }, [router]);
 
   async function submit(event) {
     event.preventDefault();
@@ -115,6 +121,7 @@ export default function LandingSignInCard() {
       <Brand />
       <small>WELCOME BACK</small>
       <h3>Sign in to your account</h3>
+      <div className="mk-login-subtitle">Access dashboards, scorecards and fleet performance insights.</div>
 
       <form className="mk-login-form" onSubmit={submit}>
         <label>
@@ -175,7 +182,8 @@ export default function LandingSignInCard() {
         disabled={busy || googleBusy}
         onClick={signInWithGoogle}
       >
-        ⓖ &nbsp; {googleBusy ? "Connecting…" : "Continue with Google"}
+        <span className="mk-google-mark" aria-hidden="true">G</span>
+        {googleBusy ? "Connecting…" : "Continue with Google"}
       </button>
 
       <p>
