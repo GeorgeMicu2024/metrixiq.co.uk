@@ -218,3 +218,27 @@ test("Driver Scorecards persists font sizing and keeps all metric headers sticky
   assert.ok(css.includes(".scorex3-table.font-large"));
   assert.ok(css.includes("border-right:1px solid #b7c6d0!important"));
 });
+
+
+test("Driver Scorecards focus mode maximises viewport and PDF export prints every row", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const css = read("app/scorecards-v22.css");
+
+  assert.ok(view.includes('useState(false)'));
+  assert.ok(view.includes("scorex3-focus-mode"));
+  assert.ok(view.includes("Focus table"));
+  assert.ok(view.includes("Exit focus"));
+  assert.ok(view.includes("exportSharePdf"));
+  assert.ok(view.includes("window.print()"));
+
+  assert.ok(css.includes("V3.0 focus mode + complete multi-page PDF export"));
+  assert.ok(css.includes(".scorex3-focus-mode>.scorex3-header"));
+  assert.ok(css.includes("height:calc(100vh - 155px)!important"));
+  assert.ok(css.includes("@page"));
+  assert.ok(css.includes("size:A4 landscape"));
+  assert.ok(css.includes(".scorex3-share-table thead"));
+  assert.ok(css.includes("display:table-header-group!important"));
+  assert.ok(css.includes("max-height:none!important"));
+  assert.ok(css.includes("overflow:visible!important"));
+  assert.ok(css.includes("page-break-inside:avoid!important"));
+});
