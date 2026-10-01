@@ -159,3 +159,26 @@ test("Share View keeps approved coloured metrics and removes WoW and flags", () 
   assert.ok(css.includes(".share-rank-badge.poor"));
   assert.ok(css.includes("print-color-adjust:exact"));
 });
+
+
+test("Driver Scorecards supports persisted Excel-style column resizing and density controls", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const css = read("app/scorecards-v22.css");
+
+  assert.ok(view.includes('{ key: "name", label: "Driver Name", width: 180'));
+  assert.ok(view.includes("SCORECARD_COLUMN_STORAGE_KEY"));
+  assert.ok(view.includes("startColumnResize"));
+  assert.ok(view.includes('className="scorex3-column-resizer"'));
+  assert.ok(view.includes("Drag to resize · double-click to reset"));
+  assert.ok(view.includes("Reset columns"));
+  assert.ok(view.includes("Compact"));
+  assert.ok(view.includes("Comfortable"));
+  assert.ok(view.includes('minWidth: "100%"'));
+  assert.ok(view.includes("scorecardTableWidth"));
+
+  assert.ok(css.includes(".scorex3-column-resizer"));
+  assert.ok(css.includes("cursor:col-resize"));
+  assert.ok(css.includes("var(--score-col-name)"));
+  assert.ok(css.includes(".scorex3-table.density-compact"));
+  assert.ok(css.includes(".scorex3-table.density-comfortable"));
+});
