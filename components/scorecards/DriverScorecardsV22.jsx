@@ -892,7 +892,7 @@ export default function DriverScorecardsV22({
           aria-label="Search scorecards"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Name or Transporter ID…"
+          placeholder="Search by driver name, Transporter ID…"
         />
       </label>
 
@@ -903,51 +903,6 @@ export default function DriverScorecardsV22({
       <button type="button" className="btn primary scorex3-import" onClick={onImport}>
         Import scorecard
       </button>
-    </section>
-
-    <section className="scorex3-insight">
-      <div>
-        <b>{improvedCount}</b> improved
-        <span>·</span>
-        <b>{droppedCount}</b> declined
-        <span>·</span>
-        <b>{attentionCount}</b> need attention
-        <span>·</span>
-        <b>{nearPromotionCount}</b> within 3 points of the next tier
-      </div>
-      <small>Point-band formula active · {formulaCount} calculated · blank metrics score 0 points</small>
-    </section>
-
-    <section className="scorex3-summary">
-      <article>
-        <span>Drivers</span>
-        <strong>{totalDrivers}</strong>
-        <small>{period?.weekLabel}</small>
-      </article>
-      <article>        <span>Delivered</span>
-        <strong>{Math.round(delivered).toLocaleString()}</strong>
-        <small>Weekly total</small>
-      </article>
-      <article>
-        <span>Concessions</span>
-        <strong>{Math.round(concessions)}</strong>
-        <small>Same-week evidence</small>
-      </article>
-      <article>
-        <span>Avg Total Score</span>
-        <strong>{averageDriverScore == null ? "—" : averageDriverScore.toFixed(1)}</strong>
-        <small>Driver average</small>
-      </article>
-      <article className={weekDelta == null ? "" : weekDelta >= 0 ? "positive" : "negative"}>
-        <span>WoW</span>
-        <strong>{weekDelta == null ? "—" : `${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)}`}</strong>
-        <small>{previousPeriod ? `vs ${previousPeriod.weekLabel}` : "No comparison"}</small>
-      </article>
-      <article>
-        <span>FICO linked</span>
-        <strong>{ficoLinked}/{totalDrivers}</strong>
-        <small>{totalDrivers ? Math.round((ficoLinked / totalDrivers) * 100) : 0}% coverage</small>
-      </article>
     </section>
 
     <section className="scorex3-history">
@@ -981,37 +936,6 @@ export default function DriverScorecardsV22({
       </div>
     </section>
 
-    <section className="scorex3-tier-strip" aria-label="Scorecard rank summary">
-      {groupOrder.map((group) =>
-        <button
-          type="button"
-          key={group.cls}
-          className={`${group.cls} ${groupFilter === group.cls ? "active" : ""}`}
-          onClick={() => setGroupFilter((current) => current === group.cls ? "all" : group.cls)}
-        >
-          <span>{group.label}</span>
-          <strong>{groupCounts[group.cls] || 0}</strong>
-          <small>
-            {group.min} · {totalDrivers ? Math.round(((groupCounts[group.cls] || 0) / totalDrivers) * 100) : 0}%
-          </small>
-        </button>
-      )}
-    </section>
-
-    <section className="scorex3-quick-filters" aria-label="Quick scorecard filters">
-      {quickFilters.map((filter) =>
-        <button
-          key={filter.key}
-          type="button"
-          className={quickFilter === filter.key ? "active" : ""}
-          onClick={() => selectQuickFilter(filter.key)}
-        >
-          <span>{filter.label}</span>
-          <b>{filter.count}</b>
-        </button>
-      )}
-    </section>
-
     <section className="scorex3-register">
       <div className="scorex3-register-head">
         <div>
@@ -1031,7 +955,7 @@ export default function DriverScorecardsV22({
           <thead>
             <tr>
               <SortHeader columnKey="rank">Rank</SortHeader>
-              <SortHeader columnKey="name">Name</SortHeader>
+              <SortHeader columnKey="name">Driver Name</SortHeader>
               <SortHeader columnKey="concessions">Concessions</SortHeader>
               <SortHeader columnKey="displayScore">Total Score</SortHeader>
               <SortHeader columnKey="fico">FICO</SortHeader>
