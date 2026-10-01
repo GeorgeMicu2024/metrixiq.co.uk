@@ -51,12 +51,12 @@ const faqs=[
 
 function CarrierLogo({kind,name}){
   if(kind==="amazon") return <span className="carrier-logo carrier-amazon" aria-label={name}><b>amazon</b><i>⌣</i><small>logistics</small></span>;
-  if(kind==="evri") return <span className="carrier-logo carrier-evri" aria-label={name}><i><b/><b/><b/><b/></i><strong>evri</strong></span>;
+  if(kind==="evri") return <span className="carrier-logo carrier-evri" aria-label={name}><strong>EVRi</strong><small>parcel delivery</small></span>;
   if(kind==="dpd") return <span className="carrier-logo carrier-dpd" aria-label={name}><i>◇</i><strong>dpd</strong></span>;
   if(kind==="dhl") return <span className="carrier-logo carrier-dhl" aria-label={name}><i/><strong>DHL</strong></span>;
   if(kind==="ups") return <span className="carrier-logo carrier-ups" aria-label={name}><i>ups</i></span>;
   if(kind==="fedex") return <span className="carrier-logo carrier-fedex" aria-label={name}><strong>Fed</strong><b>Ex</b></span>;
-  return <span className="carrier-logo carrier-yodel" aria-label={name}><i>◖</i><strong>Yodel</strong></span>;
+  return <span className="carrier-logo carrier-yodel" aria-label={name}><strong>YODEL</strong></span>;
 }
 
 function DashboardPreview(){
@@ -110,13 +110,26 @@ export default function Landing(){
   <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><Link href="/pricing">Pricing</Link><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><TrackedLink className="mk-get" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_header" }}>Get started</TrackedLink></div></header>
 
   <section className="mk-hero">
+    <img
+      className="mk-hero-photo"
+      src="https://assets.aboutamazon.com/49/85/bc84c02248f388b84841f22255f5/unp-amazon-41776-dst1-stoke-on-trent-34.JPG"
+      alt=""
+      aria-hidden="true"
+      fetchPriority="high"
+      decoding="async"
+    />
     <div className="mk-hero-bg"/>
     <div className="mk-hero-copy">
       <span>FLEET & DRIVER PERFORMANCE SOFTWARE</span>
       <h1>Turn operational data into <em>clear action.</em></h1>
       <p>Scorecards, compliance, coaching and multi-site performance in one operational workspace.</p>
       <div className="mk-actions"><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_hero" }}>Get started <b>→</b></TrackedLink><a href="#product">▶ &nbsp; See how it works</a></div>
-      <div className="mk-benefits">{benefits.map(x=><span key={x}>◇ {x}</span>)}</div>
+      <div className="mk-benefits">
+        <span><i>▥</i><b>Driver scorecards</b></span>
+        <span><i>◇</i><b>Compliance tracking</b></span>
+        <span><i>♙</i><b>Coaching & development</b></span>
+        <span><i>⌖</i><b>Multi-site performance</b></span>
+      </div>
     </div>
     <HeroSignals/>
     <DeferredLandingSignInCard/>
