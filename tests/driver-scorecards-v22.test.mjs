@@ -123,3 +123,14 @@ test("Driver Scorecards keeps mixed-site imports isolated and blanks at zero", (
   });
   assert.equal(partial.value, 17);
 });
+
+
+test("Driver Scorecards uses the latest trusted same-week concession snapshot", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const concessions = read("lib/data/concessions.js");
+  assert.ok(view.includes("fetchDriverScorecardConcessionSnapshots"));
+  assert.ok(view.includes("buildDriverScorecardConcessionMap"));
+  assert.ok(view.includes("sameWeekConcessions.dnr"));
+  assert.ok(concessions.includes("parseTrustedConcessionsFile(row.source_file)"));
+  assert.ok(concessions.includes("stamp >= currentStamp"));
+});
