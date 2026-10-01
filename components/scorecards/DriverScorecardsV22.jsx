@@ -304,6 +304,11 @@ export default function DriverScorecardsV22({
     }
   }, [tableDensity]);
 
+  const scorecardTableWidth = SCORECARD_COLUMNS.reduce(
+    (total, column) => total + (columnWidths[column.key] || column.width),
+    0
+  );
+
   const resetColumnWidths = () => setColumnWidths(SCORECARD_DEFAULT_WIDTHS);
 
   const resetSingleColumnWidth = (columnKey) => {
@@ -1097,6 +1102,8 @@ export default function DriverScorecardsV22({
         <table
           className={`scorex3-table density-${tableDensity}`}
           style={{
+            width: `${scorecardTableWidth}px`,
+            minWidth: "100%",
             "--score-col-rank": `${columnWidths.rank}px`,
             "--score-col-name": `${columnWidths.name}px`,
             "--score-col-concessions": `${columnWidths.concessions}px`,
