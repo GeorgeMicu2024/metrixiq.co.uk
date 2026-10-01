@@ -99,3 +99,27 @@ test("Home site performance never replaces a malformed stored site KPI with driv
   assert.ok(sourceMetric.includes("if(hasSourceMetric)return null"));
   assert.ok(sourceMetric.indexOf("if(hasSourceMetric)return null") < sourceMetric.indexOf("const rows=scorecardRowsFor(card)"));
 });
+
+
+test("Driver Scorecards keeps mixed-site imports isolated and blanks at zero", () => {
+  const analyzer = read("lib/analyzer.js");
+  const persistence = read("lib/persistence/metrics.js");
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+
+  assert.ok(analyzer.includes('const siteKey = normalizeSiteCode(record.site) || "UNASSIGNED"'));
+  assert.ok(analyzer.includes("siteKey}::"));
+  assert.ok(persistence.includes("normalizeSiteCode(driver?.site)"));
+  assert.ok(view.includes("row?.site ||"));
+  assert.ok(view.includes("isScorecardCohortRow"));
+
+  const blank = calculateDriverScorecard({
+    raw_data: { source_files: ["UK-DCSL-DLS2-Week39-DSP-Scorecard-3.0.pdf"] },
+  });
+  assert.equal(blank.value, null);
+
+  const partial = calculateDriverScorecard({
+    dcr: 100,
+    raw_data: { source_files: ["UK-DCSL-DLS2-Week39-DSP-Scorecard-3.0.pdf"] },
+  });
+  assert.equal(partial.value, 17);
+});
