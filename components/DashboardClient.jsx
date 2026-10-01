@@ -27,7 +27,7 @@ import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
-import { loadWorkspaceContext } from "../lib/data/workspace";
+import { loadWorkspaceContext, loadWorkspaceShellContext, refreshWorkspacePerformance } from "../lib/data/workspace";
 import { fetchCommandCenterSummary } from "../lib/data/commandCenter";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
@@ -186,6 +186,16 @@ export default function DashboardClient() {
     return { context, permissionState };
   }
 
+  async function fetchWorkspaceShellForUser(user, preferredOrganizationId = null) {
+    const supabase = getSupabaseBrowserClient();
+    const context = await loadWorkspaceShellContext(supabase, user, preferredOrganizationId);
+    const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
+      p_organization_id: context.resolved.organization.id,
+    });
+    if (permissionError) throw permissionError;
+    return { context, permissionState };
+  }
+
   async function switchWorkspace(organizationId) {
     if (!organizationId || organizationId === workspace?.organization?.id || workspaceSwitching) return;
     setWorkspaceSwitching(true);
@@ -223,17 +233,42 @@ export default function DashboardClient() {
       try {
         const requestedView = new URLSearchParams(window.location.search).get("view");
         if (requestedView) setActive(requestedView);
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) {
-          router.replace("/login");
-          return;
+
+        // The browser already owns the authenticated Supabase session after login.
+        // Reading it locally avoids an extra network round-trip before first paint.
+        let user = null;
+        const { data: sessionData } = await supabase.auth.getSession();
+        user = sessionData?.session?.user || null;
+
+        // Fallback to a server-verified user only when no persisted session is available.
+        if (!user) {
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (userError || !userData.user) {
+            router.replace("/login");
+            return;
+          }
+          user = userData.user;
         }
 
         const preferredOrganizationId = localStorage.getItem("metrixiq.organizationId");
-        const { context, permissionState } = await fetchWorkspaceContextForUser(userData.user, preferredOrganizationId);
+        const { context, permissionState } = await fetchWorkspaceShellForUser(user, preferredOrganizationId);
         if (!alive) return;
-        applyWorkspaceContext(context, userData.user, permissionState);
+
+        // Render the authenticated shell as soon as membership/access is known.
+        // Driver metrics and scorecards hydrate immediately afterwards in the background.
+        applyWorkspaceContext(context, user, permissionState);
         localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
+        setAuthLoading(false);
+
+        refreshWorkspacePerformance(supabase, context.resolved.organization.id)
+          .then(({ scorecards, metricRows }) => {
+            if (!alive) return;
+            setDbDrivers((scorecards || []).map(mapScorecardRow));
+            setMetricHistoryRows(metricRows || []);
+          })
+          .catch(() => {
+            // The shell remains usable; page-level views can still retry their own data.
+          });
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
       } finally {
@@ -503,7 +538,7 @@ export default function DashboardClient() {
     default: view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
   }
 
-  if (authLoading) return null;
+  if (authLoading) return <main className="app-loading app-loading-fast"><Brand /><div className="workspace-loading-line"><span /></div><p>Opening your workspace…</p></main>;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
