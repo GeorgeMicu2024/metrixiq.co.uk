@@ -169,9 +169,11 @@ svg{display:block;max-width:100%}
 .mk-login-card .brand-mark{width:34px!important;height:34px!important}
 .mk-login-card .brand-word{font-size:27px!important}
 .mk-login-card h3{margin:19px 0 4px!important;font-size:17px!important}
+.mk-login-subtitle{margin:0 0 13px!important;color:#7a8997!important;font-size:10.5px!important;line-height:1.45!important}
 .mk-login-card label{height:50px!important;border-radius:10px!important}
 .mk-signin{height:50px!important;border-radius:10px!important;background:linear-gradient(135deg,#80e5a1,#65d88d)!important}
-.mk-google{height:48px!important;border-radius:10px!important}
+.mk-google{height:48px!important;border-radius:10px!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:9px!important}
+.mk-google-mark{width:20px!important;height:20px!important;display:grid!important;place-items:center!important;border-radius:50%!important;font-size:12px!important;font-weight:900!important;background:#4285f4!important;color:#fff!important}
 
 /* Bigger carrier strip from the approved fleet mock-up. */
 .mk-network-strip{
@@ -259,6 +261,7 @@ svg{display:block;max-width:100%}
   .mk-login-card .brand-word{font-size:21px!important}
   .mk-login-card>small{display:none!important}
   .mk-login-card h3{margin:8px 0 2px!important;font-size:15px!important}
+  .mk-login-subtitle{margin-bottom:7px!important;font-size:9px!important}
   .mk-login-card label{height:42px!important;margin:7px 0!important}
   .mk-remember{margin:7px 1px 8px!important;font-size:8.5px!important}
   .mk-signin{height:43px!important}
