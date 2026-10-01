@@ -1098,3 +1098,109 @@ body.scorex3-resizing-columns *{
 .scorex3-reset-columns{
   border-color:#d6e0e6!important;
 }
+
+
+/* ===== V2.9 font controls + sticky metric header ===== */
+.scorex3-font-toggle{
+  display:inline-flex;
+  align-items:center;
+  padding:2px;
+  border:1px solid #d6e0e6;
+  border-radius:8px;
+  background:#eef3f6;
+}
+.scorex3-font-toggle button{
+  min-width:28px;
+  min-height:26px;
+  padding:0 7px;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#607483;
+  font:inherit;
+  font-size:7px;
+  font-weight:950;
+  cursor:pointer;
+}
+.scorex3-font-toggle button.active{
+  background:#fff;
+  color:#1f5265;
+  box-shadow:0 1px 4px rgba(24,54,74,.12);
+}
+
+/* Keep all KPI headers visible while vertically scrolling the scorecard. */
+.scorex3-table{
+  --score-header-height:32px;
+}
+.scorex3-table.density-comfortable{
+  --score-header-height:38px;
+}
+.scorex3-table thead th:nth-child(n){
+  position:sticky!important;
+  top:0!important;
+  z-index:20!important;
+  background:linear-gradient(180deg,#eef4f7 0%,#dce6ec 100%)!important;
+  border-bottom:2px solid #8fa3b0!important;
+  box-shadow:0 2px 4px rgba(28,52,70,.07);
+}
+.scorex3-table thead th:nth-child(1),
+.scorex3-table thead th:nth-child(2){
+  z-index:25!important;
+  background:linear-gradient(180deg,#e7eef3 0%,#d6e1e8 100%)!important;
+}
+.scorex3-table .scorex3-tier-row td{
+  position:sticky!important;
+  top:var(--score-header-height)!important;
+  z-index:18!important;
+  box-shadow:0 2px 5px rgba(20,43,59,.08);
+}
+
+/* Stronger, cleaner grid for easier scanning. */
+.scorex3-table{
+  border-left:1px solid #9fb1bd!important;
+  border-top:1px solid #9fb1bd!important;
+}
+.scorex3-table th,
+.scorex3-table td{
+  border-right:1px solid #b7c6d0!important;
+  border-bottom:1px solid #becbd4!important;
+}
+.scorex3-table tbody tr.scorex3-driver-row:hover td{
+  box-shadow:inset 0 0 0 999px rgba(27,96,133,.05)!important;
+}
+
+/* Independent font sizing: user can enlarge text without changing row density. */
+.scorex3-table.font-small th{font-size:6.6px!important}
+.scorex3-table.font-small .scorex3-name-cell button{font-size:8.2px!important}
+.scorex3-table.font-small .scorex3-rank-cell>b{font-size:8px!important}
+.scorex3-table.font-small .scorex3-score-cell b{font-size:9px!important}
+.scorex3-table.font-small .scorex3-metric,
+.scorex3-table.font-small .scorex3-delivered-cell,
+.scorex3-table.font-small .scorex3-fico-cell>span{font-size:7.4px!important}
+
+.scorex3-table.font-medium th{font-size:7.4px!important}
+.scorex3-table.font-medium .scorex3-name-cell button{font-size:9.2px!important}
+.scorex3-table.font-medium .scorex3-rank-cell>b{font-size:8.8px!important}
+.scorex3-table.font-medium .scorex3-score-cell b{font-size:10px!important}
+.scorex3-table.font-medium .scorex3-metric,
+.scorex3-table.font-medium .scorex3-delivered-cell,
+.scorex3-table.font-medium .scorex3-fico-cell>span{font-size:8.3px!important}
+
+.scorex3-table.font-large th{font-size:8.2px!important}
+.scorex3-table.font-large .scorex3-name-cell button{font-size:10.2px!important}
+.scorex3-table.font-large .scorex3-rank-cell>b{font-size:9.5px!important}
+.scorex3-table.font-large .scorex3-score-cell b{font-size:11px!important}
+.scorex3-table.font-large .scorex3-metric,
+.scorex3-table.font-large .scorex3-delivered-cell,
+.scorex3-table.font-large .scorex3-fico-cell>span{font-size:9.2px!important}
+
+/* Give enlarged text enough vertical room while retaining compact/comfortable modes. */
+.scorex3-table.font-large.density-compact td{height:34px!important}
+.scorex3-table.font-large.density-comfortable td{height:41px!important}
+.scorex3-table.font-large.density-compact th{height:34px!important;--score-header-height:34px}
+.scorex3-table.font-large.density-comfortable th{height:40px!important;--score-header-height:40px}
+
+@media(max-width:700px){
+  .scorex3-font-toggle{flex:1}
+  .scorex3-font-toggle button{flex:1}
+}
