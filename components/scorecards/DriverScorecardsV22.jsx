@@ -38,6 +38,7 @@ const SCORECARD_DEFAULT_WIDTHS = Object.fromEntries(
 
 const SCORECARD_COLUMN_STORAGE_KEY = "metrixiq.driver-scorecards.column-widths.v2";
 const SCORECARD_DENSITY_STORAGE_KEY = "metrixiq.driver-scorecards.density.v1";
+const SCORECARD_FONT_STORAGE_KEY = "metrixiq.driver-scorecards.font-size.v1";
 
 export default function DriverScorecardsV22({
   organizationId,
@@ -270,6 +271,7 @@ export default function DriverScorecardsV22({
   const [editMessage, setEditMessage] = useState("");
   const [columnWidths, setColumnWidths] = useState(SCORECARD_DEFAULT_WIDTHS);
   const [tableDensity, setTableDensity] = useState("compact");
+  const [tableFontSize, setTableFontSize] = useState("medium");
   const [resizingColumn, setResizingColumn] = useState("");
   const resizeStateRef = useRef(null);
 
@@ -282,6 +284,10 @@ export default function DriverScorecardsV22({
       const savedDensity = window.localStorage.getItem(SCORECARD_DENSITY_STORAGE_KEY);
       if (savedDensity === "compact" || savedDensity === "comfortable") {
         setTableDensity(savedDensity);
+      }
+      const savedFontSize = window.localStorage.getItem(SCORECARD_FONT_STORAGE_KEY);
+      if (["small", "medium", "large"].includes(savedFontSize)) {
+        setTableFontSize(savedFontSize);
       }
     } catch {
       // Keep safe defaults if browser storage is unavailable or malformed.
@@ -303,6 +309,14 @@ export default function DriverScorecardsV22({
       // Density still works for this session.
     }
   }, [tableDensity]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SCORECARD_FONT_STORAGE_KEY, tableFontSize);
+    } catch {
+      // Font sizing still works for this session.
+    }
+  }, [tableFontSize]);
 
   const scorecardTableWidth = SCORECARD_COLUMNS.reduce(
     (total, column) => total + (columnWidths[column.key] || column.width),
@@ -1086,6 +1100,32 @@ export default function DriverScorecardsV22({
               Comfortable
             </button>
           </div>
+          <div className="scorex3-font-toggle" aria-label="Table font size">
+            <button
+              type="button"
+              className={tableFontSize === "small" ? "active" : ""}
+              onClick={() => setTableFontSize("small")}
+              title="Small text"
+            >
+              A−
+            </button>
+            <button
+              type="button"
+              className={tableFontSize === "medium" ? "active" : ""}
+              onClick={() => setTableFontSize("medium")}
+              title="Medium text"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              className={tableFontSize === "large" ? "active" : ""}
+              onClick={() => setTableFontSize("large")}
+              title="Large text"
+            >
+              A+
+            </button>
+          </div>
           <button type="button" className="scorex3-reset-columns" onClick={resetColumnWidths}>
             Reset columns
           </button>
@@ -1100,7 +1140,7 @@ export default function DriverScorecardsV22({
 
       <div className="scorex3-table-wrap">
         <table
-          className={`scorex3-table density-${tableDensity}`}
+          className={`scorex3-table density-${tableDensity} font-${tableFontSize}`}
           style={{
             width: `${scorecardTableWidth}px`,
             minWidth: "100%",
