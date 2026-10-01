@@ -896,7 +896,8 @@ export default function DriverScorecardsV22({
         />
       </label>
 
-      <button type="button" className="btn ghost scorex3-reset-button" onClick={() => { setQuery(""); setGroupFilter("all"); setScoreFilter("all"); setConcessionFilter("all"); setQuickFilter("all"); setSort({ key: "displayScore", direction: "desc" }); }}>Reset filters</button>\n      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
+      <button type="button" className="btn ghost scorex3-reset-button" onClick={() => { setQuery(""); setGroupFilter("all"); setScoreFilter("all"); setConcessionFilter("all"); setQuickFilter("all"); setSort({ key: "displayScore", direction: "desc" }); }}>Reset filters</button>
+      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
         Share view
       </button>
       <button type="button" className="btn primary scorex3-import" onClick={onImport}>
@@ -1064,17 +1065,12 @@ export default function DriverScorecardsV22({
                 ...groupRows.map((row) => {
                   const driver = row.drivers || {};
                   const mentor = num(row.mentor_score ?? row.ementor ?? row.fico);
-                  const flagText = row.flags.map((flag) => flag.label).join(" · ");
-
                   return <tr
                     key={`${row.driver_id}-${period?.key}`}
                     className={`scorex3-driver-row ${row.flags.filter((flag) => flag.severity === "bad").length >= 2 ? "multi-risk" : ""}`}
                   >
                     <td className={`scorex3-rank-cell ${row.sourceRank.cls}`}>
-                      <b>{row.sourceRank.label}</b>
-                      <small className={movementClass(row)}>
-                        #{row.currentRank || "—"} {movementLabel(row)}
-                      </small>
+                      <b>#{row.currentRank || "—"}</b>
                     </td>
                     <td className="scorex3-name-cell">
                       <button
@@ -1084,12 +1080,6 @@ export default function DriverScorecardsV22({
                       >
                         {displayDriverName(driver)}
                       </button>
-                      <div className="scorex3-flags" title={flagText || "No active performance flag"}>
-                        {row.flags.length ? row.flags.slice(0, 3).map((flag) =>
-                          <span key={flag.key} className={flag.severity}>{flag.label}</span>
-                        ) : <span className="ok">OK</span>}
-                        {row.flags.length > 3 && <em>+{row.flags.length - 3}</em>}
-                      </div>
                     </td>
                     <td className={`scorex3-metric ${metricTone("concessions", row.concessions)}`}>
                       <span className={`scorex3-concession-badge ${(num(row.concessions) || 0) >= 3 ? "high" : (num(row.concessions) || 0) > 0 ? "active" : "zero"}`}>
@@ -1140,7 +1130,7 @@ export default function DriverScorecardsV22({
 
             {!periodRows.length &&
               <tr>
-                <td colSpan="15">
+                <td colSpan="14">
                   <div className="scorex3-empty">No drivers match this selection.</div>
                 </td>
               </tr>
