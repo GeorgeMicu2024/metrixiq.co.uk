@@ -242,3 +242,13 @@ test("Driver Scorecards focus mode maximises viewport and PDF export prints ever
   assert.ok(css.includes("overflow:visible!important"));
   assert.ok(css.includes("page-break-inside:avoid!important"));
 });
+
+
+test("Driver Scorecards counts only drivers backed by the selected site's DSP scorecard", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+
+  assert.ok(view.includes("const scorecardFiles = files.filter"));
+  assert.ok(view.includes('sourceName.includes(rowSite)'));
+  assert.ok(view.includes("if (files.length) return false"));
+  assert.ok(view.includes("must never inflate the driver count"));
+});
