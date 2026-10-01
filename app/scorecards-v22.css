@@ -1206,3 +1206,205 @@ body.scorex3-resizing-columns *{
   .scorex3-font-toggle{flex:1}
   .scorex3-font-toggle button{flex:1}
 }
+
+
+/* ===== V3.0 focus mode + complete multi-page PDF export ===== */
+.scorex3-focus-button{
+  min-height:26px;
+  padding:0 10px;
+  border:1px solid #d3dee5;
+  border-radius:6px;
+  background:#fff;
+  color:#5f7382;
+  font:inherit;
+  font-size:6.4px;
+  font-weight:900;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.scorex3-focus-button:hover{
+  border-color:#9eb5c3;
+  color:#214e62;
+  background:#f7fbfd;
+}
+.scorex3-focus-button.active{
+  border-color:#4d9b8a;
+  background:#e8f6f2;
+  color:#236f60;
+  box-shadow:0 0 0 1px rgba(77,155,138,.08);
+}
+
+/* Focus hides dashboard chrome inside Driver Scorecards and dedicates the viewport to the register. */
+.scorex3-root.scorex3-focus-mode{
+  margin-top:0!important;
+}
+.scorex3-focus-mode>.scorex3-header,
+.scorex3-focus-mode>.scorex3-kpi-cards,
+.scorex3-focus-mode>.scorex3-toolbar,
+.scorex3-focus-mode>.scorex3-history{
+  display:none!important;
+}
+.scorex3-focus-mode>.scorex3-register{
+  margin-top:0!important;
+  border-radius:10px!important;
+}
+.scorex3-focus-mode .scorex3-register-head{
+  min-height:52px!important;
+  padding-block:7px!important;
+}
+.scorex3-focus-mode .scorex3-table-wrap{
+  max-height:calc(100vh - 155px)!important;
+  height:calc(100vh - 155px)!important;
+}
+.scorex3-focus-mode .scorex3-table thead th{
+  top:0!important;
+}
+.scorex3-focus-mode .scorex3-register-count span{
+  display:none!important;
+}
+
+/* The PDF export must print the complete share table, not the visible scroll viewport. */
+@media print{
+  @page{
+    size:A4 landscape;
+    margin:8mm;
+  }
+
+  html,
+  body{
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    overflow:visible!important;
+    background:#fff!important;
+  }
+
+  body *{
+    visibility:hidden!important;
+  }
+
+  .scorex3-share-overlay,
+  .scorex3-share-overlay *{
+    visibility:visible!important;
+  }
+
+  .scorex3-share-overlay{
+    position:static!important;
+    inset:auto!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    padding:0!important;
+    margin:0!important;
+    overflow:visible!important;
+    background:#fff!important;
+    backdrop-filter:none!important;
+  }
+
+  .scorex3-share-sheet{
+    position:static!important;
+    width:100%!important;
+    max-width:none!important;
+    height:auto!important;
+    max-height:none!important;
+    margin:0!important;
+    border:0!important;
+    border-radius:0!important;
+    overflow:visible!important;
+    box-shadow:none!important;
+    background:#fff!important;
+  }
+
+  .scorex3-share-head{
+    min-height:auto!important;
+    padding:10mm 8mm 7mm!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  .scorex3-share-kpis{
+    padding:4mm 0!important;
+    gap:3mm!important;
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  .scorex3-share-tabs,
+  .scorex3-share-footer{
+    display:none!important;
+  }
+
+  .scorex3-share-table-wrap{
+    display:block!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    padding:0!important;
+    margin:0!important;
+    overflow:visible!important;
+    background:#fff!important;
+  }
+
+  .scorex3-share-table{
+    width:100%!important;
+    min-width:0!important;
+    table-layout:fixed!important;
+    border-collapse:collapse!important;
+    font-size:7pt!important;
+  }
+
+  .scorex3-share-table thead{
+    display:table-header-group!important;
+  }
+
+  .scorex3-share-table tbody{
+    display:table-row-group!important;
+  }
+
+  .scorex3-share-table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+
+  .scorex3-share-table th{
+    position:static!important;
+    height:7mm!important;
+    padding:1.5mm 1.2mm!important;
+    font-size:6.2pt!important;
+    border:0.35mm solid #aebbc4!important;
+  }
+
+  .scorex3-share-table td{
+    height:7mm!important;
+    padding:1.2mm 1.2mm!important;
+    font-size:6.6pt!important;
+    border:0.3mm solid #bec9d0!important;
+  }
+
+  .scorex3-share-table .share-driver{
+    font-size:6.7pt!important;
+  }
+
+  .share-rank-badge{
+    min-width:0!important;
+    width:100%!important;
+    min-height:5mm!important;
+    padding:0 1mm!important;
+    font-size:5.9pt!important;
+  }
+
+  .scorex3-share-sheet,
+  .scorex3-share-sheet *{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+}
+
+@media(max-width:700px){
+  .scorex3-focus-button{flex:1}
+  .scorex3-focus-mode .scorex3-table-wrap{
+    max-height:calc(100vh - 175px)!important;
+    height:calc(100vh - 175px)!important;
+  }
+}
