@@ -1232,7 +1232,7 @@ export default function DriverScorecardsV22({
     {shareOpen && (
       <div className="scorex3-share-overlay" role="dialog" aria-modal="true" onClick={() => setShareOpen(false)}>
         <section className="scorex3-share-sheet" onClick={(event) => event.stopPropagation()}>
-          <header className="scorex3-share-head">
+          <header className={`scorex3-share-head ${overallTier.cls}`}>
             <div>
               <span>METRIXIQ · DRIVER SCORECARD</span>
               <h2>{period?.weekLabel} · {period?.site || "All sites"}</h2>
