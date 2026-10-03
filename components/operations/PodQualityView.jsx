@@ -893,12 +893,6 @@ export default function PodQualityView({
             }
           `}</style>
         </>
-              ) : (
-                <p>Select a driver.</p>
-              )}
-            </aside>
-          </section>
-        </>
       )}
     </div>
   );
