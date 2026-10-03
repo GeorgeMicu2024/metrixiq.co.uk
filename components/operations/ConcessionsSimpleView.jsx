@@ -523,4 +523,109 @@ export default function ConcessionsSimpleView({
                           </td>
                         )}
                         {weeks.map((week) => {
-                          const value = Number(ro
+                          const value = Number(row.byWeek?.[week] || 0);
+                          return (
+                            <td
+                              key={week}
+                              className={week === latestWeek ? "latest-col" : ""}
+                            >
+                              <span className={`cx5-cell ${cellTone(value)}`}>
+                                {value}
+                              </span>
+                            </td>
+                          );
+                        })}
+                        <td>
+                          <span className="cx5-total">{row.total}</span>
+                        </td>
+                        <td>
+                          <MiniTrend values={values} />
+                        </td>
+                        <td>
+                          <span className="cx5-average">{average.toFixed(1)}</span>
+                        </td>
+                        <td>
+                          <span className={row.affectedWeeks >= 2 ? "cx5-repeat" : "cx5-weeks"}>
+                            {row.affectedWeeks}/{weeks.length}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="cx5-open"
+                            disabled={!row.driver_id}
+                            onClick={() =>
+                              row.driver_id &&
+                              onOpenDriver?.({
+                                id: row.driver_trid,
+                                dbId: row.driver_id,
+                                name: row.driver_name,
+                                site,
+                                concessions: row.total,
+                              })
+                            }
+                          >
+                            Open
+                            <span>→</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!filtered.length && (
+                    <tr>
+                      <td colSpan={weeks.length + (showTrid ? 8 : 7)}>
+                        <div className="cx5-no-results">
+                          No drivers match the current filter.
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+
+      <style jsx global>{`
+        .cx5{display:grid;gap:12px;padding-bottom:28px;max-width:1600px;margin:0 auto}
+        .cx5-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:7px 2px 2px}
+        .cx5-heading h1{margin:4px 0 4px;font-size:29px;line-height:1.05;letter-spacing:-.035em;color:#10263a}
+        .cx5-heading p{margin:0;max-width:760px;font-size:11px;line-height:1.5;color:#738395}
+        .cx5-heading-meta{display:flex;align-items:center;gap:8px;white-space:nowrap}
+        .cx5-heading-meta>b{display:inline-flex;align-items:center;height:30px;padding:0 10px;border:1px solid #c8e5da;border-radius:999px;background:#eff9f5;color:#25725f;font-size:9px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+        .cx5-range-switch{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid #dce5eb;border-radius:999px;background:#fff}
+        .cx5-range-switch button{height:24px;padding:0 9px;border:0;border-radius:999px;background:transparent;color:#697c8e;font-size:8px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+        .cx5-range-switch button.active{background:#eef6ff;color:#1d66d2;box-shadow:inset 0 0 0 1px #bcd5ff}
+
+        .cx5-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+        .cx5-summary article{display:flex;align-items:center;gap:12px;min-height:72px;padding:10px 13px;border:1px solid #dfe7ec;border-radius:12px;background:#fff;box-shadow:0 4px 14px rgba(23,48,71,.035)}
+        .cx5-kpi-icon{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:11px;font-size:18px;font-weight:900}
+        .cx5-kpi-icon.danger{background:#fff0f1;color:#d74753}
+        .cx5-kpi-icon.blue{background:#edf5ff;color:#2e79de}
+        .cx5-kpi-icon.amber{background:#fff5e7;color:#e18422}
+        .cx5-kpi-icon.violet{background:#f3efff;color:#7f5bd8}
+        .cx5-summary span{display:block;font-size:8px;font-weight:900;letter-spacing:.075em;text-transform:uppercase;color:#788898}
+        .cx5-summary strong{display:block;margin:3px 0 2px;font-size:22px;line-height:1;color:#132a3e}
+        .cx5-summary small{font-size:9px;color:#85929f}
+        .cx5-summary small.better{color:#19805e;font-weight:850}
+        .cx5-summary small.worse{color:#c34750;font-weight:850}
+        .cx5-summary small.neutral{color:#7b8996;font-weight:800}
+
+        .cx5-trend{padding:14px 16px 12px;border-radius:14px}
+        .cx5-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:4px}
+        .cx5-section-head h2{margin:2px 0 0;font-size:16px;color:#173047}
+        .cx5-section-head>small{font-size:9px;color:#8995a0}
+        .cx5-chart-shell{height:178px;overflow:hidden}
+        .cx5-chart-shell svg{display:block;width:100%;height:100%}
+        .cx5-gridline{stroke:#e8eef2;stroke-width:1}
+        .cx5-y-label,.cx5-x-label{fill:#778797;font-size:9px;font-weight:750}
+        .cx5-trend-line{fill:none;stroke:#2d8f79;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+        .cx5-point{fill:#fff;stroke:#2d8f79;stroke-width:3}
+        .cx5-point.latest{fill:#2d8f79}
+        .cx5-latest-ring{fill:#2d8f79;opacity:.12}
+        .cx5-point-value{fill:#173047;font-size:10px;font-weight:900}
+
+        .cx5-matrix{overflow:hidden;border-radius:14px;padding:0}
+        .cx5-matrix-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:13px 
