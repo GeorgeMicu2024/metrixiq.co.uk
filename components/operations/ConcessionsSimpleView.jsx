@@ -197,4 +197,175 @@ export default function ConcessionsSimpleView({
           total,
           affected,
           source: rows[0]?.source_file || "",
-          delta: previousTotal == null ? null : total - previousTotal,
+          delta: previousTotal == null ? null : total - previousTotal,al,
+          affectedDelta:
+            previousAffected == null ? null : affected - previousAffected,
+        };
+      }),
+    [load.rows, site, weeks]
+  );
+
+  const latestWeek = weeks[weeks.length - 1] || "";
+  const latestItem = weekly[weekly.length - 1] || null;
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+
+    return matrix.filter((row) => {
+      if (show === "repeat" && row.affectedWeeks < 2) return false;
+      if (show === "latest" && Number(row.byWeek?.[latestWeek] || 0) <= 0) {
+        return false;
+      }
+
+      if (!needle) return true;
+      return `${row.driver_name} ${row.driver_trid}`
+        .toLowerCase()
+        .includes(needle);
+    });
+  }, [matrix, query, show, latestWeek]);
+
+  const selectedTotal = weekly.reduce((sum, item) => sum + item.total, 0);
+  const uniqueAffected = matrix.length;
+  const repeatDrivers = matrix.filter((row) => row.affectedWeeks >= 2).length;
+  const latestTotal = latestItem?.total || 0;
+  const latestAffected = latestItem?.affected || 0;
+  const latestDelta = deltaMeta(latestItem?.delta ?? null);
+  const affectedDelta = deltaMeta(latestItem?.affectedDelta ?? null);
+  const maxWeek = Math.max(1, ...weekly.map((item) => item.total));
+
+  const trend = useMemo(() => {
+    const width = 1000;
+    const height = 170;
+    const left = 38;
+    const right = 26;
+    const top = 22;
+    const bottom = 34;
+    const plotWidth = width - left - right;
+    const plotHeight = height - top - bottom;
+    const denominator = Math.max(1, weekly.length - 1);
+
+    const points = weekly.map((item, index) => ({
+      ...item,
+      x: left + (index / denominator) * plotWidth,
+      y: top + (1 - item.total / maxWeek) * plotHeight,
+    }));
+
+    return {
+      width,
+      height,
+      left,
+      right,
+      top,
+      bottom,
+      plotHeight,
+      points,
+      line: points.map((point) => `${point.x},${point.y}`).join(" "),
+      area: points.length
+        ? `${points.map((point) => `${point.x},${point.y}`).join(" ")} ${points[points.length - 1].x},${top + plotHeight} ${points[0].x},${top + plotHeight}`
+        : "",
+    };
+  }, [weekly, maxWeek]);
+
+  if (load.loading) return <Loading text="Loading clean concessions history…" />;
+  if (load.error) return <ErrorBox error={load.error} />;
+
+  return (
+    <div className="cx5">
+      <header className="cx5-heading">
+        <div>
+          <span className="page-kicker">QUALITY INTELLIGENCE</span>
+          <h1>Concessions</h1>
+          <p>
+            Clean DNR history from dedicated Associates Concessions snapshots.
+            Track movement, repeat patterns and driver-level trends.
+          </p>
+        </div>
+        <div className="cx5-heading-meta">
+          <div className="cx5-range-switch" aria-label="Concessions range">
+            <button
+              type="button"
+              className={range === 8 ? "active" : ""}
+              onClick={() => setRange(8)}
+            >
+              8-week view
+            </button>
+            <button
+              type="button"
+              className={range === 4 ? "active" : ""}
+              onClick={() => setRange(4)}
+            >
+              4-week view
+            </button>
+          </div>
+          <b>Verified snapshots</b>
+        </div>
+      </header>
+
+      {!site || !weeks.length ? (
+        <section className="panel cx5-empty">
+          <div className="cx5-empty-icon">!</div>
+          <h2>No clean concessions history for this site</h2>
+          <p>
+            Use the Site selector in the top bar, then import a dedicated
+            Associates Concessions CSV for that station.
+          </p>
+        </section>
+      ) : (
+        <>
+          <section className="cx5-summary">
+            <article>
+              <div className="cx5-kpi-icon danger" aria-hidden="true">▣</div>
+              <div>
+                <span>{latestWeek} DNR</span>
+                <strong>{latestTotal}</strong>
+                <small className={latestDelta.tone}>{latestDelta.label}</small>
+              </div>
+            </article>
+            <article>
+              <div className="cx5-kpi-icon blue" aria-hidden="true">◎</div>
+              <div>
+                <span>Latest affected</span>
+                <strong>{latestAffected}</strong>
+                <small className={affectedDelta.tone}>{affectedDelta.label}</small>
+              </div>
+            </article>
+            <article>
+              <div className="cx5-kpi-icon amber" aria-hidden="true">↻</div>
+              <div>
+                <span>Repeat drivers</span>
+                <strong>{repeatDrivers}</strong>
+                <small>Affected in 2+ weeks</small>
+              </div>
+            </article>
+            <article>
+              <div className="cx5-kpi-icon violet" aria-hidden="true">◉</div>
+              <div>
+                <span>Unique affected</span>
+                <strong>{uniqueAffected}</strong>
+                <small>{selectedTotal} DNR across {weeks.length} weeks</small>
+              </div>
+            </article>
+          </section>
+
+          <section className="panel cx5-trend">
+            <div className="cx5-section-head">
+              <div>
+                <span className="page-kicker">WEEKLY TREND</span>
+                <h2>Total DNR · {weeks.length}-week movement</h2>
+              </div>
+              <small>Lower DNR is better</small>
+            </div>
+
+            <div className="cx5-chart-shell">
+              <svg
+                viewBox={`0 0 ${trend.width} ${trend.height}`}
+                role="img"
+                aria-label={`${weeks.length}-week concessions trend`}
+              >
+                <defs>
+                  <linearGradient id="cx5TrendFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2d8f79" stopOpacity="0.18" />
+                    <stop offset="100%" stopColor="#2d8f79" stopOpacity="0.02" />
+                  </linearGradient>
+                </defs>
+
+                
