@@ -54,7 +54,21 @@ export default function PodQualityView({
   refreshKey = 0,
 }) {
   const load = useOperationalRows(organizationId, "pod", refreshKey);
-  const rows = filterRowsBySite(load.rows, siteFilter);
+  const selectedSite = String(siteFilter || "all").trim().toUpperCase();
+  const rows = useMemo(() => {
+    const siteRows = filterRowsBySite(load.rows, siteFilter);
+
+    // POD is site-specific. Some older imports were saved under the selected
+    // metric site even when the linked driver belongs to another station.
+    // Keep rows with no master-site assignment, but never surface a driver
+    // whose known master site conflicts with the site selected in the header.
+    if (!selectedSite || selectedSite === "ALL") return siteRows;
+
+    return siteRows.filter((row) => {
+      const driverSite = String(row?.drivers?.site || "").trim().toUpperCase();
+      return !driverSite || driverSite === selectedSite;
+    });
+  }, [load.rows, siteFilter, selectedSite]);
   const input = useRef(null);
 
   const [week, setWeek] = useState("");
