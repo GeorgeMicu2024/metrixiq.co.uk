@@ -628,4 +628,79 @@ export default function ConcessionsSimpleView({
         .cx5-point-value{fill:#173047;font-size:10px;font-weight:900}
 
         .cx5-matrix{overflow:hidden;border-radius:14px;padding:0}
-        .cx5-matrix-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:13px 
+        .cx5-matrix-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:13px 15px;border-bottom:1px solid #dfe7ec}
+        .cx5-matrix-head h2{margin:2px 0 2px;font-size:17px;color:#142b40}
+        .cx5-matrix-head p{margin:0;font-size:9px;color:#81909e}
+        .cx5-filterbar{display:flex;align-items:center;gap:7px;min-width:min(650px,57vw)}
+        .cx5-search{display:flex;align-items:center;gap:7px;flex:1;height:34px;padding:0 10px;border:1px solid #d3dde5;border-radius:8px;background:#fff}
+        .cx5-search span{font-size:14px;color:#84929f}
+        .cx5-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#173047;font-size:10px}
+        .cx5-filterbar select{height:34px;min-width:158px;border:1px solid #d3dde5;border-radius:8px;background:#fff;padding:0 9px;color:#334b60;font-size:9px;font-weight:750}
+        .cx5-trid-toggle{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 10px;border:1px solid #d3dde5;border-radius:8px;background:#fff;color:#5f7486;font-size:9px;font-weight:850;white-space:nowrap;cursor:pointer}
+        .cx5-trid-toggle.active{border-color:#bfd7d0;background:#f3faf7;color:#28735f}
+
+        .cx5-table-wrap{max-height:610px;overflow:auto;border-top:0}
+        .cx5-table-wrap table{width:100%;min-width:1180px;border-collapse:separate;border-spacing:0}
+        .cx5-table-wrap th{position:sticky;top:0;z-index:2;padding:8px 9px;background:#f7f9fa;border-right:1px solid #e0e8ed;border-bottom:1px solid #d7e1e7;text-align:center;font-size:7px;font-weight:900;letter-spacing:.065em;text-transform:uppercase;color:#718292;white-space:nowrap}
+        .cx5-table-wrap th:nth-child(2){text-align:left}
+        .cx5-table-wrap th:last-child{border-right:0}
+        .cx5-table-wrap th.latest-col,.cx5-table-wrap td.latest-col{background:#f3faf7}
+        .cx5-table-wrap td{padding:6px 9px;border-right:1px solid #e6edf2;border-bottom:1px solid #e6edf2;font-size:10px;color:#253b50;vertical-align:middle;text-align:center;background:#fff}
+        .cx5-table-wrap td:nth-child(2){text-align:left}
+        .cx5-table-wrap td:last-child{border-right:0}
+        .cx5-table-wrap tbody tr:hover td{background:#fafcfd}
+        .cx5-table-wrap tbody tr:hover td.latest-col{background:#eff8f4}
+        .cx5-rank{display:grid;place-items:center;width:24px;height:24px;margin:0 auto;border-radius:7px;background:#edf2f5;color:#486075;font-size:9px;font-weight:850}
+        .cx5-driver{display:grid;gap:1px;min-width:145px}
+        .cx5-driver b{font-size:10px;color:#13283c;white-space:nowrap}
+        .cx5-driver small{font-size:7px;font-weight:800;color:#a45a61;text-transform:uppercase;letter-spacing:.04em}
+        .cx5-table-wrap code{font-size:8px;background:#f1f4f6;color:#68798a;border-radius:5px;padding:3px 5px;white-space:nowrap}
+        .cx5-cell{display:inline-flex;align-items:center;justify-content:center;min-width:29px;height:23px;border-radius:6px;font-size:9px;font-weight:900}
+        .cx5-cell.zero{background:#e9f8f0;color:#2d7a5b}
+        .cx5-cell.one{background:#f1f7df;color:#697c2a}
+        .cx5-cell.two{background:#fff0cf;color:#95630b}
+        .cx5-cell.high{background:#f9dfe2;color:#a43f49}
+        .cx5-total{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 6px;border-radius:7px;background:#eaf0f4;color:#1a364d;font-weight:900}
+        .cx5-average{font-weight:850;color:#415a70}
+        .cx5-weeks,.cx5-repeat{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 6px;border-radius:999px;font-size:8px;font-weight:850}
+        .cx5-weeks{background:#eff3f6;color:#617486}
+        .cx5-repeat{background:#fff0df;color:#986119}
+        .cx5-mini-trend{display:flex;align-items:center;justify-content:center;gap:5px;min-width:118px}
+        .cx5-mini-trend svg{width:78px;height:23px;overflow:visible}
+        .cx5-mini-trend polyline{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+        .cx5-mini-trend circle{fill:#fff;stroke:currentColor;stroke-width:1.4}
+        .cx5-mini-trend small{min-width:32px;font-size:8px;font-weight:900;text-align:left}
+        .cx5-mini-trend.better{color:#228061}
+        .cx5-mini-trend.worse{color:#c74651}
+        .cx5-mini-trend.neutral{color:#7d8b97}
+        .cx5-open{display:inline-flex;align-items:center;gap:5px;border:1px solid #d3dee6;background:#fff;border-radius:7px;height:27px;padding:0 8px;color:#2b7162;font-size:8px;font-weight:850;cursor:pointer}
+        .cx5-open:disabled{opacity:.4;cursor:not-allowed}
+        .cx5-no-results{padding:28px;text-align:center;color:#83909c}
+
+        .cx5-empty{display:grid;justify-items:center;text-align:center;gap:7px;padding:44px;border-radius:14px}
+        .cx5-empty-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#f0f5f7;color:#5a7184;font-weight:900}
+        .cx5-empty h2{margin:3px 0 0;font-size:18px}
+        .cx5-empty p{margin:0;max-width:600px;color:#748493;font-size:11px;line-height:1.5}
+
+        @media(max-width:1180px){
+          .cx5-summary{grid-template-columns:1fr 1fr}
+          .cx5-matrix-head{align-items:stretch;flex-direction:column}
+          .cx5-filterbar{min-width:0;width:100%}
+        }
+        @media(max-width:760px){
+          .cx5-heading{align-items:flex-start;flex-direction:column}
+          .cx5-heading-meta{align-self:flex-start;flex-wrap:wrap}
+          .cx5-summary{grid-template-columns:1fr 1fr}
+          .cx5-filterbar{flex-wrap:wrap}
+          .cx5-search{flex:1 1 100%}
+          .cx5-filterbar select{flex:1}
+          .cx5-trid-toggle{flex:0 0 auto}
+        }
+        @media(max-width:520px){
+          .cx5-summary{grid-template-columns:1fr}
+          .cx5-chart-shell{height:160px}
+        }
+      `}</style>
+    </div>
+  );
+}
