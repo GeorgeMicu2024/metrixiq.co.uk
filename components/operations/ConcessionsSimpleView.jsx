@@ -197,7 +197,7 @@ export default function ConcessionsSimpleView({
           total,
           affected,
           source: rows[0]?.source_file || "",
-          delta: previousTotal == null ? null : total - previousTotal,al,
+          delta: previousTotal == null ? null : total - previousTotal,
           affectedDelta:
             previousAffected == null ? null : affected - previousAffected,
         };
