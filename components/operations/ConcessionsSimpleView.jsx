@@ -368,4 +368,159 @@ export default function ConcessionsSimpleView({
                   </linearGradient>
                 </defs>
 
-                
+                {[0, 0.25, 0.5, 0.75, 1].map((step) => {
+                  const y = trend.top + step * trend.plotHeight;
+                  const value = Math.round(maxWeek * (1 - step));
+                  return (
+                    <g key={step}>
+                      <line
+                        x1={trend.left}
+                        y1={y}
+                        x2={trend.width - trend.right}
+                        y2={y}
+                        className="cx5-gridline"
+                      />
+                      <text
+                        x={trend.left - 10}
+                        y={y + 4}
+                        textAnchor="end"
+                        className="cx5-y-label"
+                      >
+                        {value}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {trend.area && <polygon points={trend.area} fill="url(#cx5TrendFill)" />}
+                {trend.line && <polyline points={trend.line} className="cx5-trend-line" />}
+
+                {trend.points.map((point, index) => {
+                  const isLatest = index === trend.points.length - 1;
+                  return (
+                    <g key={point.week}>
+                      {isLatest && (
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r="10"
+                          className="cx5-latest-ring"
+                        />
+                      )}
+                      <circle
+                        cx={point.x}
+                        cy={point.y}
+                        r={isLatest ? 5.5 : 4.5}
+                        className={isLatest ? "cx5-point latest" : "cx5-point"}
+                      />
+                      <text
+                        x={point.x}
+                        y={Math.max(14, point.y - 12)}
+                        textAnchor="middle"
+                        className="cx5-point-value"
+                      >
+                        {point.total}
+                      </text>
+                      <text
+                        x={point.x}
+                        y={trend.height - 9}
+                        textAnchor="middle"
+                        className="cx5-x-label"
+                      >
+                        {point.week}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+            </div>
+          </section>
+
+          <section className="panel cx5-matrix">
+            <div className="cx5-matrix-head">
+              <div>
+                <span className="page-kicker">DRIVER DETAIL</span>
+                <h2>Driver concession matrix · last {weeks.length} weeks</h2>
+                <p>
+                  Weekly DNR, total exposure and recent movement in one view.
+                </p>
+              </div>
+
+              <div className="cx5-filterbar">
+                <label className="cx5-search">
+                  <span aria-hidden="true">⌕</span>
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search driver or TRID…"
+                  />
+                </label>
+
+                <select
+                  value={show}
+                  onChange={(event) => setShow(event.target.value)}
+                  aria-label="Filter concessions drivers"
+                >
+                  <option value="all">All affected drivers</option>
+                  <option value="repeat">Repeat · 2+ weeks</option>
+                  <option value="latest">Latest week only</option>
+                </select>
+
+                <button
+                  type="button"
+                  className={`cx5-trid-toggle ${showTrid ? "active" : ""}`}
+                  onClick={() => setShowTrid((current) => !current)}
+                  aria-pressed={showTrid}
+                  title={showTrid ? "Hide TRID column" : "Show TRID column"}
+                >
+                  <span aria-hidden="true">{showTrid ? "◉" : "⊘"}</span>
+                  {showTrid ? "Hide TRID" : "Show TRID"}
+                </button>
+              </div>
+            </div>
+
+            <div className="cx5-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Driver</th>
+                    {showTrid && <th>TRID</th>}
+                    {weeks.map((week) => (
+                      <th
+                        key={week}
+                        className={week === latestWeek ? "latest-col" : ""}
+                      >
+                        {week}
+                      </th>
+                    ))}
+                    <th>Total</th>
+                    <th>Trend</th>
+                    <th>Avg / wk</th>
+                    <th>Weeks</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((row, index) => {
+                    const values = weeks.map((week) => Number(row.byWeek?.[week] || 0));
+                    const average = weeks.length ? row.total / weeks.length : 0;
+
+                    return (
+                      <tr key={row.driver_trid}>
+                        <td>
+                          <span className="cx5-rank">{index + 1}</span>
+                        </td>
+                        <td>
+                          <div className="cx5-driver">
+                            <b>{row.driver_name}</b>
+                            {row.affectedWeeks >= 3 && <small>Repeat pattern</small>}
+                          </div>
+                        </td>
+                        {showTrid && (
+                          <td>
+                            <code>{row.driver_trid}</code>
+                          </td>
+                        )}
+                        {weeks.map((week) => {
+                          const value = Number(ro
