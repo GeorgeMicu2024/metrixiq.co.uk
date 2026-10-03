@@ -102,9 +102,9 @@ export default function IadcComplianceView({
   const [day, setDay] = useState("");
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState("metric");
-  const [sortDir, setSortDir] = useState("desc");
+  const [sortDir, setSortDir] = useState("asc");
   const [showTrid, setShowTrid] = useState(true);
-  const [trendRange, setTrendRange] = useState(8);
+  const [driverFilter, setDriverFilter] = useState("all");
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
   const [importError, setImportError] = useState("");
@@ -202,18 +202,42 @@ export default function IadcComplianceView({
     return index >= 0 ? days[index + 1] || "" : "";
   }, [mode, selectedDay, days]);
 
-  const previousByDriver = useMemo(() => {
-    if (!previousDay) return new Map();
-    const rowsForPrevious = dailyRows.filter(
-      (row) =>
-        calendarWeek(row) === selectedWeek &&
-        rowDate(row) === previousDay &&
-        valueOf(row) != null
+  const previousWeek = useMemo(() => {
+    if (mode !== "weekly" || !selectedWeek) return "";
+    const index = weeks.indexOf(selectedWeek);
+    return index >= 0 ? weeks[index + 1] || "" : "";
+  }, [mode, selectedWeek, weeks]);
+
+  const previousPeriodRows = useMemo(() => {
+    if (mode === "daily") {
+      if (!previousDay) return [];
+      return dedupeDriverRows(
+        dailyRows.filter(
+          (row) =>
+            calendarWeek(row) === selectedWeek &&
+            rowDate(row) === previousDay &&
+            valueOf(row) != null
+        )
+      );
+    }
+
+    if (!previousWeek) return [];
+    return dedupeDriverRows(
+      weeklyRows.filter(
+        (row) =>
+          calendarWeek(row) === previousWeek &&
+          valueOf(row) != null
+      )
     );
-    return new Map(
-      dedupeDriverRows(rowsForPrevious).map((row) => [row.driver_id, valueOf(row)])
-    );
-  }, [dailyRows, previousDay, selectedWeek, tab]);
+  }, [mode, dailyRows, weeklyRows, previousDay, previousWeek, selectedWeek, tab]);
+
+  const previousByDriver = useMemo(
+    () =>
+      new Map(
+        previousPeriodRows.map((row) => [row.driver_id, valueOf(row)])
+      ),
+    [previousPeriodRows, tab]
+  );
 
   const scoredRows = selectedRows.filter((row) => valueOf(row) != null);
   const average = metricAverage(scoredRows, valueOf);
@@ -223,9 +247,120 @@ export default function IadcComplianceView({
     (row) => Number(valueOf(row)) >= Math.max(target + 10, 90)
   ).length;
 
+  const previousAverage = metricAverage(previousPeriodRows, valueOf);
+  const averageDelta =
+    average == null || previousAverage == null
+      ? null
+      : Number(average) - Number(previousAverage);
+
+  const excellentCut = Math.max(target + 10, 90);
+
+  const latestDailyDates = useMemo(
+    () =>
+      [...new Set(
+        dailyRows
+          .filter((row) => valueOf(row) != null)
+          .map(rowDate)
+          .filter(Boolean)
+          .filter((date) => !selectedDay || date <= selectedDay)
+      )]
+        .sort()
+        .slice(-7),
+    [dailyRows, selectedDay, tab]
+  );
+
+  const last7ByDriver = useMemo(() => {
+    const map = new Map();
+    for (const row of dailyRows) {
+      if (
+        !latestDailyDates.includes(rowDate(row)) ||
+        valueOf(row) == null
+      ) continue;
+      const key = row.driver_id;
+      if (!map.has(key)) map.set(key, new Map());
+      map.get(key).set(rowDate(row), Number(valueOf(row)));
+    }
+
+    const result = new Map();
+    for (const [driverId, values] of map.entries()) {
+      result.set(
+        driverId,
+        latestDailyDates.map((date) =>
+          values.has(date) ? values.get(date) : null
+        )
+      );
+    }
+    return result;
+  }, [dailyRows, latestDailyDates, tab]);
+
+  const latestFourWeeks = useMemo(
+    () =>
+      [...new Set(
+        rows
+          .filter((row) => valueOf(row) != null)
+          .map(calendarWeek)
+          .filter((value) => /^W\d+$/i.test(value))
+      )]
+        .sort((a, b) => weekNo(b) - weekNo(a))
+        .slice(0, 4),
+    [rows, tab]
+  );
+
+  const avg4wByDriver = useMemo(() => {
+    const byDriverWeek = new Map();
+    const sourceRows = weeklyRows.some((row) => valueOf(row) != null)
+      ? weeklyRows
+      : dailyRows;
+
+    for (const row of sourceRows) {
+      const weekLabel = calendarWeek(row);
+      const value = valueOf(row);
+      if (
+        value == null ||
+        !latestFourWeeks.includes(weekLabel) ||
+        !row.driver_id
+      ) continue;
+
+      if (!byDriverWeek.has(row.driver_id)) {
+        byDriverWeek.set(row.driver_id, new Map());
+      }
+      const weekMap = byDriverWeek.get(row.driver_id);
+      if (!weekMap.has(weekLabel)) weekMap.set(weekLabel, []);
+      weekMap.get(weekLabel).push(Number(value));
+    }
+
+    const result = new Map();
+    for (const [driverId, weekMap] of byDriverWeek.entries()) {
+      const weekAverages = [...weekMap.values()]
+        .map((values) =>
+          values.length
+            ? values.reduce((sum, value) => sum + value, 0) / values.length
+            : null
+        )
+        .filter((value) => value != null);
+
+      result.set(
+        driverId,
+        weekAverages.length
+          ? weekAverages.reduce((sum, value) => sum + value, 0) / weekAverages.length
+          : null
+      );
+    }
+    return result;
+  }, [weeklyRows, dailyRows, latestFourWeeks, tab]);
+
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const filtered = scoredRows.filter((row) => {
+      const score = Number(valueOf(row));
+      const passesStatus =
+        driverFilter === "all" ||
+        (driverFilter === "below" && score < target) ||
+        (driverFilter === "compliant" && score >= target && score < excellentCut) ||
+        (driverFilter === "excellent" && score >= excellentCut);
+
+      if (!passesStatus) return false;
+
       const haystack = [
         dname(row.drivers),
         trid(row.drivers),
@@ -234,6 +369,7 @@ export default function IadcComplianceView({
       ]
         .join(" ")
         .toLowerCase();
+
       return !needle || haystack.includes(needle);
     });
 
@@ -246,6 +382,7 @@ export default function IadcComplianceView({
           ? null
           : Number(current) - Number(previous);
       }
+      if (sortKey === "avg4w") return avg4wByDriver.get(row.driver_id) ?? null;
       return valueOf(row);
     };
 
@@ -263,82 +400,18 @@ export default function IadcComplianceView({
       const delta = Number(av) - Number(bv);
       return sortDir === "asc" ? delta : -delta;
     });
-  }, [scoredRows, query, sortKey, sortDir, tab, previousByDriver]);
-
-  const excellentCut = Math.max(target + 10, 90);
-  const compliantOnly = Math.max(0, compliant - strong);
-  const totalForDistribution = Math.max(1, scoredRows.length);
-  const distribution = {
-    below,
-    compliant: compliantOnly,
-    excellent: strong,
-    belowPct: (below / totalForDistribution) * 100,
-    compliantPct: (compliantOnly / totalForDistribution) * 100,
-    excellentPct: (strong / totalForDistribution) * 100,
-  };
-
-  const trendWeeks = useMemo(
-    () =>
-      [...new Set(
-        rowsWithMetric
-          .map(calendarWeek)
-          .filter((value) => /^W\\d+$/i.test(value))
-      )]
-        .sort((a, b) => weekNo(a) - weekNo(b))
-        .slice(-trendRange),
-    [rowsWithMetric, trendRange]
-  );
-
-  const trendSeries = useMemo(
-    () =>
-      trendWeeks.map((trendWeek) => {
-        const weekMetricRows = rowsWithMetric.filter(
-          (row) => calendarWeek(row) === trendWeek
-        );
-        return {
-          week: trendWeek,
-          value: metricAverage(weekMetricRows, valueOf),
-        };
-      }),
-    [trendWeeks, rowsWithMetric, tab]
-  );
-
-  const trendChart = useMemo(() => {
-    const width = 1000;
-    const height = 180;
-    const left = 42;
-    const right = 24;
-    const top = 18;
-    const bottom = 34;
-    const plotWidth = width - left - right;
-    const plotHeight = height - top - bottom;
-    const denominator = Math.max(1, trendSeries.length - 1);
-
-    const points = trendSeries.map((item, index) => {
-      const value = item.value == null ? 0 : Math.max(0, Math.min(100, Number(item.value)));
-      return {
-        ...item,
-        x: left + (index / denominator) * plotWidth,
-        y: top + ((100 - value) / 100) * plotHeight,
-      };
-    });
-
-    return {
-      width,
-      height,
-      left,
-      right,
-      top,
-      bottom,
-      plotHeight,
-      targetY: top + ((100 - target) / 100) * plotHeight,
-      points,
-      line: points.map((point) => `${point.x},${point.y}`).join(" "),
-      area: points.length
-        ? `${points.map((point) => `${point.x},${point.y}`).join(" ")} ${points[points.length - 1].x},${top + plotHeight} ${points[0].x},${top + plotHeight}`
-        : "",
-    };
-  }, [trendSeries, target]);
+  }, [
+    scoredRows,
+    query,
+    driverFilter,
+    sortKey,
+    sortDir,
+    tab,
+    previousByDriver,
+    avg4wByDriver,
+    target,
+    excellentCut,
+  ]);
 
   async function quickImport(file) {
     if (!file || importing) return;
@@ -418,10 +491,9 @@ export default function IadcComplianceView({
       <header className="iadcpro-hero">
         <div>
           <span className="page-kicker">WORKFLOW COMPLIANCE</span>
-          <h1>IADC & DWC Performance</h1>
+          <h1>{tab.toUpperCase()} Performance</h1>
           <p>
-            Driver-level IADC and DWC compliance with daily reports kept separate
-            from weekly scorecard evidence.
+            Driver-level {tab.toUpperCase()} compliance with daily reports kept separate from weekly scorecard evidence.
           </p>
         </div>
         <div className="iadcpro-target">
@@ -516,16 +588,6 @@ export default function IadcComplianceView({
         )}
 
         <div className="iadcpro-actions">
-          <button
-            type="button"
-            className={"iadcpro-trid-toggle " + (showTrid ? "active" : "")}
-            onClick={() => setShowTrid((current) => !current)}
-            aria-pressed={showTrid}
-            title={showTrid ? "Hide TRID column" : "Show TRID column"}
-          >
-            <span aria-hidden="true" />
-            {showTrid ? "Hide TRID" : "Show TRID"}
-          </button>
           <input
             ref={fileInput}
             type="file"
@@ -557,197 +619,50 @@ export default function IadcComplianceView({
 
       <section className="iadcpro-kpis">
         <article>
-          <span>Drivers</span>
-          <strong>{scoredRows.length}</strong>
-          <small>{mode === "daily" ? formatDate(selectedDay) : selectedWeek || "No period"}</small>
+          <i className="iadcpro-kpi-icon drivers">◎</i>
+          <div>
+            <span>Total Drivers</span>
+            <strong>{scoredRows.length}</strong>
+            <small>{mode === "daily" ? formatDate(selectedDay) : selectedWeek || "No period"}</small>
+          </div>
         </article>
         <article>
-          <span>{tab.toUpperCase()} Average</span>
-          <strong>{average == null ? "—" : pct(average, 1)}</strong>
-          <small>Target ≥ {target}%</small>
+          <i className="iadcpro-kpi-icon average">◉</i>
+          <div>
+            <span>{tab.toUpperCase()} Average</span>
+            <strong>{average == null ? "—" : pct(average, 1)}</strong>
+            <small className={averageDelta == null ? "" : averageDelta >= 0 ? "up" : "down"}>
+              {averageDelta == null
+                ? `Target ≥ ${target}%`
+                : `${averageDelta > 0 ? "+" : ""}${averageDelta.toFixed(1)} pp vs previous ${mode === "daily" ? "day" : "week"}`}
+            </small>
+          </div>
         </article>
         <article className="good">
-          <span>Compliant</span>
-          <strong>{compliant}</strong>
-          <small>{scoredRows.length ? Math.round((compliant / scoredRows.length) * 100) : 0}% of drivers</small>
+          <i className="iadcpro-kpi-icon compliant">✓</i>
+          <div>
+            <span>Compliant</span>
+            <strong>{compliant}</strong>
+            <small>{scoredRows.length ? ((compliant / scoredRows.length) * 100).toFixed(1) : "0.0"}% of drivers</small>
+          </div>
         </article>
         <article className="warn">
-          <span>Below Target</span>
-          <strong>{below}</strong>
-          <small>{below ? "Coaching priority" : "No action required"}</small>
+          <i className="iadcpro-kpi-icon below">!</i>
+          <div>
+            <span>Below Target</span>
+            <strong>{below}</strong>
+            <small>{scoredRows.length ? ((below / scoredRows.length) * 100).toFixed(1) : "0.0"}% of drivers</small>
+          </div>
         </article>
         <article className="excellent">
-          <span>Excellent</span>
-          <strong>{strong}</strong>
-          <small>≥ {Math.max(target + 10, 90)}%</small>
+          <i className="iadcpro-kpi-icon excellent">★</i>
+          <div>
+            <span>Excellent</span>
+            <strong>{strong}</strong>
+            <small>{scoredRows.length ? ((strong / scoredRows.length) * 100).toFixed(1) : "0.0"}% of drivers</small>
+          </div>
         </article>
       </section>
-
-      {!!scoredRows.length && (
-        <section className="iadcpro-analytics">
-          <article className="panel iadcpro-trend-card">
-            <div className="iadcpro-analytics-head">
-              <div>
-                <h2>{tab.toUpperCase()} Trend</h2>
-                <p>
-                  {mode === "daily" ? "Daily-report" : "Weekly-report"} {tab.toUpperCase()} average across previous weeks.
-                </p>
-              </div>
-              <select
-                value={trendRange}
-                onChange={(event) => setTrendRange(Number(event.target.value))}
-                aria-label="Trend range"
-              >
-                <option value={8}>Last 8 weeks</option>
-                <option value={4}>Last 4 weeks</option>
-              </select>
-            </div>
-
-            <div className="iadcpro-line-chart">
-              {trendSeries.length ? (
-                <svg
-                  viewBox={`0 0 ${trendChart.width} ${trendChart.height}`}
-                  role="img"
-                  aria-label={`${tab.toUpperCase()} performance trend`}
-                  preserveAspectRatio="none"
-                >
-                  <defs>
-                    <linearGradient id="iadcTrendFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2d8f79" stopOpacity="0.18" />
-                      <stop offset="100%" stopColor="#2d8f79" stopOpacity="0.02" />
-                    </linearGradient>
-                  </defs>
-
-                  {[0, 20, 40, 60, 80, 100].map((value) => {
-                    const y =
-                      trendChart.top +
-                      ((100 - value) / 100) * trendChart.plotHeight;
-                    return (
-                      <g key={value}>
-                        <line
-                          x1={trendChart.left}
-                          y1={y}
-                          x2={trendChart.width - trendChart.right}
-                          y2={y}
-                          className="iadcpro-gridline"
-                        />
-                        <text
-                          x={trendChart.left - 10}
-                          y={y + 4}
-                          textAnchor="end"
-                          className="iadcpro-axis-label"
-                        >
-                          {value}%
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  <line
-                    x1={trendChart.left}
-                    y1={trendChart.targetY}
-                    x2={trendChart.width - trendChart.right}
-                    y2={trendChart.targetY}
-                    className="iadcpro-target-line"
-                  />
-
-                  {trendChart.area && (
-                    <polygon points={trendChart.area} fill="url(#iadcTrendFill)" />
-                  )}
-                  {trendChart.line && (
-                    <polyline points={trendChart.line} className="iadcpro-trend-line" />
-                  )}
-
-                  {trendChart.points.map((point, index) => {
-                    const isLatest = index === trendChart.points.length - 1;
-                    return (
-                      <g key={point.week}>
-                        <circle
-                          cx={point.x}
-                          cy={point.y}
-                          r={isLatest ? 6 : 5}
-                          className={isLatest ? "iadcpro-trend-point latest" : "iadcpro-trend-point"}
-                        >
-                          <title>
-                            {point.week}: {point.value == null ? "No data" : pct(point.value, 1)}
-                          </title>
-                        </circle>
-                        <text
-                          x={point.x}
-                          y={Math.max(14, point.y - 13)}
-                          textAnchor="middle"
-                          className="iadcpro-point-value"
-                        >
-                          {point.value == null ? "—" : Number(point.value).toFixed(1)}
-                        </text>
-                        <text
-                          x={point.x}
-                          y={trendChart.height - 9}
-                          textAnchor="middle"
-                          className="iadcpro-week-label"
-                        >
-                          {point.week}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              ) : (
-                <div className="iadcpro-chart-empty">No previous-week trend is available yet.</div>
-              )}
-            </div>
-          </article>
-
-          <article className="panel iadcpro-distribution-card">
-            <div className="iadcpro-analytics-head">
-              <div>
-                <h2>Driver Performance Distribution</h2>
-                <p>Breakdown for the selected period.</p>
-              </div>
-            </div>
-
-            <div className="iadcpro-donut-layout">
-              <div
-                className="iadcpro-donut"
-                style={{
-                  background: `conic-gradient(
-                    #e9ad22 0 ${distribution.belowPct}%,
-                    #2f977d ${distribution.belowPct}% ${distribution.belowPct + distribution.compliantPct}%,
-                    #3b82f6 ${distribution.belowPct + distribution.compliantPct}% 100%
-                  )`,
-                }}
-                aria-label="Driver performance distribution"
-              >
-                <div>
-                  <strong>{scoredRows.length}</strong>
-                  <span>Drivers</span>
-                </div>
-              </div>
-
-              <div className="iadcpro-distribution-legend">
-                <div>
-                  <i className="below" />
-                  <span>Below target (&lt; {target}%)</span>
-                  <b>{distribution.below}</b>
-                  <small>{distribution.belowPct.toFixed(1)}%</small>
-                </div>
-                <div>
-                  <i className="compliant" />
-                  <span>Compliant ({target}–{excellentCut - 0.1}%)</span>
-                  <b>{distribution.compliant}</b>
-                  <small>{distribution.compliantPct.toFixed(1)}%</small>
-                </div>
-                <div>
-                  <i className="excellent" />
-                  <span>Excellent (≥ {excellentCut}%)</span>
-                  <b>{distribution.excellent}</b>
-                  <small>{distribution.excellentPct.toFixed(1)}%</small>
-                </div>
-              </div>
-            </div>
-          </article>
-        </section>
-      )}
 
       <section className="iadcpro-filterbar">
         <div className="iadcpro-search">
@@ -759,23 +674,44 @@ export default function IadcComplianceView({
           />
         </div>
 
+        <button
+          type="button"
+          className={"iadcpro-trid-toggle " + (showTrid ? "active" : "")}
+          onClick={() => setShowTrid((current) => !current)}
+          aria-pressed={showTrid}
+          title={showTrid ? "Hide TRID column" : "Show TRID column"}
+        >
+          <span aria-hidden="true" />
+          {showTrid ? "Show TRID" : "TRID hidden"}
+        </button>
+
         <span className="iadcpro-sort-label">Sort by</span>
         <select value={sortKey} onChange={(event) => setSortKey(event.target.value)}>
           <option value="metric">{tab.toUpperCase()}</option>
           <option value="secondary">{tab === "iadc" ? "DWC" : "IADC"}</option>
           <option value="delta">Vs previous</option>
+          <option value="avg4w">Avg 4W</option>
           <option value="name">Driver name</option>
         </select>
 
         <select value={sortDir} onChange={(event) => setSortDir(event.target.value)}>
-          <option value="desc">{sortKey === "name" ? "Z to A" : "High to low"}</option>
           <option value="asc">{sortKey === "name" ? "A to Z" : "Low to high"}</option>
+          <option value="desc">{sortKey === "name" ? "Z to A" : "High to low"}</option>
+        </select>
+
+        <select
+          value={driverFilter}
+          onChange={(event) => setDriverFilter(event.target.value)}
+          aria-label="Driver status filter"
+        >
+          <option value="all">All drivers</option>
+          <option value="below">Below target</option>
+          <option value="compliant">Compliant</option>
+          <option value="excellent">Excellent</option>
         </select>
 
         <span className="iadcpro-source">
-          {rows.length
-            ? `${rows.length} source rows loaded`
-            : "No IADC source rows loaded"}
+          {visible.length} drivers
         </span>
       </section>
 
@@ -825,7 +761,9 @@ export default function IadcComplianceView({
                     <th>{tab === "iadc" ? "DWC" : "IADC"}</th>
                     <th>Vs previous</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th>Last 7 days</th>
+                    <th>Avg 4W</th>
+                    <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -838,6 +776,8 @@ export default function IadcComplianceView({
                         ? null
                         : Number(score) - Number(previous);
                     const tone = toneFor(score, target);
+                    const last7 = last7ByDriver.get(row.driver_id) || [];
+                    const avg4w = avg4wByDriver.get(row.driver_id) ?? null;
 
                     return (
                       <tr key={row.id || row.driver_id}>
@@ -854,7 +794,40 @@ export default function IadcComplianceView({
                           </span>
                         </td>
                         <td>
-                          <span className={"iadcpro-status " + tone}>{statusFor(score, target)}</span>
+                          <span className={"iadcpro-status " + tone}>
+                            {Number(score) >= target ? statusFor(score, target) : "Below target"}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="iadcpro-sparkbars" aria-label="Last 7 days">
+                            {(last7.length ? last7 : Array(7).fill(null)).map((value, sparkIndex) => (
+                              <span
+                                key={sparkIndex}
+                                className={
+                                  value == null
+                                    ? "empty"
+                                    : Number(value) >= excellentCut
+                                      ? "excellent"
+                                      : Number(value) >= target
+                                        ? "good"
+                                        : Number(value) >= target - 10
+                                          ? "watch"
+                                          : "critical"
+                                }
+                                style={{
+                                  height: value == null
+                                    ? "4px"
+                                    : `${Math.max(5, Math.min(22, (Number(value) / 100) * 22))}px`,
+                                }}
+                                title={value == null ? "No data" : pct(value, 1)}
+                              />
+                            ))}
+                          </div>
+                        </td>
+                        <td>
+                          <span className={"iadcpro-avg4w " + tone}>
+                            {avg4w == null ? "—" : pct(avg4w, 1)}
+                          </span>
                         </td>
                         <td>
                           <button
@@ -888,25 +861,55 @@ export default function IadcComplianceView({
       )}
 
       <style jsx global>{`
-        .iadcpro{gap:12px}
-        .iadcpro-hero{padding:14px 20px;border-radius:14px;min-height:92px}
-        .iadcpro-hero h1{margin:3px 0 4px;font-size:25px}
-        .iadcpro-hero p{font-size:11px;line-height:1.45}
-        .iadcpro-target{min-width:112px}
-        .iadcpro-target span{font-size:9px}
-        .iadcpro-target strong{font-size:25px;margin-top:3px}
+        .iadcpro{display:grid;gap:10px;padding-bottom:24px}
+        .iadcpro-hero{padding:12px 18px;border-radius:13px;min-height:82px}
+        .iadcpro-hero h1{margin:2px 0 3px;font-size:24px}
+        .iadcpro-hero p{font-size:10px;line-height:1.4}
+        .iadcpro-target{min-width:105px}
+        .iadcpro-target span{font-size:8px}
+        .iadcpro-target strong{font-size:24px;margin-top:2px}
 
-        .iadcpro-controlbar{padding:10px 12px;gap:8px;border-radius:12px}
+        .iadcpro-controlbar{padding:9px 11px;gap:8px;border-radius:11px}
         .iadcpro-tabs,.iadcpro-period-tabs{padding:3px}
-        .iadcpro-tabs button,.iadcpro-period-tabs button{padding:7px 14px;font-size:11px}
-        .iadcpro-controlbar select,.iadcpro-filterbar select{height:36px;font-size:11px}
+        .iadcpro-tabs button,.iadcpro-period-tabs button{padding:7px 14px;font-size:10px}
+        .iadcpro-controlbar select,.iadcpro-filterbar select{height:34px;font-size:10px}
+        .iadcpro-controlbar label>span{font-size:8px}
         .iadcpro-actions{gap:7px}
-        .iadcpro-actions .btn{height:36px;padding:0 14px;font-size:10px}
+        .iadcpro-actions .btn{height:34px;padding:0 14px;font-size:9px}
 
+        .iadcpro-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+        .iadcpro-kpis article{
+          min-height:76px;padding:10px 12px;border:1px solid #dde6ec;border-radius:12px;
+          background:#fff;box-shadow:0 4px 14px rgba(26,51,72,.03);
+          display:flex;align-items:center;gap:10px
+        }
+        .iadcpro-kpis article.good,.iadcpro-kpis article.warn,.iadcpro-kpis article.excellent{border-top:1px solid #dde6ec}
+        .iadcpro-kpis article>div{min-width:0}
+        .iadcpro-kpis span{font-size:8px}
+        .iadcpro-kpis strong{font-size:23px;margin:4px 0 2px}
+        .iadcpro-kpis small{font-size:8px;white-space:nowrap}
+        .iadcpro-kpis small.up{color:#178457;font-weight:850}
+        .iadcpro-kpis small.down{color:#c33d48;font-weight:850}
+        .iadcpro-kpi-icon{
+          flex:0 0 34px;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+          font-style:normal;font-size:17px;font-weight:900;background:#eff5ff;color:#3b82f6
+        }
+        .iadcpro-kpi-icon.average{background:#fff0f0;color:#df3c3c}
+        .iadcpro-kpi-icon.compliant{background:#e8f8ee;color:#1f9b62}
+        .iadcpro-kpi-icon.below{background:#fff5dc;color:#d99a10}
+        .iadcpro-kpi-icon.excellent{background:#edf3ff;color:#477dea}
+
+        .iadcpro-filterbar{
+          display:grid;grid-template-columns:minmax(300px,1fr) auto auto 126px 136px 142px auto;
+          gap:7px;align-items:center;padding:0
+        }
+        .iadcpro-search{height:34px}
+        .iadcpro-search input{font-size:10px}
+        .iadcpro-sort-label{font-size:8px;font-weight:900;color:#6c7d8f;white-space:nowrap}
+        .iadcpro-source{font-size:9px;font-weight:800;white-space:nowrap;text-align:right}
         .iadcpro-trid-toggle{
-          height:36px;padding:0 11px;border:1px solid #d4dee6;border-radius:9px;
-          background:#fff;color:#41566b;font-size:10px;font-weight:850;
-          display:inline-flex;align-items:center;gap:8px;white-space:nowrap;cursor:pointer
+          height:34px;padding:0 9px;border:0;border-radius:8px;background:transparent;color:#354b5f;
+          font-size:9px;font-weight:850;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;cursor:pointer
         }
         .iadcpro-trid-toggle>span{
           width:28px;height:16px;border-radius:999px;background:#dfe6eb;position:relative;transition:.18s ease
@@ -915,115 +918,76 @@ export default function IadcComplianceView({
           content:"";position:absolute;width:12px;height:12px;left:2px;top:2px;border-radius:50%;
           background:#fff;box-shadow:0 1px 3px rgba(20,42,60,.2);transition:.18s ease
         }
-        .iadcpro-trid-toggle.active>span{background:#2d8f79}
+        .iadcpro-trid-toggle.active>span{background:#28b978}
         .iadcpro-trid-toggle.active>span:after{transform:translateX(12px)}
 
-        .iadcpro-kpis{gap:9px}
-        .iadcpro-kpis article{min-height:76px;padding:11px 14px;border-radius:12px}
-        .iadcpro-kpis span{font-size:8px}
-        .iadcpro-kpis strong{font-size:23px;margin:5px 0 2px}
-        .iadcpro-kpis small{font-size:9px}
-
-        .iadcpro-analytics{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(360px,.95fr);gap:10px}
-        .iadcpro-trend-card,.iadcpro-distribution-card{
-          min-width:0;border:1px solid #dce5ec;border-radius:13px;background:#fff;overflow:hidden
-        }
-        .iadcpro-analytics-head{
-          min-height:52px;padding:11px 14px 7px;display:flex;align-items:flex-start;
-          justify-content:space-between;gap:12px
-        }
-        .iadcpro-analytics-head h2{margin:0;font-size:14px;color:#132b40}
-        .iadcpro-analytics-head p{margin:3px 0 0;font-size:9px;color:#7b8997}
-        .iadcpro-analytics-head select{
-          height:30px;border:1px solid #d3dde5;border-radius:8px;background:#fff;
-          padding:0 9px;color:#42586c;font-size:9px;font-weight:800
-        }
-
-        .iadcpro-line-chart{height:190px;padding:0 9px 5px}
-        .iadcpro-line-chart svg{display:block;width:100%;height:100%;overflow:visible}
-        .iadcpro-gridline{stroke:#e8eef2;stroke-width:1}
-        .iadcpro-axis-label,.iadcpro-week-label{fill:#7a8997;font-size:9px;font-weight:700}
-        .iadcpro-target-line{stroke:#1ea37d;stroke-width:1.5;stroke-dasharray:5 5}
-        .iadcpro-trend-line{
-          fill:none;stroke:#2d8f79;stroke-width:3;stroke-linecap:round;stroke-linejoin:round
-        }
-        .iadcpro-trend-point{fill:#fff;stroke:#2d8f79;stroke-width:3}
-        .iadcpro-trend-point.latest{fill:#2d8f79}
-        .iadcpro-point-value{fill:#173047;font-size:9px;font-weight:900}
-        .iadcpro-chart-empty{height:100%;display:grid;place-items:center;color:#7b8997;font-size:11px}
-
-        .iadcpro-donut-layout{
-          display:grid;grid-template-columns:150px minmax(0,1fr);gap:18px;align-items:center;
-          padding:4px 18px 18px
-        }
-        .iadcpro-donut{
-          width:132px;height:132px;border-radius:50%;display:grid;place-items:center;
-          box-shadow:inset 0 0 0 1px rgba(17,45,70,.05)
-        }
-        .iadcpro-donut>div{
-          width:78px;height:78px;border-radius:50%;background:#fff;display:grid;place-items:center;
-          align-content:center;box-shadow:0 0 0 1px #e8edf1
-        }
-        .iadcpro-donut strong{font-size:23px;line-height:1;color:#173047}
-        .iadcpro-donut span{font-size:9px;color:#7b8997;margin-top:3px}
-        .iadcpro-distribution-legend{display:grid;gap:11px}
-        .iadcpro-distribution-legend>div{
-          display:grid;grid-template-columns:10px minmax(0,1fr) 28px 44px;gap:8px;align-items:center
-        }
-        .iadcpro-distribution-legend i{width:9px;height:9px;border-radius:50%}
-        .iadcpro-distribution-legend i.below{background:#e9ad22}
-        .iadcpro-distribution-legend i.compliant{background:#2f977d}
-        .iadcpro-distribution-legend i.excellent{background:#3b82f6}
-        .iadcpro-distribution-legend span{font-size:9px;color:#334b60}
-        .iadcpro-distribution-legend b{font-size:10px;color:#173047;text-align:right}
-        .iadcpro-distribution-legend small{font-size:9px;color:#7b8997;text-align:right}
-
-        .iadcpro-filterbar{
-          grid-template-columns:minmax(260px,1fr) auto minmax(120px,155px) minmax(120px,155px) auto;
-          gap:8px;padding:0
-        }
-        .iadcpro-search{height:36px}
-        .iadcpro-sort-label{font-size:9px;font-weight:850;color:#687a8c;white-space:nowrap}
-        .iadcpro-source{font-size:10px}
-
         .iadcpro-main{display:block}
-        .iadcpro-table-card{width:100%}
-        .iadcpro-card-head{padding:11px 14px 9px}
-        .iadcpro-card-head h2{font-size:15px}
-        .iadcpro-card-head p{font-size:9px}
-        .iadcpro-table-wrap{max-height:620px}
-        .iadcpro-table-wrap table{min-width:900px}
-        .iadcpro-table-wrap table.trid-hidden{min-width:760px}
-        .iadcpro-table-wrap th{padding:9px 10px;font-size:8px;text-align:center;border-right:1px solid #e6edf2}
+        .iadcpro-table-card{width:100%;border-radius:12px}
+        .iadcpro-card-head{padding:10px 13px 8px}
+        .iadcpro-card-head h2{font-size:14px}
+        .iadcpro-card-head p{font-size:8px}
+        .iadcpro-card-head>strong{font-size:8px;padding:5px 8px}
+        .iadcpro-table-wrap{max-height:650px;overflow:auto}
+        .iadcpro-table-wrap table{min-width:1160px}
+        .iadcpro-table-wrap table.trid-hidden{min-width:1020px}
+        .iadcpro-table-wrap th{
+          padding:8px 8px;font-size:7px;text-align:center;border-right:1px solid #e5ebef;
+          background:#f7f9fb
+        }
         .iadcpro-table-wrap th:nth-child(2){text-align:left}
         .iadcpro-table-wrap td{
-          padding:8px 10px;font-size:11px;text-align:center;border-right:1px solid #edf1f4
+          padding:7px 8px;font-size:10px;text-align:center;border-right:1px solid #edf1f4
         }
         .iadcpro-table-wrap td:nth-child(2){text-align:left}
         .iadcpro-table-wrap th:last-child,.iadcpro-table-wrap td:last-child{border-right:0}
-        .iadcpro-table-wrap td b{font-size:11px}
-        .iadcpro-table-wrap code{font-size:8px}
-        .iadcpro-score{min-width:62px;padding:6px 8px}
+        .iadcpro-table-wrap td b{font-size:10px}
+        .iadcpro-table-wrap code{font-size:7px;padding:3px 5px}
+        .iadcpro-rank{width:22px;height:22px;font-size:8px;border-radius:6px}
+        .iadcpro-score{min-width:60px;padding:5px 7px;font-size:9px;border-radius:7px}
+        .iadcpro-status{padding:4px 8px;font-size:8px}
+        .iadcpro-delta{font-size:9px}
+        .iadcpro-table-wrap td:last-child button{
+          min-width:64px;height:25px;padding:0 8px;border-color:#d4e5df;color:#257663;font-size:8px
+        }
         .iadcpro-table-wrap tbody tr{cursor:default}
-        .iadcpro-table-wrap tbody tr:hover td{background:#f8fbfc}
+        .iadcpro-table-wrap tbody tr:hover td{background:#fbfdfd}
+
+        .iadcpro-sparkbars{
+          height:24px;display:flex;align-items:flex-end;justify-content:center;gap:2px;min-width:76px
+        }
+        .iadcpro-sparkbars>span{
+          width:5px;border-radius:2px 2px 1px 1px;background:#dfe6eb;display:block
+        }
+        .iadcpro-sparkbars>span.empty{background:#dfe6eb}
+        .iadcpro-sparkbars>span.critical{background:#ef4444}
+        .iadcpro-sparkbars>span.watch{background:#e9a918}
+        .iadcpro-sparkbars>span.good{background:#43a879}
+        .iadcpro-sparkbars>span.excellent{background:#2f8f75}
+
+        .iadcpro-avg4w{
+          display:inline-flex;align-items:center;justify-content:center;min-width:56px;padding:5px 7px;
+          border-radius:7px;font-size:9px;font-weight:900;background:#f0f4f6;color:#43586b
+        }
+        .iadcpro-avg4w.critical{background:#ffe8e8;color:#b33a3a}
+        .iadcpro-avg4w.watch{background:#fff2d7;color:#9b6a12}
+        .iadcpro-avg4w.good{background:#eaf7ef;color:#23724f}
+        .iadcpro-avg4w.excellent{background:#e6f4ef;color:#1f6c53}
 
         @media(max-width:1180px){
-          .iadcpro-analytics{grid-template-columns:1fr}
-          .iadcpro-distribution-card{max-width:none}
-          .iadcpro-filterbar{grid-template-columns:1fr auto 150px 150px}
+          .iadcpro-kpis{grid-template-columns:repeat(3,1fr)}
+          .iadcpro-filterbar{grid-template-columns:1fr auto auto 130px 135px}
+          .iadcpro-search{grid-column:1/-1}
           .iadcpro-source{grid-column:1/-1;text-align:left}
         }
         @media(max-width:720px){
-          .iadcpro-hero{padding:13px 14px}
+          .iadcpro-hero{padding:12px 13px}
           .iadcpro-kpis{display:flex;overflow-x:auto}
-          .iadcpro-kpis article{min-width:170px}
-          .iadcpro-donut-layout{grid-template-columns:1fr;justify-items:center}
-          .iadcpro-distribution-legend{width:100%}
+          .iadcpro-kpis article{min-width:180px}
           .iadcpro-filterbar{grid-template-columns:1fr 1fr}
           .iadcpro-search{grid-column:1/-1}
           .iadcpro-sort-label{display:none}
+          .iadcpro-trid-toggle{justify-content:flex-start}
           .iadcpro-source{grid-column:1/-1}
-          .iadcpro-line-chart{height:170px}
         }
       `}</style>
     </div>
