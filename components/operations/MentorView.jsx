@@ -376,14 +376,19 @@ export default function MentorView({
 
   const noTripRows = useMemo(() => {
     const rows = new Map();
+
+    // Confirmed No Trip rows from mapped eMentor evidence.
+    // Do not infer No Trip from a missing field: it must be an explicit Trip < 1.
     for (const row of selectedDailyRows) {
       const details = row.raw_data?.mentor || {};
       const trips = n(details.totalTrips);
-      if (trips == null || trips > 0) continue;
+      if (trips == null || trips >= 1) continue;
+
       const driverName = String(dname(row.drivers || {}) || "Unresolved driver").trim();
       const driverTrid = String(trid(row.drivers || {}) || "—").trim();
       const key = String(row.driver_id || driverTrid || driverName || row.source_identity_key || row.id);
       if (rows.has(key)) continue;
+
       rows.set(key, {
         id: key,
         driverName,
@@ -393,8 +398,32 @@ export default function MentorView({
         status: details.tripStatusReason || "No trip registered",
       });
     }
+
+    // Keep confirmed zero-trip eMentor records visible even when identity
+    // reconciliation has not been completed yet.
+    for (const row of unmatchedForDate) {
+      const driver = row.payload?.driver || {};
+      const details = driver.details?.mentor || {};
+      const trips = n(details.totalTrips);
+      if (trips == null || trips >= 1) continue;
+
+      const driverName = String(driver.name || driver.full_name || "Unmatched eMentor driver").trim();
+      const driverTrid = String(driver.trid || "—").trim();
+      const key = String(row.id || driverTrid || driverName);
+      if (rows.has(key)) continue;
+
+      rows.set(key, {
+        id: key,
+        driverName,
+        trid: driverTrid || "—",
+        beginRouteTime: details.beginRouteTime || "—",
+        endRouteTime: details.endRouteTime || "—",
+        status: details.tripStatusReason || "No trip registered · identity mapping required",
+      });
+    }
+
     return [...rows.values()].sort((a, b) => a.driverName.localeCompare(b.driverName));
-  }, [selectedDailyRows]);
+  }, [selectedDailyRows, unmatchedForDate]);
 
   const tripEvidenceComplete = useMemo(
     () => selectedDailyRows.some((row) => {
@@ -405,19 +434,29 @@ export default function MentorView({
     [selectedDailyRows]
   );
 
+  const explicitTripRows = useMemo(
+    () =>
+      selectedDailyRows.filter((row) => {
+        const details = row.raw_data?.mentor || {};
+        return n(details.totalTrips) != null;
+      }),
+    [selectedDailyRows]
+  );
+
   const recordedCount = useMemo(() => {
     const recorded = new Set();
     for (const row of selectedDailyRows) {
       const details = row.raw_data?.mentor || {};
       const trips = n(details.totalTrips);
-      if (!(trips > 0) && row.mentor_score == null) continue;
+      if (!(trips >= 1)) continue;
       recorded.add(String(row.driver_id || row.source_identity_key || row.id || ""));
     }
     recorded.delete("");
     return recorded.size;
   }, [selectedDailyRows]);
 
-  const noTripCountReady = tripEvidenceComplete || noTripRows.length > 0;
+  const hasExplicitTripCounts = explicitTripRows.length > 0 || noTripRows.length > 0;
+  const noTripCountReady = tripEvidenceComplete || hasExplicitTripCounts;
 
   function applySort(items) {
     return [...items].sort((a, b) => {
@@ -586,9 +625,9 @@ export default function MentorView({
           </div>
 
           <div className="mentor-daily-kpis">
-            <article><span>Recorded</span><strong>{recordedCount}</strong><small>eMentor trips registered for this date</small></article>
+            <article><span>Recorded</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>{hasExplicitTripCounts ? "Drivers with at least 1 eMentor trip" : "Trip count not available in this report"}</small></article>
             <article className={unmatchedForDate.length ? "warn" : ""}><span>Unmatched</span><strong>{unmatchedForDate.length}</strong><small>Identity mapping required</small></article>
-            <article className={noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{noTripCountReady ? noTripRows.length : "—"}</strong><small>{tripEvidenceComplete ? "From eMentor Shift Report trip evidence" : noTripRows.length ? "Explicit Trip = 0 rows found in eMentor" : "Import eMentor Shift Report (VRM) to verify"}</small></article>
+            <article className={noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{noTripCountReady ? noTripRows.length : "—"}</strong><small>{tripEvidenceComplete ? "Confirmed from eMentor Shift Report" : noTripRows.length ? "Confirmed Trip < 1 rows found in eMentor" : hasExplicitTripCounts ? "No zero-trip rows in the current Driver Report" : "Import eMentor Shift Report (VRM) to verify"}</small></article>
           </div>
 
           <MentorReportTable
@@ -611,9 +650,29 @@ export default function MentorView({
                 {!tripEvidenceComplete && <p className="mentor-no-trip-info">These are explicit Trip = 0 rows from eMentor. Import the eMentor Shift Report (VRM) for the same date to verify the complete trip list.</p>}
               </>
             ) : tripEvidenceComplete ? (
-              <p className="mentor-no-trip-info ok">✓ No Trip = 0 rows were found in the eMentor Shift Report for {formatDate(selectedDate)}.</p>
+              <p className="mentor-no-trip-info ok">✓ Every driver in the eMentor Shift Report has at least 1 registered trip for {formatDate(selectedDate)}.</p>
+            ) : hasExplicitTripCounts ? (
+              <div className="mentor-no-trip-info">
+                <b>0 confirmed No Trip rows in the current Driver Report.</b>{" "}
+                Drivers who never started a trip may be omitted from the Driver Report entirely, so import the
+                <b> eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)} to identify them accurately.
+                {onImport && (
+                  <button type="button" className="btn ghost" onClick={onImport} style={{ marginLeft: "10px" }}>
+                    Import Shift Report
+                  </button>
+                )}
+              </div>
             ) : (
-              <p className="mentor-no-trip-info">To identify drivers whose eMentor trip was not registered, was left open, or reached 23:59 without being closed, import the <b>eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)}. MetrixIQ reads the eMentor Trip / Begin Route Time / End Route Time fields directly. Daily Dispatch is not used.</p>
+              <div className="mentor-no-trip-info">
+                To identify drivers with fewer than 1 registered eMentor trip, import the
+                <b> eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)}. MetrixIQ reads the Trip /
+                Begin Route Time / End Route Time fields directly. Daily Dispatch is not used.
+                {onImport && (
+                  <button type="button" className="btn ghost" onClick={onImport} style={{ marginLeft: "10px" }}>
+                    Import Shift Report
+                  </button>
+                )}
+              </div>
             )}
           </section>
 
