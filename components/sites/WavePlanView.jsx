@@ -61,26 +61,74 @@ const deh1RouteDistance=(a,b)=>{
  let d=0;for(let i=0;i<ad.length;i++)if(ad[i]!==bd[i])d++;return d;
 };
 
-function deh1RowsFromOcr(data,colourCanvas){
+const deh1WordKey=word=>{const b=word?.bbox||{};return [Math.round(Number(b.x0)||0),Math.round(Number(b.y0)||0),Math.round(Number(b.x1)||0),Math.round(Number(b.y1)||0)].join(":")};
+const deh1WaveNumberToken=value=>{
+ const raw=clean(value).toUpperCase().replace(/O/g,"0").replace(/[IL|]/g,"1").replace(/[^0-9]/g,"");
+ if(!/^\d{1,2}$/.test(raw))return"";
+ const n=Number(raw);return n>=1&&n<=30?String(n):"";
+};
+const deh1OcrWords=data=>{
  const words=[];
  for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){
    for(const word of line?.words||[]){const text=clean(word?.text);if(text)words.push({text,bbox:word?.bbox,x:bboxX(word?.bbox),y:bboxY(word?.bbox),h:bboxH(word?.bbox)})}
  }
- const headers=[],times=[];
+ return words;
+};
+const deh1WaveAnchors=words=>{
+ const anchors=[];
  for(const word of words){
-   const t=deh1Time(word.text);if(t)times.push({time:t,x:word.x,y:word.y});
    if(!/^WAVE/i.test(word.text))continue;
-   const band=words.filter(w=>w.x>=word.x-20&&w.x<=word.x+520&&Math.abs(w.y-word.y)<=Math.max(30,word.h*3)).sort((a,b)=>a.x-b.x);
-   const start=Math.max(0,band.findIndex(w=>w===word||w.x===word.x&&w.y===word.y&&w.text===word.text));
-   const nearby=band.slice(start,start+12);
-   let number=(word.text.match(/\d+/)||[])[0]||"";
-   if(!number){for(const w of nearby.slice(1,4)){const m=w.text.replace(/O/g,"0").replace(/[IL|]/g,"1").match(/\d+/);if(m){number=m[0];break}}}
-   const tw=nearby.find(w=>deh1Time(w.text));const load=tw?deh1Time(tw.text):"";
-   if(number&&load)headers.push({wave:"WAVE"+number,time:load,x:(word.x+(tw?.x||word.x))/2,y:word.y});
+   const embedded=deh1WaveNumberToken(word.text.replace(/^WAVE/i,""));
+   const band=words.filter(w=>w.x>word.x&&w.x-word.x<Math.max(120,word.h*12)&&Math.abs(w.y-word.y)<=Math.max(16,word.h*1.6)).sort((a,b)=>a.x-b.x);
+   const numberWord=band.find(w=>!deh1Time(w.text)&&deh1WaveNumberToken(w.text));
+   const timeWord=band.find(w=>deh1Time(w.text));
+   anchors.push({word,numberWord,number:embedded||deh1WaveNumberToken(numberWord?.text),timeWord});
+ }
+ return anchors;
+};
+function deh1NumberCrop(canvas,bbox,threshold=null){
+ if(!canvas||!bbox)return null;
+ const h=Math.max(1,(Number(bbox.y1)||0)-(Number(bbox.y0)||0)),pad=Math.max(2,Math.round(h*.45));
+ const left=Math.max(0,Math.floor((Number(bbox.x0)||0)-pad)),top=Math.max(0,Math.floor((Number(bbox.y0)||0)-pad));
+ const right=Math.min(canvas.width,Math.ceil((Number(bbox.x1)||0)+pad)),bottom=Math.min(canvas.height,Math.ceil((Number(bbox.y1)||0)+pad));
+ if(right<=left||bottom<=top)return null;
+ const scale=6,out=document.createElement("canvas"),ctx=out.getContext("2d",{willReadFrequently:true});if(!ctx)return null;
+ out.width=(right-left)*scale;out.height=(bottom-top)*scale;ctx.imageSmoothingEnabled=false;ctx.drawImage(canvas,left,top,right-left,bottom-top,0,0,out.width,out.height);
+ if(threshold!=null){const img=ctx.getImageData(0,0,out.width,out.height),d=img.data;for(let i=0;i<d.length;i+=4){const gray=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2],v=gray<threshold?0:255;d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=255}ctx.putImageData(img,0,0)}
+ return out;
+}
+async function deh1RefinedWaveNumbers(worker,rawCanvas,data){
+ const words=deh1OcrWords(data),anchors=deh1WaveAnchors(words),overrides=new Map();
+ try{await worker.setParameters({tessedit_pageseg_mode:"8",tessedit_char_whitelist:"0123456789"})}catch{}
+ for(const anchor of anchors.slice(0,12)){
+   if(!anchor.numberWord?.bbox)continue;
+   const votes=[];
+   for(const threshold of [null,175]){
+     const crop=deh1NumberCrop(rawCanvas,anchor.numberWord.bbox,threshold);if(!crop)continue;
+     try{const {data:digitData}=await worker.recognize(crop,{}, {text:true});const n=deh1WaveNumberToken(digitData?.text);if(n)votes.push(n)}catch{}
+   }
+   if(!votes.length)continue;
+   const counts=new Map();for(const n of votes)counts.set(n,(counts.get(n)||0)+1);
+   let best=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||"";
+   const b=anchor.numberWord.bbox,ratio=((Number(b.x1)||0)-(Number(b.x0)||0))/Math.max(1,(Number(b.y1)||0)-(Number(b.y0)||0));
+   const single=votes.find(n=>n.length===1),double=votes.find(n=>n.length===2);
+   if(single&&double)best=ratio<.9?single:double;
+   if(best)overrides.set(deh1WordKey(anchor.word),best);
+ }
+ return overrides;
+}
+
+function deh1RowsFromOcr(data,colourCanvas,waveNumberOverrides=new Map()){
+ const words=deh1OcrWords(data),anchors=deh1WaveAnchors(words),headers=[],times=[];
+ for(const word of words){const t=deh1Time(word.text);if(t)times.push({time:t,x:word.x,y:word.y})}
+ for(const anchor of anchors){
+   const number=waveNumberOverrides.get(deh1WordKey(anchor.word))||anchor.number;
+   const load=anchor.timeWord?deh1Time(anchor.timeWord.text):"";
+   if(number&&load)headers.push({wave:"WAVE"+number,time:load,x:(anchor.word.x+(anchor.timeWord?.x||anchor.word.x))/2,y:anchor.word.y});
  }
  if(!headers.length)return[];
  const gateFor=header=>{
-   const candidates=times.filter(t=>t.y<header.y-8&&Math.abs(t.x-header.x)<Math.max(180,header.x*.55)).sort((a,b)=>Math.abs(header.y-a.y)-Math.abs(header.y-b.y));
+   const candidates=times.filter(t=>t.y<header.y-8&&Math.abs(t.x-header.x)<Math.max(220,header.x*.7)).sort((a,b)=>Math.abs(a.x-header.x)-Math.abs(b.x-header.x)||Math.abs(a.y-header.y)-Math.abs(b.y-header.y));
    return candidates[0]?.time||"";
  };
  const out=[];
@@ -113,7 +161,8 @@ async function deh1ImageRows(file,onProgress){
  const rawCanvas=await deh1RawCanvas(file);
  try{await worker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"})}catch{}
  const {data}=await worker.recognize(file,{}, {text:true,blocks:true});
- const rows=deh1RowsFromOcr(data,rawCanvas);
+ const refined=await deh1RefinedWaveNumbers(worker,rawCanvas,data);
+ const rows=deh1RowsFromOcr(data,rawCanvas,refined);
  await worker.terminate();return rows;
 }
 
