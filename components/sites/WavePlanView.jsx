@@ -143,7 +143,8 @@ function deh1RowsFromOcr(data,colourCanvas,waveNumberOverrides=new Map()){
    const load=anchor.timeWord?deh1Time(anchor.timeWord.text):"";
    if(number&&load)rawHeaders.push({wave:"WAVE"+number,time:load,x:(anchor.word.x+(anchor.timeWord?.x||anchor.word.x))/2,y:anchor.word.y});
  }
- const headers=normaliseDeh1Headers(rawHeaders);
+ const uniqueHeaders=[];for(const header of rawHeaders){if(!uniqueHeaders.some(h=>h.time===header.time&&Math.abs(h.x-header.x)<90))uniqueHeaders.push(header)}
+ const headers=normaliseDeh1Headers(uniqueHeaders);
  if(!headers.length)return[];
  const gateFor=header=>{
    const candidates=times.filter(t=>t.y<header.y-8&&Math.abs(t.x-header.x)<Math.max(220,header.x*.7)).sort((a,b)=>Math.abs(a.x-header.x)-Math.abs(b.x-header.x)||Math.abs(a.y-header.y)-Math.abs(b.y-header.y));
@@ -188,7 +189,16 @@ function deh1RowsFromOcr(data,colourCanvas,waveNumberOverrides=new Map()){
    if(!prev){merged.set(key,row);continue}
    merged.set(key,{...prev,launchPad:prev.launchPad||row.launchPad,dcslHint:prev.dcslHint||row.dcslHint,sourceY:prev.sourceY??row.sourceY});
  }
- return [...merged.values()].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999));
+ const all=[...merged.values()],byWave=new Map();
+ for(const row of all){const key=row.explicitWave+"|"+row.cells[1],arr=byWave.get(key)||[];arr.push(row);byWave.set(key,arr)}
+ const normalised=[];
+ for(const rows of byWave.values()){
+   const ordered=[...rows].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999)),starts=new Map();
+   ordered.forEach((row,i)=>{const pad=Number(row.launchPad);if(pad>=1&&pad<=8){const start=((pad-1-(i%8))+80)%8+1;starts.set(start,(starts.get(start)||0)+1)}});
+   const startPad=[...starts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0]||1;
+   ordered.forEach((row,i)=>normalised.push({...row,launchPad:String(((startPad-1+i)%8)+1)}));
+ }
+ return normalised.sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999));
 }
 async function deh1ImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
