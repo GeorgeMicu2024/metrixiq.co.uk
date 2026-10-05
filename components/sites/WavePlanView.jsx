@@ -28,9 +28,9 @@ const dcslDsp=s=>/\b(?:DCSL|DANUBE\s+COURIER\s+SERVICES\s+LTD)\b/i.test(String(s
 const dcslOcrLabel=s=>clean(s).toUpperCase().replace(/5/g,"S").replace(/[1I|]/g,"L").replace(/[^A-Z]/g,"")==="DCSL";
 const deh1RouteOf=values=>{
  const text=(values||[]).map(clean).join(" ").toUpperCase().replace(/C4/g,"CA").replace(/S4/g,"SA");
- const m=text.match(/\b(?:CA|SA)[_\s-]*A?[_\s-]*[0-9OILSB]{2,4}\b/i);if(!m)return"";
+ const m=text.match(/(?:CA|SA)[_\s-]*A?[_\s-]*[0-9OILSBA]{2,4}/i);if(!m)return"";
  const raw=m[0].replace(/\s+/g,"_").replace(/-+/g,"_").toUpperCase(),prefix=raw.startsWith("SA")?"SA":"CA";
- const digits=raw.replace(/^(?:CA|SA)_?A?_?/,"").replace(/O/g,"0").replace(/[IL]/g,"1").replace(/S/g,"5").replace(/B/g,"8").replace(/\D/g,"");
+ const digits=raw.replace(/^(?:CA|SA)_?A?_?/,"").replace(/O/g,"0").replace(/[IL]/g,"1").replace(/S/g,"5").replace(/B/g,"8").replace(/A/g,"4").replace(/\D/g,"");
  return digits?prefix+"_A"+digits:"";
 };
 const deh1Time=value=>{const m=clean(value).toUpperCase().replace(/O/g,"0").match(/\b(\d{1,2})\s*[:.]\s*(\d{2})\b/);return m?m[1]+":"+m[2]:""};
@@ -39,19 +39,29 @@ const bboxY=b=>b?((Number(b.y0)||0)+(Number(b.y1)||0))/2:0;
 const bboxH=b=>b?Math.max(1,(Number(b.y1)||0)-(Number(b.y0)||0)):1;
 const nearestByX=(items,x)=>items.reduce((best,item)=>!best||Math.abs(item.x-x)<Math.abs(best.x-x)?item:best,null);
 
-async function deh1Canvas(file){
+async function deh1RawCanvas(file){
  const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)return null;
  let source=null;
  if(typeof createImageBitmap==="function"){source=await createImageBitmap(file);canvas.width=source.width;canvas.height=source.height;ctx.drawImage(source,0,0);source.close?.()}
  else{const url=URL.createObjectURL(file);try{source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=url});canvas.width=source.naturalWidth||source.width;canvas.height=source.naturalHeight||source.height;ctx.drawImage(source,0,0)}finally{URL.revokeObjectURL(url)}}
- const scale=Math.max(3,Math.min(6,Math.ceil(1500/Math.max(1,canvas.width)))),out=document.createElement("canvas"),outCtx=out.getContext("2d",{willReadFrequently:true});if(!outCtx)return canvas;
- out.width=canvas.width*scale;out.height=canvas.height*scale;outCtx.imageSmoothingEnabled=false;outCtx.drawImage(canvas,0,0,out.width,out.height);
- const image=outCtx.getImageData(0,0,out.width,out.height),d=image.data;
- for(let i=0;i<d.length;i+=4){const max=Math.max(d[i],d[i+1],d[i+2]),min=Math.min(d[i],d[i+1],d[i+2]),dark=max<165&&max-min<95,v=dark?0:255;d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=255}
- outCtx.putImageData(image,0,0);return out;
+ return canvas;
 }
+const deh1GreenLeftOf=(canvas,bbox)=>{
+ if(!canvas||!bbox)return false;
+ const ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)return false;
+ const h=Math.max(1,(Number(bbox.y1)||0)-(Number(bbox.y0)||0)),right=Math.max(0,Math.floor(Number(bbox.x0)||0)-2),width=Math.min(right,Math.max(46,Math.min(95,Math.round(h*6))));
+ const left=Math.max(0,right-width),top=Math.max(0,Math.floor((Number(bbox.y0)||0)+h*.08)),bottom=Math.min(canvas.height,Math.ceil((Number(bbox.y1)||0)-h*.08));
+ if(right<=left||bottom<=top)return false;
+ let image;try{image=ctx.getImageData(left,top,right-left,bottom-top)}catch{return false}
+ let green=0,total=0;for(let i=0;i<image.data.length;i+=4){const r=image.data[i],g=image.data[i+1],b=image.data[i+2];total++;if(g>=90&&g-r>=35&&g-b>=20)green++}
+ return total>0&&green/total>=.08;
+};
+const deh1RouteDistance=(a,b)=>{
+ const ad=(clean(a).match(/(\d+)$/)||[])[1]||"",bd=(clean(b).match(/(\d+)$/)||[])[1]||"";if(!ad||ad.length!==bd.length)return 99;
+ let d=0;for(let i=0;i<ad.length;i++)if(ad[i]!==bd[i])d++;return d;
+};
 
-function deh1RowsFromOcr(data){
+function deh1RowsFromOcr(data,colourCanvas){
  const words=[];
  for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){
    for(const word of line?.words||[]){const text=clean(word?.text);if(text)words.push({text,bbox:word?.bbox,x:bboxX(word?.bbox),y:bboxY(word?.bbox),h:bboxH(word?.bbox)})}
@@ -74,25 +84,36 @@ function deh1RowsFromOcr(data){
    return candidates[0]?.time||"";
  };
  const out=[];
+ const pushRoute=(route,anchor,dcslHint=false)=>{
+   if(!route||!anchor)return;
+   const header=nearestByX(headers,anchor.x);if(!header)return;
+   out.push({sheet:"Image",row:out.length+1,cells:[route,header.time,header.wave,dcslHint?"DCSL":""],directLoadTime:true,explicitWave:header.wave,gateTime:gateFor(header),dcslHint:Boolean(dcslHint)});
+ };
+ for(const word of words){
+   let route=deh1RouteOf([word.text]),hint=deh1GreenLeftOf(colourCanvas,word.bbox);
+   if(!route&&hint){
+     const numeric=clean(word.text).replace(/O/g,"0").replace(/[IL|]/g,"1");
+     if(/^\d{2,4}$/.test(numeric))route="CA_A"+numeric;
+   }
+   if(route)pushRoute(route,word,hint);
+ }
  for(const word of words){
    if(!dcslOcrLabel(word.text))continue;
    const band=words.filter(w=>w.x>word.x&&w.x-word.x<420&&Math.abs(w.y-word.y)<=Math.max(28,word.h*2.2)).sort((a,b)=>a.x-b.x);
-   let route="";
-   for(let i=0;i<band.length;i++){route=deh1RouteOf(band.slice(i,i+4).map(w=>w.text));if(route)break}
-   if(!route)continue;
-   const header=nearestByX(headers,word.x);if(!header)continue;
-   out.push({sheet:"Image",row:out.length+1,cells:[route,header.time,header.wave,"DCSL"],directLoadTime:true,explicitWave:header.wave,gateTime:gateFor(header)});
+   let route="",anchor=null;
+   for(let i=0;i<band.length;i++){route=deh1RouteOf(band.slice(i,i+4).map(w=>w.text));if(route){anchor=band[i];break}}
+   if(route)pushRoute(route,anchor||word,true);
  }
- const seen=new Set();return out.filter(row=>{const key=norm(row.cells[0]);if(seen.has(key))return false;seen.add(key);return true});
+ const seen=new Set();return out.filter(row=>{const key=norm(row.cells[0])+"|"+row.explicitWave;if(seen.has(key))return false;seen.add(key);return true});
 }
 
 async function deh1ImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
- const enhanced=await deh1Canvas(file);
- try{await worker.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"})}catch{}
- const {data}=await worker.recognize(enhanced||file,{}, {text:true,blocks:true});
- const rows=deh1RowsFromOcr(data);
+ const rawCanvas=await deh1RawCanvas(file);
+ try{await worker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"})}catch{}
+ const {data}=await worker.recognize(file,{}, {text:true,blocks:true});
+ const rows=deh1RowsFromOcr(data,rawCanvas);
  await worker.terminate();return rows;
 }
 
@@ -184,7 +205,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const routeIdentity=useMemo(()=>{const m=new Map();const header=routeRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const h=header?.cells.map(v=>norm(v))||[];const ri=h.findIndex(v=>v==="ROUTE CODE"),ti=h.findIndex(v=>/TRANSPORTER ID/.test(v)),ni=h.findIndex(v=>/DRIVER NAME/.test(v)),di=h.findIndex(v=>v==="DSP");for(const x of routeRows){if(x===header)continue;if(norm(site)==="DEH1"&&di>=0&&!dcslDsp(x.cells[di]))continue;const route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);if(!route)continue;const key=norm(route),prev=m.get(key)||{trids:[],names:[],fallback:""};const rawTrid=ti>=0?clean(x.cells[ti]):"";const rawName=ni>=0?clean(x.cells[ni]):"";const foundTrids=[...new Set((rawTrid?rawTrid.split(/[\\/|,;\s]+/):x.cells.flatMap(v=>clean(v).split(/[\\/|,;\s]+/))).filter(v=>/^A[A-Z0-9]{8,}$/i.test(v)).map(norm))];const explicitNames=rawName?rawName.split(/[|]/).map(clean).filter(Boolean):[];const trids=[...new Set([...prev.trids,...foundTrids])];const dbNames=trids.map(t=>driverByTrid.get(t)).filter(Boolean);const names=[...new Set([...prev.names,...explicitNames,...dbNames])];const foundName=explicitNames[0]||candidate(x.cells,route,timeOf(x.cells),stageOf(x.cells));m.set(key,{trids,names,fallback:prev.fallback||(!companyLike(foundName)?foundName:"")})}return m},[routeRows,driverByTrid,site]);
  const conflicts=useMemo(()=>[...routeIdentity.entries()].filter(([route,v])=>v.trids.length>1&&v.names.length!==1&&!dismissedConflicts.has(route)),[routeIdentity,dismissedConflicts]);
  const routeDrivers=useMemo(()=>{const m=new Map();for(const [route,v] of routeIdentity){const manual=overrides[route];const name=manual||((v.trids.length===1||v.names.length===1)?v.names[0]:"")||v.fallback;if(name)m.set(route,name)}return m},[routeIdentity,overrides]);
- const plan=useMemo(()=>{const header=waveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const h=header?.cells.map(v=>norm(v))||[];const ri=h.findIndex(v=>v==="ROUTE CODE"),wi=h.findIndex(v=>v==="WAVE"),si=h.findIndex(v=>/STAGING LOCATION/.test(v)),ti=h.findIndex(v=>v==="TIME");return waveRows.map(x=>{if(x===header)return null;const route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);const amazon=ti>=0?timeOf([x.cells[ti]]):timeOf(x.cells);const staging=si>=0?clean(x.cells[si]):(stageOf(x.cells)||stageLoose(x.cells.join(" ")));if(!route||!amazon||(!staging&&!x.directLoadTime))return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v));const name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED",direct=Boolean(x.directLoadTime);return{route,driver:name,amazonTime:amazon,time:direct?amazon:adjustTime(amazon,adjust),staging:staging||"",gateTime:x.gateTime||"",directLoadTime:direct,wave:waveOf(staging,x.cells,route,x.explicitWave||(wi>=0?x.cells[wi]:""))}}).filter(Boolean)},[waveRows,routeDrivers,driverByTrid,adjust]);
+ const plan=useMemo(()=>{const header=waveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const h=header?.cells.map(v=>norm(v))||[];const ri=h.findIndex(v=>v==="ROUTE CODE"),wi=h.findIndex(v=>v==="WAVE"),si=h.findIndex(v=>/STAGING LOCATION/.test(v)),ti=h.findIndex(v=>v==="TIME");return waveRows.map(x=>{if(x===header)return null;let route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);if(norm(site)==="DEH1"&&routeIdentity.size&&route&&!routeIdentity.has(norm(route))){if(!x.dcslHint)return null;const near=[...routeIdentity.keys()].filter(k=>deh1RouteDistance(route,k)<=1);if(near.length!==1)return null;route=near[0]}const amazon=ti>=0?timeOf([x.cells[ti]]):timeOf(x.cells);const staging=si>=0?clean(x.cells[si]):(stageOf(x.cells)||stageLoose(x.cells.join(" ")));if(!route||!amazon||(!staging&&!x.directLoadTime))return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v));const name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED",direct=Boolean(x.directLoadTime);return{route,driver:name,amazonTime:amazon,time:direct?amazon:adjustTime(amazon,adjust),staging:staging||"",gateTime:x.gateTime||"",directLoadTime:direct,wave:waveOf(staging,x.cells,route,x.explicitWave||(wi>=0?x.cells[wi]:""))}}).filter(Boolean)},[waveRows,routeDrivers,driverByTrid,adjust,routeIdentity,site]);
  const groups=useMemo(()=>{const m=new Map();for(const r of plan){const stg=r.staging?(r.staging.match(/STG[- ]?[A-Z]/i)?.[0]?.replace(" ","-").toUpperCase()||r.staging):"NO-STAGING",key=[r.time,r.wave,stg].join("|");if(!m.has(key))m.set(key,[]);m.get(key).push(r)}return [...m.entries()].sort((a,b)=>(toMinutes(a[0].split("|")[0])??9999)-(toMinutes(b[0].split("|")[0])??9999)||a[0].localeCompare(b[0]))},[plan]);
  const visibleGroups=useMemo(()=>groups.filter(([k])=>!hiddenWaves.has(k)),[groups,hiddenWaves]);
  const toggleWave=(key)=>setHiddenWaves(prev=>{const next=new Set(prev);if(next.has(key))next.delete(key);else next.add(key);return next});
