@@ -3320,3 +3320,217 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   .atlas-status-card small{grid-column:1/-1;max-width:none}
   .atlas-toolbar .btn{flex:1 1 calc(50% - 8px)}
 }
+
+
+/* DEH1 approved Wave Plan controls + compact table v3 */
+.daily-dispatch .waveplan-preview .deh-preview-head{
+  display:flex!important;
+  align-items:flex-start!important;
+  justify-content:space-between!important;
+  gap:16px!important;
+  flex-wrap:wrap!important;
+}
+.daily-dispatch .deh-preview-controls{
+  margin-left:auto;
+  display:flex;
+  align-items:stretch;
+  gap:12px;
+  padding:8px 10px;
+  border:1px solid #dbe4ec;
+  border-radius:12px;
+  background:#f8fafc;
+  box-shadow:0 3px 10px rgba(15,23,42,.04);
+}
+.daily-dispatch .deh-control-block{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:34px;
+}
+.daily-dispatch .deh-control-title{
+  margin-right:3px;
+  color:#293a4f;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.04em;
+  white-space:nowrap;
+}
+.daily-dispatch .deh-control-divider{
+  width:1px;
+  align-self:stretch;
+  background:#dbe4ec;
+}
+.daily-dispatch .deh-control-block label{
+  display:flex;
+  align-items:center;
+  height:32px;
+  overflow:hidden;
+  border:1px solid #d7e1e9;
+  border-radius:8px;
+  background:#fff;
+}
+.daily-dispatch .deh-control-block label>span{
+  padding:0 7px;
+  color:#68798c;
+  font-size:8px;
+  font-weight:850;
+  white-space:nowrap;
+}
+.daily-dispatch .deh-control-block input[type="time"]{
+  width:82px;
+  height:30px;
+  padding:0 6px;
+  border:0;
+  border-left:1px solid #e1e8ee;
+  outline:0;
+  background:#fff;
+  color:#18283d;
+  font-size:11px;
+  font-weight:900;
+}
+.daily-dispatch .deh-control-block select,
+.daily-dispatch .deh-text-settings button,
+.daily-dispatch .deh-text-settings output{
+  height:32px;
+  border:1px solid #d7e1e9;
+  border-radius:8px;
+  background:#fff;
+  color:#24364b;
+  font-size:10px;
+  font-weight:800;
+}
+.daily-dispatch .deh-control-block select{
+  padding:0 28px 0 9px;
+}
+.daily-dispatch .deh-wave-select{min-width:82px}
+.daily-dispatch .deh-text-settings select{min-width:94px}
+.daily-dispatch .deh-text-settings button{
+  min-width:34px;
+  padding:0 8px;
+  cursor:pointer;
+}
+.daily-dispatch .deh-text-settings output{
+  min-width:34px;
+  display:grid;
+  place-items:center;
+  background:#f2f5f8;
+}
+.daily-dispatch .deh-text-settings button:hover,
+.daily-dispatch .deh-text-settings button.active{
+  border-color:#6b8fb5;
+  background:#eaf2f9;
+  color:#102b47;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished{
+  background:#eef2f6!important;
+  border-color:#ccd8e3!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave{
+  margin:10px 10px 12px!important;
+  border:1px solid #cfd9e3!important;
+  border-radius:11px!important;
+  box-shadow:0 3px 10px rgba(15,23,42,.055)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-summary{
+  grid-template-columns:minmax(0,1fr) 126px 126px!important;
+  min-height:56px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name{
+  gap:10px!important;
+  padding:8px 14px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name small{
+  font-size:7px!important;
+  letter-spacing:.16em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name strong{
+  font-size:18px!important;
+  letter-spacing:.015em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name span{
+  padding:4px 8px!important;
+  font-size:8px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-time{
+  gap:2px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-time small{
+  font-size:7px!important;
+  letter-spacing:.14em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-time strong{
+  font-size:17px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns{
+  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  min-height:38px!important;
+  background:#dde7f0!important;
+  border-top:1px solid #c8d5e0!important;
+  border-bottom:1px solid #c3d1dd!important;
+  box-shadow:inset 0 -1px 0 rgba(255,255,255,.55)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns>*{
+  padding:9px 10px!important;
+  color:#17283d!important;
+  border-right:1px solid #c6d3de!important;
+  font-size:10.5px!important;
+  font-weight:950!important;
+  letter-spacing:.105em!important;
+  text-shadow:0 1px 0 rgba(255,255,255,.6);
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
+  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  min-height:34px!important;
+  background:#f7f9fb!important;
+  border-bottom:1px solid #d7e0e8!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row:nth-of-type(even){
+  background:#ffffff!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave6 .deh-driver-row:nth-of-type(even){
+  background:#fffafa!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave7 .deh-driver-row:nth-of-type(even){
+  background:#f9fcfa!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row>*{
+  padding:6px 10px!important;
+  border-right:1px solid #d7e0e8!important;
+  color:#233449!important;
+  font-family:var(--deh-body-font-family,Inter,system-ui,sans-serif)!important;
+  font-size:var(--deh-body-font-size,13px)!important;
+  font-style:var(--deh-body-font-style,normal)!important;
+  text-decoration:var(--deh-body-text-decoration,none)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row>b{
+  color:#152a42!important;
+  font-weight:950!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row>strong{
+  color:#1d3048!important;
+  font-weight:max(800,var(--deh-body-font-weight,800))!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row>.dcsl-gate,
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row>.dcsl-load{
+  font-weight:900!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave6 .deh-wave-summary{
+  background:linear-gradient(105deg,#c95050 0%,#d96a6a 100%)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave7 .deh-wave-summary{
+  background:linear-gradient(105deg,#368d65 0%,#58a87d 100%)!important;
+}
+@media(max-width:1080px){
+  .daily-dispatch .deh-preview-controls{width:100%;margin-left:0;overflow-x:auto}
+}
+@media(max-width:760px){
+  .daily-dispatch .deh-control-block{flex-wrap:wrap}
+  .daily-dispatch .deh-control-divider{display:none}
+  .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-summary{
+    grid-template-columns:minmax(0,1fr) 112px 112px!important;
+  }
+  .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns,
+  .daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
+    grid-template-columns:120px minmax(0,1fr) 110px 110px!important;
+  }
+}
