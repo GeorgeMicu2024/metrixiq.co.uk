@@ -363,43 +363,101 @@ const atlasWaveOf=value=>{
  const m=text.match(/W[A4]V[E3]\s*[-:]?\s*(\d{1,2})/i);return m?"Wave "+Number(m[1]):"";
 };
 function atlasRowsFromOcrData(data){
+ const out=new Map();
+ const add=(text,sourceY=0)=>{
+   const tracking=atlasTrackingOf(text),route=deh1RouteOf([text])||routeOf([text]),wave=atlasWaveOf(text);
+   if(!tracking||!route)return;
+   const prev=out.get(tracking);
+   out.set(tracking,{tracking,route:prev?.route||route,wave:prev?.wave||wave,sourceY:prev?.sourceY??sourceY});
+ };
  const candidates=[];
  for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){
    const text=clean(line?.text||(line?.words||[]).map(w=>w?.text||"").join(" "));
-   if(text)candidates.push(text);
+   if(text)candidates.push({text,y:bboxY(line?.bbox)});
  }
- for(const line of String(data?.text||"").split(/\r?\n/)){const text=clean(line);if(text)candidates.push(text)}
- const out=new Map();
- const add=text=>{
-   const tracking=atlasTrackingOf(text),route=deh1RouteOf([text])||routeOf([text]),wave=atlasWaveOf(text);
-   if(tracking&&route&&!out.has(tracking))out.set(tracking,{tracking,route,wave});
- };
- candidates.forEach(add);
- if(out.size)return[...out.values()];
- const words=deh1OcrWords(data).sort((a,b)=>a.y-b.y||a.x-b.x);
+ for(const line of String(data?.text||"").split(/\r?\n/)){const text=clean(line);if(text)candidates.push({text,y:0})}
+ candidates.forEach(x=>add(x.text,x.y));
+
+ // Rebuild table rows spatially. Tesseract often splits Tracking ID, Route and Wave
+ // into separate cells/lines on photographed sheets.
+ const words=deh1OcrWords(data).sort((a,b)=>a.y-b.y||a.x-b.x),bands=[];
  for(const word of words){
-   const tracking=atlasTrackingOf(word.text);if(!tracking)continue;
-   const band=words.filter(w=>Math.abs(w.y-word.y)<=Math.max(18,word.h*1.25)&&w.x>=word.x-20&&w.x-word.x<900).sort((a,b)=>a.x-b.x);
-   const text=band.map(w=>w.text).join(" "),route=deh1RouteOf([text])||routeOf([text]),wave=atlasWaveOf(text);
-   if(route&&!out.has(tracking))out.set(tracking,{tracking,route,wave});
+   let best=null,bestD=Infinity;
+   for(const band of bands){
+     const d=Math.abs(word.y-band.y),tol=Math.max(12,Math.min(30,(word.h+band.h)*.85));
+     if(d<=tol&&d<bestD){best=band;bestD=d}
+   }
+   if(best){best.words.push(word);best.y=(best.y*(best.words.length-1)+word.y)/best.words.length;best.h=Math.max(best.h,word.h)}
+   else bands.push({y:word.y,h:word.h,words:[word]});
  }
- return[...out.values()];
+ bands.sort((a,b)=>a.y-b.y);
+ for(const band of bands){
+   const row=band.words.sort((a,b)=>a.x-b.x).map(w=>w.text).join(" ");
+   add(row,band.y);
+ }
+
+ // Anchor on every Tracking ID and look right across the same visual row.
+ for(const band of bands){
+   const ordered=band.words.sort((a,b)=>a.x-b.x),rowText=ordered.map(w=>w.text).join(" ");
+   const tracking=atlasTrackingOf(rowText);
+   if(!tracking)continue;
+   let route=deh1RouteOf([rowText])||routeOf([rowText]),wave=atlasWaveOf(rowText);
+   if(!route){
+     const trackingIndex=ordered.findIndex((_,i)=>atlasTrackingOf(ordered.slice(Math.max(0,i-1),Math.min(ordered.length,i+3)).map(w=>w.text).join(" ")));
+     if(trackingIndex>=0){
+       const right=ordered.slice(trackingIndex).map(w=>w.text).join(" ");
+       route=deh1RouteOf([right])||routeOf([right]);wave=wave||atlasWaveOf(right);
+     }
+   }
+   if(route){
+     const prev=out.get(tracking);
+     out.set(tracking,{tracking,route:prev?.route||route,wave:prev?.wave||wave,sourceY:prev?.sourceY??band.y});
+   }
+ }
+ return [...out.values()].sort((a,b)=>(a.sourceY||999999)-(b.sourceY||999999));
+}
+const mergeAtlasRows=(...sets)=>{
+ const out=new Map();
+ for(const rows of sets.flat())for(const row of rows||[]){
+   if(!row?.tracking||!row?.route)continue;
+   const prev=out.get(row.tracking);
+   out.set(row.tracking,{tracking:row.tracking,route:prev?.route||row.route,wave:prev?.wave||row.wave||"",sourceY:Math.min(prev?.sourceY??999999,row.sourceY??999999)});
+ }
+ return [...out.values()].sort((a,b)=>(a.sourceY||999999)-(b.sourceY||999999));
+};
+function atlasEnhancedCanvas(source){
+ if(!source?.width||!source?.height)return null;
+ const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)return null;
+ const scale=Math.max(1.5,Math.min(2.5,1800/source.width));canvas.width=Math.round(source.width*scale);canvas.height=Math.round(source.height*scale);
+ ctx.drawImage(source,0,0,canvas.width,canvas.height);
+ const img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data;
+ for(let i=0;i<d.length;i+=4){
+   const gray=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];
+   const v=gray<205?Math.max(0,gray*.72):255;
+   d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=255;
+ }
+ ctx.putImageData(img,0,0);return canvas;
 }
 async function atlasImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
- let rows=[];
+ const passes=[];
+ let rawCanvas=null;
  try{
-   try{await worker.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"})}catch{}
-   const first=await worker.recognize(file,{}, {text:true,blocks:true});
-   rows=atlasRowsFromOcrData(first.data);
-   if(!rows.length){
-     try{await worker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"})}catch{}
-     const second=await worker.recognize(file,{}, {text:true,blocks:true});
-     rows=atlasRowsFromOcrData(second.data);
+   rawCanvas=await deh1RawCanvas(file);
+   for(const mode of ["6","11"]){
+     try{await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
+     const result=await worker.recognize(file,{}, {text:true,blocks:true});
+     passes.push(atlasRowsFromOcrData(result.data));
+   }
+   const enhanced=atlasEnhancedCanvas(rawCanvas);
+   if(enhanced){
+     try{await worker.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
+     const result=await worker.recognize(enhanced,{}, {text:true,blocks:true});
+     passes.push(atlasRowsFromOcrData(result.data));
    }
  }finally{await worker.terminate()}
- return rows;
+ return mergeAtlasRows(...passes);
 }
 
 export default function WavePlanView({site="DLS2",drivers=[]}){
@@ -570,7 +628,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    <div className="waveplan-actions clean"><button className="btn primary" disabled={!routeFile||!waveFile} onClick={generate}>↻ Generate Wave Plan</button><button className="btn ghost waveplan-edit-names" disabled={!plan.length} onClick={openNameEditor}>✎ Edit Driver Names</button><button className="btn ghost danger" onClick={clear}>Clear</button><button className="btn success ready" disabled={!generated||routeSetMismatch} onClick={()=>exportPng(true)}>↗ Ready to Send</button></div>
    
    <section className="waveplan-workspace"><aside><article className="panel waveplan-summary"><h2>Summary</h2>{visibleGroups.map(([k,v])=>{const wave=k.split("|")[1],waveColour=colourForRows(wave,v);return <p key={k}><i style={{background:waveColour}}/><span>{waveLabel(wave)}</span><b>{v.length} drivers · {k.split("|")[0]}</b></p>})}<footer>Total <b>{visibleGroups.reduce((sum,[,rows])=>sum+rows.length,0)} drivers</b>{hiddenWaves.size?<small> · {hiddenWaves.size} wave hidden</small>:null}</footer></article><article className="panel waveplan-history"><h2>Recent Uploads</h2>{history.length?history.map(x=><div key={x.id}><p><b>{x.date}</b><small>✓ Generated</small><span>{x.route} + {x.wave}</span></p><button onClick={()=>setHistory(h=>h.filter(y=>y.id!==x.id))}>Delete</button></div>):<p className="muted">No generated plans in this session.</p>}</article></aside>
-   <article className="panel waveplan-preview"><div className="panel-head"><div><h2>Wave Plan Preview</h2><p>DCSL format · ordered chronologically · driver names cleaned and deduplicated.</p></div></div>{generated?<div className={"dcsl-sheet font-"+planFontSize+(norm(site)==="DEH1"?" deh1-polished":"")} ref={sheetRef}><header><div className="dcsl-brand"><img className="dcsl-mark-image" src={"data:image/webp;base64,UklGRqQFAABXRUJQVlA4IJgFAACQKQCdASrvAPAAPikSh0KhoQslogAMAUJZW7gK30Pu/fdKvTkwbmn5M8onovmX/T/cB9APS1t/vNZ+t/7Y+6V0gH7HdeRoquqThJokxelxtfYwZJK+4QIbOE8xW3Yu6GarNqklw3S9GS/ap7XLH4+eMzxnRR5aEIKElspcN0vRkv2gBSbO3VjXNTdVohYa8CVqjG4Df2fmaJyQ6BN2aHbDKCERqgp/cSNuS2rnX314kHDYjWtw70c25Qbt4CIb27fjsD+QBGQXPCdwnOi2ES3zvV0ut2IdsUjbktsRHX3Yh2xSNuS2xEdfdiHa9VIXMeRJwd/qBWlgD8vg+CsNTK0qwHjhPLwI2b/1MjUQbs6e7D6hIM6rxL6s5EaaciMrq/VzjjMHcEuen2Lu8w/q+Le32iX2YPB1KSX7GFh+ABkSiQSawqUKUzDKdTDydU5GeKhb42yeeAD++Ob7c/kM+wNcfHxANZsNFef1e67o1HQeE25rEv//YaL7qH+3QT/7iN/dAlT/7tYy33/0PxAsuploGAwgVJFK2G0FbSzV4SzuKeeuAwZwiAM/KxHC4DhuB9gAoQiyQHmGHATYaYkDkv8Bfqfmh3UL+otk5FP8PqQZBV1qKr9f8Vn+x1T17MMvAvellLag464LR3V5rjVLS3GEaDdghCQj4snAx2mnHPTX9Ns4veX69gn3gXJlbG2wj8cBQ3eOPSmSH4F6QXz3SZqIxFvig0+2gE9Y/p5lTmD6nSz2/rN9IpURcHlJ4TVEYNG9qar9cVJZZdABm/YKIT5BMS3uCOCf3nOg+5IRIzsgYBdi4A79obpcthagc90xDPfTI5yVhvAcsx+CPO8WH+/BLIqbElza2lIvYlSYjW5nZex3NbkGCPu3brvt6OYHHWpL67/iofOveLqW/BpmMINllH7xJOqZ3HjoX+IMWUUAjeGGCHRtwW1QzJ7Ep/1egDNvet7T563QvrnTxFb3itY6qvyn4UtU4RrP37sMAB0kFT9oRszykxqhOn8mFG2vGV1/+SbkH/Zdn8RquHJd//J1EIzYf42wFPnfBAA2vW3ylkt4RkKRoEMGqXZLHVyD3mRQ305CYJZDWEH+snUv9s4aU5JwDkemJjb1Bf45DNYew76f/WIF9r+d0svBhifujsqQQEiF/4d0x6Fgdue/t8cVKM4IwCvqx2Sn8r6Nvp7bMb0G/pBbc5QRQ7f6oXjzL/zJrh2dbcQ6d/v5L7G1kjHNbpPfjj25zJ1KADJpvoY4Cc9OsenCmJobhXv/aZiHXDS5ulSBGnY2rKcXSVkoNULTL4Yga5EXMu5PY2sW9UjEKU11uYyXVAA/aXIAmR/ys//l6cQdZdaHaa0gww50XrGxhJK+TP0RI+0L/F6bfC8GFZw5OEwBCwG17N2byIioT/chWqYvZPzcg8i8nrIStk1dnLxUwDVzj1AAFaZHgYvpZFAxbyNrWk2+t/XrTx6tKBTHpwpiaG4V/OdeGtaMC3mUirQeYXRcFKGnJZizuph2cp0awL99YpoDYrgJVjn9e5Gu1QifxuqcVkR1hz7gmqRdEMzbSqtk6V77TtuapJIi3ycLZ8w2TtsY7eFui+t6pD2tNmOPNHyxMLEqfd/9rsiE61H1I8cU3V6t0e3vqPl7dEfKtMXdHckPF17/1Bn3/q9qJFIvn/Pue9qTLnFFT5OaxB3eYfSNfMCuhJ/+DMrbPPxtTWZUc7SyNHzyf60eFOCPTTNhCeT4VYG/Odv96GKUgD7ZsGWXPS99ml6x+Z8QVQS5vkZzTnXBrRKRLJhMeyrhb8Wh2oamZOLMHbRwT5Qfn/mIGYl/++gyD5r4p6oJdXHJM+xmTaUQaqAv9feXBiVjbA9S4OmNI+sVBZ0aqMDm4wHEdwht4ETnIY0tzq/8qiC03odBWYAA"} alt="DCSL logo mark" /><div><strong className="dcsl-logo">DCSL</strong><small>DELIVERING A BRIGHTER TOMORROW</small></div></div><div className="dcsl-title"><h3>Wave Plan</h3><span>▣ {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</span></div><div className="dcsl-site"><b>{site}</b><span>{plan.some(r=>r.staging)?"STG - A":"GATE / HOLDING"}</span></div><div className="dcsl-values"><span>PEOPLE</span><span>ROUTES</span><span>PERFORMANCE</span></div></header><div className="dcsl-columns"><b>ROUTE</b><b>DRIVER NAME</b>{norm(site)==="DEH1"?<><b>GATE TIME</b><b>LOAD TIME</b></>:<><b>◷ &nbsp; LOAD TIME</b><b>⌖ &nbsp; {plan.some(r=>r.staging)?"STAGING":"GATE / HOLDING"}</b></>}</div>{visibleGroups.map(([k,rows])=>{const [time,wave,stg]=k.split("|"),waveColour=colourForRows(wave,rows),textColour=waveTextColour(waveColour),gate=rows.find(r=>r.gateTime)?.gateTime||"",deh=norm(site)==="DEH1";return <section key={k} className={"dcsl-wave wave-"+wave.toLowerCase()} style={{"--wave":waveColour,"--wave-text":textColour}}><h4>{waveLabel(wave).toUpperCase()}{deh?<>&nbsp; · &nbsp;GATE {gate||"—"}&nbsp; · &nbsp;LOAD {time}</>:<>&nbsp; - &nbsp;{time}{gate?` · GATE ${gate}`:stg!=="NO-STAGING"?` ${stg.replace("-"," ")}`:""}</>}</h4>{rows.map((r,i)=><div key={r.route+"-"+i}><b>{r.route}</b><strong>{r.driver.toUpperCase()}</strong>{deh?<><span className="dcsl-gate">{r.gateTime||"—"}</span><span className="dcsl-load">{r.time||"—"}</span></>:<><span>{r.time}</span><em>{r.staging||r.gateTime||"—"}</em></>}</div>)}</section>})}<footer><div className="dcsl-foot-team"><b>●●●</b><span>ONE TEAM<br/>SAFER DELIVERIES<br/>STRONGER TOMORROW</span></div><div className="dcsl-foot-brand"><strong>DCSL</strong><span>DRIVE &nbsp;|&nbsp; DELIVER &nbsp;|&nbsp; SUCCEED</span></div><div className="dcsl-foot-site"><b>{site}</b><span>Make It Happen</span></div></footer></div>:<div className="waveplan-empty">Upload Route Plan + Wave Plan and select <b>Generate Wave Plan</b>.</div>}</article></section>
+   <article className="panel waveplan-preview"><div className="panel-head"><div><h2>Wave Plan Preview</h2><p>DCSL format · ordered chronologically · driver names cleaned and deduplicated.</p></div></div>{generated?<div className={"dcsl-sheet font-"+planFontSize+(norm(site)==="DEH1"?" deh1-polished":"")} ref={sheetRef}><header><div className="dcsl-brand"><img className="dcsl-mark-image" src={"data:image/webp;base64,UklGRqQFAABXRUJQVlA4IJgFAACQKQCdASrvAPAAPikSh0KhoQslogAMAUJZW7gK30Pu/fdKvTkwbmn5M8onovmX/T/cB9APS1t/vNZ+t/7Y+6V0gH7HdeRoquqThJokxelxtfYwZJK+4QIbOE8xW3Yu6GarNqklw3S9GS/ap7XLH4+eMzxnRR5aEIKElspcN0vRkv2gBSbO3VjXNTdVohYa8CVqjG4Df2fmaJyQ6BN2aHbDKCERqgp/cSNuS2rnX314kHDYjWtw70c25Qbt4CIb27fjsD+QBGQXPCdwnOi2ES3zvV0ut2IdsUjbktsRHX3Yh2xSNuS2xEdfdiHa9VIXMeRJwd/qBWlgD8vg+CsNTK0qwHjhPLwI2b/1MjUQbs6e7D6hIM6rxL6s5EaaciMrq/VzjjMHcEuen2Lu8w/q+Le32iX2YPB1KSX7GFh+ABkSiQSawqUKUzDKdTDydU5GeKhb42yeeAD++Ob7c/kM+wNcfHxANZsNFef1e67o1HQeE25rEv//YaL7qH+3QT/7iN/dAlT/7tYy33/0PxAsuploGAwgVJFK2G0FbSzV4SzuKeeuAwZwiAM/KxHC4DhuB9gAoQiyQHmGHATYaYkDkv8Bfqfmh3UL+otk5FP8PqQZBV1qKr9f8Vn+x1T17MMvAvellLag464LR3V5rjVLS3GEaDdghCQj4snAx2mnHPTX9Ns4veX69gn3gXJlbG2wj8cBQ3eOPSmSH4F6QXz3SZqIxFvig0+2gE9Y/p5lTmD6nSz2/rN9IpURcHlJ4TVEYNG9qar9cVJZZdABm/YKIT5BMS3uCOCf3nOg+5IRIzsgYBdi4A79obpcthagc90xDPfTI5yVhvAcsx+CPO8WH+/BLIqbElza2lIvYlSYjW5nZex3NbkGCPu3brvt6OYHHWpL67/iofOveLqW/BpmMINllH7xJOqZ3HjoX+IMWUUAjeGGCHRtwW1QzJ7Ep/1egDNvet7T563QvrnTxFb3itY6qvyn4UtU4RrP37sMAB0kFT9oRszykxqhOn8mFG2vGV1/+SbkH/Zdn8RquHJd//J1EIzYf42wFPnfBAA2vW3ylkt4RkKRoEMGqXZLHVyD3mRQ305CYJZDWEH+snUv9s4aU5JwDkemJjb1Bf45DNYew76f/WIF9r+d0svBhifujsqQQEiF/4d0x6Fgdue/t8cVKM4IwCvqx2Sn8r6Nvp7bMb0G/pBbc5QRQ7f6oXjzL/zJrh2dbcQ6d/v5L7G1kjHNbpPfjj25zJ1KADJpvoY4Cc9OsenCmJobhXv/aZiHXDS5ulSBGnY2rKcXSVkoNULTL4Yga5EXMu5PY2sW9UjEKU11uYyXVAA/aXIAmR/ys//l6cQdZdaHaa0gww50XrGxhJK+TP0RI+0L/F6bfC8GFZw5OEwBCwG17N2byIioT/chWqYvZPzcg8i8nrIStk1dnLxUwDVzj1AAFaZHgYvpZFAxbyNrWk2+t/XrTx6tKBTHpwpiaG4V/OdeGtaMC3mUirQeYXRcFKGnJZizuph2cp0awL99YpoDYrgJVjn9e5Gu1QifxuqcVkR1hz7gmqRdEMzbSqtk6V77TtuapJIi3ycLZ8w2TtsY7eFui+t6pD2tNmOPNHyxMLEqfd/9rsiE61H1I8cU3V6t0e3vqPl7dEfKtMXdHckPF17/1Bn3/q9qJFIvn/Pue9qTLnFFT5OaxB3eYfSNfMCuhJ/+DMrbPPxtTWZUc7SyNHzyf60eFOCPTTNhCeT4VYG/Odv96GKUgD7ZsGWXPS99ml6x+Z8QVQS5vkZzTnXBrRKRLJhMeyrhb8Wh2oamZOLMHbRwT5Qfn/mIGYl/++gyD5r4p6oJdXHJM+xmTaUQaqAv9feXBiVjbA9S4OmNI+sVBZ0aqMDm4wHEdwht4ETnIY0tzq/8qiC03odBWYAA"} alt="DCSL logo mark" /><div><strong className="dcsl-logo">DCSL</strong><small>DELIVERING A BRIGHTER TOMORROW</small></div></div><div className="dcsl-title"><h3>Wave Plan</h3><span>▣ {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</span></div><div className="dcsl-site"><b>{site}</b><span>{plan.some(r=>r.staging)?"STG - A":"GATE / HOLDING"}</span></div><div className="dcsl-values"><span>PEOPLE</span><span>ROUTES</span><span>PERFORMANCE</span></div></header>{norm(site)!=="DEH1"&&<div className="dcsl-columns"><b>ROUTE</b><b>DRIVER NAME</b><b>◷ &nbsp; LOAD TIME</b><b>⌖ &nbsp; {plan.some(r=>r.staging)?"STAGING":"GATE / HOLDING"}</b></div>}{visibleGroups.map(([k,rows])=>{const [time,wave,stg]=k.split("|"),waveColour=colourForRows(wave,rows),textColour=waveTextColour(waveColour),gate=rows.find(r=>r.gateTime)?.gateTime||"",deh=norm(site)==="DEH1";return <section key={k} className={"dcsl-wave wave-"+wave.toLowerCase()} style={{"--wave":waveColour,"--wave-text":textColour}}>{deh?<><header className="deh-wave-summary"><div className="deh-wave-name"><small>DISPATCH WAVE</small><strong>{waveLabel(wave).toUpperCase()}</strong><span>{rows.length} drivers</span></div><div className="deh-wave-time gate"><small>GATE TIME</small><strong>{gate||"—"}</strong></div><div className="deh-wave-time load"><small>LOAD TIME</small><strong>{time}</strong></div></header><div className="deh-wave-columns"><b>ROUTE</b><b>DRIVER NAME</b><b>GATE TIME</b><b>LOAD TIME</b></div></>:<h4>{waveLabel(wave).toUpperCase()}&nbsp; - &nbsp;{time}{gate?` · GATE ${gate}`:stg!=="NO-STAGING"?` ${stg.replace("-"," ")}`:""}</h4>}{rows.map((r,i)=><div className={deh?"deh-driver-row":""} key={r.route+"-"+i}><b>{r.route}</b><strong>{r.driver.toUpperCase()}</strong>{deh?<><span className="dcsl-gate">{r.gateTime||"—"}</span><span className="dcsl-load">{r.time||"—"}</span></>:<><span>{r.time}</span><em>{r.staging||r.gateTime||"—"}</em></>}</div>)}</section>})}<footer><div className="dcsl-foot-team"><b>●●●</b><span>ONE TEAM<br/>SAFER DELIVERIES<br/>STRONGER TOMORROW</span></div><div className="dcsl-foot-brand"><strong>DCSL</strong><span>DRIVE &nbsp;|&nbsp; DELIVER &nbsp;|&nbsp; SUCCEED</span></div><div className="dcsl-foot-site"><b>{site}</b><span>Make It Happen</span></div></footer></div>:<div className="waveplan-empty">Upload Route Plan + Wave Plan and select <b>Generate Wave Plan</b>.</div>}</article></section>
   </>}
   {editNamesOpen&&<div className="wave-name-editor-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setEditNamesOpen(false)}}><aside className="wave-name-editor" role="dialog" aria-modal="true" aria-label="Edit Driver Names"><header><div><span className="page-kicker">DRIVER CLEANUP</span><h2>👥 Edit Driver Names</h2><p>Review and correct names before generating or sending the final wave plan.</p></div><button type="button" aria-label="Close name editor" onClick={()=>setEditNamesOpen(false)}>×</button></header><div className="wave-name-editor-info">ⓘ Driver names are automatically deduplicated. You can override any route manually when needed.</div><div className="wave-name-editor-table"><div className="head"><span>Route</span><span>Current name</span><span>Corrected name</span></div>{editableRoutes.map(row=>{const key=norm(row.route);return <div className="row" key={key}><b>{row.route}</b><span title={row.current}>{row.current}</span><input value={editDraft[key]??row.corrected} onChange={e=>setEditDraft(d=>({...d,[key]:e.target.value}))} aria-label={"Corrected name for "+row.route}/></div>})}</div><div className="wave-name-editor-tip">💡 Changes apply immediately to the preview after you select <b>Apply Changes</b>.</div><footer><button type="button" className="btn ghost" onClick={()=>setEditNamesOpen(false)}>Cancel</button><button type="button" className="btn primary" onClick={applyNameEdits}>✓ Apply Changes</button></footer></aside></div>}
  </div>
