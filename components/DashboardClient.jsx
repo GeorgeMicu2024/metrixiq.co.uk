@@ -217,18 +217,59 @@ export default function DashboardClient() {
     const supabase = getSupabaseBrowserClient();
     async function initialise() {
       try {
-        const requestedView = new URLSearchParams(window.location.search).get("view");
+        const url = new URL(window.location.href);
+        const requestedView = url.searchParams.get("view");
         if (requestedView) setActive(requestedView);
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData.user) {
+
+        let user = null;
+        const authCode = url.searchParams.get("code");
+
+        // Google OAuth can return directly to /app. Complete the session here
+        // before deciding the user is signed out, otherwise the app can bounce
+        // through /login while Supabase is still exchanging the OAuth code.
+        if (authCode) {
+          const { data: exchangeData } = await supabase.auth.exchangeCodeForSession(authCode);
+          user = exchangeData?.session?.user || null;
+          if (user) {
+            url.searchParams.delete("code");
+            url.searchParams.delete("state");
+            window.history.replaceState(
+              { metrixiqView: requestedView || "dashboard" },
+              "",
+              url.pathname + (url.searchParams.toString() ? "?" + url.searchParams.toString() : "")
+            );
+          }
+        }
+
+        if (!user) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          user = sessionData?.session?.user || null;
+        }
+
+        // If OAuth URL processing is still finishing, give it a short grace
+        // period instead of redirecting back to the login page.
+        if (!user && (authCode || /access_token|refresh_token|error_description/i.test(window.location.hash))) {
+          for (let attempt = 0; attempt < 10 && !user; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 150));
+            const { data: sessionData } = await supabase.auth.getSession();
+            user = sessionData?.session?.user || null;
+          }
+        }
+
+        if (!user) {
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (!userError) user = userData?.user || null;
+        }
+
+        if (!user) {
           router.replace("/login");
           return;
         }
 
         const preferredOrganizationId = localStorage.getItem("metrixiq.organizationId");
-        const { context, permissionState } = await fetchWorkspaceContextForUser(userData.user, preferredOrganizationId);
+        const { context, permissionState } = await fetchWorkspaceContextForUser(user, preferredOrganizationId);
         if (!alive) return;
-        applyWorkspaceContext(context, userData.user, permissionState);
+        applyWorkspaceContext(context, user, permissionState);
         localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
@@ -488,7 +529,7 @@ export default function DashboardClient() {
     default: view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
   }
 
-  if (authLoading) return null;
+  if (authLoading) return <main className="app-loading-workspace" style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#f7fafc"}}><div style={{display:"grid",justifyItems:"center",gap:14}}><Brand /><p style={{margin:0}}>Opening your MetrixIQ workspace…</p><div className="workspace-loading-line"><span /></div></div></main>;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
