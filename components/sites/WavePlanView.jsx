@@ -27,10 +27,10 @@ async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(
 const dcslDsp=s=>/\b(?:DCSL|DANUBE\s+COURIER\s+SERVICES\s+LTD)\b/i.test(String(s||""));
 const dcslOcrLabel=s=>clean(s).toUpperCase().replace(/5/g,"S").replace(/[1I|]/g,"L").replace(/[^A-Z]/g,"")==="DCSL";
 const deh1RouteOf=values=>{
- const text=(values||[]).map(clean).join(" ").toUpperCase().replace(/C4/g,"CA").replace(/S4/g,"SA");
- const m=text.match(/(?:CA|SA)[_\s-]*A?[_\s-]*[0-9OILSBA]{2,4}/i);if(!m)return"";
+ const text=(values||[]).map(clean).join(" ").toUpperCase().replace(/C4/g,"CA").replace(/S4/g,"SA").replace(/\bC\s+A\b/g,"CA").replace(/\bS\s+A\b/g,"SA");
+ const m=text.match(/(?:CA|SA)[_\s-]*A?[_\s-]*[0-9OQDILSAZGTB]{2,4}/i);if(!m)return"";
  const raw=m[0].replace(/\s+/g,"_").replace(/-+/g,"_").toUpperCase(),prefix=raw.startsWith("SA")?"SA":"CA";
- const digits=raw.replace(/^(?:CA|SA)_?A?_?/,"").replace(/O/g,"0").replace(/[IL]/g,"1").replace(/S/g,"5").replace(/B/g,"8").replace(/A/g,"4").replace(/\D/g,"");
+ const digits=raw.replace(/^(?:CA|SA)_?A?_?/,"").replace(/[OQD]/g,"0").replace(/[IL]/g,"1").replace(/Z/g,"2").replace(/E/g,"3").replace(/A/g,"4").replace(/S/g,"5").replace(/G/g,"6").replace(/T/g,"7").replace(/B/g,"8").replace(/\D/g,"");
  return digits?prefix+"_A"+digits:"";
 };
 const deh1Time=value=>{const m=clean(value).toUpperCase().replace(/O/g,"0").match(/\b(\d{1,2})\s*[:.]\s*(\d{2})\b/);return m?m[1]+":"+m[2]:""};
@@ -66,6 +66,23 @@ const deh1WaveNumberToken=value=>{
  const raw=clean(value).toUpperCase().replace(/O/g,"0").replace(/[IL|]/g,"1").replace(/[^0-9]/g,"");
  if(!/^\d{1,2}$/.test(raw))return"";
  const n=Number(raw);return n>=1&&n<=30?String(n):"";
+};
+const deh1LaunchPadToken=value=>{
+ const raw=clean(value).toUpperCase().replace(/O/g,"0").replace(/[IL|]/g,"1").replace(/[^0-9]/g,"");
+ if(!/^\d$/.test(raw))return"";
+ const n=Number(raw);return n>=1&&n<=8?String(n):"";
+};
+const normaliseDeh1Headers=headers=>{
+ const sorted=[...(headers||[])].sort((a,b)=>a.x-b.x);
+ if(sorted.length<2)return sorted;
+ const nums=sorted.map(h=>Number(String(h.wave||"").replace(/\D/g,""))),mins=sorted.map(h=>toMinutes(h.time));
+ if(nums.some(n=>!Number.isFinite(n))||mins.some(n=>n==null))return sorted;
+ const chronological=mins.every((n,i)=>i===0||(n>mins[i-1]&&n-mins[i-1]<=45));
+ const consecutive=nums.every((n,i)=>i===0||n===nums[i-1]+1);
+ if(!chronological||consecutive)return sorted;
+ const last=nums[nums.length-1],start=last-sorted.length+1;
+ if(start<1)return sorted;
+ return sorted.map((h,i)=>({...h,wave:"WAVE"+(start+i)}));
 };
 const deh1OcrWords=data=>{
  const words=[];
@@ -119,42 +136,61 @@ async function deh1RefinedWaveNumbers(worker,rawCanvas,data){
 }
 
 function deh1RowsFromOcr(data,colourCanvas,waveNumberOverrides=new Map()){
- const words=deh1OcrWords(data),anchors=deh1WaveAnchors(words),headers=[],times=[];
+ const words=deh1OcrWords(data),anchors=deh1WaveAnchors(words),rawHeaders=[],times=[];
  for(const word of words){const t=deh1Time(word.text);if(t)times.push({time:t,x:word.x,y:word.y})}
  for(const anchor of anchors){
    const number=waveNumberOverrides.get(deh1WordKey(anchor.word))||anchor.number;
    const load=anchor.timeWord?deh1Time(anchor.timeWord.text):"";
-   if(number&&load)headers.push({wave:"WAVE"+number,time:load,x:(anchor.word.x+(anchor.timeWord?.x||anchor.word.x))/2,y:anchor.word.y});
+   if(number&&load)rawHeaders.push({wave:"WAVE"+number,time:load,x:(anchor.word.x+(anchor.timeWord?.x||anchor.word.x))/2,y:anchor.word.y});
  }
+ const headers=normaliseDeh1Headers(rawHeaders);
  if(!headers.length)return[];
  const gateFor=header=>{
    const candidates=times.filter(t=>t.y<header.y-8&&Math.abs(t.x-header.x)<Math.max(220,header.x*.7)).sort((a,b)=>Math.abs(a.x-header.x)-Math.abs(b.x-header.x)||Math.abs(a.y-header.y)-Math.abs(b.y-header.y));
    return candidates[0]?.time||"";
  };
+ const launchPadBetween=(left,right)=>{
+   if(!right)return"";
+   const minX=left?.x??Math.max(0,right.x-150),maxX=right.x;
+   const candidates=words.filter(w=>w.x>minX&&w.x<maxX&&Math.abs(w.y-right.y)<=Math.max(16,right.h*1.5)).sort((a,b)=>a.x-b.x);
+   for(const word of candidates){const pad=deh1LaunchPadToken(word.text);if(pad)return pad}
+   return"";
+ };
  const out=[];
- const pushRoute=(route,anchor,dcslHint=false)=>{
+ const pushRoute=(route,anchor,dcslHint=false,launchPad="",sourceY=null)=>{
    if(!route||!anchor)return;
    const header=nearestByX(headers,anchor.x);if(!header)return;
-   out.push({sheet:"Image",row:out.length+1,cells:[route,header.time,header.wave,dcslHint?"DCSL":""],directLoadTime:true,explicitWave:header.wave,gateTime:gateFor(header),dcslHint:Boolean(dcslHint)});
+   out.push({sheet:"Image",row:out.length+1,cells:[route,header.time,header.wave,dcslHint?"DCSL":""],directLoadTime:true,explicitWave:header.wave,gateTime:gateFor(header),dcslHint:Boolean(dcslHint),launchPad:deh1LaunchPadToken(launchPad),sourceY:sourceY??anchor.y??null});
  };
  for(const word of words){
    let route=deh1RouteOf([word.text]),hint=deh1GreenLeftOf(colourCanvas,word.bbox);
    if(!route&&hint){
-     const numeric=clean(word.text).replace(/O/g,"0").replace(/[IL|]/g,"1");
+     const numeric=clean(word.text).replace(/[OQD]/g,"0").replace(/[IL|]/g,"1").replace(/Z/g,"2").replace(/E/g,"3").replace(/A/g,"4").replace(/S/g,"5").replace(/G/g,"6").replace(/T/g,"7").replace(/B/g,"8");
      if(/^\d{2,4}$/.test(numeric))route="CA_A"+numeric;
    }
-   if(route)pushRoute(route,word,hint);
+   if(!route)continue;
+   const dcslWord=words.filter(w=>dcslOcrLabel(w.text)&&w.x<word.x&&word.x-w.x<260&&Math.abs(w.y-word.y)<=Math.max(18,word.h*1.8)).sort((a,b)=>b.x-a.x)[0];
+   if(dcslWord)hint=true;
+   const launchPad=launchPadBetween(dcslWord,word)||launchPadBetween(null,word);
+   if(hint)pushRoute(route,word,hint,launchPad,word.y);
  }
  for(const word of words){
    if(!dcslOcrLabel(word.text))continue;
    const band=words.filter(w=>w.x>word.x&&w.x-word.x<420&&Math.abs(w.y-word.y)<=Math.max(28,word.h*2.2)).sort((a,b)=>a.x-b.x);
+   const padWord=band.find(w=>deh1LaunchPadToken(w.text)),launchPad=deh1LaunchPadToken(padWord?.text);
+   const routeBand=padWord?band.filter(w=>w.x>padWord.x):band;
    let route="",anchor=null;
-   for(let i=0;i<band.length;i++){route=deh1RouteOf(band.slice(i,i+4).map(w=>w.text));if(route){anchor=band[i];break}}
-   if(route)pushRoute(route,anchor||word,true);
+   for(let i=0;i<routeBand.length;i++){route=deh1RouteOf(routeBand.slice(i,i+5).map(w=>w.text));if(route){anchor=routeBand[i];break}}
+   if(route)pushRoute(route,anchor||word,true,launchPad,word.y);
  }
- const seen=new Set();return out.filter(row=>{const key=norm(row.cells[0])+"|"+row.explicitWave;if(seen.has(key))return false;seen.add(key);return true});
+ const merged=new Map();
+ for(const row of out){
+   const key=norm(row.cells[0])+"|"+row.explicitWave,prev=merged.get(key);
+   if(!prev){merged.set(key,row);continue}
+   merged.set(key,{...prev,launchPad:prev.launchPad||row.launchPad,dcslHint:prev.dcslHint||row.dcslHint,sourceY:prev.sourceY??row.sourceY});
+ }
+ return [...merged.values()].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999));
 }
-
 async function deh1ImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
@@ -175,12 +211,13 @@ function deh1WorkbookRows(rows){
    if(m)headers.push({wave:"WAVE"+m[1],time:m[2]+":"+m[3],x:col});
    if(/GATE\s*\/?\s*HOLDING\s+AREA/.test(text)){const time=deh1Time(text);if(time)gates.push({time,x:col})}
   });
-  if(!headers.length)continue;
+  const fixedHeaders=normaliseDeh1Headers(headers);
+  if(!fixedHeaders.length)continue;
   for(const row of sheetRows)for(let col=0;col<row.cells.length;col++){
    if(!/^DCSL\b/i.test(clean(row.cells[col])))continue;
-   const route=deh1RouteOf(row.cells.slice(col,col+5));if(!route)continue;
-   const header=nearestByX(headers,col);if(!header)continue;
-   out.push({sheet,row:row.row,cells:[route,header.time,header.wave,"DCSL"],directLoadTime:true,explicitWave:header.wave,gateTime:nearestByX(gates,col)?.time||""});
+   const launchPad=deh1LaunchPadToken(row.cells[col+1]),route=deh1RouteOf(row.cells.slice(col+2,col+6))||deh1RouteOf(row.cells.slice(col,col+5));if(!route)continue;
+   const header=nearestByX(fixedHeaders,col);if(!header)continue;
+   out.push({sheet,row:row.row,cells:[route,header.time,header.wave,"DCSL"],directLoadTime:true,explicitWave:header.wave,gateTime:nearestByX(gates,col)?.time||"",launchPad,sourceY:row.row});
   }
  }
  return out;
@@ -257,14 +294,15 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const deh1RouteDeparture=useMemo(()=>{const m=new Map();if(norm(site)!=="DEH1")return m;const header=routeRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const h=header?.cells.map(v=>norm(v))||[],ri=h.findIndex(v=>v==="ROUTE CODE"),di=h.findIndex(v=>v==="DSP"),pi=h.findIndex(v=>/PLANNED DEPARTURE TIME/.test(v));if(ri<0||pi<0)return m;for(const x of routeRows){if(x===header)continue;if(di>=0&&!dcslDsp(x.cells[di]))continue;const route=routeOf([x.cells[ri]]),departure=timeOf([x.cells[pi]]);if(route&&departure)m.set(norm(route),departure)}return m},[routeRows,site]);
  const plan=useMemo(()=>{
    const header=waveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v)))),h=header?.cells.map(v=>norm(v))||[],ri=h.findIndex(v=>v==="ROUTE CODE"),wi=h.findIndex(v=>v==="WAVE"),si=h.findIndex(v=>/STAGING LOCATION/.test(v)),ti=h.findIndex(v=>v==="TIME"),isDeh1=norm(site)==="DEH1",exactDeh1Routes=isDeh1?new Set(waveRows.map(row=>{const r=ri>=0?routeOf([row.cells[ri]]):routeOf(row.cells);return r&&routeIdentity.has(norm(r))?norm(r):""}).filter(Boolean)):new Set();
-   const parsed=waveRows.map(x=>{if(x===header)return null;let route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);if(isDeh1&&routeIdentity.size&&route&&!routeIdentity.has(norm(route))){if(!x.dcslHint)return null;const near=[...routeIdentity.keys()].filter(k=>!exactDeh1Routes.has(k)&&deh1RouteDistance(route,k)<=1);if(near.length!==1)return null;route=near[0]}const amazon=ti>=0?timeOf([x.cells[ti]]):timeOf(x.cells),staging=si>=0?clean(x.cells[si]):(stageOf(x.cells)||stageLoose(x.cells.join(" ")));if(!route||!amazon||(!staging&&!x.directLoadTime))return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v)),name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED",direct=Boolean(x.directLoadTime);return{route,driver:name,amazonTime:amazon,time:direct?amazon:adjustTime(amazon,adjust),staging:staging||"",gateTime:x.gateTime||"",directLoadTime:direct,wave:waveOf(staging,x.cells,route,x.explicitWave||(wi>=0?x.cells[wi]:""))}}).filter(Boolean);
+   const parsed=waveRows.map(x=>{if(x===header)return null;let route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);if(isDeh1&&routeIdentity.size&&route&&!routeIdentity.has(norm(route))){if(!x.dcslHint)return null;const near=[...routeIdentity.keys()].filter(k=>!exactDeh1Routes.has(k)&&deh1RouteDistance(route,k)<=1);if(near.length!==1)return null;route=near[0]}const amazon=ti>=0?timeOf([x.cells[ti]]):timeOf(x.cells),staging=si>=0?clean(x.cells[si]):(stageOf(x.cells)||stageLoose(x.cells.join(" ")));if(!route||!amazon||(!staging&&!x.directLoadTime))return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v)),name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED",direct=Boolean(x.directLoadTime);return{route,driver:name,amazonTime:amazon,time:direct?amazon:adjustTime(amazon,adjust),staging:staging||"",gateTime:x.gateTime||"",launchPad:x.launchPad||"",sourceY:Number.isFinite(Number(x.sourceY))?Number(x.sourceY):null,directLoadTime:direct,wave:waveOf(staging,x.cells,route,x.explicitWave||(wi>=0?x.cells[wi]:""))}}).filter(Boolean);
    if(!isDeh1||!routeIdentity.size||!parsed.length)return parsed;
-   const base=[],seen=new Set();
-   for(const row of parsed){const key=norm(row.route);if(seen.has(key))continue;seen.add(key);base.push(row)}
+   const baseMap=new Map();
+   for(const row of parsed){const key=norm(row.route),prev=baseMap.get(key);if(!prev||(!prev.launchPad&&row.launchPad))baseMap.set(key,row)}
+   const base=[...baseMap.values()].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999)),seen=new Set(base.map(row=>norm(row.route)));
    const templates=new Map(),candidatesByDeparture=new Map();
    for(const row of base){const departure=deh1RouteDeparture.get(norm(row.route));if(!departure)continue;const key=norm(departure),arr=candidatesByDeparture.get(key)||[];arr.push(row);candidatesByDeparture.set(key,arr)}
    for(const [departure,rows] of candidatesByDeparture){const counts=new Map();for(const row of rows){const sig=[row.wave,row.time,row.gateTime||"",row.staging||""].join("|");counts.set(sig,(counts.get(sig)||0)+1)}const best=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0],template=rows.find(row=>[row.wave,row.time,row.gateTime||"",row.staging||""].join("|")===best)||rows[0];if(template)templates.set(departure,template)}
-   for(const route of routeIdentity.keys()){if(seen.has(route))continue;const departure=deh1RouteDeparture.get(route),template=departure?templates.get(norm(departure)):null;if(!template)continue;base.push({...template,route,driver:routeDrivers.get(route)||"UNASSIGNED",recoveredFromRoutePlan:true});seen.add(route)}
+   for(const route of routeIdentity.keys()){if(seen.has(route))continue;const departure=deh1RouteDeparture.get(route),template=departure?templates.get(norm(departure)):null;if(!template)continue;base.push({...template,route,driver:routeDrivers.get(route)||"UNASSIGNED",launchPad:"",sourceY:null,recoveredFromRoutePlan:true});seen.add(route)}
    return base;
  },[waveRows,routeDrivers,driverByTrid,adjust,routeIdentity,site,deh1RouteDeparture]);
  const groups=useMemo(()=>{const m=new Map();for(const r of plan){const stg=r.staging?(r.staging.match(/STG[- ]?[A-Z]/i)?.[0]?.replace(" ","-").toUpperCase()||r.staging):"NO-STAGING",key=[r.time,r.wave,stg].join("|");if(!m.has(key))m.set(key,[]);m.get(key).push(r)}return [...m.entries()].sort((a,b)=>(toMinutes(a[0].split("|")[0])??9999)-(toMinutes(b[0].split("|")[0])??9999)||a[0].localeCompare(b[0]))},[plan]);
@@ -309,7 +347,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    <div className="waveplan-actions clean"><button className="btn primary" disabled={!routeFile||!waveFile} onClick={generate}>↻ Generate Wave Plan</button><button className="btn ghost danger" onClick={clear}>Clear</button><button className="btn success ready" disabled={!generated} onClick={()=>exportPng(true)}>↗ Ready to Send</button></div>
    
    <section className="waveplan-workspace"><aside><article className="panel waveplan-summary"><h2>Summary</h2>{visibleGroups.map(([k,v])=>{const wave=k.split("|")[1];return <p key={k}><i style={{background:COLORS[wave]||"#64748b"}}/><span>{wave==="SAMEDAY"?"Sameday":/^WAVE\d+$/.test(wave)?"Wave "+wave.slice(4):wave[0]+wave.slice(1).toLowerCase()+" Wave"}</span><b>{v.length} drivers · {k.split("|")[0]}</b></p>})}<footer>Total <b>{visibleGroups.reduce((sum,[,rows])=>sum+rows.length,0)} drivers</b>{hiddenWaves.size?<small> · {hiddenWaves.size} wave hidden</small>:null}</footer></article><article className="panel waveplan-history"><h2>Recent Uploads</h2>{history.length?history.map(x=><div key={x.id}><p><b>{x.date}</b><small>✓ Generated</small><span>{x.route} + {x.wave}</span></p><button onClick={()=>setHistory(h=>h.filter(y=>y.id!==x.id))}>Delete</button></div>):<p className="muted">No generated plans in this session.</p>}</article></aside>
-   <article className="panel waveplan-preview"><div className="panel-head"><div><h2>Wave Plan Preview</h2><p>DCSL format · ordered chronologically.</p></div></div>{generated?<div className={"dcsl-sheet font-"+planFontSize} ref={sheetRef}><header><div className="dcsl-brand"><img className="dcsl-mark-image" src={"data:image/webp;base64,UklGRqQFAABXRUJQVlA4IJgFAACQKQCdASrvAPAAPikSh0KhoQslogAMAUJZW7gK30Pu/fdKvTkwbmn5M8onovmX/T/cB9APS1t/vNZ+t/7Y+6V0gH7HdeRoquqThJokxelxtfYwZJK+4QIbOE8xW3Yu6GarNqklw3S9GS/ap7XLH4+eMzxnRR5aEIKElspcN0vRkv2gBSbO3VjXNTdVohYa8CVqjG4Df2fmaJyQ6BN2aHbDKCERqgp/cSNuS2rnX314kHDYjWtw70c25Qbt4CIb27fjsD+QBGQXPCdwnOi2ES3zvV0ut2IdsUjbktsRHX3Yh2xSNuS2xEdfdiHa9VIXMeRJwd/qBWlgD8vg+CsNTK0qwHjhPLwI2b/1MjUQbs6e7D6hIM6rxL6s5EaaciMrq/VzjjMHcEuen2Lu8w/q+Le32iX2YPB1KSX7GFh+ABkSiQSawqUKUzDKdTDydU5GeKhb42yeeAD++Ob7c/kM+wNcfHxANZsNFef1e67o1HQeE25rEv//YaL7qH+3QT/7iN/dAlT/7tYy33/0PxAsuploGAwgVJFK2G0FbSzV4SzuKeeuAwZwiAM/KxHC4DhuB9gAoQiyQHmGHATYaYkDkv8Bfqfmh3UL+otk5FP8PqQZBV1qKr9f8Vn+x1T17MMvAvellLag464LR3V5rjVLS3GEaDdghCQj4snAx2mnHPTX9Ns4veX69gn3gXJlbG2wj8cBQ3eOPSmSH4F6QXz3SZqIxFvig0+2gE9Y/p5lTmD6nSz2/rN9IpURcHlJ4TVEYNG9qar9cVJZZdABm/YKIT5BMS3uCOCf3nOg+5IRIzsgYBdi4A79obpcthagc90xDPfTI5yVhvAcsx+CPO8WH+/BLIqbElza2lIvYlSYjW5nZex3NbkGCPu3brvt6OYHHWpL67/iofOveLqW/BpmMINllH7xJOqZ3HjoX+IMWUUAjeGGCHRtwW1QzJ7Ep/1egDNvet7T563QvrnTxFb3itY6qvyn4UtU4RrP37sMAB0kFT9oRszykxqhOn8mFG2vGV1/+SbkH/Zdn8RquHJd//J1EIzYf42wFPnfBAA2vW3ylkt4RkKRoEMGqXZLHVyD3mRQ305CYJZDWEH+snUv9s4aU5JwDkemJjb1Bf45DNYew76f/WIF9r+d0svBhifujsqQQEiF/4d0x6Fgdue/t8cVKM4IwCvqx2Sn8r6Nvp7bMb0G/pBbc5QRQ7f6oXjzL/zJrh2dbcQ6d/v5L7G1kjHNbpPfjj25zJ1KADJpvoY4Cc9OsenCmJobhXv/aZiHXDS5ulSBGnY2rKcXSVkoNULTL4Yga5EXMu5PY2sW9UjEKU11uYyXVAA/aXIAmR/ys//l6cQdZdaHaa0gww50XrGxhJK+TP0RI+0L/F6bfC8GFZw5OEwBCwG17N2byIioT/chWqYvZPzcg8i8nrIStk1dnLxUwDVzj1AAFaZHgYvpZFAxbyNrWk2+t/XrTx6tKBTHpwpiaG4V/OdeGtaMC3mUirQeYXRcFKGnJZizuph2cp0awL99YpoDYrgJVjn9e5Gu1QifxuqcVkR1hz7gmqRdEMzbSqtk6V77TtuapJIi3ycLZ8w2TtsY7eFui+t6pD2tNmOPNHyxMLEqfd/9rsiE61H1I8cU3V6t0e3vqPl7dEfKtMXdHckPF17/1Bn3/q9qJFIvn/Pue9qTLnFFT5OaxB3eYfSNfMCuhJ/+DMrbPPxtTWZUc7SyNHzyf60eFOCPTTNhCeT4VYG/Odv96GKUgD7ZsGWXPS99ml6x+Z8QVQS5vkZzTnXBrRKRLJhMeyrhb8Wh2oamZOLMHbRwT5Qfn/mIGYl/++gyD5r4p6oJdXHJM+xmTaUQaqAv9feXBiVjbA9S4OmNI+sVBZ0aqMDm4wHEdwht4ETnIY0tzq/8qiC03odBWYAA"} alt="DCSL logo mark" /><div><strong className="dcsl-logo">DCSL</strong><small>DELIVERING A BRIGHTER TOMORROW</small></div></div><div className="dcsl-title"><h3>Wave Plan</h3><span>▣ {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</span></div><div className="dcsl-site"><b>{site}</b><span>{plan.some(r=>r.directLoadTime&&!r.staging)?"GATE / HOLDING":"STG - A"}</span></div><div className="dcsl-values"><span>PEOPLE</span><span>ROUTES</span><span>PERFORMANCE</span></div></header><div className="dcsl-columns"><b>ROUTE</b><b>DRIVER NAME</b><b>◷ &nbsp; LOAD TIME</b><b>⌖ &nbsp; {plan.some(r=>r.directLoadTime&&!r.staging)?"GATE / HOLDING":"STAGING"}</b></div>{visibleGroups.map(([k,rows])=>{const [time,wave,stg]=k.split("|"),gate=rows.find(r=>r.gateTime)?.gateTime||"";return <section key={k} className={"dcsl-wave wave-"+wave.toLowerCase()} style={{"--wave":COLORS[wave]||"#475569"}}><h4>{wave==="SAMEDAY"?"SAMEDAY":/^WAVE\d+$/.test(wave)?"WAVE "+wave.slice(4):wave+" WAVE"}&nbsp; - &nbsp;{time}{gate?" · GATE "+gate:stg!=="NO-STAGING"?" "+stg.replace("-"," "):""}</h4>{rows.map((r,i)=><div key={r.route+"-"+i}><b>{r.route}</b><strong>{r.driver.toUpperCase()}</strong><span>{r.time}</span><em>{r.staging||r.gateTime||"—"}</em></div>)}</section>})}<footer><div className="dcsl-foot-team"><b>●●●</b><span>ONE TEAM<br/>SAFER DELIVERIES<br/>STRONGER TOMORROW</span></div><div className="dcsl-foot-brand"><strong>DCSL</strong><span>DRIVE &nbsp;|&nbsp; DELIVER &nbsp;|&nbsp; SUCCEED</span></div><div className="dcsl-foot-site"><b>{site}</b><span>Make It Happen</span></div></footer></div>:<div className="waveplan-empty">Upload Route Plan + Wave Plan and select <b>Generate Wave Plan</b>.</div>}</article></section>
+   <article className="panel waveplan-preview"><div className="panel-head"><div><h2>Wave Plan Preview</h2><p>DCSL format · ordered chronologically.</p></div></div>{generated?<div className={"dcsl-sheet font-"+planFontSize+(plan.some(r=>r.launchPad)?" has-launch-pad":"")} ref={sheetRef}><header><div className="dcsl-brand"><img className="dcsl-mark-image" src={"data:image/webp;base64,UklGRqQFAABXRUJQVlA4IJgFAACQKQCdASrvAPAAPikSh0KhoQslogAMAUJZW7gK30Pu/fdKvTkwbmn5M8onovmX/T/cB9APS1t/vNZ+t/7Y+6V0gH7HdeRoquqThJokxelxtfYwZJK+4QIbOE8xW3Yu6GarNqklw3S9GS/ap7XLH4+eMzxnRR5aEIKElspcN0vRkv2gBSbO3VjXNTdVohYa8CVqjG4Df2fmaJyQ6BN2aHbDKCERqgp/cSNuS2rnX314kHDYjWtw70c25Qbt4CIb27fjsD+QBGQXPCdwnOi2ES3zvV0ut2IdsUjbktsRHX3Yh2xSNuS2xEdfdiHa9VIXMeRJwd/qBWlgD8vg+CsNTK0qwHjhPLwI2b/1MjUQbs6e7D6hIM6rxL6s5EaaciMrq/VzjjMHcEuen2Lu8w/q+Le32iX2YPB1KSX7GFh+ABkSiQSawqUKUzDKdTDydU5GeKhb42yeeAD++Ob7c/kM+wNcfHxANZsNFef1e67o1HQeE25rEv//YaL7qH+3QT/7iN/dAlT/7tYy33/0PxAsuploGAwgVJFK2G0FbSzV4SzuKeeuAwZwiAM/KxHC4DhuB9gAoQiyQHmGHATYaYkDkv8Bfqfmh3UL+otk5FP8PqQZBV1qKr9f8Vn+x1T17MMvAvellLag464LR3V5rjVLS3GEaDdghCQj4snAx2mnHPTX9Ns4veX69gn3gXJlbG2wj8cBQ3eOPSmSH4F6QXz3SZqIxFvig0+2gE9Y/p5lTmD6nSz2/rN9IpURcHlJ4TVEYNG9qar9cVJZZdABm/YKIT5BMS3uCOCf3nOg+5IRIzsgYBdi4A79obpcthagc90xDPfTI5yVhvAcsx+CPO8WH+/BLIqbElza2lIvYlSYjW5nZex3NbkGCPu3brvt6OYHHWpL67/iofOveLqW/BpmMINllH7xJOqZ3HjoX+IMWUUAjeGGCHRtwW1QzJ7Ep/1egDNvet7T563QvrnTxFb3itY6qvyn4UtU4RrP37sMAB0kFT9oRszykxqhOn8mFG2vGV1/+SbkH/Zdn8RquHJd//J1EIzYf42wFPnfBAA2vW3ylkt4RkKRoEMGqXZLHVyD3mRQ305CYJZDWEH+snUv9s4aU5JwDkemJjb1Bf45DNYew76f/WIF9r+d0svBhifujsqQQEiF/4d0x6Fgdue/t8cVKM4IwCvqx2Sn8r6Nvp7bMb0G/pBbc5QRQ7f6oXjzL/zJrh2dbcQ6d/v5L7G1kjHNbpPfjj25zJ1KADJpvoY4Cc9OsenCmJobhXv/aZiHXDS5ulSBGnY2rKcXSVkoNULTL4Yga5EXMu5PY2sW9UjEKU11uYyXVAA/aXIAmR/ys//l6cQdZdaHaa0gww50XrGxhJK+TP0RI+0L/F6bfC8GFZw5OEwBCwG17N2byIioT/chWqYvZPzcg8i8nrIStk1dnLxUwDVzj1AAFaZHgYvpZFAxbyNrWk2+t/XrTx6tKBTHpwpiaG4V/OdeGtaMC3mUirQeYXRcFKGnJZizuph2cp0awL99YpoDYrgJVjn9e5Gu1QifxuqcVkR1hz7gmqRdEMzbSqtk6V77TtuapJIi3ycLZ8w2TtsY7eFui+t6pD2tNmOPNHyxMLEqfd/9rsiE61H1I8cU3V6t0e3vqPl7dEfKtMXdHckPF17/1Bn3/q9qJFIvn/Pue9qTLnFFT5OaxB3eYfSNfMCuhJ/+DMrbPPxtTWZUc7SyNHzyf60eFOCPTTNhCeT4VYG/Odv96GKUgD7ZsGWXPS99ml6x+Z8QVQS5vkZzTnXBrRKRLJhMeyrhb8Wh2oamZOLMHbRwT5Qfn/mIGYl/++gyD5r4p6oJdXHJM+xmTaUQaqAv9feXBiVjbA9S4OmNI+sVBZ0aqMDm4wHEdwht4ETnIY0tzq/8qiC03odBWYAA"} alt="DCSL logo mark" /><div><strong className="dcsl-logo">DCSL</strong><small>DELIVERING A BRIGHTER TOMORROW</small></div></div><div className="dcsl-title"><h3>Wave Plan</h3><span>▣ {new Date().toLocaleDateString("en-GB",{weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</span></div><div className="dcsl-site"><b>{site}</b><span>{plan.some(r=>r.directLoadTime&&!r.staging)?"GATE / HOLDING":"STG - A"}</span></div><div className="dcsl-values"><span>PEOPLE</span><span>ROUTES</span><span>PERFORMANCE</span></div></header><div className="dcsl-columns"><b>ROUTE</b><b>DRIVER NAME</b><b>◷ &nbsp; LOAD TIME</b>{plan.some(r=>r.launchPad)&&<b>LAUNCH PAD</b>}<b>⌖ &nbsp; {plan.some(r=>r.directLoadTime&&!r.staging)?"GATE / HOLDING":"STAGING"}</b></div>{visibleGroups.map(([k,rows])=>{const [time,wave,stg]=k.split("|"),gate=rows.find(r=>r.gateTime)?.gateTime||"";return <section key={k} className={"dcsl-wave wave-"+wave.toLowerCase()} style={{"--wave":COLORS[wave]||"#475569"}}><h4>{wave==="SAMEDAY"?"SAMEDAY":/^WAVE\d+$/.test(wave)?"WAVE "+wave.slice(4):wave+" WAVE"}&nbsp; - &nbsp;{time}{gate?" · GATE "+gate:stg!=="NO-STAGING"?" "+stg.replace("-"," "):""}</h4>{rows.map((r,i)=><div key={r.route+"-"+i}><b>{r.route}</b><strong>{r.driver.toUpperCase()}</strong><span>{r.time}</span>{plan.some(x=>x.launchPad)&&<span>{r.launchPad||"—"}</span>}<em>{r.staging||r.gateTime||"—"}</em></div>)}</section>})}<footer><div className="dcsl-foot-team"><b>●●●</b><span>ONE TEAM<br/>SAFER DELIVERIES<br/>STRONGER TOMORROW</span></div><div className="dcsl-foot-brand"><strong>DCSL</strong><span>DRIVE &nbsp;|&nbsp; DELIVER &nbsp;|&nbsp; SUCCEED</span></div><div className="dcsl-foot-site"><b>{site}</b><span>Make It Happen</span></div></footer></div>:<div className="waveplan-empty">Upload Route Plan + Wave Plan and select <b>Generate Wave Plan</b>.</div>}</article></section>
   </>}
  </div>
 }
