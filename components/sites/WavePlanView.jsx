@@ -149,6 +149,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
        const sample=norm(rows.slice(0,30).flatMap(r=>r.cells).join(" "));
        if(/TRANSPORTER ID|DRIVER NAME/.test(sample)&&/ROUTE CODE/.test(sample))return "route";
        if(/STAGING LOCATION|WAVE/.test(sample)&&/ROUTE CODE/.test(sample))return "wave";
+       if(/WAVE\s*[1-9]\d*/.test(sample)&&/LOADING TIME/.test(sample)&&/\bDCSL\b/.test(sample))return "wave";
      }
    }catch{}
    return "unknown";
