@@ -200,12 +200,90 @@ function deh1RowsFromOcr(data,colourCanvas,waveNumberOverrides=new Map()){
  }
  return normalised.sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999));
 }
+
+const deh1ConsecutiveGroups=values=>{
+ const out=[];if(!values?.length)return out;let start=values[0],prev=values[0];
+ for(const value of values.slice(1)){if(value<=prev+1){prev=value;continue}out.push([start,prev]);start=prev=value}
+ out.push([start,prev]);return out;
+};
+function deh1GridStructure(canvas,headerCount){
+ if(!canvas||headerCount<1)return null;
+ const ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)return null;
+ const {width,height}=canvas,image=ctx.getImageData(0,0,width,height).data,dark=(x,y)=>{const i=(y*width+x)*4;return image[i]<85&&image[i+1]<85&&image[i+2]<85};
+ const horizontal=[];
+ for(let y=Math.floor(height*.24);y<height;y++){let count=0;for(let x=0;x<width;x++)if(dark(x,y))count++;if(count>width*.55)horizontal.push(y)}
+ const hGroups=deh1ConsecutiveGroups(horizontal),hLines=hGroups.map(([a])=>a);
+ let best=[];
+ for(let i=0;i<hLines.length;i++){const run=[hLines[i]];for(let j=i+1;j<hLines.length;j++){const gap=hLines[j]-run[run.length-1];if(gap>=14&&gap<=32)run.push(hLines[j]);else if(gap>32)break}if(run.length>best.length)best=run}
+ if(best.length<6)return null;
+ const top=best[0],bottom=best[best.length-1],bodyHeight=Math.max(1,bottom-top),vertical=[];
+ for(let x=0;x<width;x++){let count=0;for(let y=top;y<=bottom;y++)if(dark(x,y))count++;if(count>bodyHeight*.55)vertical.push(x)}
+ const xGroups=deh1ConsecutiveGroups(vertical),xLines=xGroups.map(([a])=>a).filter(x=>x>1&&x<width-1);
+ if(xLines.length<4)return null;
+ let chosen=null,score=Infinity;
+ for(let start=0;start<xLines.length;start++){
+   const need=headerCount*3+1,end=start+need;if(end>xLines.length)break;
+   const candidate=xLines.slice(start,end),widths=candidate.slice(1).map((x,i)=>x-candidate[i]);
+   if(widths.some(v=>v<12||v>Math.max(220,width*.6)))continue;
+   let s=0;for(let i=0;i<headerCount;i++){const a=candidate[i*3],b=candidate[i*3+3];s+=Math.abs((b-a)-width/headerCount)}
+   if(s<score){score=s;chosen=candidate}
+ }
+ if(!chosen&&xLines.length>=headerCount*3+1)chosen=xLines.slice(0,headerCount*3+1);
+ if(!chosen)return null;
+ const blocks=[];for(let i=0;i<headerCount;i++)blocks.push([chosen[i*3],chosen[i*3+1],chosen[i*3+2],chosen[i*3+3]]);
+ return{rowLines:best,blocks};
+}
+const deh1InkRatio=(canvas,x0,x1,y0,y1)=>{
+ const ctx=canvas?.getContext("2d",{willReadFrequently:true});if(!ctx||x1<=x0||y1<=y0)return 0;
+ let image;try{image=ctx.getImageData(Math.max(0,Math.floor(x0)),Math.max(0,Math.floor(y0)),Math.max(1,Math.floor(x1-x0)),Math.max(1,Math.floor(y1-y0)))}catch{return 0}
+ let dark=0,total=0;for(let i=0;i<image.data.length;i+=4){total++;if(image.data[i]<145&&image.data[i+1]<145&&image.data[i+2]<145)dark++}
+ return total?dark/total:0;
+};
+function deh1RouteComposite(canvas,block,rowLines){
+ const [, ,routeLeft,routeRight]=block,rowIndexes=[];
+ for(let i=0;i<rowLines.length-1;i++){
+   const y0=rowLines[i]+2,y1=rowLines[i+1]-2;
+   if(deh1InkRatio(canvas,routeLeft+2,routeRight-2,y0,y1)>.012)rowIndexes.push(i);
+ }
+ if(!rowIndexes.length)return null;
+ const scale=4,rowHeight=74,width=Math.max(260,Math.round((routeRight-routeLeft-4)*scale)),out=document.createElement("canvas"),ctx=out.getContext("2d",{willReadFrequently:true});if(!ctx)return null;
+ out.width=width;out.height=rowIndexes.length*rowHeight;ctx.fillStyle="#fff";ctx.fillRect(0,0,out.width,out.height);ctx.imageSmoothingEnabled=false;
+ rowIndexes.forEach((rowIndex,i)=>{const y0=rowLines[rowIndex]+2,y1=rowLines[rowIndex+1]-2,srcW=Math.max(1,routeRight-routeLeft-4),srcH=Math.max(1,y1-y0),destH=Math.min(58,rowHeight-10),destW=Math.min(out.width-8,Math.round(srcW*(destH/srcH)));ctx.drawImage(canvas,routeLeft+2,y0,srcW,srcH,4,i*rowHeight+6,destW,destH)});
+ const img=ctx.getImageData(0,0,out.width,out.height),d=img.data;for(let i=0;i<d.length;i+=4){const gray=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2],v=gray<180?0:255;d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=255}ctx.putImageData(img,0,0);
+ return{canvas:out,rowIndexes};
+}
+async function deh1GridImageRows(worker,rawCanvas,sparse){
+ const words=deh1OcrWords(sparse),anchors=deh1WaveAnchors(words),rawHeaders=[],times=[];
+ for(const word of words){const t=deh1Time(word.text);if(t)times.push({time:t,x:word.x,y:word.y})}
+ for(const anchor of anchors){const number=anchor.number,load=anchor.timeWord?deh1Time(anchor.timeWord.text):"";if(number&&load)rawHeaders.push({wave:"WAVE"+number,time:load,x:(anchor.word.x+(anchor.timeWord?.x||anchor.word.x))/2,y:anchor.word.y})}
+ const unique=[];for(const header of rawHeaders){if(!unique.some(h=>h.time===header.time&&Math.abs(h.x-header.x)<90))unique.push(header)}
+ const headers=normaliseDeh1Headers(unique);if(!headers.length)return[];
+ const grid=deh1GridStructure(rawCanvas,headers.length);if(!grid)return[];
+ const sortedHeaders=[...headers].sort((a,b)=>a.x-b.x),rows=[];
+ const gateFor=header=>{const candidates=times.filter(t=>t.y<header.y-12&&Math.abs(t.x-header.x)<Math.max(180,rawCanvas.width/headers.length*.7)&&t.time!==header.time).sort((a,b)=>Math.abs(a.x-header.x)-Math.abs(b.x-header.x)||Math.abs(a.y-header.y)-Math.abs(b.y-header.y));return candidates[0]?.time||adjustTime(header.time,-25)};
+ try{await worker.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"CA_0123456789",preserve_interword_spaces:"1"})}catch{}
+ for(let blockIndex=0;blockIndex<Math.min(grid.blocks.length,sortedHeaders.length);blockIndex++){
+   const block=grid.blocks[blockIndex],header=sortedHeaders[blockIndex],composite=deh1RouteComposite(rawCanvas,block,grid.rowLines);if(!composite)continue;
+   const {data}=await worker.recognize(composite.canvas,{}, {text:true});
+   let lines=String(data?.text||"").split(/\r?\n/).map(clean).filter(Boolean);
+   if(lines.length!==composite.rowIndexes.length){
+     lines=[];try{await worker.setParameters({tessedit_pageseg_mode:"7",tessedit_char_whitelist:"CA_0123456789"})}catch{}
+     for(const rowIndex of composite.rowIndexes){const y0=grid.rowLines[rowIndex]+2,y1=grid.rowLines[rowIndex+1]-2,routeLeft=block[2]+2,routeRight=block[3]-2,crop=document.createElement("canvas"),ctx=crop.getContext("2d",{willReadFrequently:true});if(!ctx){lines.push("");continue}crop.width=Math.max(280,(routeRight-routeLeft)*5);crop.height=90;ctx.fillStyle="#fff";ctx.fillRect(0,0,crop.width,crop.height);ctx.imageSmoothingEnabled=false;ctx.drawImage(rawCanvas,routeLeft,y0,routeRight-routeLeft,Math.max(1,y1-y0),4,8,crop.width-8,crop.height-16);try{const single=await worker.recognize(crop,{}, {text:true});lines.push(clean(single.data?.text||""))}catch{lines.push("")}}
+     try{await worker.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"CA_0123456789",preserve_interword_spaces:"1"})}catch{}
+   }
+   composite.rowIndexes.forEach((rowIndex,i)=>{const raw=lines[i]||"",route=deh1RouteOf([raw]);if(!route)return;rows.push({sheet:"Image",row:rowIndex+1,cells:[route,header.time,header.wave,""],directLoadTime:true,explicitWave:header.wave,gateTime:gateFor(header),launchPad:String((rowIndex%8)+1),sourceY:(grid.rowLines[rowIndex]+grid.rowLines[rowIndex+1])/2,gridCandidate:true,ocrRouteRaw:raw})});
+ }
+ return rows;
+}
+
 async function deh1ImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
  const rawCanvas=await deh1RawCanvas(file);
- try{await worker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"})}catch{}
+ try{await worker.setParameters({tessedit_pageseg_mode:"11",tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
  const {data:sparse}=await worker.recognize(file,{}, {text:true,blocks:true});
+ const gridRows=await deh1GridImageRows(worker,rawCanvas,sparse);
+ if(gridRows.length){await worker.terminate();return gridRows}
  const refined=await deh1RefinedWaveNumbers(worker,rawCanvas,sparse);
  try{await worker.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
  const {data:dense}=await worker.recognize(file,{}, {text:true,blocks:true});
