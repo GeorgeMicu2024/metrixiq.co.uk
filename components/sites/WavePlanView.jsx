@@ -218,7 +218,9 @@ function deh1GridStructure(canvas,headerCount){
  if(best.length<6)return null;
  const top=best[0],bottom=best[best.length-1],bodyHeight=Math.max(1,bottom-top),vertical=[];
  for(let x=0;x<width;x++){let count=0;for(let y=top;y<=bottom;y++)if(dark(x,y))count++;if(count>bodyHeight*.55)vertical.push(x)}
- const xGroups=deh1ConsecutiveGroups(vertical),xLines=xGroups.map(([a])=>a).filter(x=>x>1&&x<width-1);
+ const xGroups=deh1ConsecutiveGroups(vertical),xLines=xGroups.map(([a,b])=>Math.round((a+b)/2)).filter(x=>x>=0&&x<width);
+ if(xLines.length&&xLines[0]>6)xLines.unshift(0);
+ if(!xLines.length||width-1-xLines[xLines.length-1]>20)xLines.push(width-1);
  if(xLines.length<4)return null;
  let chosen=null,score=Infinity;
  for(let start=0;start<xLines.length;start++){
