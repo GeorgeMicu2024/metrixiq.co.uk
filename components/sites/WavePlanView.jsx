@@ -151,10 +151,9 @@ function deh1RowsFromOcr(data,colourCanvas,waveNumberOverrides=new Map()){
  };
  const launchPadBetween=(left,right)=>{
    if(!right)return"";
-   const minX=left?.x??Math.max(0,right.x-150),maxX=right.x;
-   const candidates=words.filter(w=>w.x>minX&&w.x<maxX&&Math.abs(w.y-right.y)<=Math.max(16,right.h*1.5)).sort((a,b)=>a.x-b.x);
-   for(const word of candidates){const pad=deh1LaunchPadToken(word.text);if(pad)return pad}
-   return"";
+   const minX=left?.x??Math.max(0,right.x-120),maxX=right.x,rowTol=Math.max(7,right.h*.72);
+   const candidates=words.filter(w=>w.x>minX&&w.x<maxX&&Math.abs(w.y-right.y)<=rowTol&&deh1LaunchPadToken(w.text)).sort((a,b)=>Math.abs(a.y-right.y)-Math.abs(b.y-right.y)||(right.x-a.x)-(right.x-b.x));
+   return deh1LaunchPadToken(candidates[0]?.text);
  };
  const out=[];
  const pushRoute=(route,anchor,dcslHint=false,launchPad="",sourceY=null)=>{
@@ -169,10 +168,10 @@ function deh1RowsFromOcr(data,colourCanvas,waveNumberOverrides=new Map()){
      if(/^\d{2,4}$/.test(numeric))route="CA_A"+numeric;
    }
    if(!route)continue;
-   const dcslWord=words.filter(w=>dcslOcrLabel(w.text)&&w.x<word.x&&word.x-w.x<260&&Math.abs(w.y-word.y)<=Math.max(18,word.h*1.8)).sort((a,b)=>b.x-a.x)[0];
+   const dcslWord=words.filter(w=>dcslOcrLabel(w.text)&&w.x<word.x&&word.x-w.x<260&&Math.abs(w.y-word.y)<=Math.max(10,word.h*.9)).sort((a,b)=>b.x-a.x)[0];
    if(dcslWord)hint=true;
    const launchPad=launchPadBetween(dcslWord,word)||launchPadBetween(null,word);
-   if(hint)pushRoute(route,word,hint,launchPad,word.y);
+   pushRoute(route,word,hint,launchPad,word.y);
  }
  for(const word of words){
    if(!dcslOcrLabel(word.text))continue;
@@ -196,9 +195,12 @@ async function deh1ImageRows(file,onProgress){
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
  const rawCanvas=await deh1RawCanvas(file);
  try{await worker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"})}catch{}
- const {data}=await worker.recognize(file,{}, {text:true,blocks:true});
- const refined=await deh1RefinedWaveNumbers(worker,rawCanvas,data);
- const rows=deh1RowsFromOcr(data,rawCanvas,refined);
+ const {data:sparse}=await worker.recognize(file,{}, {text:true,blocks:true});
+ const refined=await deh1RefinedWaveNumbers(worker,rawCanvas,sparse);
+ try{await worker.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
+ const {data:dense}=await worker.recognize(file,{}, {text:true,blocks:true});
+ const combined={blocks:[...(sparse?.blocks||[]),...(dense?.blocks||[])]};
+ const rows=deh1RowsFromOcr(combined,rawCanvas,refined);
  await worker.terminate();return rows;
 }
 
@@ -292,17 +294,41 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const conflicts=useMemo(()=>[...routeIdentity.entries()].filter(([route,v])=>v.trids.length>1&&v.names.length!==1&&!dismissedConflicts.has(route)),[routeIdentity,dismissedConflicts]);
  const routeDrivers=useMemo(()=>{const m=new Map();for(const [route,v] of routeIdentity){const manual=overrides[route];const name=manual||((v.trids.length===1||v.names.length===1)?v.names[0]:"")||v.fallback;if(name)m.set(route,name)}return m},[routeIdentity,overrides]);
  const deh1RouteDeparture=useMemo(()=>{const m=new Map();if(norm(site)!=="DEH1")return m;const header=routeRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const h=header?.cells.map(v=>norm(v))||[],ri=h.findIndex(v=>v==="ROUTE CODE"),di=h.findIndex(v=>v==="DSP"),pi=h.findIndex(v=>/PLANNED DEPARTURE TIME/.test(v));if(ri<0||pi<0)return m;for(const x of routeRows){if(x===header)continue;if(di>=0&&!dcslDsp(x.cells[di]))continue;const route=routeOf([x.cells[ri]]),departure=timeOf([x.cells[pi]]);if(route&&departure)m.set(norm(route),departure)}return m},[routeRows,site]);
+ const fillDeh1LaunchPads=rows=>{
+   const ordered=[...rows].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999));
+   const direct=ordered.filter(r=>r.sourceY!=null);
+   if(!direct.length)return ordered;
+   const starts=new Map();
+   direct.forEach((r,i)=>{const pad=Number(r.launchPad);if(pad>=1&&pad<=8){const start=((pad-1-(i%8))+80)%8+1;starts.set(start,(starts.get(start)||0)+1)}});
+   const best=[...starts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0];
+   if(!best)return ordered;
+   let directIndex=0;
+   return ordered.map(r=>{
+     if(r.sourceY==null)return r;
+     const pad=((best-1+directIndex)%8)+1;directIndex++;
+     return {...r,launchPad:String(pad)};
+   });
+ };
  const plan=useMemo(()=>{
    const header=waveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v)))),h=header?.cells.map(v=>norm(v))||[],ri=h.findIndex(v=>v==="ROUTE CODE"),wi=h.findIndex(v=>v==="WAVE"),si=h.findIndex(v=>/STAGING LOCATION/.test(v)),ti=h.findIndex(v=>v==="TIME"),isDeh1=norm(site)==="DEH1",exactDeh1Routes=isDeh1?new Set(waveRows.map(row=>{const r=ri>=0?routeOf([row.cells[ri]]):routeOf(row.cells);return r&&routeIdentity.has(norm(r))?norm(r):""}).filter(Boolean)):new Set();
    const parsed=waveRows.map(x=>{if(x===header)return null;let route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);if(isDeh1&&routeIdentity.size&&route&&!routeIdentity.has(norm(route))){if(!x.dcslHint)return null;const near=[...routeIdentity.keys()].filter(k=>!exactDeh1Routes.has(k)&&deh1RouteDistance(route,k)<=1);if(near.length!==1)return null;route=near[0]}const amazon=ti>=0?timeOf([x.cells[ti]]):timeOf(x.cells),staging=si>=0?clean(x.cells[si]):(stageOf(x.cells)||stageLoose(x.cells.join(" ")));if(!route||!amazon||(!staging&&!x.directLoadTime))return null;const trid=x.cells.map(clean).find(v=>/^A[A-Z0-9]{8,}$/i.test(v)),name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||candidate(x.cells,route,amazon,staging)||"UNASSIGNED",direct=Boolean(x.directLoadTime);return{route,driver:name,amazonTime:amazon,time:direct?amazon:adjustTime(amazon,adjust),staging:staging||"",gateTime:x.gateTime||"",launchPad:x.launchPad||"",sourceY:Number.isFinite(Number(x.sourceY))?Number(x.sourceY):null,directLoadTime:direct,wave:waveOf(staging,x.cells,route,x.explicitWave||(wi>=0?x.cells[wi]:""))}}).filter(Boolean);
    if(!isDeh1||!routeIdentity.size||!parsed.length)return parsed;
    const baseMap=new Map();
    for(const row of parsed){const key=norm(row.route),prev=baseMap.get(key);if(!prev||(!prev.launchPad&&row.launchPad))baseMap.set(key,row)}
-   const base=[...baseMap.values()].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999)),seen=new Set(base.map(row=>norm(row.route)));
+   let base=[...baseMap.values()].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999)),seen=new Set(base.map(row=>norm(row.route)));
    const templates=new Map(),candidatesByDeparture=new Map();
    for(const row of base){const departure=deh1RouteDeparture.get(norm(row.route));if(!departure)continue;const key=norm(departure),arr=candidatesByDeparture.get(key)||[];arr.push(row);candidatesByDeparture.set(key,arr)}
    for(const [departure,rows] of candidatesByDeparture){const counts=new Map();for(const row of rows){const sig=[row.wave,row.time,row.gateTime||"",row.staging||""].join("|");counts.set(sig,(counts.get(sig)||0)+1)}const best=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0],template=rows.find(row=>[row.wave,row.time,row.gateTime||"",row.staging||""].join("|")===best)||rows[0];if(template)templates.set(departure,template)}
+   const rawTemplates=[...new Map(waveRows.filter(r=>r.directLoadTime&&r.explicitWave&&timeOf(r.cells)).map(r=>{const time=timeOf(r.cells),gate=r.gateTime||"";return [[r.explicitWave,time].join("|"),{wave:r.explicitWave,time,amazonTime:time,gateTime:gate,staging:"",directLoadTime:true}]})).values()].sort((a,b)=>(toMinutes(a.time)??9999)-(toMinutes(b.time)??9999));
+   const departures=[...new Set([...deh1RouteDeparture.values()].map(norm))].sort((a,b)=>(toMinutes(a)??9999)-(toMinutes(b)??9999));
+   if(rawTemplates.length&&departures.length){
+     const count=Math.min(rawTemplates.length,departures.length);
+     for(let i=0;i<count;i++)if(!templates.has(departures[i]))templates.set(departures[i],rawTemplates[i]);
+   }
    for(const route of routeIdentity.keys()){if(seen.has(route))continue;const departure=deh1RouteDeparture.get(route),template=departure?templates.get(norm(departure)):null;if(!template)continue;base.push({...template,route,driver:routeDrivers.get(route)||"UNASSIGNED",launchPad:"",sourceY:null,recoveredFromRoutePlan:true});seen.add(route)}
+   const byWave=new Map();
+   for(const row of base){const key=[row.wave,row.time,row.gateTime||""].join("|"),arr=byWave.get(key)||[];arr.push(row);byWave.set(key,arr)}
+   base=[...byWave.values()].flatMap(rows=>fillDeh1LaunchPads(rows));
    return base;
  },[waveRows,routeDrivers,driverByTrid,adjust,routeIdentity,site,deh1RouteDeparture]);
  const groups=useMemo(()=>{const m=new Map();for(const r of plan){const stg=r.staging?(r.staging.match(/STG[- ]?[A-Z]/i)?.[0]?.replace(" ","-").toUpperCase()||r.staging):"NO-STAGING",key=[r.time,r.wave,stg].join("|");if(!m.has(key))m.set(key,[]);m.get(key).push(r)}return [...m.entries()].sort((a,b)=>(toMinutes(a[0].split("|")[0])??9999)-(toMinutes(b[0].split("|")[0])??9999)||a[0].localeCompare(b[0]))},[plan]);
