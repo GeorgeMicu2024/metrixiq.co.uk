@@ -416,6 +416,26 @@ function atlasRowsFromOcrData(data){
  }
  return [...out.values()].sort((a,b)=>(a.sourceY||999999)-(b.sourceY||999999));
 }
+const atlasColumnRowsFromOcrData=data=>{
+ const chunks=[];
+ const push=value=>{const text=clean(value);if(text)chunks.push(text)};
+ push(data?.text||"");
+ for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[])push(line?.text||(line?.words||[]).map(w=>w?.text||"").join(" "));
+ const tracking=[],routes=[],waves=[],seenT=new Set();
+ for(const chunk of chunks){
+   const compact=chunk.toUpperCase().replace(/\s+/g," ");
+   const tMatches=compact.match(/U\s*[KX]\s*[0-9OQDILSZGBT\s-]{9,20}/g)||[];
+   for(const raw of tMatches){const t=atlasTrackingOf(raw);if(t&&!seenT.has(t)){seenT.add(t);tracking.push(t)}}
+   const rMatches=compact.match(/(?:C\s*A|S\s*A|C4|S4)[_\s-]*A?[_\s-]*[0-9OQDILSAZGTB]{2,4}/g)||[];
+   for(const raw of rMatches){const r=deh1RouteOf([raw])||routeOf([raw]);if(r)routes.push(r)}
+   const wMatches=compact.match(/W[A4]V[E3]\s*[-:]?\s*\d{1,2}/g)||[];
+   for(const raw of wMatches){const w=atlasWaveOf(raw);if(w)waves.push(w)}
+ }
+ const cleanRoutes=[];for(const route of routes){if(!cleanRoutes.length||cleanRoutes[cleanRoutes.length-1]!==route)cleanRoutes.push(route)}
+ const count=Math.min(tracking.length,cleanRoutes.length);
+ if(count<2)return[];
+ return tracking.slice(0,count).map((trackingId,i)=>({tracking:trackingId,route:cleanRoutes[i],wave:waves[i]||"",sourceY:i+1,columnFallback:true}));
+};
 const mergeAtlasRows=(...sets)=>{
  const out=new Map();
  for(const rows of sets.flat())for(const row of rows||[]){
@@ -441,27 +461,29 @@ function atlasEnhancedCanvas(source){
 async function atlasImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
- const passes=[];
- let rawCanvas=null;
- try{
-   rawCanvas=await deh1RawCanvas(file);
-   for(const mode of ["6","11"]){
+ const passes=[];let rawCanvas=null,lastError=null;
+ const run=async(source,mode)=>{
+   try{
      try{await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
-     const result=await worker.recognize(file,{}, {text:true,blocks:true});
+     const result=await worker.recognize(source,{}, {text:true,blocks:true});
      passes.push(atlasRowsFromOcrData(result.data));
-   }
-   const enhanced=atlasEnhancedCanvas(rawCanvas);
-   if(enhanced){
-     try{await worker.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
-     const result=await worker.recognize(enhanced,{}, {text:true,blocks:true});
-     passes.push(atlasRowsFromOcrData(result.data));
-   }
+     passes.push(atlasColumnRowsFromOcrData(result.data));
+   }catch(e){lastError=e;console.warn("Atlas OCR pass failed",mode,e)}
+ };
+ try{
+   try{rawCanvas=await deh1RawCanvas(file)}catch(e){lastError=e;console.warn("Atlas canvas prep failed",e)}
+   await run(file,"6");
+   await run(file,"11");
+   const enhanced=rawCanvas?atlasEnhancedCanvas(rawCanvas):null;
+   if(enhanced)await run(enhanced,"6");
  }finally{await worker.terminate()}
- return mergeAtlasRows(...passes);
+ const rows=mergeAtlasRows(...passes);
+ if(!rows.length&&lastError)throw lastError;
+ return rows;
 }
 
 export default function WavePlanView({site="DLS2",drivers=[]}){
- const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Good morning,\n\nPlease find below the list of your Atlas shipment of the day - Total Tracking IDs: {count}\n\nTracking ID - Route code - Driver Name\n\n{rows}\n\nBest regards,"),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium");
+ const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Good morning,\n\nPlease find below the list of your Atlas shipment of the day - Total Tracking IDs: {count}\n\nTracking ID - Route code - Driver Name\n\n{rows}\n\nBest regards,"),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[atlasStatus,setAtlasStatus]=useState({type:"idle",message:"Upload a photo or paste an Atlas message."}),[atlasLastFile,setAtlasLastFile]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium");
  const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),atlasImageInput=useRef(null),atlasRouteInput=useRef(null),sheetRef=useRef(null);
  const [dragging,setDragging]=useState(false),[uploadStatus,setUploadStatus]=useState([]),[editorTab,setEditorTab]=useState("waves");
  const [editNamesOpen,setEditNamesOpen]=useState(false),[editDraft,setEditDraft]=useState({});
@@ -469,7 +491,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);
    setOverrides({});setDismissedConflicts(new Set());setHiddenWaves(new Set());setUploadStatus([]);
    setEditNamesOpen(false);setEditDraft({});
-   setOcrProgress(null);setAtlasOcrProgress(null);setAtlasImageName("");
+   setOcrProgress(null);setAtlasOcrProgress(null);setAtlasImageName("");setAtlasStatus({type:"idle",message:"Upload a photo or paste an Atlas message."});setAtlasLastFile(null);
    if(atlasImageInput.current)atlasImageInput.current.value="";
    if(routeInput.current)routeInput.current.value="";
    if(waveInput.current)waveInput.current.value="";
@@ -516,13 +538,21 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const load=async(file,setFile,setRows)=>{if(!file)return;const kind=setFile===setRouteFile?"Route Plan":"Wave Plan";setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress));setOcrProgress(null)}else{const raw=await workbookRows(file),matrix=norm(site)==="DEH1"&&setFile===setWaveFile?deh1WorkbookRows(raw):[];setRows(matrix.length?matrix:raw)}setUploadStatus(prev=>[...prev.filter(x=>x.kind!==kind),{name:file.name,kind}].slice(-6))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
  const loadAtlasImage=async file=>{
    if(!file)return;
-   setAtlasImageName(file.name);setAtlasOcrProgress(0);
+   setAtlasLastFile(file);setAtlasImageName(file.name);setAtlasOcrProgress(0);setAtlasStatus({type:"reading",message:"Scanning Tracking ID, Route and Wave columns…"});
    try{
      const rows=await atlasImageRows(file,setAtlasOcrProgress);
-     if(!rows.length){alert("No Atlas rows were recognised from this image. Try a clearer photo with Tracking ID and Route columns visible.");return}
+     if(!rows.length){
+       setAtlasText("");
+       setAtlasStatus({type:"error",message:"No valid Tracking ID + Route rows were detected. Try a straighter photo or crop to the table area."});
+       return;
+     }
      setAtlasText(rows.map(r=>[r.tracking,r.route,r.wave].filter(Boolean).join(" - ")).join("\n"));
-   }catch(e){console.error("Atlas image OCR failed",e);alert("Could not read this Atlas photo. Try a clearer image or screenshot.")}
-   finally{setAtlasOcrProgress(null)}
+     setAtlasStatus({type:rows.length>=8?"success":"warning",message:"Recognised "+rows.length+" shipment"+(rows.length===1?"":"s")+". "+(rows.length>=8?"Ready to match drivers.":"Review the recognised rows before copying.")});
+   }catch(e){
+     console.error("Atlas image OCR failed",e);
+     setAtlasText("");
+     setAtlasStatus({type:"error",message:"The scan could not be completed. Retry once or upload a flatter, brighter photo."});
+   }finally{setAtlasOcrProgress(null)}
  };
  const driverByTrid=useMemo(()=>new Map(drivers.map(d=>{
    const trid=d?.trid||d?.id||d?.transporter_id||d?.rawData?.trid||d?.raw_data?.trid;
