@@ -438,7 +438,7 @@ const atlasColumnRowsFromOcrData=data=>{
 };
 const mergeAtlasRows=(...sets)=>{
  const out=new Map();
- for(const rows of sets.flat())for(const row of rows||[]){
+ for(const row of sets.flat()){
    if(!row?.tracking||!row?.route)continue;
    const prev=out.get(row.tracking);
    out.set(row.tracking,{tracking:row.tracking,route:prev?.route||row.route,wave:prev?.wave||row.wave||"",sourceY:Math.min(prev?.sourceY??999999,row.sourceY??999999)});
