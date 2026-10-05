@@ -3376,10 +3376,10 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   font-weight:850;
   white-space:nowrap;
 }
-.daily-dispatch .deh-control-block input[type="time"]{
+.daily-dispatch .deh-control-block label>input{
   width:82px;
   height:30px;
-  padding:0 6px;
+  padding:0 7px;
   border:0;
   border-left:1px solid #e1e8ee;
   outline:0;
