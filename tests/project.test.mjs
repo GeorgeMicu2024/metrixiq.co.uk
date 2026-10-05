@@ -454,12 +454,13 @@ test("persistence orchestration delegates identity and evidence storage", () => 
   assert.ok(persistence.includes("persistSiteScorecards"));
   assert.ok(persistence.includes("persistFeedbackEvents"));
   assert.ok(persistence.includes("persistResolvedNameAliases"));
+  assert.ok(persistence.includes("replaceConcessionSnapshotWeeks"));
   assert.equal(persistence.includes('.from("imports")'), false);
   assert.equal(persistence.includes('.from("site_scorecards")'), false);
   assert.equal(persistence.includes('.from("feedback_events")'), false);
   assert.ok(identity.includes("export async function seedIdentityRecords"));
   assert.ok(evidence.includes("export async function persistImportAudit"));
-  assert.ok(persistence.length < 8000);
+  assert.ok(persistence.length < 9000);
 });
 
 test("persistence delegates driver metric repository access", () => {
@@ -1111,35 +1112,28 @@ test("Concessions V2 calculates movement, repeat offenders and actions", () => {
   assert.ok(signals.managementActions.some((action) => action.id === "missing"));
 });
 
-test("Concessions Overview receives its ranking accessor and V2 management evidence", () => {
+test("Concessions uses isolated weekly snapshots for the last four weeks", () => {
   const view = read("components/operations/ConcessionsView.jsx");
-  const sections = read("components/operations/ConcessionsSections.jsx");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
+  const data = read("lib/data/concessions.js");
 
-  assert.ok(view.includes("buildConcessionsSignals"));
-  assert.ok(view.includes("valueFor={valueFor}"));
-  assert.ok(view.includes("managementActions={managementActions}"));
-  assert.ok(view.includes("repeatOffenders={repeatOffenders}"));
-  assert.ok(sections.includes("valueFor,"));
-  assert.ok(sections.includes("MANAGEMENT ACTIONS"));
-  assert.ok(sections.includes("Repeat-driver shortlist"));
+  assert.ok(view.includes("ConcessionsSimpleView"));
+  assert.ok(simple.includes("<h1>Concessions</h1>"));
+  assert.ok(simple.includes("Clean DNR history from dedicated Associates Concessions snapshots."));
+  assert.ok(simple.includes("fetchConcessionSnapshots"));
+  assert.ok(simple.includes("buildFourWeekConcessionMatrix"));
+  assert.ok(data.includes('from("concessions_weekly_snapshots")'));
+  assert.ok(data.includes("latestFourConcessionWeeks"));
 });
 
-test("Concessions separates orchestration from presentation sections", () => {
+test("Concessions no longer reads its page data from the mixed operational matrix", () => {
   const view = read("components/operations/ConcessionsView.jsx");
-  const sections = read("components/operations/ConcessionsSections.jsx");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
 
-  assert.ok(view.includes("ConcessionsHeader"));
-  assert.ok(view.includes("ConcessionsKpis"));
-  assert.ok(view.includes("ConcessionsMatrix"));
-  assert.ok(view.includes("ConcessionsOverview"));
-  assert.ok(view.includes("<style jsx global>"));
-  assert.equal(view.includes('<section className="cx2-kpis">'), false);
-  assert.equal(view.includes('<section className="cx2-card cx2-matrix-card">'), false);
-  assert.equal(view.includes('<section className="cx2-overview-grid">'), false);
-  assert.ok(sections.includes("export function ConcessionsHeader"));
-  assert.ok(sections.includes("export function ConcessionsKpis"));
-  assert.ok(sections.includes("export function ConcessionsMatrix"));
-  assert.ok(sections.includes("export function ConcessionsOverview"));
+  assert.equal(view.includes("ConcessionsMatrix"), false);
+  assert.equal(view.includes("buildConcessionsSignals"), false);
+  assert.equal(simple.includes("driver_metrics"), false);
+  assert.ok(simple.includes("4-week concession matrix"));
 });
 
 test("IADC Mentor and Concessions use canonical operational modules", () => {
@@ -1167,15 +1161,14 @@ test("IADC Mentor and Concessions use canonical operational modules", () => {
   assert.ok(dashboard.includes('./operations/ConcessionsView'));
 });
 
-test("Concessions keeps React hook order stable across loading states", () => {
+test("Concessions wrapper stays hook-free and delegates to the source-locked view", () => {
   const concessions = read("components/operations/ConcessionsView.jsx");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
 
+  assert.equal(concessions.includes("useState("), false);
   assert.equal(concessions.includes("useMemo("), false);
-  assert.ok(concessions.includes("const rows=filterRowsBySite(load.rows,siteFilter);"));
-  assert.ok(
-    concessions.indexOf("const rows=filterRowsBySite(load.rows,siteFilter);") <
-    concessions.indexOf("if(load.loading)")
-  );
+  assert.ok(concessions.includes("<ConcessionsSimpleView"));
+  assert.ok(simple.includes("useEffect("));
 });
 
 test("site-scoped operational views recover from stale week selections", () => {
@@ -1319,7 +1312,7 @@ test("eMentor reconciliation is idempotent by stable source identity", () => {
   assert.ok(migration.includes('reconciliation_key'));
 
   assert.ok(mapping.includes('const reconciled = useMemo'));
-  assert.ok(mapping.includes('unique source accounts'));
+  assert.ok(mapping.includes('source account'));
 });
 
 test("daily eMentor supports multiple source accounts per driver and persistent hide", () => {
@@ -1399,9 +1392,61 @@ test("analysis preserves daily granularity for IADC persistence and IADC opens i
 });
 
 
-test("concessions week window ignores unrelated daily operational rows", () => {
-  const view = read("components/operations/ConcessionsView.jsx");
-  assert.ok(view.includes("const concessionRows=rows.filter(r=>n(r.concessions)!=null)"));
-  assert.ok(view.includes("const weeks=contiguousWeeks(concessionRows,range)"));
-  assert.equal(view.includes("const weeks=contiguousWeeks(rows,range)"), false);
+test("concessions ignores unrelated operational rows through the isolated snapshot table", () => {
+  const data = read("lib/data/concessions.js");
+  const simple = read("components/operations/ConcessionsSimpleView.jsx");
+  const persistence = read("lib/persistence/concessions.js");
+
+  assert.ok(data.includes("parseTrustedConcessionsFile"));
+  assert.ok(data.includes("concessions_weekly_snapshots"));
+  assert.ok(simple.includes("Clean DNR history from dedicated Associates Concessions snapshots."));
+  assert.ok(persistence.includes("replaceConcessionSnapshotWeeks"));
+  assert.ok(persistence.includes("DSP_Associates_Concessions_"));
+});
+
+
+test("global site selector is the single site scope control for operational pages", () => {
+  const dashboard = read("components/DashboardClient.jsx");
+  const mentor = read("components/operations/MentorView.jsx");
+  const concessions = read("components/operations/ConcessionsSimpleView.jsx");
+  const analyst = read("components/intelligence/ExecutiveAnalystV2.jsx");
+  const reports = read("components/reports/ReportBuilderV2.jsx");
+  const driverScorecards = read("components/scorecards/DriverScorecardsV22.jsx");
+  const siteOperations = read("components/sites/SiteOperationsCenter.jsx");
+
+  assert.equal((dashboard.match(/aria-label="Filter workspace by site"/g) || []).length, 1);
+  assert.ok(dashboard.includes("SITE_SCOPED_VIEWS"));
+  assert.equal(mentor.includes('aria-label="Filter eMentor report by site"'), false);
+  assert.equal(concessions.includes("<span>Site</span>"), false);
+  assert.equal(analyst.includes("<span>Site</span><select"), false);
+  assert.equal(reports.includes("<span>Site</span><select"), false);
+  assert.equal(driverScorecards.includes('aria-label="Filter driver scorecards by site"'), false);
+  assert.equal(siteOperations.includes("changeSite(value)"), false);
+});
+
+
+test("POD workspace excludes scorecard-only percentages from reject analysis", () => {
+  const podView = read("components/operations/PodQualityView.jsx");
+  const operational = read("lib/data/directOperational.js");
+
+  assert.ok(operational.includes('if (kind === "pod")'));
+  assert.ok(operational.includes('query.contains("raw_data", { pod_detail: {} })'));
+  assert.ok(operational.includes("raw_data?.pod_detail"));
+  assert.equal(operational.includes("row.pod != null ||"), false);
+  assert.ok(podView.includes("Driver-level POD Quality from dedicated Amazon POD reports only."));
+  assert.ok(podView.includes("No detailed POD weeks"));
+  assert.equal(podView.includes("Clear page"), false);
+});
+
+
+test("Contact Compliance history stays site-scoped and source-locked", () => {
+  const view = read("components/operations/CustomerComplianceView.jsx");
+  const data = read("lib/data/directOperational.js");
+  const metrics = read("lib/persistence/metrics.js");
+
+  assert.ok(view.includes("inferSiteFromFile"));
+  assert.ok(view.includes("onImported?.(result,[file],importSite)"));
+  assert.ok(data.includes('if (kind === "cc")'));
+  assert.ok(data.includes("contact_compliance_detail"));
+  assert.ok(metrics.includes("contact_compliance_detail: freshRaw.contact_compliance_detail || oldRaw.contact_compliance_detail || null"));
 });

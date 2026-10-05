@@ -1,57 +1,124 @@
-import "./globals.css";
-import "./scorecard.css";
-import "./scorecards-v22.css";
-import "./mentor.css";
-import "./governance-v2.css";
-import "./manager-intelligence-v3.css";
-import "./operations-intelligence-v4.css";
-import "./intelligence-reporting-v5.css";
-import "./platform-mobile-v6.css";
-import "./enterprise-portfolio-v7.css";
-import "./automation-workflows-v8.css";
-import "./integration-delivery-v9.css";
-import "./account-settings.css";
-import PwaBootstrap from "../components/pwa/PwaBootstrap";
+import "./marketing-base.css";
+import StructuredData from "../components/StructuredData";
+import DeferredGoogleAnalytics from "../components/DeferredGoogleAnalytics";
+import {
+  DEFAULT_DESCRIPTION,
+  DEFAULT_TITLE,
+  SITE_NAME,
+  SITE_URL,
+  organizationSchema,
+  softwareSchema,
+  websiteSchema,
+} from "../lib/seo/site";
+
+const googleSiteVerification =
+  process.env.GOOGLE_SITE_VERIFICATION || process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "";
+
+
+const PWA_BOOTSTRAP_SCRIPT = `
+(() => {
+  const captureInstall = (event) => {
+    event.preventDefault();
+    window.__metrixiqInstallPrompt = event;
+    window.dispatchEvent(new CustomEvent("metrixiq:pwa-install-available"));
+  };
+
+  const installed = () => {
+    window.__metrixiqInstallPrompt = null;
+    window.dispatchEvent(new CustomEvent("metrixiq:pwa-installed"));
+  };
+
+  window.addEventListener("beforeinstallprompt", captureInstall);
+  window.addEventListener("appinstalled", installed);
+
+  const registerServiceWorker = () => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {});
+    }
+  };
+
+  const deferServiceWorker = () => {
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(registerServiceWorker, { timeout: 2500 });
+    } else {
+      window.setTimeout(registerServiceWorker, 1800);
+    }
+  };
+
+  if (document.readyState === "complete") {
+    deferServiceWorker();
+  } else {
+    window.addEventListener("load", deferServiceWorker, { once: true });
+  }
+
+  const standalone =
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    window.navigator.standalone === true;
+  document.documentElement.dataset.pwa = standalone ? "standalone" : "browser";
+})();
+`;
 
 export const metadata = {
-  metadataBase: new URL("https://www.metrixiq.co.uk"),
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "MetrixIQ — Fleet & Driver Intelligence",
+    default: DEFAULT_TITLE,
     template: "%s | MetrixIQ",
   },
-  description: "Fleet and driver performance intelligence for modern delivery operations.",
-  applicationName: "MetrixIQ",
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
   alternates: {
     canonical: "/",
+    languages: { "en-GB": "/" },
   },
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "MetrixIQ",
-    title: "MetrixIQ — Fleet & Driver Intelligence",
-    description: "Fleet and driver performance intelligence for modern delivery operations.",
+    siteName: SITE_NAME,
+    locale: "en_GB",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "MetrixIQ fleet and driver performance intelligence",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MetrixIQ — Fleet & Driver Intelligence",
-    description: "Fleet and driver performance intelligence for modern delivery operations.",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: ["/twitter-image"],
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
   },
   icons: {
-    icon: "/favicon.svg",
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/favicon.svg",
   },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "MetrixIQ",
+    title: SITE_NAME,
     statusBarStyle: "black-translucent",
   },
   formatDetection: {
     telephone: false,
   },
+  ...(googleSiteVerification
+    ? { verification: { google: googleSiteVerification } }
+    : {}),
 };
 
 export const viewport = {
@@ -63,8 +130,13 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body><PwaBootstrap />{children}</body>
+    <html lang="en-GB">
+      <body>
+        <StructuredData data={[organizationSchema, websiteSchema, softwareSchema]} />
+        <script id="metrixiq-pwa-bootstrap" dangerouslySetInnerHTML={{ __html: PWA_BOOTSTRAP_SCRIPT }} />
+        <DeferredGoogleAnalytics />
+        {children}
+      </body>
     </html>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { fetchMentorDailyRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
+import { fetchMentorDailyRows, fetchMentorReconciliationRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
 import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
@@ -219,9 +219,8 @@ export default function MentorView({
   organizationId,
   onOpenDriver,
   onImport,
-  siteFilter = "all",
   onSiteFilterChange,
-  sites = [],
+  siteFilter = "all",
   refreshKey = 0,
 }) {
   const weeklyLoad = useOperationalRows(organizationId, "mentor", refreshKey);
@@ -230,6 +229,7 @@ export default function MentorView({
     error: "",
     rows: [],
   });
+  const [reconciliationRows, setReconciliationRows] = useState([]);
   const [mode, setMode] = useState("daily");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -245,17 +245,21 @@ export default function MentorView({
 
     if (!organizationId) {
       setDailyLoad({ loading: false, error: "", rows: [] });
+      setReconciliationRows([]);
       return () => {};
     }
 
     (async () => {
       try {
         setDailyLoad((currentState) => ({ ...currentState, loading: true, error: "" }));
-        const rows = await fetchMentorDailyRows(
-          getSupabaseBrowserClient(),
-          organizationId
-        );
-        if (alive) setDailyLoad({ loading: false, error: "", rows });
+        const [rows, reconciliation] = await Promise.all([
+          fetchMentorDailyRows(getSupabaseBrowserClient(), organizationId),
+          fetchMentorReconciliationRows(getSupabaseBrowserClient(), organizationId),
+        ]);
+        if (alive) {
+          setDailyLoad({ loading: false, error: "", rows });
+          setReconciliationRows(reconciliation);
+        }
       } catch (error) {
         if (alive) {
           setDailyLoad({
@@ -263,6 +267,7 @@ export default function MentorView({
             error: error?.message || "Could not load daily eMentor history.",
             rows: [],
           });
+          setReconciliationRows([]);
         }
       }
     })();
@@ -274,24 +279,6 @@ export default function MentorView({
 
   const allDailyRows = dailyLoad.rows || [];
   const allWeeklyRows = weeklyLoad.rows || [];
-
-  const availableSites = useMemo(
-    () =>
-      [...new Set(
-        [
-          ...sites,
-          ...[...allDailyRows, ...allWeeklyRows].flatMap((row) => [
-            row?.site,
-            row?.drivers?.site,
-            row?.raw_data?.activity_site,
-            row?.raw_data?.mentor?.station,
-          ]),
-        ]
-          .map((value) => String(value || "").trim().toUpperCase())
-          .filter((value) => /^[A-Z]{2,5}\\d{1,3}$/.test(value))
-      )].sort(),
-    [sites, allDailyRows, allWeeklyRows]
-  );
 
   const weeklyRows = useMemo(
     () => {
@@ -312,6 +299,24 @@ export default function MentorView({
     () => filterRowsBySite(allDailyRows, siteFilter),
     [allDailyRows, siteFilter]
   );
+  const normalizedSelectedSite = String(siteFilter || "all").trim().toUpperCase();
+  const globalLatestDate = useMemo(
+    () => [...new Set(allDailyRows.map((row) => row.report_date).filter(Boolean))].sort().reverse()[0] || "",
+    [allDailyRows]
+  );
+  const siteMismatch = useMemo(() => {
+    if (!globalLatestDate || normalizedSelectedSite === "ALL") return null;
+    const latestRows = allDailyRows.filter((row) => row.report_date === globalLatestDate);
+    if (latestRows.some((row) => String(row.site || "").trim().toUpperCase() === normalizedSelectedSite)) return null;
+    const counts = new Map();
+    for (const row of latestRows) {
+      const rowSite = String(row.site || row.raw_data?.activity_site || "").trim().toUpperCase();
+      if (!rowSite || rowSite === normalizedSelectedSite) continue;
+      counts.set(rowSite, (counts.get(rowSite) || 0) + 1);
+    }
+    const [best] = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    return best ? { site: best[0], count: best[1], date: globalLatestDate } : null;
+  }, [allDailyRows, globalLatestDate, normalizedSelectedSite]);
 
   const dates = useMemo(
     () =>
@@ -338,13 +343,18 @@ export default function MentorView({
     if (!weeks.length && selectedWeek) setSelectedWeek("");
   }, [weeks, selectedWeek]);
 
+
+  const selectedDailyRows = useMemo(
+    () => dailyRows.filter((row) => row.report_date === selectedDate),
+    [dailyRows, selectedDate]
+  );
+
   const dailyMap = useMemo(
     () =>
-      dailyRows
-        .filter((row) => row.report_date === selectedDate)
+      selectedDailyRows
         .map(makeItem)
-        .filter((item) => item.score != null || item.details),
-    [dailyRows, selectedDate]
+        .filter((item) => item.score != null),
+    [selectedDailyRows]
   );
 
   const weeklyMap = useMemo(
@@ -355,6 +365,98 @@ export default function MentorView({
         .filter((item) => item.score != null || item.details),
     [weeklyRows, selectedWeek]
   );
+
+  const unmatchedForDate = useMemo(() => reconciliationRows.filter((row) => {
+    if (row.status !== "open") return false;
+    if (String(row.payload?.reportDate || "") !== String(selectedDate || "")) return false;
+    if (normalizedSelectedSite === "ALL") return true;
+    const rowSite = String(row.site || row.payload?.driver?.site || row.payload?.driver?.details?.mentor?.station || "").trim().toUpperCase();
+    return rowSite === normalizedSelectedSite;
+  }), [reconciliationRows, selectedDate, normalizedSelectedSite]);
+
+  const noTripRows = useMemo(() => {
+    const rows = new Map();
+
+    // Confirmed No Trip rows from mapped eMentor evidence.
+    // Do not infer No Trip from a missing field: it must be an explicit Trip < 1.
+    for (const row of selectedDailyRows) {
+      const details = row.raw_data?.mentor || {};
+      const trips = n(details.totalTrips);
+      if (trips == null || trips >= 1) continue;
+
+      const driverName = String(dname(row.drivers || {}) || "Unresolved driver").trim();
+      const driverTrid = String(trid(row.drivers || {}) || "—").trim();
+      const key = String(row.driver_id || driverTrid || driverName || row.source_identity_key || row.id);
+      if (rows.has(key)) continue;
+
+      rows.set(key, {
+        id: key,
+        driverName,
+        trid: driverTrid || "—",
+        beginRouteTime: details.beginRouteTime || "—",
+        endRouteTime: details.endRouteTime || "—",
+        status: details.tripStatusReason || "No trip registered",
+      });
+    }
+
+    // Keep confirmed zero-trip eMentor records visible even when identity
+    // reconciliation has not been completed yet.
+    for (const row of unmatchedForDate) {
+      const driver = row.payload?.driver || {};
+      const details = driver.details?.mentor || {};
+      const trips = n(details.totalTrips);
+      if (trips == null || trips >= 1) continue;
+
+      const driverName = String(driver.name || driver.full_name || "Unmatched eMentor driver").trim();
+      const driverTrid = String(driver.trid || "—").trim();
+      const key = String(row.id || driverTrid || driverName);
+      if (rows.has(key)) continue;
+
+      rows.set(key, {
+        id: key,
+        driverName,
+        trid: driverTrid || "—",
+        beginRouteTime: details.beginRouteTime || "—",
+        endRouteTime: details.endRouteTime || "—",
+        status: details.tripStatusReason || "No trip registered · identity mapping required",
+      });
+    }
+
+    return [...rows.values()].sort((a, b) => a.driverName.localeCompare(b.driverName));
+  }, [selectedDailyRows, unmatchedForDate]);
+
+  const tripEvidenceComplete = useMemo(
+    () => selectedDailyRows.some((row) => {
+      const details = row.raw_data?.mentor || {};
+      if (details.tripEvidenceSource === "ementor_shift_report") return true;
+      return (row.raw_data?.source_files || []).some((name) => /shift.?report/i.test(String(name || "")));
+    }),
+    [selectedDailyRows]
+  );
+
+  const explicitTripRows = useMemo(
+    () =>
+      selectedDailyRows.filter((row) => {
+        const details = row.raw_data?.mentor || {};
+        return n(details.totalTrips) != null;
+      }),
+    [selectedDailyRows]
+  );
+
+  const recordedCount = useMemo(() => {
+    const recorded = new Set();
+    for (const row of selectedDailyRows) {
+      const details = row.raw_data?.mentor || {};
+      const trips = n(details.totalTrips);
+      if (!(trips >= 1)) continue;
+      recorded.add(String(row.driver_id || row.source_identity_key || row.id || ""));
+    }
+    recorded.delete("");
+    return recorded.size;
+  }, [selectedDailyRows]);
+
+  const hasExplicitTripCounts = explicitTripRows.length > 0 || noTripRows.length > 0;
+  const noTripCountReady = tripEvidenceComplete || hasExplicitTripCounts;
 
   function applySort(items) {
     return [...items].sort((a, b) => {
@@ -431,16 +533,6 @@ export default function MentorView({
     : null;
   const below = scored.filter((item) => item.score < TARGETS.mentor).length;
   const passed = scored.filter((item) => item.score >= TARGETS.mentor).length;
-  const noScore = activeRows.filter((item) => item.score == null).length;
-  const highest = scored.length ? [...scored].sort((a,b)=>b.score-a.score)[0] : null;
-  const lowest = scored.length ? [...scored].sort((a,b)=>a.score-b.score)[0] : null;
-  const distribution = [
-    { label: "< 700", count: scored.filter((item)=>item.score<700).length, tone: "critical" },
-    { label: "700 – 814", count: scored.filter((item)=>item.score>=700&&item.score<TARGETS.mentor).length, tone: "warning" },
-    { label: "815 – 850", count: scored.filter((item)=>item.score>=TARGETS.mentor&&item.score<=850).length, tone: "target" },
-    { label: "> 850", count: scored.filter((item)=>item.score>850).length, tone: "strong" },
-  ];
-  const passRate = activeRows.length ? (passed / activeRows.length) * 100 : 0;
   const siteLabel = siteFilter === "all" ? "All sites" : siteFilter;
   const periodLabel =
     mode === "daily"
@@ -460,8 +552,6 @@ export default function MentorView({
                 <span className="page-kicker">EMENTOR SAFETY</span>
                 <h1>Daily eMentor Report</h1>
                 <p>
-                  Site: <b>{siteLabel}</b>
-                  <span>•</span>
                   Date: <b>{formatDate(selectedDate)}</b>
                   <span>•</span>
                   Report Type: <b>Daily</b>
@@ -514,10 +604,30 @@ export default function MentorView({
             </div>
           </div>
 
+          {siteMismatch && (
+            <div className="mentor-site-mismatch">
+              <div>
+                <b>Latest daily eMentor upload: {siteMismatch.site}</b>
+                <span>{formatDate(siteMismatch.date)} · {siteMismatch.count} recorded row(s). You are viewing {normalizedSelectedSite}.</span>
+              </div>
+              {onSiteFilterChange && (
+                <button type="button" className="btn primary" onClick={() => onSiteFilterChange(siteMismatch.site)}>
+                  Switch to {siteMismatch.site}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="mentor-mode-switch">
             <button type="button" className="active">Daily</button>
             <button type="button" onClick={() => setMode("weekly")}>Weekly scorecard</button>
             <span>Minimum required score: <b>{TARGETS.mentor}+</b></span>
+          </div>
+
+          <div className="mentor-daily-kpis">
+            <article><span>Recorded</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>{hasExplicitTripCounts ? "Drivers with at least 1 eMentor trip" : "Trip count not available in this report"}</small></article>
+            <article className={unmatchedForDate.length ? "warn" : ""}><span>Unmatched</span><strong>{unmatchedForDate.length}</strong><small>Identity mapping required</small></article>
+            <article className={noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{noTripCountReady ? noTripRows.length : "—"}</strong><small>{tripEvidenceComplete ? "Confirmed from eMentor Shift Report" : noTripRows.length ? "Confirmed Trip < 1 rows found in eMentor" : hasExplicitTripCounts ? "No zero-trip rows in the current Driver Report" : "Import eMentor Shift Report (VRM) to verify"}</small></article>
           </div>
 
           <MentorReportTable
@@ -529,6 +639,43 @@ export default function MentorView({
             onRestore={(item) => setDailyItemHidden(item, false)}
             visibilityBusy={visibilityBusy}
           />
+          <section className={"mentor-no-trip "+(noTripRows.length ? "has-missing" : "")}>
+            <div className="mentor-no-trip-head">
+              <div><span className="page-kicker">EMENTOR TRIP CHECK</span><h2>No Trip Recorder</h2></div>
+              <strong>{noTripCountReady ? noTripRows.length : "—"}</strong>
+            </div>
+            {noTripRows.length ? (
+              <>
+                <div className="mentor-no-trip-table-wrap"><table className="mentor-no-trip-table"><thead><tr><th>Driver</th><th>TRID</th><th>Begin</th><th>End</th><th>Status</th></tr></thead><tbody>{noTripRows.map((row) => <tr key={row.id}><td><b>{row.driverName}</b></td><td>{row.trid}</td><td>{row.beginRouteTime}</td><td>{row.endRouteTime}</td><td><span>● {row.status}</span></td></tr>)}</tbody></table></div>
+                {!tripEvidenceComplete && <p className="mentor-no-trip-info">These are explicit Trip = 0 rows from eMentor. Import the eMentor Shift Report (VRM) for the same date to verify the complete trip list.</p>}
+              </>
+            ) : tripEvidenceComplete ? (
+              <p className="mentor-no-trip-info ok">✓ Every driver in the eMentor Shift Report has at least 1 registered trip for {formatDate(selectedDate)}.</p>
+            ) : hasExplicitTripCounts ? (
+              <div className="mentor-no-trip-info">
+                <b>0 confirmed No Trip rows in the current Driver Report.</b>{" "}
+                Drivers who never started a trip may be omitted from the Driver Report entirely, so import the
+                <b> eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)} to identify them accurately.
+                {onImport && (
+                  <button type="button" className="btn ghost" onClick={onImport} style={{ marginLeft: "10px" }}>
+                    Import Shift Report
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="mentor-no-trip-info">
+                To identify drivers with fewer than 1 registered eMentor trip, import the
+                <b> eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)}. MetrixIQ reads the Trip /
+                Begin Route Time / End Route Time fields directly. Daily Dispatch is not used.
+                {onImport && (
+                  <button type="button" className="btn ghost" onClick={onImport} style={{ marginLeft: "10px" }}>
+                    Import Shift Report
+                  </button>
+                )}
+              </div>
+            )}
+          </section>
+
           <div className="mentor-mode-switch">
             <button type="button" className={showHidden ? "active" : ""} onClick={() => setShowHidden((value) => !value)}>
               {showHidden ? "Hide hidden rows" : "Show hidden rows"}
@@ -591,40 +738,49 @@ export default function MentorView({
 
   return (
     <>
-      <section className="mentor-weekly-v3">
-        <header className="mentor-weekly-hero">
-          <img src="/ementor-ddp.svg" alt="" className="mentor-weekly-logo" />
-          <div><span className="page-kicker">EMENTOR SAFETY</span><h1>Weekly eMentor Performance</h1><p>{siteLabel} <b>•</b> {periodLabel} <b>•</b> Minimum required score {TARGETS.mentor}+</p></div>
-        </header>
-
-        <div className="mentor-weekly-controls">
-          <div className="mentor-mode-tabs mentor-v3-tabs"><button type="button" onClick={()=>setMode("daily")}>Daily</button><button type="button" className="active">Weekly</button></div>
-          <select className="mentor-period-select" aria-label="Select weekly eMentor scorecard" value={selectedWeek} onChange={(event)=>setSelectedWeek(event.target.value)}>{weeks.length?weeks.map((week)=><option key={week} value={week}>{week}</option>):<option value="">No weekly scorecards</option>}</select>
-          <input className="v10-search" aria-label="Search Mentor drivers" value={query} onChange={(event)=>setQuery(event.target.value)} placeholder="Search driver name…" />
-          {onImport&&<button type="button" className="btn primary mentor-v3-import" onClick={onImport}>⇧ &nbsp; Import eMentor</button>}
+      <div className="page-heading v10-heading mentor-weekly-heading">
+        <div>
+          <span className="page-kicker">EMENTOR SAFETY · WEEKLY</span>
+          <h1>Weekly eMentor Performance</h1>
+          <p>{periodLabel} · minimum required score {TARGETS.mentor}+</p>
         </div>
+        <div className="mentor-view-actions">
+          <div className="mentor-mode-tabs">
+            <button type="button" onClick={() => setMode("daily")}>Daily</button>
+            <button type="button" className="active">Weekly</button>
+          </div>
+          <select
+            className="mentor-period-select"
+            aria-label="Select weekly eMentor scorecard"
+            value={selectedWeek}
+            onChange={(event) => setSelectedWeek(event.target.value)}
+          >
+            {weeks.length ? weeks.map((week) => <option key={week} value={week}>{week}</option>) : <option value="">No weekly scorecards</option>}
+          </select>
+          <input
+            className="v10-search"
+            aria-label="Search Mentor drivers"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search driver…"
+          />
+          {onImport && <button type="button" className="btn primary" onClick={onImport}>Import eMentor</button>}
+        </div>
+      </div>
 
-        <section className="mentor-v3-primary-kpis">
-          <article className="average"><span>🏆 <b>Average Score</b></span><strong>{average==null?"—":Math.round(average)}</strong><small>Target ≥ {TARGETS.mentor}</small><i><em style={{width:`${Math.min(100,average?average/TARGETS.mentor*100:0)}%`}} /></i></article>
-          <article className="below"><span>⚠ <b>Below Target</b></span><strong>{below}</strong><small>Out of {activeRows.length} drivers</small><i><em style={{width:`${activeRows.length?below/activeRows.length*100:0}%`}} /></i><b>{activeRows.length?(below/activeRows.length*100).toFixed(1):"0.0"}% below {TARGETS.mentor}</b></article>
-          <article className="passed"><span>●● <b>At / Above Target</b></span><strong>{passed}</strong><small>Out of {activeRows.length} drivers</small><i><em style={{width:`${passRate}%`}} /></i><b>{passRate.toFixed(1)}% meeting target</b></article>
-        </section>
-
-        <section className="mentor-v3-secondary-kpis">
-          <article><span>🏅</span><div><small>Highest Score</small><strong>{highest?.score??"—"}</strong><p>{highest?`${highest.firstName} ${highest.lastName}`:"No score"}</p></div></article>
-          <article><span>↓</span><div><small>Lowest Score</small><strong>{lowest?.score??"—"}</strong><p>{lowest?`${lowest.firstName} ${lowest.lastName}`:"No score"}</p></div></article>
-          <article><span>👥</span><div><small>Drivers with No Score</small><strong>{noScore}</strong><p>Check import / mapping</p></div></article>
-        </section>
-
-        <section className="mentor-v3-distribution">
-          <div className="mentor-v3-dist-main"><h2>Score Distribution <small>({activeRows.length} drivers)</small></h2><div className="mentor-v3-dist-bar">{distribution.map((d)=><i key={d.label} className={d.tone} style={{flex:Math.max(d.count,0.35)}} />)}</div><div className="mentor-v3-dist-labels">{distribution.map((d)=><span key={d.label}><b>{d.count}</b><small>{d.label}</small></span>)}</div></div>
-          <div className="mentor-v3-donut" style={{"--rate":`${passRate*3.6}deg`}}><div><strong>{passRate.toFixed(1)}%</strong><small>At/Above Target</small></div></div>
-        </section>
-
-        <section className="panel mentor-weekly-table mentor-v3-table">
-          <div className="mentor-v3-table-tools"><div><button className="active">All Drivers</button><button>Below {TARGETS.mentor} ({below})</button><button>No Score ({noScore})</button><button>At/Above {TARGETS.mentor} ({passed})</button></div><button type="button" onClick={()=>window.print()}>⇩ &nbsp; Export</button></div>
-          <MentorReportTable rows={visibleRows} sort={sort} onSort={toggleSort} onOpenDriver={onOpenDriver} />
-        </section>
+      <section className="v10-kpi-grid mentor-weekly-kpis">
+        <article><span>Average score</span><strong>{average == null ? "—" : Math.round(average)}</strong><small>{targetLabel("mentor")}</small></article>
+        <article className={below ? "warn" : ""}><span>Below target</span><strong>{below}</strong><small>{periodLabel}</small></article>
+        <article><span>At / above target</span><strong>{passed}</strong><small>{TARGETS.mentor}+ required</small></article>
+        <article><span>Driver records</span><strong>{activeRows.length}</strong><small>Current scope</small></article>
       </section>
-    </>  );
+
+      <section className="panel mentor-weekly-table">
+        <div className="panel-head">
+          <div><span className="page-kicker">DRIVER RANKING</span><h2>Weekly eMentor leaderboard</h2><p>{periodLabel} · sorted by your selected column</p></div>
+        </div>
+        <MentorReportTable rows={visibleRows} sort={sort} onSort={toggleSort} onOpenDriver={onOpenDriver} />
+      </section>
+    </>
+  );
 }

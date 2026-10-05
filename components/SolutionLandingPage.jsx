@@ -1,0 +1,134 @@
+import Link from "next/link";
+import PublicPageShell from "./PublicPageShell";
+import TrackedLink from "./TrackedLink";
+import StructuredData from "./StructuredData";
+import { SOLUTION_PAGES, buildSolutionSchemas } from "../lib/seo/solutionPages";
+import { RESOURCE_LIST } from "../lib/seo/resources";
+import { USE_CASE_LIST } from "../lib/seo/useCasePages";
+
+export default function SolutionLandingPage({ page }) {
+  const resources = RESOURCE_LIST.filter((article) => article.relatedSolution === page.path).slice(0, 2);
+  const useCases = USE_CASE_LIST.filter((item) => item.relatedSolution === page.path).slice(0, 2);
+
+  return (
+    <>
+      <StructuredData data={buildSolutionSchemas(page)} />
+      <PublicPageShell
+        eyebrow={page.eyebrow}
+        title={page.h1}
+        intro={page.intro}
+        breadcrumbs={[
+          { label: "Home", href: "/" },
+          { label: "Solutions", href: "/solutions" },
+          { label: page.title },
+        ]}
+      >
+        <section>
+          <h2>{page.problemTitle}</h2>
+          {page.problem.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        </section>
+
+        <section>
+          <h2>What MetrixIQ brings together</h2>
+          <div className="public-grid">
+            {page.capabilities.map(([title, body]) => (
+              <article className="public-card" key={title}>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2>How the workflow fits together</h2>
+          <div className="solution-workflow">
+            {page.workflow.map(([title, body], index) => (
+              <article key={title}>
+                <b>{String(index + 1).padStart(2, "0")}</b>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2>{page.outcomesTitle}</h2>
+          <ul className="solution-outcomes">
+            {page.outcomes.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </section>
+
+        <section className="solution-faq">
+          <h2>Frequently asked questions</h2>
+          <div>
+            {page.faqs.map(([question, answer]) => (
+              <article key={question}>
+                <h3>{question}</h3>
+                <p>{answer}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="public-callout">
+          <h2>See how MetrixIQ fits your operation</h2>
+          <p>
+            Start with the operational reports and workflows your team already uses, then bring the performance, compliance and management context into one structured workspace.
+          </p>
+          <div className="public-actions">
+            <TrackedLink className="primary" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "solution_page", solution: page.path }}>Get started</TrackedLink>
+            <TrackedLink href="/contact" eventParams={{ cta_label: "Contact MetrixIQ", cta_location: "solution_page", solution: page.path }}>Contact MetrixIQ</TrackedLink>
+          </div>
+        </section>
+
+        {useCases.length ? (
+          <section className="solution-use-cases">
+            <h2>Operational use cases</h2>
+            <div>
+              {useCases.map((item) => (
+                <Link href={item.path} key={item.slug}>
+                  <span>{item.eyebrow}</span>
+                  <b>{item.title}</b>
+                  <small>Explore use case →</small>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {resources.length ? (
+          <section className="solution-learning">
+            <h2>Learn more</h2>
+            <div>
+              {resources.map((article) => (
+                <Link href={article.path} key={article.slug}>
+                  <span>{article.eyebrow}</span>
+                  <b>{article.title}</b>
+                  <small>{article.readingTime} · Read guide →</small>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="solution-related">
+          <h2>Related MetrixIQ solutions</h2>
+          <div>
+            {page.related.map((slug) => {
+              const related = SOLUTION_PAGES[slug];
+              return (
+                <Link key={slug} href={related.path}>
+                  <span>{related.eyebrow}</span>
+                  <b>{related.title}</b>
+                  <small>Explore solution →</small>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      </PublicPageShell>
+    </>
+  );
+}

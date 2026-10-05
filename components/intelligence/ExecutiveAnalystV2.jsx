@@ -26,9 +26,7 @@ function scopeLabel(site,week){
 
 export default function ExecutiveAnalystV2({
   organizationId,
-  sites=[],
   siteFilter="all",
-  onSiteFilterChange,
   onOpenDriver,
   onNavigate,
 }){
@@ -36,7 +34,7 @@ export default function ExecutiveAnalystV2({
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
   const [question,setQuestion]=useState("");
-  const [site,setSite]=useState(siteFilter||"all");
+  const site=siteFilter||"all";
   const [week,setWeek]=useState("");
   const [answer,setAnswer]=useState(null);
   const [history,setHistory]=useState([]);
@@ -51,7 +49,7 @@ export default function ExecutiveAnalystV2({
     finally{setLoading(false);}
   }
   useEffect(()=>{load();},[organizationId]);
-  useEffect(()=>{if(siteFilter&&siteFilter!==site)setSite(siteFilter);},[siteFilter]);
+  useEffect(()=>{setAnswer(null);setWeek("");},[siteFilter]);
 
   const weeks=useMemo(()=>availableWeeks(data||{},site),[data,site]);
   useEffect(()=>{
@@ -69,13 +67,6 @@ export default function ExecutiveAnalystV2({
       {id:Date.now()+"-"+Math.random(),question:q,result},
       ...current,
     ].slice(0,12));
-  }
-
-  function changeSite(value){
-    setSite(value);
-    setWeek("");
-    onSiteFilterChange?.(value);
-    setAnswer(null);
   }
 
   function openEvidence(item){
@@ -100,7 +91,6 @@ export default function ExecutiveAnalystV2({
     {data?.optionalErrors?.length>0&&<div className="analystv5-warning">Some optional evidence sources are unavailable for your current permissions. Scorecard analysis is still available.</div>}
 
     <section className="analystv5-scope">
-      <label><span>Site</span><select value={site} onChange={(e)=>changeSite(e.target.value)}><option value="all">All sites</option>{sites.map((value)=><option key={value}>{value}</option>)}</select></label>
       <label><span>Week</span><select value={week} onChange={(e)=>{setWeek(e.target.value);setAnswer(null);}}><option value="">Latest available</option>{weeks.map((value)=><option key={value}>{value}</option>)}</select></label>
       <div><span>CURRENT SCOPE</span><b>{scopeLabel(site,week)}</b></div>
       <button className="btn ghost" onClick={load}>Refresh evidence</button>

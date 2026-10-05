@@ -81,7 +81,6 @@ test("Data Freshness Monitor uses report periods and explicit cadence states", (
 test("PWA V6 is installable without caching private workspace navigation", () => {
   const manifest = JSON.parse(fs.readFileSync("public/manifest.webmanifest", "utf8"));
   const sw = fs.readFileSync("public/sw.js", "utf8");
-  const bootstrap = fs.readFileSync("components/pwa/PwaBootstrap.jsx", "utf8");
   const layout = fs.readFileSync("app/layout.jsx", "utf8");
 
   assert.equal(manifest.display, "standalone");
@@ -91,15 +90,14 @@ test("PWA V6 is installable without caching private workspace navigation", () =>
   assert.ok(sw.includes('if(!cacheable)return'));
   assert.equal(sw.includes('caches.match("/app")'), false);
   assert.equal(sw.includes('url.pathname.startsWith("/api/")'), false);
-  assert.ok(bootstrap.includes('navigator.serviceWorker.register("/sw.js"'));
-  assert.ok(bootstrap.includes("beforeinstallprompt"));
-  assert.ok(layout.includes("<PwaBootstrap />"));
+  assert.ok(layout.includes('navigator.serviceWorker.register("/sw.js"'));
+  assert.ok(layout.includes("beforeinstallprompt"));
+  assert.ok(layout.includes('id="metrixiq-pwa-bootstrap"'));
   assert.ok(layout.includes('viewportFit: "cover"'));
 });
 
 test("Mobile Manager Mode exposes action queue, driver lookup, audited notes and install path", () => {
   const mobile = fs.readFileSync("components/mobile/MobileManagerMode.jsx", "utf8");
-  const dock = fs.readFileSync("components/mobile/MobileCommandDock.jsx", "utf8");
   const dashboard = fs.readFileSync("components/DashboardClient.jsx", "utf8");
 
   assert.ok(mobile.includes("MOBILE MANAGER MODE"));
@@ -107,9 +105,8 @@ test("Mobile Manager Mode exposes action queue, driver lookup, audited notes and
   assert.ok(mobile.includes("Quick manager note"));
   assert.ok(mobile.includes("addDriverNote"));
   assert.ok(mobile.includes("installApp"));
-  assert.ok(dock.includes("Mobile manager shortcuts"));
   assert.ok(dashboard.includes('./mobile/MobileManagerMode'));
-  assert.ok(dashboard.includes("<MobileCommandDock"));
+  assert.equal(dashboard.includes("MobileCommandDock"), false);
   assert.ok(dashboard.includes('case "mobile-manager"'));
 });
 
@@ -133,4 +130,27 @@ test("Integration Hub and Reliability Center are canonical V6 platform surfaces"
   assert.ok(data.includes('supabase.rpc("list_integration_health"'));
   assert.ok(data.includes('supabase.rpc("get_reliability_snapshot"'));
   assert.ok(data.includes('supabase.rpc("save_reliability_check"'));
+});
+
+
+test("mobile dashboard removes the fixed bottom dock and compacts high-density cards", () => {
+  const dashboard = fs.readFileSync("components/DashboardClient.jsx", "utf8");
+  const css = fs.readFileSync("app/globals.css", "utf8");
+
+  assert.equal(dashboard.includes("MobileCommandDock"), false);
+  assert.ok(css.includes(".mobilev6-dock{display:none!important}"));
+  assert.ok(css.includes("min-width:178px!important"));
+  assert.ok(css.includes("height:136px!important"));
+  assert.ok(css.includes("padding:0 10px 24px!important"));
+});
+
+test("mobile site selector uses a stable custom value instead of clipped native select text", () => {
+  const dashboard = fs.readFileSync("components/DashboardClient.jsx", "utf8");
+  const css = fs.readFileSync("app/globals.css", "utf8");
+
+  assert.ok(dashboard.includes('className="site-switcher-value"'));
+  assert.ok(dashboard.includes('siteFilter==="all"?"All Sites":siteFilter'));
+  assert.ok(css.includes(".site-switcher-premium .site-switcher-value"));
+  assert.ok(css.includes(".site-switcher-premium .site-switcher-mark{display:none!important}"));
+  assert.ok(css.includes("opacity:0!important"));
 });

@@ -1,0 +1,33 @@
+name: IndexNow Submit
+
+on:
+  workflow_dispatch:
+    inputs:
+      submit:
+        description: "Submit sitemap URLs to IndexNow after production deployment"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  indexnow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify production key and sitemap
+        run: node scripts/indexnow-submit.mjs
+
+      - name: Submit canonical URLs to IndexNow
+        if: ${{ inputs.submit }}
+        run: node scripts/indexnow-submit.mjs --submit

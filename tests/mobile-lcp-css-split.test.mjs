@@ -1,0 +1,153 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+
+const read = (path) =>
+  fs.readFileSync(new URL("../" + path, import.meta.url), "utf8");
+
+test("public root no longer ships the full private application stylesheet", () => {
+  const root = read("app/layout.jsx");
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(root.includes('import "./marketing-base.css"'));
+  assert.equal(root.includes('import "./globals.css"'), false);
+  assert.ok(marketing.length < 26000, "marketing CSS unexpectedly large");
+  assert.ok(marketing.includes(".mk-network-strip"));
+  assert.ok(marketing.includes(".mk-visual-grid"));
+});
+
+test("full application CSS remains scoped to authenticated routes", () => {
+  for (const path of [
+    "app/app/layout.jsx",
+    "app/auth/layout.jsx",
+    "app/login/layout.jsx",
+  ]) {
+    assert.ok(read(path).includes('import "../globals.css"'), path);
+  }
+});
+
+test("below-the-fold homepage sections use content visibility containment", () => {
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(marketing.includes("content-visibility:auto"));
+  assert.ok(marketing.includes("contain-intrinsic-size:auto 720px"));
+  assert.ok(marketing.includes(".mk-feature-section"));
+  assert.ok(marketing.includes(".mk-resource-links"));
+});
+
+test("mobile hero keeps the visual redesign while using a cheaper card shadow", () => {
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(marketing.includes(".mk-hero{min-height:520px"));
+  assert.ok(marketing.includes("box-shadow:0 14px 32px"));
+});
+
+
+test("PWA service worker uses a non-hydrated deferred bootstrap", () => {
+  const root = read("app/layout.jsx");
+
+  assert.ok(root.includes('id="metrixiq-pwa-bootstrap"'));
+  assert.ok(root.includes("requestIdleCallback"));
+  assert.ok(root.includes('window.addEventListener("load", deferServiceWorker'));
+  assert.ok(root.includes('navigator.serviceWorker.register("/sw.js"'));
+  assert.equal(root.includes('import PwaBootstrap'), false);
+});
+
+test("mobile sign-in card can skip offscreen rendering before LCP", () => {
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(marketing.includes("content-visibility:auto;contain-intrinsic-size:auto 430px"));
+});
+
+
+test("homepage sign-in hydration is deferred until the card nears the viewport", () => {
+  const landing = read("components/Landing.jsx");
+  const deferred = read("components/DeferredLandingSignInCard.jsx");
+
+  assert.ok(landing.includes('DeferredLandingSignInCard'));
+  assert.equal(landing.includes('import LandingSignInCard from "./LandingSignInCard"'), false);
+  assert.ok(deferred.includes('lazy(() => import("./LandingSignInCard"))'));
+  assert.ok(deferred.includes("IntersectionObserver"));
+  assert.ok(deferred.includes('rootMargin: "220px"'));
+});
+
+test("mobile hero removes decorative radial layers before LCP", () => {
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(marketing.includes("background:#071725"));
+  assert.ok(marketing.includes(".mk-hero-bg{display:none}"));
+  assert.ok(marketing.includes("content-visibility:auto"));
+});
+
+
+test("secondary public-page CSS is route-scoped away from the homepage", () => {
+  const root = read("app/layout.jsx");
+  const shell = read("components/PublicPageShell.jsx");
+  const notFound = read("app/not-found.jsx");
+
+  assert.equal(root.includes('import "./public-pages.css"'), false);
+  assert.ok(shell.includes('import "../app/public-pages.css"'));
+  assert.ok(notFound.includes('import "./public-pages.css"'));
+});
+
+
+test("homepage sign-in card keeps complete lightweight form styling", () => {
+  const marketing = read("app/marketing-base.css");
+
+  for (const selector of [
+    ".mk-login-form",
+    ".mk-login-card label input",
+    ".mk-password-toggle",
+    ".mk-remember button",
+    ".mk-signin,.mk-google",
+    ".mk-auth-message",
+  ]) {
+    assert.ok(marketing.includes(selector), selector + " missing from marketing CSS");
+  }
+
+  assert.ok(marketing.includes(".mk-login-card label:focus-within"));
+  assert.ok(marketing.includes("appearance:none"));
+});
+
+
+test("homepage visual redesign replaces long text walls with operational visuals", () => {
+  const landing = read("components/Landing.jsx");
+
+  assert.ok(landing.includes("HeroSignals"));
+  assert.ok(landing.includes("VisualCards"));
+  assert.ok(landing.includes("mk-network-strip"));
+  assert.ok(landing.includes("mk-flow-grid"));
+  assert.ok(landing.includes("mk-resource-art"));
+  assert.ok(landing.includes("<details"));
+  assert.equal(landing.includes("mk-seo-story"), false);
+});
+
+test("delivery network examples are shown without implying affiliation", () => {
+  const landing = read("components/Landing.jsx");
+
+  for (const brand of ["Amazon Logistics", "Evri", "DPD", "DHL", "UPS", "FedEx", "Yodel"]) {
+    assert.ok(landing.includes(brand));
+  }
+  assert.equal(landing.includes("Royal Mail"), false);
+  assert.ok(landing.includes("no affiliation implied"));
+});
+
+
+test("carrier strip uses compact brand marks instead of plain text pills", () => {
+  const landing = read("components/Landing.jsx");
+  const marketing = read("app/marketing-base.css");
+
+  assert.ok(landing.includes("function CarrierLogo"));
+  for (const cls of [
+    "carrier-amazon",
+    "carrier-evri",
+    "carrier-dpd",
+    "carrier-dhl",
+    "carrier-ups",
+    "carrier-fedex",
+    "carrier-yodel",
+  ]) {
+    assert.ok(marketing.includes("." + cls));
+  }
+  assert.ok(marketing.includes(".carrier-logo{height:36px"));
+});

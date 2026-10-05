@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchDriverScorecardData } from "../../lib/data/scorecardData";
 import { displayDriverName } from "../../lib/identity";
@@ -8,30 +8,65 @@ import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
 import { calculateDriverScorecard } from "../../lib/scorecards/driverScoreFormula";
 import { applyMetricOverrides, fetchMetricOverrides, setMetricOverride } from "../../lib/data/governanceV2";
+import {
+  buildDriverScorecardConcessionMap,
+  fetchDriverScorecardConcessionSnapshots,
+} from "../../lib/data/concessions";
 import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimitives";
+
+
+const SCORECARD_COLUMNS = [
+  { key: "rank", label: "Rank", width: 54, min: 48, max: 88 },
+  { key: "name", label: "Driver Name", width: 165, min: 130, max: 320 },
+  { key: "concessions", label: "Concessions", width: 84, min: 74, max: 145 },
+  { key: "displayScore", label: "Total Score", width: 88, min: 82, max: 140 },
+  { key: "fico", label: "FICO", width: 68, min: 60, max: 115 },
+  { key: "delivered", label: "Delivered", width: 76, min: 68, max: 125 },
+  { key: "dcr", label: "DCR", width: 74, min: 66, max: 120 },
+  { key: "dsc_dpmo", label: "DSC DPMO", width: 82, min: 74, max: 138 },
+  { key: "lor", label: "LoR DPMO", width: 78, min: 70, max: 132 },
+  { key: "pod", label: "POD", width: 72, min: 64, max: 115 },
+  { key: "cc", label: "CC", width: 68, min: 60, max: 110 },
+  { key: "ce_dpmo", label: "CE", width: 62, min: 56, max: 105 },
+  { key: "cdf_dpmo", label: "CDF DPMO", width: 84, min: 74, max: 138 },
+  { key: "psb", label: "PSB", width: 62, min: 56, max: 105 },
+];
+
+const SCORECARD_DEFAULT_WIDTHS = Object.fromEntries(
+  SCORECARD_COLUMNS.map((column) => [column.key, column.width])
+);
+
+const SCORECARD_COLUMN_STORAGE_KEY = "metrixiq.driver-scorecards.column-widths.v2";
+const SCORECARD_DENSITY_STORAGE_KEY = "metrixiq.driver-scorecards.density.v1";
+const SCORECARD_FONT_STORAGE_KEY = "metrixiq.driver-scorecards.font-size.v1";
 
 export default function DriverScorecardsV22({
   organizationId,
   onOpenDriver,
   onImport,
   siteFilter = "all",
-  onSiteFilterChange,
 }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-    const [scorecardData, overrides] = await Promise.all([
+    const [scorecardData, overrides, concessionSnapshots] = await Promise.all([
       fetchDriverScorecardData(supabase, organizationId),
       fetchMetricOverrides(supabase, organizationId, "active"),
+      fetchDriverScorecardConcessionSnapshots(supabase, organizationId),
     ]);
     return {
       ...scorecardData,
       rows: applyMetricOverrides(scorecardData.rows || [], overrides),
       overrides,
+      concessionSnapshots,
     };
   }, [organizationId]);
 
   const rows = load.data?.rows || [];
   const cards = load.data?.cards || [];
+  const concessionSnapshotMap = useMemo(
+    () => buildDriverScorecardConcessionMap(load.data?.concessionSnapshots || []),
+    [load.data?.concessionSnapshots]
+  );
 
   const clamp = (value, min = 0, max = 100) =>
     Math.max(min, Math.min(max, Number(value)));
@@ -127,8 +162,54 @@ export default function DriverScorecardsV22({
   };
 
   const siteForRow = (row) => {
-    const value = String(row?.drivers?.site || "").trim().toUpperCase();
+    const value = String(
+      row?.site ||
+      row?.raw_data?.activity_site ||
+      row?.drivers?.site ||
+      ""
+    ).trim().toUpperCase();
     return value || "UNASSIGNED";
+  };
+
+  const isScorecardCohortRow = (row) => {
+    const files = Array.isArray(row?.raw_data?.source_files)
+      ? row.raw_data.source_files
+      : [];
+    const rowSite = siteForRow(row);
+    const scorecardFiles = files.filter((file) =>
+      /score\s*card/i.test(String(file || ""))
+    );
+
+    // A weekly driver belongs to the scorecard cohort only when the evidence
+    // includes that site's DSP scorecard. Other weekly files (driver masters,
+    // concessions, POD, CC, CDF, etc.) may contain the same TRID and metrics,
+    // but must never inflate the driver count.
+    if (scorecardFiles.length) {
+      return scorecardFiles.some((file) => {
+        const sourceName = String(file || "").toUpperCase();
+        return rowSite === "UNASSIGNED" || sourceName.includes(rowSite);
+      });
+    }
+
+    // Legacy scorecard rows predate source_files lineage. Only allow the old
+    // metric-shape fallback when no source file metadata exists at all.
+    if (files.length) return false;
+
+    const scorecardMetricCount = [
+      row?.dcr,
+      row?.dsc_dpmo,
+      row?.lor,
+      row?.pod,
+      row?.cc,
+      row?.ce_dpmo,
+      row?.cdf_dpmo,
+      row?.psb,
+    ].filter((value) => num(value) != null).length;
+
+    return (
+      num(row?.scorecard_score ?? row?.raw_data?.scorecard_score) != null ||
+      (num(row?.delivered) != null && scorecardMetricCount >= 5)
+    );
   };
 
   const periodKeyForRow = (row) =>
@@ -137,24 +218,11 @@ export default function DriverScorecardsV22({
   const driverKey = (row) =>
     String(row?.driver_id || row?.drivers?.id || row?.drivers?.trid || "").trim();
 
-  const siteOptions = useMemo(() => {
-    const values = new Set();
-    for (const row of rows) {
-      const site = siteForRow(row);
-      if (site !== "UNASSIGNED") values.add(site);
-    }
-    for (const card of cards) {
-      const site = String(card.site || "").trim().toUpperCase();
-      if (site) values.add(site);
-    }
-    return [...values].sort();
-  }, [rows, cards]);
-
   const periodMap = useMemo(() => {
     const map = new Map();
 
     for (const row of rows) {
-      if (!row.week_label) continue;
+      if (!row.week_label || !isScorecardCohortRow(row)) continue;
       const rowSite = siteForRow(row);
       if (siteFilter !== "all" && rowSite !== siteFilter) continue;
 
@@ -221,6 +289,111 @@ export default function DriverScorecardsV22({
   const [editFico, setEditFico] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [editMessage, setEditMessage] = useState("");
+  const [columnWidths, setColumnWidths] = useState(SCORECARD_DEFAULT_WIDTHS);
+  const [tableDensity, setTableDensity] = useState("compact");
+  const [tableFontSize, setTableFontSize] = useState("medium");
+  const [tableFocus, setTableFocus] = useState(false);
+  const [resizingColumn, setResizingColumn] = useState("");
+  const resizeStateRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      const savedWidths = JSON.parse(window.localStorage.getItem(SCORECARD_COLUMN_STORAGE_KEY) || "null");
+      if (savedWidths && typeof savedWidths === "object") {
+        setColumnWidths((current) => ({ ...current, ...savedWidths }));
+      }
+      const savedDensity = window.localStorage.getItem(SCORECARD_DENSITY_STORAGE_KEY);
+      if (savedDensity === "compact" || savedDensity === "comfortable") {
+        setTableDensity(savedDensity);
+      }
+      const savedFontSize = window.localStorage.getItem(SCORECARD_FONT_STORAGE_KEY);
+      if (["small", "medium", "large"].includes(savedFontSize)) {
+        setTableFontSize(savedFontSize);
+      }
+    } catch {
+      // Keep safe defaults if browser storage is unavailable or malformed.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SCORECARD_COLUMN_STORAGE_KEY, JSON.stringify(columnWidths));
+    } catch {
+      // Column resizing still works for this session.
+    }
+  }, [columnWidths]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SCORECARD_DENSITY_STORAGE_KEY, tableDensity);
+    } catch {
+      // Density still works for this session.
+    }
+  }, [tableDensity]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SCORECARD_FONT_STORAGE_KEY, tableFontSize);
+    } catch {
+      // Font sizing still works for this session.
+    }
+  }, [tableFontSize]);
+
+  const scorecardTableWidth = SCORECARD_COLUMNS.reduce(
+    (total, column) => total + (columnWidths[column.key] || column.width),
+    0
+  );
+
+  const resetColumnWidths = () => setColumnWidths(SCORECARD_DEFAULT_WIDTHS);
+
+  const resetSingleColumnWidth = (columnKey) => {
+    const defaultWidth = SCORECARD_DEFAULT_WIDTHS[columnKey];
+    if (defaultWidth == null) return;
+    setColumnWidths((current) => ({ ...current, [columnKey]: defaultWidth }));
+  };
+
+  const startColumnResize = (event, columnKey) => {
+    const column = SCORECARD_COLUMNS.find((item) => item.key === columnKey);
+    if (!column) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    resizeStateRef.current = {
+      columnKey,
+      startX: event.clientX,
+      startWidth: columnWidths[columnKey] || column.width,
+      min: column.min,
+      max: column.max,
+    };
+    setResizingColumn(columnKey);
+    document.body.classList.add("scorex3-resizing-columns");
+
+    const onPointerMove = (moveEvent) => {
+      const state = resizeStateRef.current;
+      if (!state) return;
+      const nextWidth = Math.max(
+        state.min,
+        Math.min(state.max, Math.round(state.startWidth + moveEvent.clientX - state.startX))
+      );
+      setColumnWidths((current) =>
+        current[state.columnKey] === nextWidth
+          ? current
+          : { ...current, [state.columnKey]: nextWidth }
+      );
+    };
+
+    const onPointerUp = () => {
+      resizeStateRef.current = null;
+      setResizingColumn("");
+      document.body.classList.remove("scorex3-resizing-columns");
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+  };
 
   useEffect(() => {
     if (periodMap.length && !periodMap.some((periodItem) => periodItem.key === periodKey)) {
@@ -239,7 +412,16 @@ export default function DriverScorecardsV22({
   const enrichBaseRows = (periodItem) => {
     if (!periodItem) return [];
     return periodItem.rows.map((sourceRow) => {
-      const row = withEffectiveFico(sourceRow);
+      const site = siteForRow(sourceRow);
+      const week = sourceRow.week_label || periodItem.weekLabel;
+      const trid = String(sourceRow?.drivers?.trid || "").trim().toUpperCase();
+      const concessionKey = `${site}::${week}::${trid}`;
+      const sameWeekConcessions = concessionSnapshotMap.get(concessionKey);
+      const row = withEffectiveFico(
+        sameWeekConcessions
+          ? { ...sourceRow, concessions: sameWeekConcessions.dnr }
+          : sourceRow
+      );
       const score = calculatedDriverScore(row);
       const tier = sourceTier(
         score.value,
@@ -263,7 +445,7 @@ export default function DriverScorecardsV22({
 
   const previousRows = useMemo(
     () => enrichBaseRows(previousPeriod),
-    [previousPeriod, manualFicoOverrides]
+    [previousPeriod, manualFicoOverrides, concessionSnapshotMap]
   );
 
   const previousByDriver = useMemo(() => {
@@ -348,7 +530,7 @@ export default function DriverScorecardsV22({
         flags: performanceFlags(merged),
       };
     });
-  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides]);
+  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides, concessionSnapshotMap]);
 
   const groupOrder = [
     { label: "Fantastic Plus", cls: "fantastic-plus", min: "93+" },
@@ -618,11 +800,24 @@ export default function DriverScorecardsV22({
   };
 
   const SortHeader = ({ columnKey, children }) => (
-    <th>
+    <th className={resizingColumn === columnKey ? "is-resizing" : ""}>
       <button type="button" onClick={() => toggleSort(columnKey)}>
         <span>{children}</span>
         <small>{sortArrow(columnKey)}</small>
       </button>
+      <span
+        className="scorex3-column-resizer"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={`Resize ${children} column`}
+        title="Drag to resize · double-click to reset"
+        onPointerDown={(event) => startColumnResize(event, columnKey)}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          resetSingleColumnWidth(columnKey);
+        }}
+      />
     </th>
   );
 
@@ -673,17 +868,25 @@ export default function DriverScorecardsV22({
     return ranked;
   }, [enrichedRows, shareScope]);
 
+  const exportSharePdf = () => {
+    document.documentElement.classList.add("scorex3-printing-share");
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(() => {
+        document.documentElement.classList.remove("scorex3-printing-share");
+      }, 400);
+    }, 50);
+  };
+
   async function copyShareSummary() {
     const lines = [
       `${period?.weekLabel || "Week"} Driver Scorecard · ${period?.site || "All sites"}`,
       `Team score: ${headlineScore == null ? "—" : headlineScore.toFixed(2)} · ${overallStanding}`,
       `Drivers: ${totalDrivers} · Improved: ${improvedCount} · Attention: ${attentionCount}`,
-      `WoW: ${weekDelta == null ? "n/a" : `${weekDelta > 0 ? "+" : ""}${weekDelta.toFixed(1)} pts`}`,
       "",
       ...shareRows.slice(0, 30).map((row, index) => {
         const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
-        const flags = row.flags.map((flag) => flag.label).join(", ") || "OK";
-        return `${index + 1}. ${displayDriverName(row.drivers)} — ${row.displayScore == null ? "—" : row.displayScore.toFixed(0)} · FICO ${fico ?? "—"} · ${flags}`;
+        return `${index + 1}. ${displayDriverName(row.drivers)} — ${row.displayScore == null ? "—" : row.displayScore.toFixed(0)} · FICO ${fico ?? "—"} · PSB ${plain(row.psb)}`;
       }),
     ];
 
@@ -780,7 +983,7 @@ export default function DriverScorecardsV22({
     </>;
   }
 
-  return <div className="scorex3-root">
+  return <div className={`scorex3-root ${tableFocus ? "scorex3-focus-mode" : ""}`}>
     <section className="scorex3-header">
       <div className="scorex3-title">
         <span className="page-kicker">DRIVER SCORECARDS</span>
@@ -828,19 +1031,6 @@ export default function DriverScorecardsV22({
       </label>
 
       <label>
-        <span>Site</span>
-        <select
-          aria-label="Filter driver scorecards by site"
-          value={siteFilter}
-          onChange={(event) => onSiteFilterChange?.(event.target.value)}
-          disabled={!onSiteFilterChange}
-        >
-          <option value="all">All sites</option>
-          {siteOptions.map((site) => <option key={site} value={site}>{site}</option>)}
-        </select>
-      </label>
-
-      <label>
         <span>Score</span>
         <select aria-label="Filter driver scorecards by score" value={scoreFilter} onChange={(event) => setScoreFilter(event.target.value)}>
           <option value="all">All scores</option><option value="lt60">Below 60</option><option value="60-69">60–69</option><option value="70-79">70–79</option><option value="80-89">80–89</option><option value="90+">90+</option>
@@ -874,61 +1064,17 @@ export default function DriverScorecardsV22({
           aria-label="Search scorecards"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Name or Transporter ID…"
+          placeholder="Search by driver name, Transporter ID…"
         />
       </label>
 
-      <button type="button" className="btn ghost scorex3-reset-button" onClick={() => { setQuery(""); setGroupFilter("all"); setScoreFilter("all"); setConcessionFilter("all"); setQuickFilter("all"); setSort({ key: "displayScore", direction: "desc" }); }}>Reset filters</button>\n      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
+      <button type="button" className="btn ghost scorex3-reset-button" onClick={() => { setQuery(""); setGroupFilter("all"); setScoreFilter("all"); setConcessionFilter("all"); setQuickFilter("all"); setSort({ key: "displayScore", direction: "desc" }); }}>Reset filters</button>
+      <button type="button" className="btn ghost scorex3-share-button" onClick={() => setShareOpen(true)}>
         Share view
       </button>
       <button type="button" className="btn primary scorex3-import" onClick={onImport}>
         Import scorecard
       </button>
-    </section>
-
-    <section className="scorex3-insight">
-      <div>
-        <b>{improvedCount}</b> improved
-        <span>·</span>
-        <b>{droppedCount}</b> declined
-        <span>·</span>
-        <b>{attentionCount}</b> need attention
-        <span>·</span>
-        <b>{nearPromotionCount}</b> within 3 points of the next tier
-      </div>
-      <small>Point-band formula active · {formulaCount} calculated · blank metrics score 0 points</small>
-    </section>
-
-    <section className="scorex3-summary">
-      <article>
-        <span>Drivers</span>
-        <strong>{totalDrivers}</strong>
-        <small>{period?.weekLabel}</small>
-      </article>
-      <article>        <span>Delivered</span>
-        <strong>{Math.round(delivered).toLocaleString()}</strong>
-        <small>Weekly total</small>
-      </article>
-      <article>
-        <span>Concessions</span>
-        <strong>{Math.round(concessions)}</strong>
-        <small>Same-week evidence</small>
-      </article>
-      <article>
-        <span>Avg Total Score</span>
-        <strong>{averageDriverScore == null ? "—" : averageDriverScore.toFixed(1)}</strong>
-        <small>Driver average</small>
-      </article>
-      <article className={weekDelta == null ? "" : weekDelta >= 0 ? "positive" : "negative"}>
-        <span>WoW</span>
-        <strong>{weekDelta == null ? "—" : `${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)}`}</strong>
-        <small>{previousPeriod ? `vs ${previousPeriod.weekLabel}` : "No comparison"}</small>
-      </article>
-      <article>
-        <span>FICO linked</span>
-        <strong>{ficoLinked}/{totalDrivers}</strong>
-        <small>{totalDrivers ? Math.round((ficoLinked / totalDrivers) * 100) : 0}% coverage</small>
-      </article>
     </section>
 
     <section className="scorex3-history">
@@ -962,57 +1108,106 @@ export default function DriverScorecardsV22({
       </div>
     </section>
 
-    <section className="scorex3-tier-strip" aria-label="Scorecard rank summary">
-      {groupOrder.map((group) =>
-        <button
-          type="button"
-          key={group.cls}
-          className={`${group.cls} ${groupFilter === group.cls ? "active" : ""}`}
-          onClick={() => setGroupFilter((current) => current === group.cls ? "all" : group.cls)}
-        >
-          <span>{group.label}</span>
-          <strong>{groupCounts[group.cls] || 0}</strong>
-          <small>
-            {group.min} · {totalDrivers ? Math.round(((groupCounts[group.cls] || 0) / totalDrivers) * 100) : 0}%
-          </small>
-        </button>
-      )}
-    </section>
-
-    <section className="scorex3-quick-filters" aria-label="Quick scorecard filters">
-      {quickFilters.map((filter) =>
-        <button
-          key={filter.key}
-          type="button"
-          className={quickFilter === filter.key ? "active" : ""}
-          onClick={() => selectQuickFilter(filter.key)}
-        >
-          <span>{filter.label}</span>
-          <b>{filter.count}</b>
-        </button>
-      )}
-    </section>
-
     <section className="scorex3-register">
       <div className="scorex3-register-head">
         <div>
           <span>SCORECARD REGISTER</span>
           <h2>{period?.weekLabel} driver ranking</h2>
         </div>
-        <div>
-          <b>{periodRows.length}/{totalDrivers}</b>
-          <span>
-            Showing drivers · sorted by {sortLabels[sort.key] || "Score"} {sort.direction === "asc" ? "↑" : "↓"}
-          </span>
+        <div className="scorex3-register-actions">
+          <div className="scorex3-density-toggle" aria-label="Table density">
+            <button
+              type="button"
+              className={tableDensity === "compact" ? "active" : ""}
+              onClick={() => setTableDensity("compact")}
+            >
+              Compact
+            </button>
+            <button
+              type="button"
+              className={tableDensity === "comfortable" ? "active" : ""}
+              onClick={() => setTableDensity("comfortable")}
+            >
+              Comfortable
+            </button>
+          </div>
+          <div className="scorex3-font-toggle" aria-label="Table font size">
+            <button
+              type="button"
+              className={tableFontSize === "small" ? "active" : ""}
+              onClick={() => setTableFontSize("small")}
+              title="Small text"
+            >
+              A−
+            </button>
+            <button
+              type="button"
+              className={tableFontSize === "medium" ? "active" : ""}
+              onClick={() => setTableFontSize("medium")}
+              title="Medium text"
+            >
+              A
+            </button>
+            <button
+              type="button"
+              className={tableFontSize === "large" ? "active" : ""}
+              onClick={() => setTableFontSize("large")}
+              title="Large text"
+            >
+              A+
+            </button>
+          </div>
+          <button
+            type="button"
+            className={`scorex3-focus-button ${tableFocus ? "active" : ""}`}
+            onClick={() => setTableFocus((value) => !value)}
+            title={tableFocus ? "Exit table focus mode" : "Maximise scorecard visibility"}
+          >
+            {tableFocus ? "Exit focus" : "Focus table"}
+          </button>
+          <button type="button" className="scorex3-reset-columns" onClick={resetColumnWidths}>
+            Reset columns
+          </button>
+          <div className="scorex3-register-count">
+            <b>{periodRows.length}/{totalDrivers}</b>
+            <span>
+              Sorted by {sortLabels[sort.key] || "Score"} {sort.direction === "asc" ? "↑" : "↓"}
+            </span>
+          </div>
         </div>
       </div>
 
       <div className="scorex3-table-wrap">
-        <table className="scorex3-table">
+        <table
+          className={`scorex3-table density-${tableDensity} font-${tableFontSize}`}
+          style={{
+            width: `${scorecardTableWidth}px`,
+            minWidth: "100%",
+            "--score-col-rank": `${columnWidths.rank}px`,
+            "--score-col-name": `${columnWidths.name}px`,
+            "--score-col-concessions": `${columnWidths.concessions}px`,
+            "--score-col-score": `${columnWidths.displayScore}px`,
+            "--score-col-fico": `${columnWidths.fico}px`,
+            "--score-col-delivered": `${columnWidths.delivered}px`,
+            "--score-col-dcr": `${columnWidths.dcr}px`,
+            "--score-col-dsc": `${columnWidths.dsc_dpmo}px`,
+            "--score-col-lor": `${columnWidths.lor}px`,
+            "--score-col-pod": `${columnWidths.pod}px`,
+            "--score-col-cc": `${columnWidths.cc}px`,
+            "--score-col-ce": `${columnWidths.ce_dpmo}px`,
+            "--score-col-cdf": `${columnWidths.cdf_dpmo}px`,
+            "--score-col-psb": `${columnWidths.psb}px`,
+          }}
+        >
+          <colgroup>
+            {SCORECARD_COLUMNS.map((column) => (
+              <col key={column.key} style={{ width: `${columnWidths[column.key]}px` }} />
+            ))}
+          </colgroup>
           <thead>
             <tr>
               <SortHeader columnKey="rank">Rank</SortHeader>
-              <SortHeader columnKey="name">Name</SortHeader>
+              <SortHeader columnKey="name">Driver Name</SortHeader>
               <SortHeader columnKey="concessions">Concessions</SortHeader>
               <SortHeader columnKey="displayScore">Total Score</SortHeader>
               <SortHeader columnKey="fico">FICO</SortHeader>
@@ -1046,32 +1241,21 @@ export default function DriverScorecardsV22({
                 ...groupRows.map((row) => {
                   const driver = row.drivers || {};
                   const mentor = num(row.mentor_score ?? row.ementor ?? row.fico);
-                  const flagText = row.flags.map((flag) => flag.label).join(" · ");
-
                   return <tr
                     key={`${row.driver_id}-${period?.key}`}
                     className={`scorex3-driver-row ${row.flags.filter((flag) => flag.severity === "bad").length >= 2 ? "multi-risk" : ""}`}
                   >
                     <td className={`scorex3-rank-cell ${row.sourceRank.cls}`}>
-                      <b>{row.sourceRank.label}</b>
-                      <small className={movementClass(row)}>
-                        #{row.currentRank || "—"} {movementLabel(row)}
-                      </small>
+                      <b>#{row.currentRank || "—"}</b>
                     </td>
                     <td className="scorex3-name-cell">
                       <button
                         type="button"
                         onClick={() => onOpenDriver?.(driverShape(row))}
-                        title="Open Driver 360"
+                        title={`${displayDriverName(driver)} · Open Driver 360`}
                       >
                         {displayDriverName(driver)}
                       </button>
-                      <div className="scorex3-flags" title={flagText || "No active performance flag"}>
-                        {row.flags.length ? row.flags.slice(0, 3).map((flag) =>
-                          <span key={flag.key} className={flag.severity}>{flag.label}</span>
-                        ) : <span className="ok">OK</span>}
-                        {row.flags.length > 3 && <em>+{row.flags.length - 3}</em>}
-                      </div>
                     </td>
                     <td className={`scorex3-metric ${metricTone("concessions", row.concessions)}`}>
                       <span className={`scorex3-concession-badge ${(num(row.concessions) || 0) >= 3 ? "high" : (num(row.concessions) || 0) > 0 ? "active" : "zero"}`}>
@@ -1122,7 +1306,7 @@ export default function DriverScorecardsV22({
 
             {!periodRows.length &&
               <tr>
-                <td colSpan="15">
+                <td colSpan="14">
                   <div className="scorex3-empty">No drivers match this selection.</div>
                 </td>
               </tr>
@@ -1302,7 +1486,7 @@ export default function DriverScorecardsV22({
     {shareOpen && (
       <div className="scorex3-share-overlay" role="dialog" aria-modal="true" onClick={() => setShareOpen(false)}>
         <section className="scorex3-share-sheet" onClick={(event) => event.stopPropagation()}>
-          <header className="scorex3-share-head">
+          <header className={`scorex3-share-head ${overallTier.cls}`}>
             <div>
               <span>METRIXIQ · DRIVER SCORECARD</span>
               <h2>{period?.weekLabel} · {period?.site || "All sites"}</h2>
@@ -1315,13 +1499,13 @@ export default function DriverScorecardsV22({
           </header>
 
           <section className="scorex3-share-kpis">
-            <article><span>Drivers</span><strong>{totalDrivers}</strong></article>
-            <article><span>WoW</span><strong>{weekDelta == null ? "—" : `${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)}`}</strong></article>
-            <article><span>Improved</span><strong>{improvedCount}</strong></article>
-            <article><span>Attention</span><strong>{attentionCount}</strong></article>
+            <article className="drivers"><span>Drivers</span><strong>{totalDrivers}</strong></article>
+            <article className="improved"><span>Improved</span><strong>{improvedCount}</strong></article>
+            <article className="attention"><span>Attention</span><strong>{attentionCount}</strong></article>
           </section>
 
           <div className="scorex3-share-tabs">
+            <div className="scorex3-share-scope-tabs">
             {[
               ["all", "Full team"],
               ["attention", "Needs improvement"],
@@ -1337,6 +1521,10 @@ export default function DriverScorecardsV22({
                 {label}
               </button>
             ))}
+            </div>
+            <button type="button" className="btn ghost scorex3-share-export" onClick={exportSharePdf}>
+              Export
+            </button>
           </div>
 
           <div className="scorex3-share-table-wrap">
@@ -1347,31 +1535,32 @@ export default function DriverScorecardsV22({
                   <th>Driver</th>
                   <th>Rank</th>
                   <th>Score</th>
-                  <th>WoW</th>
                   <th>FICO</th>
                   <th>Con</th>
                   <th>DCR</th>
                   <th>POD</th>
                   <th>CC</th>
-                  <th>Flags</th>
+                  <th>PSB</th>
                 </tr>
               </thead>
               <tbody>
-                {shareRows.map((row, index) => (
-                  <tr key={`share-${driverKey(row)}-${index}`}>
-                    <td>{index + 1}</td>
-                    <td><b>{displayDriverName(row.drivers)}</b></td>
-                    <td className={`tier ${row.sourceRank.cls}`}>{row.sourceRank.label}</td>
-                    <td><b>{row.displayScore == null ? "—" : row.displayScore.toFixed(0)}</b></td>
-                    <td className={scoreDeltaClass(row.scoreDelta)}>{row.scoreDelta == null ? "—" : scoreDeltaLabel(row.scoreDelta)}</td>
-                    <td>{plain(row.mentor_score ?? row.ementor ?? row.fico)}</td>
-                    <td>{plain(row.concessions)}</td>
-                    <td>{fmtPercentFlexible(row.dcr)}</td>
-                    <td>{fmtPercentFlexible(row.pod)}</td>
-                    <td>{fmtPercentFlexible(row.cc)}</td>
-                    <td>{row.flags.slice(0, 3).map((flag) => flag.label).join(" · ") || "OK"}</td>
-                  </tr>
-                ))}
+                {shareRows.map((row, index) => {
+                  const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
+                  return (
+                    <tr key={`share-${driverKey(row)}-${index}`} className={`share-tier-${row.sourceRank.cls}`}>
+                      <td className="share-index">{index + 1}</td>
+                      <td className="share-driver"><b>{displayDriverName(row.drivers)}</b></td>
+                      <td><span className={`share-rank-badge ${row.sourceRank.cls}`}>{row.sourceRank.label}</span></td>
+                      <td className={`share-score ${row.sourceRank.cls}`}><b>{row.displayScore == null ? "—" : row.displayScore.toFixed(0)}</b></td>
+                      <td className={`share-metric ${metricTone("fico", fico)}`}>{plain(fico)}</td>
+                      <td className={`share-metric ${metricTone("concessions", row.concessions)}`}>{plain(row.concessions)}</td>
+                      <td className={`share-metric ${metricTone("dcr", row.dcr)}`}>{fmtPercentFlexible(row.dcr)}</td>
+                      <td className={`share-metric ${metricTone("pod", row.pod)}`}>{fmtPercentFlexible(row.pod)}</td>
+                      <td className={`share-metric ${metricTone("cc", row.cc)}`}>{fmtPercentFlexible(row.cc)}</td>
+                      <td className={`share-metric ${metricTone("psb", row.psb)}`}>{plain(row.psb)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1382,8 +1571,7 @@ export default function DriverScorecardsV22({
               <button type="button" className="btn ghost" onClick={copyShareSummary}>
                 {copyStatus || "Copy summary"}
               </button>
-              <button type="button" className="btn ghost" onClick={() => setShareOpen(false)}>Close</button>
-              <button type="button" className="btn primary" onClick={() => window.print()}>Print / Save</button>
+              <button type="button" className="btn primary" onClick={() => setShareOpen(false)}>Close</button>
             </div>
           </footer>
         </section>

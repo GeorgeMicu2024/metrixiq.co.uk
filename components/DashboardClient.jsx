@@ -27,7 +27,7 @@ import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
-import { loadWorkspaceContext } from "../lib/data/workspace";
+import { loadWorkspaceContext, loadWorkspaceShellContext, refreshWorkspacePerformance } from "../lib/data/workspace";
 import { fetchCommandCenterSummary } from "../lib/data/commandCenter";
 import { fetchDriverHistory } from "../lib/data/driverMetrics";
 import { mapScorecardRow } from "../lib/data/scorecards";
@@ -52,12 +52,13 @@ import WavePlanView from "./sites/WavePlanView";
 import IntegrationHub from "./platform/IntegrationHub";
 import ReliabilityCenter from "./platform/ReliabilityCenter";
 import MobileManagerMode from "./mobile/MobileManagerMode";
-import MobileCommandDock from "./mobile/MobileCommandDock";
 import PortfolioDashboard from "./enterprise/PortfolioDashboard";
 import EnterpriseSettings from "./enterprise/EnterpriseSettings";
 import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 import { fetchOrganizationHierarchy, upsertOrganizationSiteProfile } from "../lib/data/enterpriseV7";
+
+const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dcr","cc","cdf","mentor"]);
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -75,7 +76,6 @@ export default function DashboardClient() {
   const [driverHistory, setDriverHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [metricHistoryRows, setMetricHistoryRows] = useState([]);
-  const [siteScorecards, setSiteScorecards] = useState([]);
   const [globalSearch, setGlobalSearch] = useState("");
 
   const [favorites, setFavorites] = useState([]);
@@ -96,6 +96,7 @@ export default function DashboardClient() {
   const [collapsedGroups,setCollapsedGroups]=useState({});
   const [sidebarCompact,setSidebarCompact]=useState(false);
   const [profileMenuOpen,setProfileMenuOpen]=useState(false);
+  const [headerCalendarOpen,setHeaderCalendarOpen]=useState(false);
   const [now,setNow]=useState(()=>new Date());
 
   useEffect(() => {
@@ -122,6 +123,11 @@ export default function DashboardClient() {
       id === "driver-profile" ||
       canAccessNav(id, access, platformAdmin, session?.role, permissions)
     ) {
+      if (SITE_SCOPED_VIEWS.has(id) && siteFilter === "all" && sites.length) {
+        const remembered = localStorage.getItem("metrixiq.activeSite");
+        const nextSite = remembered && sites.includes(remembered) ? remembered : sites[0];
+        if (nextSite) setSiteFilter(nextSite);
+      }
       setActive(id);
       const params = new URLSearchParams(window.location.search);
       if (id === "dashboard") params.delete("view"); else params.set("view", id);
@@ -142,7 +148,6 @@ export default function DashboardClient() {
       commandCenter: commandCenterState,
       scorecards,
       metricRows,
-      siteScorecards: weeklySiteScorecards,
     } = context;
 
     setPlatformAdmin(adminFlag);
@@ -164,7 +169,6 @@ export default function DashboardClient() {
     });
     setDbDrivers(scorecards.map(mapScorecardRow));
     setMetricHistoryRows(metricRows);
-    setSiteScorecards(weeklySiteScorecards || []);
     setAnalysis(null);
     setSelectedDriver(null);
     setDriverHistory([]);
@@ -175,6 +179,16 @@ export default function DashboardClient() {
   async function fetchWorkspaceContextForUser(user, preferredOrganizationId = null) {
     const supabase = getSupabaseBrowserClient();
     const context = await loadWorkspaceContext(supabase, user, preferredOrganizationId);
+    const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
+      p_organization_id: context.resolved.organization.id,
+    });
+    if (permissionError) throw permissionError;
+    return { context, permissionState };
+  }
+
+  async function fetchWorkspaceShellForUser(user, preferredOrganizationId = null) {
+    const supabase = getSupabaseBrowserClient();
+    const context = await loadWorkspaceShellContext(supabase, user, preferredOrganizationId);
     const { data: permissionState, error: permissionError } = await supabase.rpc("get_my_effective_permissions", {
       p_organization_id: context.resolved.organization.id,
     });
@@ -217,60 +231,44 @@ export default function DashboardClient() {
     const supabase = getSupabaseBrowserClient();
     async function initialise() {
       try {
-        const url = new URL(window.location.href);
-        const requestedView = url.searchParams.get("view");
+        const requestedView = new URLSearchParams(window.location.search).get("view");
         if (requestedView) setActive(requestedView);
 
+        // The browser already owns the authenticated Supabase session after login.
+        // Reading it locally avoids an extra network round-trip before first paint.
         let user = null;
-        const authCode = url.searchParams.get("code");
+        const { data: sessionData } = await supabase.auth.getSession();
+        user = sessionData?.session?.user || null;
 
-        // Google OAuth can return directly to /app. Complete the session here
-        // before deciding the user is signed out, otherwise the app can bounce
-        // through /login while Supabase is still exchanging the OAuth code.
-        if (authCode) {
-          const { data: exchangeData } = await supabase.auth.exchangeCodeForSession(authCode);
-          user = exchangeData?.session?.user || null;
-          if (user) {
-            url.searchParams.delete("code");
-            url.searchParams.delete("state");
-            window.history.replaceState(
-              { metrixiqView: requestedView || "dashboard" },
-              "",
-              url.pathname + (url.searchParams.toString() ? "?" + url.searchParams.toString() : "")
-            );
-          }
-        }
-
-        if (!user) {
-          const { data: sessionData } = await supabase.auth.getSession();
-          user = sessionData?.session?.user || null;
-        }
-
-        // If OAuth URL processing is still finishing, give it a short grace
-        // period instead of redirecting back to the login page.
-        if (!user && (authCode || /access_token|refresh_token|error_description/i.test(window.location.hash))) {
-          for (let attempt = 0; attempt < 10 && !user; attempt += 1) {
-            await new Promise((resolve) => window.setTimeout(resolve, 150));
-            const { data: sessionData } = await supabase.auth.getSession();
-            user = sessionData?.session?.user || null;
-          }
-        }
-
+        // Fallback to a server-verified user only when no persisted session is available.
         if (!user) {
           const { data: userData, error: userError } = await supabase.auth.getUser();
-          if (!userError) user = userData?.user || null;
-        }
-
-        if (!user) {
-          router.replace("/login");
-          return;
+          if (userError || !userData.user) {
+            router.replace("/login");
+            return;
+          }
+          user = userData.user;
         }
 
         const preferredOrganizationId = localStorage.getItem("metrixiq.organizationId");
-        const { context, permissionState } = await fetchWorkspaceContextForUser(user, preferredOrganizationId);
+        const { context, permissionState } = await fetchWorkspaceShellForUser(user, preferredOrganizationId);
         if (!alive) return;
+
+        // Render the authenticated shell as soon as membership/access is known.
+        // Driver metrics and scorecards hydrate immediately afterwards in the background.
         applyWorkspaceContext(context, user, permissionState);
         localStorage.setItem("metrixiq.organizationId", context.resolved.organization.id);
+        setAuthLoading(false);
+
+        refreshWorkspacePerformance(supabase, context.resolved.organization.id)
+          .then(({ scorecards, metricRows }) => {
+            if (!alive) return;
+            setDbDrivers((scorecards || []).map(mapScorecardRow));
+            setMetricHistoryRows(metricRows || []);
+          })
+          .catch(() => {
+            // The shell remains usable; page-level views can still retry their own data.
+          });
       } catch (e) {
         if (alive) setLoadError(e?.message || "Could not load the workspace.");
       } finally {
@@ -340,6 +338,17 @@ export default function DashboardClient() {
     .map(validSiteCode)
     .filter(Boolean);
   const sites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])].sort();
+
+  useEffect(() => {
+    if (!SITE_SCOPED_VIEWS.has(active) || siteFilter !== "all" || !sites.length) return;
+    const remembered = localStorage.getItem("metrixiq.activeSite");
+    const nextSite = remembered && sites.includes(remembered) ? remembered : sites[0];
+    if (nextSite) setSiteFilter(nextSite);
+  }, [active, siteFilter, sites.join("|")]);
+
+  useEffect(() => {
+    if (siteFilter !== "all") localStorage.setItem("metrixiq.activeSite", siteFilter);
+  }, [siteFilter]);
 
   async function createSiteFromDashboard() {
     const organizationId = workspace?.organization?.id;
@@ -477,7 +486,7 @@ export default function DashboardClient() {
 
   let view;
   switch (routedActive) {
-    case "dashboard": view = <HomeView session={session} drivers={drivers} kpis={kpis} history={visibleFleetHistory} metricRows={visibleMetricHistoryRows} siteScorecards={siteScorecards} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} dataWarning={commandCenterError} onNavigate={navigate} />; break;
+    case "dashboard": view = <HomeView organizationId={workspace?.organization?.id} session={session} drivers={drivers} kpis={kpis} history={visibleFleetHistory} metricRows={visibleMetricHistoryRows} siteFilter={siteFilter} sites={sites} commandCenter={commandCenter} dataWarning={commandCenterError} onNavigate={navigate} />; break;
     case "manager-chat": view = <ManagerChat organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} session={session} />; break;
     case "command-center": view = <><>{commandCenterError&&<div className="mgrv2-notice error">{commandCenterError}</div>}</><DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} /></>; break;
     case "portfolio": view = <PortfolioDashboard organizationId={workspace?.organization?.id} workspaceOptions={workspaceOptions} canManage={platformAdmin || permissions?.manage_portfolio} onSwitchWorkspace={switchWorkspace} onOpenEnterpriseSettings={() => navigate("enterprise-settings")} />; break;
@@ -493,9 +502,9 @@ export default function DashboardClient() {
           </div>
         </div>
       : <WavePlanView site={siteFilter} drivers={dbDrivers} />; break;
-    case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
+    case "site-operations": view = <SiteOperationsCenter organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onOpenDriver={openDriver} onOpenEvidence={() => navigate("evidence")} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onOpenScorecards={() => navigate("site-scorecards")} drivers={dbDrivers} />; break;
     case "site-scorecards": view = <SiteScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
+    case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "driver-master": view = <DriverMasterView organizationId={workspace?.organization?.id} sites={sites} legacyDrivers={dbDrivers} canManage={platformAdmin || ["owner","admin","manager"].includes(String(session?.role || "").toLowerCase())} onOpenDriver={openDriver} />; break;
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query="" />; break;
     case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} siteFilter={siteFilter} onOpenDriver={openDriver} />; break;
@@ -504,14 +513,14 @@ export default function DashboardClient() {
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} sites={sites} refreshKey={operationalRefreshKey} />; break;
-    case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} />; break;
+    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onSiteFilterChange={setSiteFilter} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
+    case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
     case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "automation": view = <AutomationCenter organizationId={workspace?.organization?.id} sites={sites} drivers={drivers} canManage={platformAdmin || permissions?.manage_automations} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "coaching": view = <CoachingV3 organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} onOpenDriver={openDriver} canManage={platformAdmin || permissions?.manage_coaching} />; break;
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
-    case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
+    case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
     case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
@@ -520,7 +529,7 @@ export default function DashboardClient() {
     case "integrations": view = <IntegrationHub organizationId={workspace?.organization?.id} canManage={platformAdmin || permissions?.manage_integrations} onNavigate={navigate} />; break;
     case "reliability": view = <ReliabilityCenter organizationId={workspace?.organization?.id} canRun={platformAdmin || permissions?.run_reliability_checks} onNavigate={navigate} />; break;
     case "developer-platform": view = <IntegrationDeliveryCenter organizationId={workspace?.organization?.id} canManageApi={platformAdmin || permissions?.manage_api_keys} canManageWebhooks={platformAdmin || permissions?.manage_webhooks} canManageDelivery={platformAdmin || permissions?.manage_delivery} />; break;
-    case "reports": view = <ReportBuilderV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} />; break;
+    case "reports": view = <ReportBuilderV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} />; break;
     case "billing": view = <BillingProView access={access} organizationId={workspace?.organization?.id} platformAdmin={platformAdmin} onAccessChanged={setAccess} />; break;
     case "team": view = <TeamAccessHub organizationId={workspace?.organization?.id} workspaceRole={session?.role} platformAdmin={platformAdmin} />; break;
     case "settings": view = <AccountSettingsView platformAdmin={platformAdmin} />; break;
@@ -529,7 +538,7 @@ export default function DashboardClient() {
     default: view = <DashboardView organizationId={workspace?.organization?.id} commandCenter={commandCenter} drivers={drivers} kpis={kpis} history={visibleFleetHistory} siteFilter={siteFilter} onImport={() => navigate("imports")} onOpenDriver={openDriver} onDrivers={() => navigate("drivers")} onPerformance={() => navigate("performance")} onCoaching={() => navigate("coaching")} onConcessions={() => navigate("concessions")} onDataQuality={() => navigate("data-quality")} onNavigate={navigate} />;
   }
 
-  if (authLoading) return <main className="app-loading-workspace" style={{minHeight:"100vh",display:"grid",placeItems:"center",background:"#f7fafc"}}><div style={{display:"grid",justifyItems:"center",gap:14}}><Brand /><p style={{margin:0}}>Opening your MetrixIQ workspace…</p><div className="workspace-loading-line"><span /></div></div></main>;
+  if (authLoading) return <main className="app-loading app-loading-workspace app-loading-fast"><Brand /><div className="workspace-loading-line"><span /></div><p>Opening your workspace…</p></main>;
   if (loadError) return <main className="app-loading"><h1>Workspace unavailable</h1><p>{loadError}</p><button className="btn primary" onClick={() => window.location.reload()}>Try again</button><button className="btn ghost" onClick={logout}>Sign out</button></main>;
   if (!session) return null;
   if (!platformAdmin && access?.suspended) return <SuspendedWorkspaceView access={access} onLogout={logout} />;
@@ -540,20 +549,46 @@ export default function DashboardClient() {
     (!globalSearch.trim() || label.toLowerCase().includes(globalSearch.trim().toLowerCase()) || id.includes(globalSearch.trim().toLowerCase()))
   );
   const favoriteItems = nav.filter(([id]) => favorites.includes(id) && canAccessNav(id, access, platformAdmin, session?.role, permissions));
+  const headerDate = now.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
+  const headerWeekDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  headerWeekDate.setUTCDate(headerWeekDate.getUTCDate() + 4 - (headerWeekDate.getUTCDay() || 7));
+  const headerYearStart = new Date(Date.UTC(headerWeekDate.getUTCFullYear(), 0, 1));
+  const headerWeek = Math.ceil((((headerWeekDate - headerYearStart) / 86400000) + 1) / 7);
 
-  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-mockup">
-  <button className="menu-btn" onClick={() => setMobile(true)}>☰</button>
-  <div className="topbar-context">
-    <span className="topbar-page-label">{routedActive==="dashboard"?"Home":(nav.find(([id])=>id===routedActive)?.[1]||"MetrixIQ")}</span>
-    <small>{workspace?.organization?.name||workspace?.organization_name||"Workspace"}</small>
+  return <div className="app-shell" style={{"--miq-accent":branding?.accent_color||"#66E3CE","--miq-secondary":branding?.secondary_color||"#9B90FF"}}><aside className={(mobile ? "sidebar open" : "sidebar")+(sidebarCompact?" compact":"")}><div className="sidebar-brand"><Brand inverse branding={branding} /><button className="sidebar-collapse" onClick={()=>setSidebarCompact(v=>!v)}>{sidebarCompact?"»":"«"}</button><button className="mobile-close" onClick={() => setMobile(false)}>×</button></div><nav className="app-nav">{favoriteItems.length>0&&<><small className="nav-section">FAVORITES</small>{favoriteItems.map(([id,label])=><div key={"fav-"+id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i><em>★</em></button></div>)}</>}{NAV_GROUPS.map(group=>{const visible=group.items.filter(([id])=>canAccessNav(id,access,platformAdmin,session?.role,permissions));if(!visible.length)return null;const contains=visible.some(([id])=>id===active);const closed=collapsedGroups[group.label]&&!contains;return <section className="nav-group" key={group.label}><button className="nav-group-toggle" onClick={()=>setCollapsedGroups(v=>{if(!v[group.label])return {...Object.fromEntries(NAV_GROUPS.map(g=>[g.label,true])),[group.label]:false};return {...v,[group.label]:false};})}><b>{group.label}</b><span>{closed?"⌄":"⌃"}</span></button>{!closed&&visible.map(([id,label])=><div key={id}><button onClick={()=>{navigate(id);setSelectedDriver(null);setMobile(false);}} className={active===id?"active":""}><span>{icon[id]}</span><i>{label}</i>{id==="intelligence"&&<em>SMART</em>}{id==="mobile-manager"&&<em>MOBILE</em>}</button></div>)}</section>})}</nav></aside>{mobile && <button className="mobile-overlay" onClick={() => setMobile(false)} aria-label="Close navigation" />}<div className="app-body"><header className="topbar topbar-mockup topbar-premium">
+  <div className="topbar-primary">
+    <button className="menu-btn topbar-menu" onClick={() => { if (window.innerWidth <= 900) setMobile(true); else setSidebarCompact(value=>!value); }} aria-label="Toggle navigation">☰</button>
+    <label className="site-switcher site-switcher-mockup site-switcher-premium" aria-label="Active site selector">
+      <span className="site-switcher-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M4 21V7.5L12 3v18M4 21h16M8 10h1M8 14h1M8 18h1M15 9h5v12M16.5 13h1M16.5 17h1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
+      <span className="site-switcher-mark">SITE</span>
+      <span className="site-switcher-value">{siteFilter==="all"?"All Sites":siteFilter}</span>
+      <select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}>
+        <option value="all">All Sites</option>
+        {sites.map(site=><option key={site} value={site}>{site}</option>)}
+        <option value="__add_site__">＋ Add new site</option>
+      </select>
+      <span className="site-switcher-chevron">⌄</span>
+    </label>
+    {workspaceOptions.length>1?<label className="workspace-switcher workspace-switcher-premium"><span>WORKSPACE</span><select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select></label>:null}
   </div>
-  <div className="topbar-controls">
-    {workspaceOptions.length>1?<label className="workspace-switcher"><span>WORKSPACE</span><select aria-label="Switch organisation workspace" value={workspace?.organization?.id||""} disabled={workspaceSwitching} onChange={e=>switchWorkspace(e.target.value)}>{workspaceOptions.map(option=><option key={option.organization_id||option.id} value={option.organization_id||option.id}>{option.organization_name||option.name||"Workspace"}</option>)}</select></label>:null}
-    <label className="site-switcher site-switcher-mockup" aria-label="Active site selector"><span className="site-switcher-mark">SITE</span><select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);}}><option value="all">All Sites</option>{sites.map(site=><option key={site} value={site}>{site}</option>)}<option value="__add_site__">＋ Add new site</option></select><span className="site-switcher-chevron">⌄</span></label>
+  <div className="topbar-controls topbar-controls-premium">
+    <div className="topbar-calendar-wrap">
+      <button className={headerCalendarOpen?"topbar-date-week active":"topbar-date-week"} type="button" title="Open current week" aria-label="Open current week calendar" aria-expanded={headerCalendarOpen} onClick={()=>setHeaderCalendarOpen(value=>!value)}>
+        <span className="topbar-date-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
+        <span><strong>{headerDate}</strong><small>Week {headerWeek}</small></span>
+      </button>
+      {headerCalendarOpen&&<div className="topbar-calendar-popover">
+        <div><span>CURRENT WEEK</span><strong>Week {headerWeek}</strong><small>{headerDate}</small></div>
+        <button type="button" onClick={()=>{setHeaderCalendarOpen(false);navigate("daily-dispatch");}}>Open Daily Dispatch →</button>
+      </div>}
+    </div>
     <ChatHeaderButton organizationId={workspace?.organization?.id} userId={session?.user?.id||session?.id} onOpen={()=>{if(active==="manager-chat"){if(!navigate(previousActive||"dashboard"))navigate("dashboard");}else{setPreviousActive(active);navigate("manager-chat");}}} />
     <NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={operationalRefreshKey} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate} />
     <div className="topbar-profile-wrap">
-      <button className={profileMenuOpen?"topbar-profile active":"topbar-profile"} onClick={()=>setProfileMenuOpen(v=>!v)} aria-expanded={profileMenuOpen}><b>{initials(session?.name||session?.email||"M")}</b><span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}</small></span><em>⌄</em></button>
+      <button className={profileMenuOpen?"topbar-profile topbar-profile-premium active":"topbar-profile topbar-profile-premium"} onClick={()=>setProfileMenuOpen(v=>!v)} aria-expanded={profileMenuOpen}>
+        <b className="topbar-profile-avatar">{session?.avatar_url?<img src={session.avatar_url} alt="" referrerPolicy="no-referrer"/>:initials(session?.name||session?.email||"M")}</b>
+        <span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}</small></span><em>⌄</em>
+      </button>
       {profileMenuOpen&&<div className="profile-menu">
         <div className="profile-menu-head"><b>{initials(session?.name||session?.email||"M")}</b><span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}{siteFilter!=="all"?` · ${siteFilter}`:""}</small></span></div>
         <div className="profile-menu-divider"/>
