@@ -10,7 +10,7 @@ const routeOf=c=>{const m=c.map(clean).join(" ").match(/\b(?:CA|SA)[_\s-]*A?[0-9
 const timeOf=c=>{let t=c.map(clean).join(" ").toUpperCase().replace(/O/g,"0");const m=t.match(/\b(\d{1,2})\s*[:.]\s*(\d{2})\s*(AM|PM)?\b/i)||t.match(/\b(\d{1,2})(\d{2})\s*(AM|PM)\b/i);return m?`${m[1]}:${m[2]} ${m[3]||""}`.trim():""};
 const stageOf=c=>{const t=c.map(clean).join(" ");const colour=t.match(/\b(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)\s*[. -]?\s*(\d{1,2})\b/i);const base=t.match(/\bSTG\s*[-.]?\s*([A-Z])\b/i);if(colour)return `STG-${base?.[1]?.toUpperCase()||"A"} ${colour[1].toUpperCase()}.${colour[2]}`;const numbered=t.match(/\bSTG\s*[-.]?\s*([A-Z])\s*[. -]?\s*(\d{1,2})\b/i);if(numbered)return `STG-${numbered[1].toUpperCase()}.${numbered[2]}`;return base?`STG-${base[1].toUpperCase()}`:""};
 const stageLoose=t=>{const s=clean(t).toUpperCase().replace(/\s+/g,"").replace(/O/g,"0");const m=s.match(/STG[-.]?([A-Z])[.-]?(\d{1,2})\b/);if(m)return `STG-${m[1]}.${m[2]}`;const w=s.match(/(PURPLE|BLUE|GREEN|RED|YELLOW|ORANGE)[.-]?(\d{1,2})\b/);return w?`STG-A ${w[1]}.${w[2]}`:""};
-const waveOf=(stage,c,route="",explicitWave="")=>{const ew=norm(explicitWave);if(/WAVE\s*1/.test(ew))return "WAVE1";if(/WAVE\s*2/.test(ew))return "WAVE2";return /^SA_/i.test(route)?"SAMEDAY":Object.keys(COLORS).filter(x=>!/^WAVE/.test(x)).find(x=>norm(stage+" "+c.join(" ")).includes(x))||(()=>{
+const waveOf=(stage,c,route="",explicitWave="")=>{const ew=norm(explicitWave),numbered=ew.match(/\bWAVE\s*([1-9]\d*)\b/);if(numbered)return "WAVE"+numbered[1];return /^SA_/i.test(route)?"SAMEDAY":Object.keys(COLORS).filter(x=>!/^WAVE/.test(x)).find(x=>norm(stage+" "+c.join(" ")).includes(x))||(()=>{
  const n=Number(clean(stage).match(/(?:\.|-|\s)(\d+)$/)?.[1]);
  if(!Number.isFinite(n))return "OTHER";
  if(n>=15&&n<=20)return "PURPLE";
@@ -23,6 +23,99 @@ const toMinutes=v=>{const m=clean(v).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(!
 const formatMinutes=n=>{n=(n+1440)%1440;let h=Math.floor(n/60),m=n%60,a=h>=12?"PM":"AM";return `${h%12||12}:${String(m).padStart(2,"0")} ${a}`};
 const adjustTime=(v,delta)=>{const n=toMinutes(v);return n==null?clean(v):formatMinutes(n+delta)};
 async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array",cellStyles:true}),rows=[];for(const sheet of wb.SheetNames){XLSX.utils.sheet_to_json(wb.Sheets[sheet],{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet,row:i+1,cells}))}return rows}
+
+const dcslDsp=s=>/\b(?:DCSL|DANUBE\s+COURIER\s+SERVICES\s+LTD)\b/i.test(String(s||""));
+const dcslOcrLabel=s=>clean(s).toUpperCase().replace(/5/g,"S").replace(/[1I|]/g,"L").replace(/[^A-Z]/g,"")==="DCSL";
+const deh1RouteOf=values=>{
+ const text=(values||[]).map(clean).join(" ").toUpperCase().replace(/C4/g,"CA").replace(/S4/g,"SA");
+ const m=text.match(/\b(?:CA|SA)[_\s-]*A?[_\s-]*[0-9OILSB]{2,4}\b/i);if(!m)return"";
+ const raw=m[0].replace(/\s+/g,"_").replace(/-+/g,"_").toUpperCase(),prefix=raw.startsWith("SA")?"SA":"CA";
+ const digits=raw.replace(/^(?:CA|SA)_?A?_?/,"").replace(/O/g,"0").replace(/[IL]/g,"1").replace(/S/g,"5").replace(/B/g,"8").replace(/\D/g,"");
+ return digits?prefix+"_A"+digits:"";
+};
+const deh1Time=value=>{const m=clean(value).toUpperCase().replace(/O/g,"0").match(/\b(\d{1,2})\s*[:.]\s*(\d{2})\b/);return m?m[1]+":"+m[2]:""};
+const bboxX=b=>b?((Number(b.x0)||0)+(Number(b.x1)||0))/2:0;
+const bboxY=b=>b?((Number(b.y0)||0)+(Number(b.y1)||0))/2:0;
+const bboxH=b=>b?Math.max(1,(Number(b.y1)||0)-(Number(b.y0)||0)):1;
+const nearestByX=(items,x)=>items.reduce((best,item)=>!best||Math.abs(item.x-x)<Math.abs(best.x-x)?item:best,null);
+
+async function deh1Canvas(file){
+ const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)return null;
+ let source=null;
+ if(typeof createImageBitmap==="function"){source=await createImageBitmap(file);canvas.width=source.width;canvas.height=source.height;ctx.drawImage(source,0,0);source.close?.()}
+ else{const url=URL.createObjectURL(file);try{source=await new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=url});canvas.width=source.naturalWidth||source.width;canvas.height=source.naturalHeight||source.height;ctx.drawImage(source,0,0)}finally{URL.revokeObjectURL(url)}}
+ const scale=Math.max(3,Math.min(6,Math.ceil(1500/Math.max(1,canvas.width)))),out=document.createElement("canvas"),outCtx=out.getContext("2d",{willReadFrequently:true});if(!outCtx)return canvas;
+ out.width=canvas.width*scale;out.height=canvas.height*scale;outCtx.imageSmoothingEnabled=false;outCtx.drawImage(canvas,0,0,out.width,out.height);
+ const image=outCtx.getImageData(0,0,out.width,out.height),d=image.data;
+ for(let i=0;i<d.length;i+=4){const max=Math.max(d[i],d[i+1],d[i+2]),min=Math.min(d[i],d[i+1],d[i+2]),dark=max<165&&max-min<95,v=dark?0:255;d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=255}
+ outCtx.putImageData(image,0,0);return out;
+}
+
+function deh1RowsFromOcr(data){
+ const words=[];
+ for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){
+   for(const word of line?.words||[]){const text=clean(word?.text);if(text)words.push({text,bbox:word?.bbox,x:bboxX(word?.bbox),y:bboxY(word?.bbox),h:bboxH(word?.bbox)})}
+ }
+ const headers=[],times=[];
+ for(const word of words){
+   const t=deh1Time(word.text);if(t)times.push({time:t,x:word.x,y:word.y});
+   if(!/^WAVE/i.test(word.text))continue;
+   const band=words.filter(w=>w.x>=word.x-20&&w.x<=word.x+520&&Math.abs(w.y-word.y)<=Math.max(30,word.h*3)).sort((a,b)=>a.x-b.x);
+   const start=Math.max(0,band.findIndex(w=>w===word||w.x===word.x&&w.y===word.y&&w.text===word.text));
+   const nearby=band.slice(start,start+12);
+   let number=(word.text.match(/\d+/)||[])[0]||"";
+   if(!number){for(const w of nearby.slice(1,4)){const m=w.text.replace(/O/g,"0").replace(/[IL|]/g,"1").match(/\d+/);if(m){number=m[0];break}}}
+   const tw=nearby.find(w=>deh1Time(w.text));const load=tw?deh1Time(tw.text):"";
+   if(number&&load)headers.push({wave:"WAVE"+number,time:load,x:(word.x+(tw?.x||word.x))/2,y:word.y});
+ }
+ if(!headers.length)return[];
+ const gateFor=header=>{
+   const candidates=times.filter(t=>t.y<header.y-8&&Math.abs(t.x-header.x)<Math.max(180,header.x*.55)).sort((a,b)=>Math.abs(header.y-a.y)-Math.abs(header.y-b.y));
+   return candidates[0]?.time||"";
+ };
+ const out=[];
+ for(const word of words){
+   if(!dcslOcrLabel(word.text))continue;
+   const band=words.filter(w=>w.x>word.x&&w.x-word.x<420&&Math.abs(w.y-word.y)<=Math.max(28,word.h*2.2)).sort((a,b)=>a.x-b.x);
+   let route="";
+   for(let i=0;i<band.length;i++){route=deh1RouteOf(band.slice(i,i+4).map(w=>w.text));if(route)break}
+   if(!route)continue;
+   const header=nearestByX(headers,word.x);if(!header)continue;
+   out.push({sheet:"Image",row:out.length+1,cells:[route,header.time,header.wave,"DCSL"],directLoadTime:true,explicitWave:header.wave,gateTime:gateFor(header)});
+ }
+ const seen=new Set();return out.filter(row=>{const key=norm(row.cells[0]);if(seen.has(key))return false;seen.add(key);return true});
+}
+
+async function deh1ImageRows(file,onProgress){
+ const {createWorker}=await import("tesseract.js");
+ const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
+ const enhanced=await deh1Canvas(file);
+ try{await worker.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"})}catch{}
+ const {data}=await worker.recognize(enhanced||file,{}, {text:true,blocks:true});
+ const rows=deh1RowsFromOcr(data);
+ await worker.terminate();return rows;
+}
+
+function deh1WorkbookRows(rows){
+ const out=[];
+ for(const sheet of [...new Set((rows||[]).map(r=>r.sheet))]){
+  const sheetRows=(rows||[]).filter(r=>r.sheet===sheet),headers=[],gates=[];
+  for(const row of sheetRows)row.cells.forEach((value,col)=>{
+   const text=norm(value),m=text.match(/\bWAVE\s*([1-9]\d*)\b[\s\S]{0,50}?(\d{1,2})\s*[:.]\s*(\d{2})/);
+   if(m)headers.push({wave:"WAVE"+m[1],time:m[2]+":"+m[3],x:col});
+   if(/GATE\s*\/?\s*HOLDING\s+AREA/.test(text)){const time=deh1Time(text);if(time)gates.push({time,x:col})}
+  });
+  if(!headers.length)continue;
+  for(const row of sheetRows)for(let col=0;col<row.cells.length;col++){
+   if(!/^DCSL\b/i.test(clean(row.cells[col])))continue;
+   const route=deh1RouteOf(row.cells.slice(col,col+5));if(!route)continue;
+   const header=nearestByX(headers,col);if(!header)continue;
+   out.push({sheet,row:row.row,cells:[route,header.time,header.wave,"DCSL"],directLoadTime:true,explicitWave:header.wave,gateTime:nearestByX(gates,col)?.time||""});
+  }
+ }
+ return out;
+}
+
 
 async function imageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
