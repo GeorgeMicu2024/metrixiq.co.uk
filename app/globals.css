@@ -1879,12 +1879,94 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 @media(max-width:700px){.homev2-sites-scorecard .homev2-title{align-items:flex-start}.homev2-sites-scorecard .homev2-title h2{font-size:15px;line-height:1.25}.homev2-sites-scorecard .homev2-title h2 small{display:block;font-size:11px;margin-top:3px}.homev2-site-scroll{padding-left:10px;padding-right:10px}.homev2-site-table{min-width:980px}.homev2-sites-scorecard .homev2-sitehead span:last-child,.homev2-sites-scorecard .homev2-siterow span:last-child{display:flex}}
 
 
-/* DEH1 Launch Pad — fifth operational column; other site layouts remain unchanged */
-.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-columns,
-.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-wave>div{
-  grid-template-columns:120px minmax(0,1fr) 105px 95px 145px!important;
+/* DEH1 polished Wave Plan — friendly five-column dispatch view */
+.daily-dispatch .dcsl-sheet.deh1-polished{
+  background:#f7f9fc!important;
+  border:1px solid #d9e2ec!important;
+  border-radius:16px!important;
+  box-shadow:0 12px 34px rgba(15,23,42,.12)!important;
+  overflow:hidden!important;
 }
-.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-columns>*,
-.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-wave>div>*{
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-columns,
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div{
+  grid-template-columns:130px minmax(0,1fr) 105px 125px 125px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-columns{
+  background:#f3f6fa!important;
+  color:#25364a!important;
+  border:0!important;
+  border-bottom:1px solid #d7e0ea!important;
+  letter-spacing:.055em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-columns>*{
   min-width:0;
+  padding:10px 8px!important;
+  border-right:1px solid #d7e0ea!important;
+  font-size:12px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave{
+  background:#fff!important;
+  border:0!important;
+  border-bottom:10px solid #f1f4f8!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave h4{
+  padding:9px 12px!important;
+  border:0!important;
+  color:#fff!important;
+  font-size:18px!important;
+  font-weight:950!important;
+  letter-spacing:.025em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave.wave-wave6 h4{background:#e05252!important}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave.wave-wave7 h4{background:#2f9e68!important}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div{
+  min-height:34px!important;
+  background:#fff!important;
+  border-bottom:1px solid #e4eaf1!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div:nth-child(odd){background:#f9fbfd!important}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave.wave-wave6>div:nth-child(odd){background:#fff8f8!important}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave.wave-wave7>div:nth-child(odd){background:#f6fcf8!important}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div>*{
+  min-width:0;
+  color:#263547!important;
+  border-right:1px solid #e1e7ee!important;
+  padding:6px 9px!important;
+  font-size:12.5px!important;
+  font-weight:800!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div>b{
+  color:#17263a!important;
+  font-weight:950!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div>strong{
+  color:#223248!important;
+  font-weight:900!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-pad,
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-gate,
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-load{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:max-content!important;
+  min-width:58px!important;
+  margin:0 auto!important;
+  border:0!important;
+  border-radius:999px!important;
+  line-height:1!important;
+  padding:6px 11px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-pad{background:#eef2ff!important;color:#5146a8!important}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-gate{background:#fff1e6!important;color:#a45412!important}
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-load{background:#e9f8ef!important;color:#24774c!important}
+.daily-dispatch .dcsl-sheet.deh1-polished>footer{
+  background:#0b1b31!important;
+  border-top:0!important;
+}
+@media(max-width:760px){
+  .daily-dispatch .dcsl-sheet.deh1-polished .dcsl-columns,
+  .daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div{
+    grid-template-columns:130px minmax(0,1fr) 105px 125px 125px!important;
+  }
 }
