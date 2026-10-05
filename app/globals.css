@@ -3002,3 +3002,115 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   .atlas-photo-tools .btn{width:100%}
   .atlas-photo-status{grid-column:1/-1}
 }
+
+
+/* DEH1 wave cards v2 */
+.daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave{
+  margin:0 0 14px!important;
+  border:1px solid #dfe7ef!important;
+  border-radius:14px!important;
+  overflow:hidden!important;
+  box-shadow:0 4px 14px rgba(15,23,42,.055)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-summary{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) 145px 145px!important;
+  align-items:stretch!important;
+  min-height:74px!important;
+  color:#fff!important;
+  border:0!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave6 .deh-wave-summary{
+  background:linear-gradient(110deg,#d94d4d 0%,#e86868 100%)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave7 .deh-wave-summary{
+  background:linear-gradient(110deg,#278b5a 0%,#39aa72 100%)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name{
+  display:flex!important;
+  align-items:center!important;
+  gap:14px!important;
+  padding:13px 18px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name small{
+  opacity:.78!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  letter-spacing:.18em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name strong{
+  color:#fff!important;
+  font-size:22px!important;
+  font-weight:950!important;
+  letter-spacing:.025em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name span{
+  margin-left:auto!important;
+  padding:5px 9px!important;
+  border-radius:999px!important;
+  background:rgba(255,255,255,.16)!important;
+  border:1px solid rgba(255,255,255,.24)!important;
+  font-size:9px!important;
+  font-weight:850!important;
+  white-space:nowrap!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-time{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:4px!important;
+  border-left:1px solid rgba(255,255,255,.24)!important;
+  background:rgba(255,255,255,.08)!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-time small{
+  opacity:.82!important;
+  font-size:8px!important;
+  font-weight:900!important;
+  letter-spacing:.16em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-time strong{
+  color:#fff!important;
+  font-size:20px!important;
+  font-weight:950!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns{
+  display:grid!important;
+  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  min-height:34px!important;
+  background:#eef3f7!important;
+  border-bottom:1px solid #d9e3eb!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns>*{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:0!important;
+  padding:8px 9px!important;
+  color:#506176!important;
+  border-right:1px solid #d9e3eb!important;
+  font-size:9px!important;
+  font-weight:950!important;
+  letter-spacing:.11em!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
+  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row:nth-of-type(even){
+  background:#fbfcfe!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave6 .deh-driver-row:nth-of-type(even){
+  background:#fff8f8!important;
+}
+.daily-dispatch .dcsl-sheet.deh1-polished .wave-wave7 .deh-driver-row:nth-of-type(even){
+  background:#f5fbf7!important;
+}
+@media(max-width:760px){
+  .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-summary{
+    grid-template-columns:minmax(0,1fr) 120px 120px!important;
+  }
+  .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns,
+  .daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
+    grid-template-columns:120px minmax(0,1fr) 110px 110px!important;
+  }
+}
