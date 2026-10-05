@@ -164,9 +164,18 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
      else if(kind==="atlas"){try{setAtlasText(await file.text());status.push({name:file.name,kind:"ATLAS"});}catch{status.push({name:file.name,kind:"Needs review"});}}
      else status.push({name:file.name,kind:"Needs review"});
    }
-   setUploadStatus(status);
+   setUploadStatus(prev=>{
+     const next=[...prev];
+     for(const item of status){
+       const slot=["Route Plan","Wave Plan","ATLAS"].includes(item.kind)?item.kind:item.name;
+       const index=next.findIndex(x=>(["Route Plan","Wave Plan","ATLAS"].includes(x.kind)?x.kind:x.name)===slot);
+       if(index>=0)next[index]=item;else next.push(item);
+     }
+     return next.slice(-6);
+   });
+   if(smartInput.current)smartInput.current.value="";
  };
- const load=async(file,setFile,setRows)=>{if(!file)return;setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress));setOcrProgress(null)}else{const raw=await workbookRows(file);setRows(norm(site)==="DEH1"&&setFile===setWaveFile?(deh1WorkbookRows(raw).length?deh1WorkbookRows(raw):raw):raw)}}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
+ const load=async(file,setFile,setRows)=>{if(!file)return;const kind=setFile===setRouteFile?"Route Plan":"Wave Plan";setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress));setOcrProgress(null)}else{const raw=await workbookRows(file),matrix=norm(site)==="DEH1"&&setFile===setWaveFile?deh1WorkbookRows(raw):[];setRows(matrix.length?matrix:raw)}setUploadStatus(prev=>[...prev.filter(x=>x.kind!==kind),{name:file.name,kind}].slice(-6))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
  const driverByTrid=useMemo(()=>new Map(drivers.map(d=>{
    const trid=d?.trid||d?.id||d?.transporter_id||d?.rawData?.trid||d?.raw_data?.trid;
    const name=d?.full_name||d?.name||d?.driver_name;
@@ -204,7 +213,11 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    <section className={"smart-upload panel "+(dragging?"dragging":"")} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);smartLoad(e.dataTransfer.files)}}>
      <input ref={smartInput} hidden multiple type="file" accept=".xlsx,.xls,.csv,.txt,image/png,image/jpeg,image/webp" onChange={e=>smartLoad(e.target.files)}/>
      <div className="waveplan-file-icon">↥</div><div><b>Smart Upload</b><span>Drop Route Plan + Wave Plan here, or choose files</span><small>MetrixIQ detects each file and sends it to the correct workspace.</small></div><button className="btn primary" onClick={()=>smartInput.current?.click()}>Choose files</button>
-     {uploadStatus.length?<div className="smart-upload-status">{uploadStatus.map((x,i)=><span key={x.name+i} className={x.kind==="Needs review"?"warn":""}>✓ {x.name} <b>{x.kind}</b></span>)}</div>:null}
+     <div className="smart-upload-status">
+       {routeFile?<span>✓ {routeFile.name} <b>Route Plan</b></span>:<span className="warn">Route Plan not loaded</span>}
+       {waveFile?<span>✓ {waveFile.name} <b>Wave Plan</b></span>:<span className="warn">Wave Plan not loaded</span>}
+       {uploadStatus.filter(x=>!["Route Plan","Wave Plan"].includes(x.kind)).map((x,i)=><span key={x.name+i} className={x.kind==="Needs review"?"warn":""}>✓ {x.name} <b>{x.kind}</b></span>)}
+     </div>
      <div className="smart-upload-manual"><button onClick={()=>routeInput.current?.click()}>Route Plan {routeFile?"✓":""}</button><button onClick={()=>waveInput.current?.click()}>Wave Plan {waveFile?"✓":""}</button></div>
      <input ref={routeInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><input ref={waveInput} hidden type="file" accept=".xlsx,.xls,.csv,image/png,image/jpeg,image/webp" onChange={e=>load(e.target.files?.[0],setWaveFile,setWaveRows)}/>
    </section>
