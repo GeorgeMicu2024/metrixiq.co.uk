@@ -1877,3 +1877,14 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 .homev2-sites-scorecard .good{background:#e2f7e9;color:#12662e}.homev2-sites-scorecard .bad{background:#fde5e5;color:#a82d32}.homev2-sites-scorecard .na{background:#f3f6f8;color:#748494}
 .homev2-sites-scorecard .rank-cell{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;font-weight:900}.homev2-sites-scorecard .rank-cell em{font-style:normal;border-radius:6px;padding:4px 6px;font-size:9px}.homev2-sites-scorecard .rank-cell .up{background:#e0f7e8;color:#149044}.homev2-sites-scorecard .rank-cell .down{background:#fde7e7;color:#df4248}
 @media(max-width:700px){.homev2-sites-scorecard .homev2-title{align-items:flex-start}.homev2-sites-scorecard .homev2-title h2{font-size:15px;line-height:1.25}.homev2-sites-scorecard .homev2-title h2 small{display:block;font-size:11px;margin-top:3px}.homev2-site-scroll{padding-left:10px;padding-right:10px}.homev2-site-table{min-width:980px}.homev2-sites-scorecard .homev2-sitehead span:last-child,.homev2-sites-scorecard .homev2-siterow span:last-child{display:flex}}
+
+
+/* DEH1 Launch Pad — fifth operational column; other site layouts remain unchanged */
+.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-columns,
+.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-wave>div{
+  grid-template-columns:120px minmax(0,1fr) 105px 95px 145px!important;
+}
+.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-columns>*,
+.daily-dispatch .dcsl-sheet.has-launch-pad .dcsl-wave>div>*{
+  min-width:0;
+}
