@@ -21,7 +21,7 @@ test("DEH1 loading times are treated as final loading times rather than Amazon t
 });
 
 test("DEH1 Route Plan identity lookup is restricted to Danube Courier Services", () => {
-  assert.ok(source.includes('site==="DEH1"&&di>=0&&!dcslDsp(x.cells[di])'));
+  assert.ok(source.includes('norm(site)==="DEH1"&&di>=0&&!dcslDsp(x.cells[di])'));
   assert.ok(source.includes("DANUBE\\s+COURIER\\s+SERVICES\\s+LTD"));
 });
 
