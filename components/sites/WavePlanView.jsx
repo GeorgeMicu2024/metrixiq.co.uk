@@ -351,16 +351,68 @@ async function imageRows(file,onProgress){
  }
  return rows;
 }
+
+const atlasTrackingOf=value=>{
+ const compact=clean(value).toUpperCase().replace(/\s+/g,"").replace(/[^A-Z0-9]/g,"");
+ const m=compact.match(/U[KX]([0-9OQDILSZGBT]{9,12})/);if(!m)return"";
+ const digits=m[1].replace(/[OQD]/g,"0").replace(/[IL]/g,"1").replace(/Z/g,"2").replace(/E/g,"3").replace(/S/g,"5").replace(/G/g,"6").replace(/T/g,"7").replace(/B/g,"8").replace(/\D/g,"");
+ return digits.length>=9&&digits.length<=12?"UK"+digits:"";
+};
+const atlasWaveOf=value=>{
+ const text=clean(value).toUpperCase().replace(/O/g,"0").replace(/[IL|]/g,"1");
+ const m=text.match(/W[A4]V[E3]\s*[-:]?\s*(\d{1,2})/i);return m?"Wave "+Number(m[1]):"";
+};
+function atlasRowsFromOcrData(data){
+ const candidates=[];
+ for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){
+   const text=clean(line?.text||(line?.words||[]).map(w=>w?.text||"").join(" "));
+   if(text)candidates.push(text);
+ }
+ for(const line of String(data?.text||"").split(/\r?\n/)){const text=clean(line);if(text)candidates.push(text)}
+ const out=new Map();
+ const add=text=>{
+   const tracking=atlasTrackingOf(text),route=deh1RouteOf([text])||routeOf([text]),wave=atlasWaveOf(text);
+   if(tracking&&route&&!out.has(tracking))out.set(tracking,{tracking,route,wave});
+ };
+ candidates.forEach(add);
+ if(out.size)return[...out.values()];
+ const words=deh1OcrWords(data).sort((a,b)=>a.y-b.y||a.x-b.x);
+ for(const word of words){
+   const tracking=atlasTrackingOf(word.text);if(!tracking)continue;
+   const band=words.filter(w=>Math.abs(w.y-word.y)<=Math.max(18,word.h*1.25)&&w.x>=word.x-20&&w.x-word.x<900).sort((a,b)=>a.x-b.x);
+   const text=band.map(w=>w.text).join(" "),route=deh1RouteOf([text])||routeOf([text]),wave=atlasWaveOf(text);
+   if(route&&!out.has(tracking))out.set(tracking,{tracking,route,wave});
+ }
+ return[...out.values()];
+}
+async function atlasImageRows(file,onProgress){
+ const {createWorker}=await import("tesseract.js");
+ const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
+ let rows=[];
+ try{
+   try{await worker.setParameters({tessedit_pageseg_mode:"6",preserve_interword_spaces:"1"})}catch{}
+   const first=await worker.recognize(file,{}, {text:true,blocks:true});
+   rows=atlasRowsFromOcrData(first.data);
+   if(!rows.length){
+     try{await worker.setParameters({tessedit_pageseg_mode:"11",preserve_interword_spaces:"1"})}catch{}
+     const second=await worker.recognize(file,{}, {text:true,blocks:true});
+     rows=atlasRowsFromOcrData(second.data);
+   }
+ }finally{await worker.terminate()}
+ return rows;
+}
+
 export default function WavePlanView({site="DLS2",drivers=[]}){
- const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Good morning,\n\nPlease find below the list of your Atlas shipment of the day - Total Tracking IDs: {count}\n\nTracking ID - Route code - Driver Name\n\n{rows}\n\nBest regards,"),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium");
- const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),sheetRef=useRef(null);
+ const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Good morning,\n\nPlease find below the list of your Atlas shipment of the day - Total Tracking IDs: {count}\n\nTracking ID - Route code - Driver Name\n\n{rows}\n\nBest regards,"),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium");
+ const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),atlasImageInput=useRef(null),atlasRouteInput=useRef(null),sheetRef=useRef(null);
  const [dragging,setDragging]=useState(false),[uploadStatus,setUploadStatus]=useState([]),[editorTab,setEditorTab]=useState("waves");
  const [editNamesOpen,setEditNamesOpen]=useState(false),[editDraft,setEditDraft]=useState({});
  useEffect(()=>{
    setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);
    setOverrides({});setDismissedConflicts(new Set());setHiddenWaves(new Set());setUploadStatus([]);
    setEditNamesOpen(false);setEditDraft({});
-   setOcrProgress(null);
+   setOcrProgress(null);setAtlasOcrProgress(null);setAtlasImageName("");
+   if(atlasImageInput.current)atlasImageInput.current.value="";
    if(routeInput.current)routeInput.current.value="";
    if(waveInput.current)waveInput.current.value="";
    if(smartInput.current)smartInput.current.value="";
@@ -404,6 +456,16 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    if(smartInput.current)smartInput.current.value="";
  };
  const load=async(file,setFile,setRows)=>{if(!file)return;const kind=setFile===setRouteFile?"Route Plan":"Wave Plan";setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress));setOcrProgress(null)}else{const raw=await workbookRows(file),matrix=norm(site)==="DEH1"&&setFile===setWaveFile?deh1WorkbookRows(raw):[];setRows(matrix.length?matrix:raw)}setUploadStatus(prev=>[...prev.filter(x=>x.kind!==kind),{name:file.name,kind}].slice(-6))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
+ const loadAtlasImage=async file=>{
+   if(!file)return;
+   setAtlasImageName(file.name);setAtlasOcrProgress(0);
+   try{
+     const rows=await atlasImageRows(file,setAtlasOcrProgress);
+     if(!rows.length){alert("No Atlas rows were recognised from this image. Try a clearer photo with Tracking ID and Route columns visible.");return}
+     setAtlasText(rows.map(r=>[r.tracking,r.route,r.wave].filter(Boolean).join(" - ")).join("\n"));
+   }catch(e){console.error("Atlas image OCR failed",e);alert("Could not read this Atlas photo. Try a clearer image or screenshot.")}
+   finally{setAtlasOcrProgress(null)}
+ };
  const driverByTrid=useMemo(()=>new Map(drivers.map(d=>{
    const trid=d?.trid||d?.id||d?.transporter_id||d?.rawData?.trid||d?.raw_data?.trid;
    const name=d?.full_name||d?.name||d?.driver_name;
@@ -471,7 +533,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const groups=useMemo(()=>{const m=new Map();for(const r of plan){const stg=r.staging?(r.staging.match(/STG[- ]?[A-Z]/i)?.[0]?.replace(" ","-").toUpperCase()||r.staging):"NO-STAGING",key=[r.time,r.wave,stg].join("|");if(!m.has(key))m.set(key,[]);m.get(key).push(r)}return [...m.entries()].sort((a,b)=>(toMinutes(a[0].split("|")[0])??9999)-(toMinutes(b[0].split("|")[0])??9999)||a[0].localeCompare(b[0]))},[plan]);
  const visibleGroups=useMemo(()=>groups.filter(([k])=>!hiddenWaves.has(k)),[groups,hiddenWaves]);
  const toggleWave=(key)=>setHiddenWaves(prev=>{const next=new Set(prev);if(next.has(key))next.delete(key);else next.add(key);return next});
- const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{const m=line.match(/\b(UK\d+)\s*-\s*(CA[_ -]?A?\d+)\s*-\s*([A-Z0-9]{8,})\b/i);if(!m)return null;const trid=m[3].toUpperCase();return{tracking:m[1],route:m[2].replace(/ /g,"_").toUpperCase(),trid,name:driverByTrid.get(trid)||""}}).filter(Boolean),[atlasText,driverByTrid]);
+ const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{const tracking=atlasTrackingOf(line),route=deh1RouteOf([line])||routeOf([line]);if(!tracking||!route)return null;const trid=(line.match(/\bA[A-Z0-9]{8,}\b/i)||[])[0]?.toUpperCase()||"",wave=atlasWaveOf(line),name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||"";return{tracking,route,trid,wave,name}}).filter(Boolean),[atlasText,driverByTrid,routeDrivers]);
  const atlasDriverRows=useMemo(()=>atlasRows.map(r=>`${r.tracking} - ${r.route} - ${r.name||"DRIVER NOT FOUND"}`).join("\n"),[atlasRows]); const atlasOutput=useMemo(()=>atlasTemplate.replaceAll("{count}",String(atlasRows.length)).replaceAll("{rows}",atlasDriverRows),[atlasTemplate,atlasRows.length,atlasDriverRows]);
  const clear=()=>{if(!confirm("Clear current Wave Plan?"))return;setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setOverrides({});setEditDraft({});setEditNamesOpen(false);setDismissedConflicts(new Set());setHiddenWaves(new Set());setGenerated(false);if(routeInput.current)routeInput.current.value="";if(waveInput.current)waveInput.current.value=""};
  const generate=()=>{if(!plan.length){alert(norm(site)==="DEH1"?`No DCSL routes were recognised from ${waveFile?.name||"the file"}. Please upload the full DEH1 Wave Plan image/Excel with the WAVE, LOADING TIME and DCSL rows visible.`:`No usable route + time pairs were recognised from ${waveFile?.name||"the file"}. OCR found ${waveRows.length} route candidates. The image parser accepts SA_Axx morning routes and CA_Axxx afternoon routes.`);return}if(routeSetMismatch){const scheduleHint=scheduleAlignment?` Schedule groups align for ${scheduleAlignment.matched}/${routeCompatibility.total} routes at ${scheduleAlignment.minutes>=0?"+":""}${scheduleAlignment.minutes} minutes, but that does not identify the correct staging route.`:"";alert(`Route Plan mismatch: only ${routeCompatibility.matched} of ${routeCompatibility.total} Wave Plan route codes exist in the Route Plan.${scheduleHint} MetrixIQ will not guess driver-to-staging assignments. Upload the matching Route Plan for this Wave Plan.`);setGenerated(false);return}setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
@@ -492,7 +554,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  return <div className="waveplan-root daily-dispatch">
   <div className="waveplan-heading"><div><span className="page-kicker">SITE OPERATIONS › DAILY DISPATCH</span><h1>Daily Dispatch</h1><p>Generate the DCSL Wave Plan in the approved format.</p></div><span className={"waveplan-ready "+(generated?"ok":"")}>{generated?"✓ Ready":"Waiting for files"}</span></div>
   <div className="dispatch-tabs"><button className={tab==="wave"?"active":""} onClick={()=>setTab("wave")}>Wave Plan</button><button className={tab==="atlas"?"active":""} onClick={()=>setTab("atlas")}>Atlas</button></div>
-  {tab==="atlas"?<section className="panel atlas-converter"><div className="panel-head"><div><h2>Atlas Driver Converter</h2><p>Paste the Amazon message. TRIDs are replaced only when an exact driver match exists.</p></div><span className="panel-badge">{atlasRows.filter(r=>r.name).length}/{atlasRows.length} matched</span></div><div className="atlas-grid"><label><span>Paste Atlas message</span><textarea value={atlasText} onChange={e=>setAtlasText(e.target.value)}/></label><label><span>Ready to copy</span><textarea value={atlasOutput} onChange={e=>{const value=e.target.value;setAtlasTemplate(value.replace(atlasDriverRows,"{rows}").replace(String(atlasRows.length),"{count}"))}}/></label></div><label className="atlas-template"><span>Preset message</span><textarea value={atlasTemplate} onChange={e=>setAtlasTemplate(e.target.value)}/><small>Use <b>{"{count}"}</b> for total shipments and <b>{"{rows}"}</b> where the converted list should appear.</small></label><div className="atlas-actions"><button className="btn ghost" onClick={()=>setAtlasText("")}>Clear</button><button className="btn primary" disabled={!atlasOutput} onClick={()=>navigator.clipboard.writeText(atlasOutput)}>Copy with driver names</button></div>{atlasRows.some(r=>!r.name)&&<p className="atlas-warning">Unmatched TRIDs are flagged as DRIVER NOT FOUND — TRIDs are never shown as driver names.</p>}</section>:<>
+  {tab==="atlas"?<section className="panel atlas-converter"><div className="panel-head"><div><h2>Atlas Driver Converter</h2><p>Paste the Amazon message or upload a photo/scan of the High-Value Transfer Sheet. MetrixIQ reads Tracking ID + Route + Wave and matches the driver from the Route Plan.</p></div><span className="panel-badge">{atlasRows.filter(r=>r.name).length}/{atlasRows.length} matched</span></div><div className="atlas-photo-tools"><input ref={atlasImageInput} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>loadAtlasImage(e.target.files?.[0])}/><input ref={atlasRouteInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><button type="button" className="btn primary" onClick={()=>atlasImageInput.current?.click()}>📷 Upload Atlas photo</button><button type="button" className="btn ghost" onClick={()=>atlasRouteInput.current?.click()}>{routeFile?"✓ Route Plan loaded":"↥ Load Route Plan"}</button><span className="atlas-photo-status">{atlasOcrProgress!=null?`Reading photo… ${atlasOcrProgress}%`:atlasImageName?`✓ ${atlasImageName}`:routeFile?routeFile.name:"Photo, screenshot or scan supported"}</span></div><div className="atlas-grid"><label><span>Atlas source / recognised rows</span><textarea value={atlasText} onChange={e=>setAtlasText(e.target.value)} placeholder="UK tracking - Route - Wave, or paste the normal Atlas message…"/></label><label><span>Ready to copy</span><textarea value={atlasOutput} onChange={e=>{const value=e.target.value;setAtlasTemplate(value.replace(atlasDriverRows,"{rows}").replace(String(atlasRows.length),"{count}"))}}/></label></div><label className="atlas-template"><span>Preset message</span><textarea value={atlasTemplate} onChange={e=>setAtlasTemplate(e.target.value)}/><small>Use <b>{"{count}"}</b> for total shipments and <b>{"{rows}"}</b> where the converted list should appear.</small></label><div className="atlas-actions"><button className="btn ghost" onClick={()=>{setAtlasText("");setAtlasImageName("");if(atlasImageInput.current)atlasImageInput.current.value=""}}>Clear</button><button className="btn primary" disabled={!atlasOutput} onClick={()=>navigator.clipboard.writeText(atlasOutput)}>Copy with driver names</button></div>{atlasRows.some(r=>!r.name)&&<p className="atlas-warning">{routeFile?"Some routes/TRIDs could not be matched to a driver. Check the Route Plan or driver mapping.":"Rows were recognised, but a Route Plan is needed to convert route codes into driver names."}</p>}</section>:<>
    <section className={"smart-upload panel "+(dragging?"dragging":"")} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);smartLoad(e.dataTransfer.files)}}>
      <input ref={smartInput} hidden multiple type="file" accept=".xlsx,.xls,.csv,.txt,image/png,image/jpeg,image/webp" onChange={e=>smartLoad(e.target.files)}/>
      <div className="waveplan-file-icon">↥</div><div><b>Smart Upload</b><span>Drop Route Plan + Wave Plan here, or choose files</span><small>MetrixIQ detects each file and sends it to the correct workspace.</small></div><button className="btn primary" onClick={()=>smartInput.current?.click()}>Choose files</button>
