@@ -92,3 +92,4 @@ test("DEH1 partial OCR is reconciled only when matched routes share a consistent
   assert.ok(view.includes("effectiveRouteCompatibility"));
   assert.ok(view.includes("DCSL routes reconciled from Route Plan"));
 });
+\n\ntest("DEH1 Gate Time falls back to 25 minutes before Load Time when OCR misses it", () => {\n  const view = read("components/sites/WavePlanView.jsx");\n\n  assert.ok(view.includes("const deh1GateFallback"));\n  assert.ok(view.includes("n-25+1440"));\n  assert.ok(view.includes("x.gateTime||(isDeh1&&direct?deh1GateFallback(amazon)"));\n});\n
