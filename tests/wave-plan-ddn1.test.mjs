@@ -8,7 +8,7 @@ const read = (path) =>
 test("Daily Dispatch matches DDN1 route plans by exact Amazon route code", () => {
   const view = read("components/sites/WavePlanView.jsx");
 
-  assert.ok(view.includes('(?:CA|SA|AA)'));
+  assert.ok(view.includes('(?:CA|CB|SA|AA)'));
   assert.ok(view.includes("routeCompatibility"));
   assert.ok(view.includes("routeSetMismatch"));
   assert.ok(view.includes("Files matched"));
@@ -80,4 +80,15 @@ test("manual driver-name corrections override auto-cleaned names without mutatin
   assert.ok(view.includes("new Map(autoRouteDrivers)"));
   assert.ok(view.includes("const current=autoRouteDrivers.get(route)"));
   assert.ok(view.includes("if(value&&value!==row.current)next[key]=value;else delete next[key]"));
+});
+
+
+test("DEH1 partial OCR is reconciled only when matched routes share a consistent departure group", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+
+  assert.ok(view.includes("const deh1Recovery=useMemo"));
+  assert.ok(view.includes("matched<3||deltas.length<3"));
+  assert.ok(view.includes("spread<=10&&median>=-15&&median<=60&&ratio>=.8"));
+  assert.ok(view.includes("effectiveRouteCompatibility"));
+  assert.ok(view.includes("DCSL routes reconciled from Route Plan"));
 });
