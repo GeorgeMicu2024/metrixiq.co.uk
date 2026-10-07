@@ -2898,7 +2898,7 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .dcsl-columns,
 .daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div{
-  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  grid-template-columns:140px minmax(0,1fr) 150px!important;
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .dcsl-columns{
   background:#f3f6fa!important;
@@ -2970,7 +2970,7 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 @media(max-width:760px){
   .daily-dispatch .dcsl-sheet.deh1-polished .dcsl-columns,
   .daily-dispatch .dcsl-sheet.deh1-polished .dcsl-wave>div{
-    grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+    grid-template-columns:140px minmax(0,1fr) 150px!important;
   }
 }
 
@@ -3076,7 +3076,7 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns{
   display:grid!important;
-  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  grid-template-columns:140px minmax(0,1fr) 150px!important;
   min-height:34px!important;
   background:#eef3f7!important;
   border-bottom:1px solid #d9e3eb!important;
@@ -3094,7 +3094,7 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   letter-spacing:.11em!important;
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
-  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  grid-template-columns:140px minmax(0,1fr) 150px!important;
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row:nth-of-type(even){
   background:#fbfcfe!important;
@@ -3107,11 +3107,11 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 }
 @media(max-width:760px){
   .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-summary{
-    grid-template-columns:minmax(0,1fr) 120px 120px!important;
+    grid-template-columns:minmax(0,1fr) 132px!important;
   }
   .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns,
   .daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
-    grid-template-columns:120px minmax(0,1fr) 110px 110px!important;
+    grid-template-columns:120px minmax(0,1fr) 120px!important;
   }
 }
 
@@ -3432,7 +3432,7 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   box-shadow:0 3px 10px rgba(15,23,42,.055)!important;
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-summary{
-  grid-template-columns:minmax(0,1fr) 126px 126px!important;
+  grid-template-columns:minmax(0,1fr) 150px!important;
   min-height:56px!important;
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-name{
@@ -3462,7 +3462,7 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   font-size:17px!important;
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns{
-  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  grid-template-columns:140px minmax(0,1fr) 150px!important;
   min-height:38px!important;
   background:#dde7f0!important;
   border-top:1px solid #c8d5e0!important;
@@ -3479,7 +3479,7 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   text-shadow:0 1px 0 rgba(255,255,255,.6);
 }
 .daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
-  grid-template-columns:140px minmax(0,1fr) 130px 130px!important;
+  grid-template-columns:140px minmax(0,1fr) 150px!important;
   min-height:34px!important;
   background:#f7f9fb!important;
   border-bottom:1px solid #d7e0e8!important;
@@ -3527,10 +3527,10 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   .daily-dispatch .deh-control-block{flex-wrap:wrap}
   .daily-dispatch .deh-control-divider{display:none}
   .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-summary{
-    grid-template-columns:minmax(0,1fr) 112px 112px!important;
+    grid-template-columns:minmax(0,1fr) 122px!important;
   }
   .daily-dispatch .dcsl-sheet.deh1-polished .deh-wave-columns,
   .daily-dispatch .dcsl-sheet.deh1-polished .deh-driver-row{
-    grid-template-columns:120px minmax(0,1fr) 110px 110px!important;
+    grid-template-columns:120px minmax(0,1fr) 120px!important;
   }
 }
