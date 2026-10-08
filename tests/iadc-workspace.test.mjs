@@ -56,3 +56,11 @@ test("IADC PNG omits top-right MetrixIQ brand block", () => {
   assert.equal(view.includes("Driver Performance Intelligence"), false);
   assert.ok(view.includes("justify-content:flex-start"));
 });
+
+
+test("IADC PNG omits MetrixIQ from the export header", () => {
+  const view = read("components/operations/IadcComplianceView.jsx");
+
+  assert.equal(view.includes("METRIXIQ · WORKFLOW COMPLIANCE"), false);
+  assert.ok(view.includes("<span>WORKFLOW COMPLIANCE</span>"));
+});

@@ -935,7 +935,7 @@ export default function IadcComplianceView({
         <section ref={shareCardRef} className="iadc-share-card" aria-hidden="true">
           <header className="iadc-share-head">
             <div>
-              <span>METRIXIQ · WORKFLOW COMPLIANCE</span>
+              <span>WORKFLOW COMPLIANCE</span>
               <h1>IADC Performance</h1>
               <p>{mode === "daily" ? formatDate(selectedDay) : selectedWeek} · {shareSite}</p>
             </div>
