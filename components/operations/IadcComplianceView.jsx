@@ -939,10 +939,6 @@ export default function IadcComplianceView({
               <h1>IADC Performance</h1>
               <p>{mode === "daily" ? formatDate(selectedDay) : selectedWeek} · {shareSite}</p>
             </div>
-            <div className="iadc-share-brand">
-              <b>MetrixIQ</b>
-              <small>Driver Performance Intelligence</small>
-            </div>
           </header>
 
           <div className="iadc-share-kpis">
@@ -1000,15 +996,12 @@ export default function IadcComplianceView({
           z-index:1;opacity:1;visibility:visible;pointer-events:none
         }
         .iadc-share-head{
-          display:flex;align-items:flex-start;justify-content:space-between;gap:30px;padding:34px 38px;
+          display:flex;align-items:flex-start;justify-content:flex-start;gap:30px;padding:34px 38px;
           border:1px solid #d7e2e8;border-radius:22px;background:#fff
         }
         .iadc-share-head span{font-size:16px;font-weight:900;letter-spacing:2.2px;color:#2d8b78}
         .iadc-share-head h1{margin:10px 0 7px;font-size:48px;line-height:1;color:#10243a}
         .iadc-share-head p{margin:0;font-size:20px;color:#687b8e}
-        .iadc-share-brand{text-align:right;display:flex;flex-direction:column;gap:5px}
-        .iadc-share-brand b{font-size:28px;color:#16304a}
-        .iadc-share-brand small{font-size:13px;color:#7a8b9b}
 
         .iadc-share-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
         .iadc-share-kpis article{

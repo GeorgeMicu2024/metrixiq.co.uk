@@ -47,3 +47,12 @@ test("IADC workspace can save a share-ready PNG without WhatsApp integration", (
   assert.equal(view.includes("wa.me"), false);
   assert.equal(view.includes("navigator.share"), false);
 });
+
+
+test("IADC PNG omits top-right MetrixIQ brand block", () => {
+  const view = read("components/operations/IadcComplianceView.jsx");
+
+  assert.equal(view.includes('className="iadc-share-brand"'), false);
+  assert.equal(view.includes("Driver Performance Intelligence"), false);
+  assert.ok(view.includes("justify-content:flex-start"));
+});
