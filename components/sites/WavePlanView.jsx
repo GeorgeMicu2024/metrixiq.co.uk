@@ -296,19 +296,70 @@ async function deh1GridImageRows(worker,rawCanvas,sparse){
  return rows;
 }
 
+function deh1ScreenshotRowsFromOcr(data){
+ const lines=String(data?.text||"").split(/\r?\n/).map(clean).filter(Boolean);
+ if(!lines.length)return[];
+ const header=lines.find(line=>/W[A4]V[E3]/i.test(line)&&deh1Time(line))||lines.find(line=>/W[A4]V[E3]/i.test(line))||"";
+ const waveMatch=header.toUpperCase().replace(/[IL|]/g,"1").match(/W[A4]V[E3]\s*[-:]?\s*([1-9]\d*)/i);
+ const headerWave=waveMatch?"WAVE"+Number(waveMatch[1]):"";
+ const loadTime=timeOf([header])||deh1Time(header);
+ if(!headerWave||!loadTime)return[];
+ const rows=[],seen=new Set();
+ for(const [index,line] of lines.entries()){
+   // Amazon's web table font can OCR the final 7 as '/'. Correct that only in
+   // this clean screenshot fallback; exact Route Plan matching still decides
+   // whether the route is accepted.
+   const route=deh1RouteOf([line.replace(/\//g,"7")]);
+   if(!route)continue;
+   const rowWaveMatch=line.toUpperCase().replace(/[IL|]/g,"1").match(/\bW\s*([1-9]\d*)\b/);
+   const explicitWave=rowWaveMatch?"WAVE"+Number(rowWaveMatch[1]):headerWave;
+   const key=norm(route)+"|"+explicitWave;if(seen.has(key))continue;seen.add(key);
+   const staging=stageOf([line])||stageLoose(line);
+   rows.push({
+     sheet:"Image",
+     row:index+1,
+     cells:[route,loadTime,explicitWave,"",staging],
+     directLoadTime:true,
+     explicitWave,
+     gateTime:"",
+     launchPad:"",
+     sourceY:index+1,
+     screenshotFallback:true
+   });
+ }
+ return rows;
+}
+
+function mergeDeh1ImageRows(...sets){
+ const merged=new Map();
+ for(const row of sets.flat()){
+   const route=deh1RouteOf(row?.cells||[]),wave=norm(row?.explicitWave||"");
+   if(!route||!wave)continue;
+   const key=norm(route)+"|"+wave,prev=merged.get(key);
+   if(!prev){merged.set(key,row);continue}
+   const prevStage=stageOf(prev.cells||[])||stageLoose((prev.cells||[]).join(" "));
+   const nextStage=stageOf(row.cells||[])||stageLoose((row.cells||[]).join(" "));
+   const preferNext=Boolean(row.dcslHint&&!prev.dcslHint)||Boolean(row.launchPad&&!prev.launchPad)||Boolean(nextStage&&!prevStage);
+   if(preferNext)merged.set(key,{...prev,...row,sourceY:prev.sourceY??row.sourceY});
+ }
+ return [...merged.values()].sort((a,b)=>(a.sourceY??999999)-(b.sourceY??999999));
+}
+
 async function deh1ImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
  const rawCanvas=await deh1RawCanvas(file);
  try{await worker.setParameters({tessedit_pageseg_mode:"11",tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
  const {data:sparse}=await worker.recognize(file,{}, {text:true,blocks:true});
+ const sparseScreenshotRows=deh1ScreenshotRowsFromOcr(sparse);
  const gridRows=await deh1GridImageRows(worker,rawCanvas,sparse);
- if(gridRows.length){await worker.terminate();return gridRows}
  const refined=await deh1RefinedWaveNumbers(worker,rawCanvas,sparse);
  try{await worker.setParameters({tessedit_pageseg_mode:"6",tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
  const {data:dense}=await worker.recognize(file,{}, {text:true,blocks:true});
+ const denseScreenshotRows=deh1ScreenshotRowsFromOcr(dense);
  const combined={blocks:[...(sparse?.blocks||[]),...(dense?.blocks||[])]};
- const rows=deh1RowsFromOcr(combined,rawCanvas,refined);
+ const structuredRows=deh1RowsFromOcr(combined,rawCanvas,refined);
+ const rows=mergeDeh1ImageRows(gridRows,structuredRows,sparseScreenshotRows,denseScreenshotRows);
  await worker.terminate();return rows;
 }
 
@@ -694,7 +745,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const atlasRows=useMemo(()=>atlasText.split(/\r?\n/).map(line=>{const tracking=atlasTrackingOf(line),route=deh1RouteOf([line])||routeOf([line]);if(!tracking||!route)return null;const trid=(line.match(/\bA[A-Z0-9]{8,}\b/i)||[])[0]?.toUpperCase()||"",wave=atlasWaveOf(line),name=(trid&&driverByTrid.get(norm(trid)))||routeDrivers.get(norm(route))||"";return{tracking,route,trid,wave,name}}).filter(Boolean),[atlasText,driverByTrid,routeDrivers]);
  const atlasDriverRows=useMemo(()=>atlasRows.map(r=>`${r.tracking} - ${r.route} - ${r.name||"DRIVER NOT FOUND"}`).join("\n"),[atlasRows]); const atlasOutput=useMemo(()=>atlasTemplate.replaceAll("{count}",String(atlasRows.length)).replaceAll("{rows}",atlasDriverRows),[atlasTemplate,atlasRows.length,atlasDriverRows]);
  const clear=()=>{if(!confirm("Clear current Wave Plan?"))return;setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setOverrides({});setEditDraft({});setEditNamesOpen(false);setDismissedConflicts(new Set());setHiddenWaves(new Set());setDehTimeOverrides({});setGenerated(false);if(routeInput.current)routeInput.current.value="";if(waveInput.current)waveInput.current.value=""};
- const generate=()=>{if(!plan.length){alert(norm(site)==="DEH1"?`No DCSL routes were recognised from ${waveFile?.name||"the file"}. Please upload the full DEH1 Wave Plan image/Excel with the WAVE, LOADING TIME and DCSL rows visible.`:`No usable route + time pairs were recognised from ${waveFile?.name||"the file"}. OCR found ${waveRows.length} route candidates. The parser accepts SA_Axx morning routes, CA_Axxx afternoon routes and CB_Axx Cycle 2 routes.`);return}if(routeSetMismatch){const scheduleHint=scheduleAlignment?` Schedule groups align for ${scheduleAlignment.matched}/${effectiveRouteCompatibility.total} routes at ${scheduleAlignment.minutes>=0?"+":""}${scheduleAlignment.minutes} minutes, but that does not identify the correct staging route.`:"";alert(`Route Plan mismatch: only ${effectiveRouteCompatibility.matched} of ${effectiveRouteCompatibility.total} Wave Plan route codes exist in the Route Plan.${scheduleHint} MetrixIQ will not guess driver-to-staging assignments. Upload the matching Route Plan for this Wave Plan.`);setGenerated(false);return}setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
+ const generate=()=>{if(!plan.length){alert(norm(site)==="DEH1"?`No DEH1 routes were recognised from ${waveFile?.name||"the file"}. Please upload screenshots where the Wave number, Load Time and Route column are visible.`:`No usable route + time pairs were recognised from ${waveFile?.name||"the file"}. OCR found ${waveRows.length} route candidates. The parser accepts SA_Axx morning routes, CA_Axxx afternoon routes and CB_Axx Cycle 2 routes.`);return}if(routeSetMismatch){const scheduleHint=scheduleAlignment?` Schedule groups align for ${scheduleAlignment.matched}/${effectiveRouteCompatibility.total} routes at ${scheduleAlignment.minutes>=0?"+":""}${scheduleAlignment.minutes} minutes, but that does not identify the correct staging route.`:"";alert(`Route Plan mismatch: only ${effectiveRouteCompatibility.matched} of ${effectiveRouteCompatibility.total} Wave Plan route codes exist in the Route Plan.${scheduleHint} MetrixIQ will not guess driver-to-staging assignments. Upload the matching Route Plan for this Wave Plan.`);setGenerated(false);return}setGenerated(true);setHistory(h=>[{id:Date.now(),date:new Date().toLocaleDateString("en-GB"),route:routeFile?.name,wave:waveFile?.name},...h].slice(0,8))};
  const exportPng=async(share=false)=>{
    if(!sheetRef.current)return;
    try{

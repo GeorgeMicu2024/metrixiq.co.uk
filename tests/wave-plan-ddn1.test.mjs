@@ -117,3 +117,17 @@ test("Daily Dispatch merges multiple Wave Plan screenshots into one plan", () =>
   assert.ok(view.includes("loadWaveFiles(e.target.files)"));
   assert.ok(view.includes("Multiple Wave Plan screenshots are merged into one dispatch plan automatically."));
 });
+
+
+test("DEH1 cropped Wave screenshots are parsed even when the DCSL column is not visible", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+
+  assert.ok(view.includes("function deh1ScreenshotRowsFromOcr"));
+  assert.ok(view.includes('line.replace(/\\//g,"7")'));
+  assert.ok(view.includes("const headerWave=waveMatch"));
+  assert.ok(view.includes("const loadTime=timeOf([header])"));
+  assert.ok(view.includes("screenshotFallback:true"));
+  assert.ok(view.includes("function mergeDeh1ImageRows"));
+  assert.ok(view.includes("mergeDeh1ImageRows(gridRows,structuredRows,sparseScreenshotRows,denseScreenshotRows)"));
+  assert.ok(view.includes("Wave number, Load Time and Route column are visible"));
+});
