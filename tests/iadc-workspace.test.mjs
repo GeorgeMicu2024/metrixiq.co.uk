@@ -27,31 +27,23 @@ test("IADC workspace uses a focused database loader and preserves daily/weekly e
 });
 
 
-test("IADC workspace can export a WhatsApp-ready PNG", () => {
+
+
+test("IADC workspace can save a share-ready PNG without WhatsApp integration", () => {
   const view = read("components/operations/IadcComplianceView.jsx");
 
   assert.ok(view.includes('import { toBlob } from "html-to-image"'));
   assert.ok(view.includes("Save PNG"));
-  assert.ok(view.includes("Send WhatsApp"));
   assert.ok(view.includes("createShareImage"));
-  assert.ok(view.includes("navigator.share"));
-  assert.ok(view.includes("https://wa.me/?text="));
-  assert.ok(view.includes("iadc-share-card"));
-  assert.ok(view.includes("IADC Performance"));
-});
-
-
-test("IADC PNG capture resets off-screen styles and desktop WhatsApp fallback avoids native Windows share", () => {
-  const view = read("components/operations/IadcComplianceView.jsx");
-
   assert.ok(view.includes('document.fonts?.ready'));
   assert.ok(view.includes('transform: "none"'));
   assert.ok(view.includes('visibility: "visible"'));
   assert.ok(view.includes('blob.size < 5000'));
-  assert.ok(view.includes('isMobileShareDevice'));
-  assert.ok(view.includes('window.open("https://web.whatsapp.com/"'));
-  assert.ok(view.includes('navigator.clipboard?.writeText(shareText)'));
-  assert.ok(view.includes('transform:translateX(-120vw)'));
-  assert.equal(view.includes('left:-20000px'), false);
-  assert.equal(view.includes('https://wa.me/?text='), false);
+  assert.ok(view.includes("iadc-share-card"));
+
+  assert.equal(view.includes("Send WhatsApp"), false);
+  assert.equal(view.includes("sendIadcWhatsApp"), false);
+  assert.equal(view.includes("web.whatsapp.com"), false);
+  assert.equal(view.includes("wa.me"), false);
+  assert.equal(view.includes("navigator.share"), false);
 });

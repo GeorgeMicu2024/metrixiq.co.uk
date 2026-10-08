@@ -491,15 +491,6 @@ export default function IadcComplianceView({
     ? "All sites"
     : String(siteFilter || "").trim().toUpperCase();
   const shareFileName = `metrixiq-iadc-${shareSite.replace(/[^A-Z0-9]+/gi, "-").toLowerCase()}-${sharePeriod || "report"}.png`;
-  const shareText = [
-    `📊 IADC Performance · ${mode === "daily" ? formatDate(selectedDay) : selectedWeek}`,
-    `Site: ${shareSite}`,
-    `Average: ${average == null ? "—" : pct(average, 1)}`,
-    `Target: ${IADC_TARGET}%+`,
-    `Drivers: ${visible.length}`,
-    "",
-    "Please review your IADC score and improve where needed."
-  ].join("\n");
 
   async function createShareImage() {
     if (!shareCardRef.current || !visible.length) {
@@ -554,57 +545,6 @@ export default function IadcComplianceView({
     }
   }
 
-  async function sendIadcWhatsApp() {
-    if (tab !== "iadc" || !visible.length) return;
-    setShareMessage("Preparing WhatsApp share…");
-
-    try {
-      const blob = await createShareImage();
-      const file = new File([blob], shareFileName, { type: "image/png" });
-      const userAgent = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
-      const isMobileShareDevice =
-        /Android|iPhone|iPad|iPod/i.test(userAgent) ||
-        (/Macintosh/i.test(userAgent) && Number(navigator.maxTouchPoints || 0) > 1);
-
-      const canShareFiles =
-        isMobileShareDevice &&
-        typeof navigator !== "undefined" &&
-        typeof navigator.share === "function" &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [file] });
-
-      if (canShareFiles) {
-        try {
-          await navigator.share({
-            title: `MetrixIQ IADC · ${sharePeriod || "Report"}`,
-            text: shareText,
-            files: [file],
-          });
-          setShareMessage("Share sheet opened — choose WhatsApp.");
-          return;
-        } catch (error) {
-          if (error?.name === "AbortError") {
-            setShareMessage("");
-            return;
-          }
-        }
-      }
-
-      // Desktop browsers cannot reliably attach a local PNG to WhatsApp.
-      // Save the image, copy the caption, then open WhatsApp Web instead of
-      // invoking the native Windows share handler (which can hang).
-      downloadShareBlob(blob);
-      try {
-        await navigator.clipboard?.writeText(shareText);
-      } catch {
-        // Clipboard permission is optional; opening WhatsApp Web still works.
-      }
-      window.open("https://web.whatsapp.com/", "_blank", "noopener,noreferrer");
-      setShareMessage("PNG saved. WhatsApp Web opened and the caption was copied — attach the PNG to the group.");
-    } catch (error) {
-      setShareMessage(error?.message || "Could not prepare the WhatsApp share.");
-    }
-  }
 
   if (load.loading) return <Loading text="Loading IADC & DWC workspace…" />;
   if (load.error) return <ErrorBox error={load.error} />;
@@ -733,9 +673,6 @@ export default function IadcComplianceView({
             <>
               <button type="button" className="btn ghost iadcpro-save-image" onClick={saveIadcImage} disabled={!visible.length}>
                 Save PNG
-              </button>
-              <button type="button" className="btn primary iadcpro-whatsapp" onClick={sendIadcWhatsApp} disabled={!visible.length}>
-                Send WhatsApp
               </button>
             </>
           )}
@@ -1055,8 +992,6 @@ export default function IadcComplianceView({
         .iadcpro-controlbar label>span{font-size:8px}
         .iadcpro-actions{gap:7px}
         .iadcpro-actions .btn{height:34px;padding:0 14px;font-size:9px}
-        .iadcpro-actions .iadcpro-whatsapp{background:#1d9a63;border-color:#1d9a63;color:#fff}
-        .iadcpro-actions .iadcpro-whatsapp:hover{filter:brightness(.96)}
         .iadcpro-share-message{margin-top:-2px}
 
         .iadc-share-card{
