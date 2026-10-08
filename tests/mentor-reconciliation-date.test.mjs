@@ -100,3 +100,13 @@ test("positive Shift Report trip rows do not inflate eMentor mapping or unmatche
   assert.ok(view.includes("if (!isActionableMentorReconciliation(row)) return false"));
   assert.ok(view.includes("trips >= 1) return false"));
 });
+
+
+test("eMentor mapping search results open upward without being clipped", () => {
+  const css = fs.readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  assert.ok(css.includes(".mentor-mapping-panel:has(.mentor-driver-results)"));
+  assert.ok(css.includes(".mentor-mapping-scroll:has(.mentor-driver-results)"));
+  assert.ok(css.includes("bottom:calc(100% + 6px)"));
+  assert.ok(css.includes("overflow:visible"));
+});

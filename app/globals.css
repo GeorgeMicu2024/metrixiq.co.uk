@@ -3534,3 +3534,27 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     grid-template-columns:120px minmax(0,1fr) 120px!important;
   }
 }
+
+
+/* eMentor mapping dropdown: open upward and escape the table scroll clip */
+.mentor-mapping-panel:has(.mentor-driver-results){
+  position:relative;
+  z-index:120;
+  overflow:visible;
+}
+.mentor-mapping-scroll:has(.mentor-driver-results){
+  overflow:visible;
+}
+.mentor-driver-combobox .mentor-driver-results{
+  top:auto;
+  bottom:calc(100% + 6px);
+  z-index:140;
+}
+@media(max-width:780px){
+  .mentor-mapping-panel:has(.mentor-driver-results){
+    overflow:visible;
+  }
+  .mentor-mapping-scroll:has(.mentor-driver-results){
+    overflow:visible;
+  }
+}
