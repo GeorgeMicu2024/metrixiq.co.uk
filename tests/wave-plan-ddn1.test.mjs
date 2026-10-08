@@ -104,3 +104,16 @@ test("DEH1 output hides Gate Time while retaining internal reconciliation data",
   assert.ok(view.includes('norm(site)==="DEH1"?"LOAD TIME"'));
   assert.ok(css.includes('grid-template-columns:140px minmax(0,1fr) 150px!important;'));
 });
+
+
+test("Daily Dispatch merges multiple Wave Plan screenshots into one plan", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+
+  assert.ok(view.includes("const loadWaveFiles=async(files)=>"));
+  assert.ok(view.includes("const batches=[]"));
+  assert.ok(view.includes("const merged=batches.flat()"));
+  assert.ok(view.includes("sourceOffset=i*100000"));
+  assert.ok(view.includes("multiple type=\"file\""));
+  assert.ok(view.includes("loadWaveFiles(e.target.files)"));
+  assert.ok(view.includes("Multiple Wave Plan screenshots are merged into one dispatch plan automatically."));
+});

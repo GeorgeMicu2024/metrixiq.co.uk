@@ -515,15 +515,53 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    }catch{}
    return "unknown";
  };
+ const load=async(file,setFile,setRows)=>{if(!file)return;const kind=setFile===setRouteFile?"Route Plan":"Wave Plan";setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress));setOcrProgress(null)}else{const raw=await workbookRows(file),matrix=norm(site)==="DEH1"&&setFile===setWaveFile?deh1WorkbookRows(raw):[];setRows(matrix.length?matrix:raw)}setUploadStatus(prev=>[...prev.filter(x=>x.kind!==kind),{name:file.name,kind}].slice(-6))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
+
+ const loadWaveFiles=async(files)=>{
+   const list=[...(files||[])].filter(Boolean);if(!list.length)return;
+   setGenerated(false);setOcrProgress(0);
+   try{
+     const batches=[];
+     for(let i=0;i<list.length;i++){
+       const file=list[i];
+       let rows=[];
+       if(file.type?.startsWith("image/")){
+         const progress=value=>setOcrProgress(Math.min(100,Math.round(((i*100)+Number(value||0))/list.length)));
+         rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress);
+       }else{
+         const raw=await workbookRows(file),matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):[];
+         rows=matrix.length?matrix:raw;
+       }
+       const sourceOffset=i*100000;
+       batches.push((rows||[]).map(row=>({...row,
+         sheet:list.length>1?`${row.sheet||"Wave"} ${i+1}`:row.sheet,
+         sourceY:Number.isFinite(Number(row.sourceY))?Number(row.sourceY)+sourceOffset:row.sourceY
+       })));
+     }
+     const merged=batches.flat();
+     const label=list.length===1?list[0].name:`${list.length} Wave Plan images`;
+     setWaveFile(list.length===1?list[0]:{name:label,files:list});
+     setWaveRows(merged);
+     setOcrProgress(null);
+     setUploadStatus(prev=>[...prev.filter(x=>x.kind!=="Wave Plan"),{name:label,kind:"Wave Plan"}].slice(-6));
+   }catch(e){
+     setOcrProgress(null);console.error(e);alert("Could not read one of the Wave Plan files. Try clearer images or Excel/CSV.");
+   }
+ };
+
  const smartLoad=async(files)=>{
    const list=[...(files||[])]; if(!list.length)return;
-   const status=[];
-   for(const file of list){
-     const kind=await classifyFile(file);
+   const status=[],classified=[];
+   for(const file of list)classified.push({file,kind:await classifyFile(file)});
+   const waveFiles=classified.filter(x=>x.kind==="wave").map(x=>x.file);
+   for(const {file,kind} of classified){
      if(kind==="route"){await load(file,setRouteFile,setRouteRows);status.push({name:file.name,kind:"Route Plan"});}
-     else if(kind==="wave"){await load(file,setWaveFile,setWaveRows);status.push({name:file.name,kind:"Wave Plan"});}
      else if(kind==="atlas"){try{setAtlasText(await file.text());status.push({name:file.name,kind:"ATLAS"});}catch{status.push({name:file.name,kind:"Needs review"});}}
-     else status.push({name:file.name,kind:"Needs review"});
+     else if(kind==="unknown")status.push({name:file.name,kind:"Needs review"});
+   }
+   if(waveFiles.length){
+     await loadWaveFiles(waveFiles);
+     status.push({name:waveFiles.length===1?waveFiles[0].name:`${waveFiles.length} Wave Plan images`,kind:"Wave Plan"});
    }
    setUploadStatus(prev=>{
      const next=[...prev];
@@ -536,7 +574,6 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    });
    if(smartInput.current)smartInput.current.value="";
  };
- const load=async(file,setFile,setRows)=>{if(!file)return;const kind=setFile===setRouteFile?"Route Plan":"Wave Plan";setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress));setOcrProgress(null)}else{const raw=await workbookRows(file),matrix=norm(site)==="DEH1"&&setFile===setWaveFile?deh1WorkbookRows(raw):[];setRows(matrix.length?matrix:raw)}setUploadStatus(prev=>[...prev.filter(x=>x.kind!==kind),{name:file.name,kind}].slice(-6))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
  const loadAtlasImage=async file=>{
    if(!file)return;
    setAtlasLastFile(file);setAtlasImageName(file.name);setAtlasOcrProgress(0);setAtlasStatus({type:"reading",message:"Scanning Tracking ID, Route and Wave columns…"});
@@ -710,10 +747,10 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
 </section>:<>
    <section className={"smart-upload panel "+(dragging?"dragging":"")} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);smartLoad(e.dataTransfer.files)}}>
      <input ref={smartInput} hidden multiple type="file" accept=".xlsx,.xls,.csv,.txt,image/png,image/jpeg,image/webp" onChange={e=>smartLoad(e.target.files)}/>
-     <div className="waveplan-file-icon">↥</div><div><b>Smart Upload</b><span>Drop Route Plan + Wave Plan here, or choose files</span><small>MetrixIQ detects each file and sends it to the correct workspace.</small></div><button className="btn primary" onClick={()=>smartInput.current?.click()}>Choose files</button>
+     <div className="waveplan-file-icon">↥</div><div><b>Smart Upload</b><span>Drop Route Plan + one or more Wave Plan images here, or choose files</span><small>Multiple Wave Plan screenshots are merged into one dispatch plan automatically.</small></div><button className="btn primary" onClick={()=>smartInput.current?.click()}>Choose files</button>
      <div className="smart-upload-status">{routeFile?<span>✓ {routeFile.name} <b>Route Plan</b></span>:<span className="warn">Route Plan not loaded</span>}{waveFile?<span>✓ {waveFile.name} <b>Wave Plan</b></span>:<span className="warn">Wave Plan not loaded</span>}{uploadStatus.filter(x=>!["Route Plan","Wave Plan"].includes(x.kind)).map((x,i)=><span key={x.name+i} className={x.kind==="Needs review"?"warn":""}>✓ {x.name} <b>{x.kind}</b></span>)}</div>
      <div className="smart-upload-manual"><button onClick={()=>routeInput.current?.click()}>Route Plan {routeFile?"✓":""}</button><button onClick={()=>waveInput.current?.click()}>Wave Plan {waveFile?"✓":""}</button></div>
-     <input ref={routeInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><input ref={waveInput} hidden type="file" accept=".xlsx,.xls,.csv,image/png,image/jpeg,image/webp" onChange={e=>load(e.target.files?.[0],setWaveFile,setWaveRows)}/>
+     <input ref={routeInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><input ref={waveInput} hidden multiple type="file" accept=".xlsx,.xls,.csv,image/png,image/jpeg,image/webp" onChange={e=>loadWaveFiles(e.target.files)}/>
    </section>
    {routeFile&&waveFile&&!routeSetMismatch&&routeCompatibility.total>0&&<section className="waveplan-file-match ok"><span>✓ Files matched</span><b>{effectiveRouteCompatibility.matched}/{effectiveRouteCompatibility.total} {deh1Recovery.eligible?"DCSL routes reconciled from Route Plan":"Wave Plan routes found in Route Plan"}</b><small>{routeFile.name} + {waveFile.name}</small></section>}
    {routeFile&&waveFile&&routeSetMismatch&&<section className="panel dispatch-attention waveplan-mismatch"><div className="panel-head"><div><h2>⚠ Route Plan does not match this Wave Plan</h2><p>Only <b>{effectiveRouteCompatibility.matched} of {effectiveRouteCompatibility.total}</b> Wave Plan route codes exist in the uploaded Route Plan. These files are from different route sets or a stale plan is still selected. Driver-to-staging assignments cannot be recovered safely from different route codes.</p></div><span className="panel-badge danger">{effectiveRouteCompatibility.matched}/{effectiveRouteCompatibility.total} matched</span></div>{scheduleAlignment&&<p className="waveplan-mismatch-note">The time groups appear related: {scheduleAlignment.matched}/{effectiveRouteCompatibility.total} slots align at {scheduleAlignment.minutes>=0?"+":""}{scheduleAlignment.minutes} minutes. This is useful for diagnosis, but it is not enough to identify which driver belongs to each staging position.</p>}<p className="waveplan-mismatch-files"><b>Route Plan:</b> {routeFile.name}<br/><b>Wave Plan:</b> {waveFile.name}</p></section>}
