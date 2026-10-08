@@ -505,13 +505,31 @@ export default function IadcComplianceView({
     if (!shareCardRef.current || !visible.length) {
       throw new Error("There is no IADC data to export.");
     }
+
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      await document.fonts.ready;
+    }
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
     const blob = await toBlob(shareCardRef.current, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: "#eef3f5",
+      style: {
+        position: "static",
+        left: "0",
+        top: "0",
+        transform: "none",
+        zIndex: "0",
+        margin: "0",
+        opacity: "1",
+        visibility: "visible",
+      },
     });
-    if (!blob) throw new Error("Could not create the IADC image.");
+    if (!blob || blob.size < 5000) {
+      throw new Error("Could not create the IADC image correctly. Please try again.");
+    }
     return blob;
   }
 
@@ -543,20 +561,25 @@ export default function IadcComplianceView({
     try {
       const blob = await createShareImage();
       const file = new File([blob], shareFileName, { type: "image/png" });
-      const shareData = {
-        title: `MetrixIQ IADC · ${sharePeriod || "Report"}`,
-        text: shareText,
-        files: [file],
-      };
+      const userAgent = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
+      const isMobileShareDevice =
+        /Android|iPhone|iPad|iPod/i.test(userAgent) ||
+        (/Macintosh/i.test(userAgent) && Number(navigator.maxTouchPoints || 0) > 1);
 
       const canShareFiles =
+        isMobileShareDevice &&
         typeof navigator !== "undefined" &&
         typeof navigator.share === "function" &&
-        (typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] }));
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] });
 
       if (canShareFiles) {
         try {
-          await navigator.share(shareData);
+          await navigator.share({
+            title: `MetrixIQ IADC · ${sharePeriod || "Report"}`,
+            text: shareText,
+            files: [file],
+          });
           setShareMessage("Share sheet opened — choose WhatsApp.");
           return;
         } catch (error) {
@@ -567,12 +590,17 @@ export default function IadcComplianceView({
         }
       }
 
+      // Desktop browsers cannot reliably attach a local PNG to WhatsApp.
+      // Save the image, copy the caption, then open WhatsApp Web instead of
+      // invoking the native Windows share handler (which can hang).
       downloadShareBlob(blob);
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
-        shareText + "\n\nThe IADC PNG has been saved. Attach it to this WhatsApp message."
-      )}`;
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-      setShareMessage("Image saved and WhatsApp opened. Attach the PNG to the message.");
+      try {
+        await navigator.clipboard?.writeText(shareText);
+      } catch {
+        // Clipboard permission is optional; opening WhatsApp Web still works.
+      }
+      window.open("https://web.whatsapp.com/", "_blank", "noopener,noreferrer");
+      setShareMessage("PNG saved. WhatsApp Web opened and the caption was copied — attach the PNG to the group.");
     } catch (error) {
       setShareMessage(error?.message || "Could not prepare the WhatsApp share.");
     }
@@ -1032,8 +1060,9 @@ export default function IadcComplianceView({
         .iadcpro-share-message{margin-top:-2px}
 
         .iadc-share-card{
-          position:fixed;left:-20000px;top:0;width:1080px;padding:44px;background:#eef3f5;color:#13253a;
-          font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;z-index:-1
+          position:fixed;left:0;top:0;transform:translateX(-120vw);width:1080px;padding:44px;
+          background:#eef3f5;color:#13253a;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;
+          z-index:1;opacity:1;visibility:visible;pointer-events:none
         }
         .iadc-share-head{
           display:flex;align-items:flex-start;justify-content:space-between;gap:30px;padding:34px 38px;

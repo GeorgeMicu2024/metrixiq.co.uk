@@ -39,3 +39,19 @@ test("IADC workspace can export a WhatsApp-ready PNG", () => {
   assert.ok(view.includes("iadc-share-card"));
   assert.ok(view.includes("IADC Performance"));
 });
+
+
+test("IADC PNG capture resets off-screen styles and desktop WhatsApp fallback avoids native Windows share", () => {
+  const view = read("components/operations/IadcComplianceView.jsx");
+
+  assert.ok(view.includes('document.fonts?.ready'));
+  assert.ok(view.includes('transform: "none"'));
+  assert.ok(view.includes('visibility: "visible"'));
+  assert.ok(view.includes('blob.size < 5000'));
+  assert.ok(view.includes('isMobileShareDevice'));
+  assert.ok(view.includes('window.open("https://web.whatsapp.com/"'));
+  assert.ok(view.includes('navigator.clipboard?.writeText(shareText)'));
+  assert.ok(view.includes('transform:translateX(-120vw)'));
+  assert.equal(view.includes('left:-20000px'), false);
+  assert.equal(view.includes('https://wa.me/?text='), false);
+});
