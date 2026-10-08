@@ -10,6 +10,24 @@ import {
   resolveMentorMapping,
 } from "../../lib/data/mentorMapping";
 
+function mentorEvidence(row) {
+  const rawScore = row?.payload?.score;
+  const hasScore = rawScore !== null && rawScore !== undefined && String(rawScore).trim() !== "";
+  const rawTrips = row?.payload?.totalTrips ?? row?.payload?.driver?.details?.mentor?.totalTrips;
+  const trips = rawTrips === null || rawTrips === undefined || String(rawTrips).trim() === ""
+    ? null
+    : Number(rawTrips);
+  return {
+    hasScore,
+    trips: Number.isFinite(trips) ? trips : null,
+  };
+}
+
+function isPositiveTripEvidenceOnly(row) {
+  const evidence = mentorEvidence(row);
+  return !evidence.hasScore && evidence.trips != null && evidence.trips >= 1;
+}
+
 export default function MentorMappingPanel({ organizationId, reportDate, onChanged }) {
   const [rows, setRows] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -69,7 +87,10 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
   }, [dated]);
 
   const actionable = useMemo(
-    () => reconciled.filter((r) => r.status === "open" || r.status === "ignored"),
+    () => reconciled.filter((r) =>
+      (r.status === "open" || r.status === "ignored") &&
+      !isPositiveTripEvidenceOnly(r)
+    ),
     [reconciled]
   );
 
@@ -153,7 +174,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                 <td><b>{row.raw_name || "Unknown / encrypted"}</b></td>
                 <td><code>{row.raw_trid || row.payload?.driver?.mentorHash || "—"}</code></td>
                 <td>{row.site || "—"}</td>
-                <td><b>{row.payload?.score ?? "—"}</b></td>
+                <td><b>{mentorEvidence(row).hasScore ? row.payload?.score : mentorEvidence(row).trips != null ? "Trip only" : "—"}</b></td>
                 <td>
                   <div className="mentor-driver-combobox">
                     <input

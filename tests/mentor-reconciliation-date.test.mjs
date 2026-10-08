@@ -86,3 +86,17 @@ test("mapped eMentor reconciliation rows are materialized, not only relabelled i
   assert.ok(panel.includes("if (!actionable.length) return null"));
   assert.equal(panel.includes('"resolved","hidden"'), false);
 });
+
+
+test("positive Shift Report trip rows do not inflate eMentor mapping or unmatched counts", () => {
+  const panel = fs.readFileSync(new URL("../components/operations/MentorMappingPanel.jsx", import.meta.url), "utf8");
+  const view = fs.readFileSync(new URL("../components/operations/MentorView.jsx", import.meta.url), "utf8");
+
+  assert.ok(panel.includes("isPositiveTripEvidenceOnly"));
+  assert.ok(panel.includes("!isPositiveTripEvidenceOnly(r)"));
+  assert.ok(panel.includes('"Trip only"'));
+
+  assert.ok(view.includes("isActionableMentorReconciliation"));
+  assert.ok(view.includes("if (!isActionableMentorReconciliation(row)) return false"));
+  assert.ok(view.includes("trips >= 1) return false"));
+});

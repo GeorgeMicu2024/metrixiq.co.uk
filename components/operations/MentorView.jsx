@@ -31,6 +31,21 @@ const REPORT_COLUMNS = [
   ["completed", "Completed"],
 ];
 
+function isActionableMentorReconciliation(row) {
+  const rawScore = row?.payload?.score;
+  const hasScore = rawScore !== null && rawScore !== undefined && String(rawScore).trim() !== "";
+  const rawTrips = row?.payload?.totalTrips ?? row?.payload?.driver?.details?.mentor?.totalTrips;
+  const trips = rawTrips === null || rawTrips === undefined || String(rawTrips).trim() === ""
+    ? null
+    : Number(rawTrips);
+
+  // Positive Shift Report rows are evidence that a trip exists. They carry no
+  // FICO score and do not need manual identity mapping. Keep score rows and
+  // Trip < 1 rows actionable because they affect performance/no-trip reporting.
+  if (!hasScore && Number.isFinite(trips) && trips >= 1) return false;
+  return true;
+}
+
 function formatDate(value) {
   if (!value) return "No date";
   const date = new Date(value + "T12:00:00");
@@ -368,6 +383,7 @@ export default function MentorView({
 
   const unmatchedForDate = useMemo(() => reconciliationRows.filter((row) => {
     if (row.status !== "open") return false;
+    if (!isActionableMentorReconciliation(row)) return false;
     if (String(row.payload?.reportDate || "") !== String(selectedDate || "")) return false;
     if (normalizedSelectedSite === "ALL") return true;
     const rowSite = String(row.site || row.payload?.driver?.site || row.payload?.driver?.details?.mentor?.station || "").trim().toUpperCase();
