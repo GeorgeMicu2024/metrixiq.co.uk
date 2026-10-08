@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toBlob } from "html-to-image";
 import { analyseFiles } from "../../lib/analyzer";
 import { fetchIadcWorkspaceRows } from "../../lib/data/iadc";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
@@ -109,6 +110,8 @@ export default function IadcComplianceView({
   const [importMessage, setImportMessage] = useState("");
   const [importError, setImportError] = useState("");
   const fileInput = useRef(null);
+  const shareCardRef = useRef(null);
+  const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -483,6 +486,98 @@ export default function IadcComplianceView({
     setTimeout(() => URL.revokeObjectURL(url), 250);
   }
 
+  const sharePeriod = mode === "daily" ? selectedDay : selectedWeek;
+  const shareSite = String(siteFilter || "all").toUpperCase() === "ALL"
+    ? "All sites"
+    : String(siteFilter || "").trim().toUpperCase();
+  const shareFileName = `metrixiq-iadc-${shareSite.replace(/[^A-Z0-9]+/gi, "-").toLowerCase()}-${sharePeriod || "report"}.png`;
+  const shareText = [
+    `📊 IADC Performance · ${mode === "daily" ? formatDate(selectedDay) : selectedWeek}`,
+    `Site: ${shareSite}`,
+    `Average: ${average == null ? "—" : pct(average, 1)}`,
+    `Target: ${IADC_TARGET}%+`,
+    `Drivers: ${visible.length}`,
+    "",
+    "Please review your IADC score and improve where needed."
+  ].join("\n");
+
+  async function createShareImage() {
+    if (!shareCardRef.current || !visible.length) {
+      throw new Error("There is no IADC data to export.");
+    }
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const blob = await toBlob(shareCardRef.current, {
+      cacheBust: true,
+      pixelRatio: 2,
+      backgroundColor: "#eef3f5",
+    });
+    if (!blob) throw new Error("Could not create the IADC image.");
+    return blob;
+  }
+
+  function downloadShareBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = shareFileName;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 500);
+  }
+
+  async function saveIadcImage() {
+    if (tab !== "iadc" || !visible.length) return;
+    setShareMessage("Creating IADC image…");
+    try {
+      const blob = await createShareImage();
+      downloadShareBlob(blob);
+      setShareMessage("IADC image saved.");
+    } catch (error) {
+      setShareMessage(error?.message || "Could not save the IADC image.");
+    }
+  }
+
+  async function sendIadcWhatsApp() {
+    if (tab !== "iadc" || !visible.length) return;
+    setShareMessage("Preparing WhatsApp share…");
+
+    try {
+      const blob = await createShareImage();
+      const file = new File([blob], shareFileName, { type: "image/png" });
+      const shareData = {
+        title: `MetrixIQ IADC · ${sharePeriod || "Report"}`,
+        text: shareText,
+        files: [file],
+      };
+
+      const canShareFiles =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        (typeof navigator.canShare !== "function" || navigator.canShare({ files: [file] }));
+
+      if (canShareFiles) {
+        try {
+          await navigator.share(shareData);
+          setShareMessage("Share sheet opened — choose WhatsApp.");
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") {
+            setShareMessage("");
+            return;
+          }
+        }
+      }
+
+      downloadShareBlob(blob);
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
+        shareText + "\n\nThe IADC PNG has been saved. Attach it to this WhatsApp message."
+      )}`;
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      setShareMessage("Image saved and WhatsApp opened. Attach the PNG to the message.");
+    } catch (error) {
+      setShareMessage(error?.message || "Could not prepare the WhatsApp share.");
+    }
+  }
+
   if (load.loading) return <Loading text="Loading IADC & DWC workspace…" />;
   if (load.error) return <ErrorBox error={load.error} />;
 
@@ -606,10 +701,21 @@ export default function IadcComplianceView({
           <button type="button" className="btn ghost" onClick={exportCsv} disabled={!visible.length}>
             Export
           </button>
+          {tab === "iadc" && (
+            <>
+              <button type="button" className="btn ghost iadcpro-save-image" onClick={saveIadcImage} disabled={!visible.length}>
+                Save PNG
+              </button>
+              <button type="button" className="btn primary iadcpro-whatsapp" onClick={sendIadcWhatsApp} disabled={!visible.length}>
+                Send WhatsApp
+              </button>
+            </>
+          )}
         </div>
       </section>
 
       {importMessage && <div className="iadcpro-message success">{importMessage}</div>}
+      {shareMessage && <div className="iadcpro-message success iadcpro-share-message">{shareMessage}</div>}
       {importError && (
         <div className="iadcpro-message error">
           <span>{importError}</span>
@@ -860,6 +966,51 @@ export default function IadcComplianceView({
         </section>
       )}
 
+      {tab === "iadc" && visible.length > 0 && (
+        <section ref={shareCardRef} className="iadc-share-card" aria-hidden="true">
+          <header className="iadc-share-head">
+            <div>
+              <span>METRIXIQ · WORKFLOW COMPLIANCE</span>
+              <h1>IADC Performance</h1>
+              <p>{mode === "daily" ? formatDate(selectedDay) : selectedWeek} · {shareSite}</p>
+            </div>
+            <div className="iadc-share-brand">
+              <b>MetrixIQ</b>
+              <small>Driver Performance Intelligence</small>
+            </div>
+          </header>
+
+          <div className="iadc-share-kpis">
+            <article><span>DRIVERS</span><strong>{visible.length}</strong></article>
+            <article><span>IADC AVERAGE</span><strong>{average == null ? "—" : pct(average, 1)}</strong></article>
+            <article><span>TARGET</span><strong>{IADC_TARGET}%+</strong></article>
+            <article><span>BELOW TARGET</span><strong>{visible.filter((row) => Number(n(row?.iadc)) < IADC_TARGET).length}</strong></article>
+          </div>
+
+          <div className="iadc-share-table">
+            <div className="iadc-share-table-head">
+              <span>#</span><span>DRIVER</span><span>IADC</span>
+            </div>
+            {visible.map((row, index) => {
+              const score = n(row?.iadc);
+              const tone = toneFor(score, IADC_TARGET);
+              return (
+                <div className="iadc-share-row" key={row.id || row.driver_id || index}>
+                  <span className="iadc-share-rank">{index + 1}</span>
+                  <b>{dname(row.drivers)}</b>
+                  <span className={"iadc-share-score " + tone}>{pct(score, 1)}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <footer className="iadc-share-footer">
+            <span>Target ≥ {IADC_TARGET}% · Please review your score and improve where needed.</span>
+            <b>{mode === "daily" ? formatDate(selectedDay) : selectedWeek}</b>
+          </footer>
+        </section>
+      )}
+
       <style jsx global>{`
         .iadcpro{display:grid;gap:10px;padding-bottom:24px}
         .iadcpro-hero{padding:12px 18px;border-radius:13px;min-height:82px}
@@ -876,6 +1027,54 @@ export default function IadcComplianceView({
         .iadcpro-controlbar label>span{font-size:8px}
         .iadcpro-actions{gap:7px}
         .iadcpro-actions .btn{height:34px;padding:0 14px;font-size:9px}
+        .iadcpro-actions .iadcpro-whatsapp{background:#1d9a63;border-color:#1d9a63;color:#fff}
+        .iadcpro-actions .iadcpro-whatsapp:hover{filter:brightness(.96)}
+        .iadcpro-share-message{margin-top:-2px}
+
+        .iadc-share-card{
+          position:fixed;left:-20000px;top:0;width:1080px;padding:44px;background:#eef3f5;color:#13253a;
+          font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;z-index:-1
+        }
+        .iadc-share-head{
+          display:flex;align-items:flex-start;justify-content:space-between;gap:30px;padding:34px 38px;
+          border:1px solid #d7e2e8;border-radius:22px;background:#fff
+        }
+        .iadc-share-head span{font-size:16px;font-weight:900;letter-spacing:2.2px;color:#2d8b78}
+        .iadc-share-head h1{margin:10px 0 7px;font-size:48px;line-height:1;color:#10243a}
+        .iadc-share-head p{margin:0;font-size:20px;color:#687b8e}
+        .iadc-share-brand{text-align:right;display:flex;flex-direction:column;gap:5px}
+        .iadc-share-brand b{font-size:28px;color:#16304a}
+        .iadc-share-brand small{font-size:13px;color:#7a8b9b}
+
+        .iadc-share-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
+        .iadc-share-kpis article{
+          padding:22px 24px;border:1px solid #d9e3e9;border-radius:18px;background:#fff;display:flex;flex-direction:column;gap:8px
+        }
+        .iadc-share-kpis span{font-size:13px;font-weight:900;letter-spacing:1.1px;color:#6b7c8d}
+        .iadc-share-kpis strong{font-size:32px;color:#12263d}
+
+        .iadc-share-table{overflow:hidden;border:1px solid #d9e3e9;border-radius:18px;background:#fff}
+        .iadc-share-table-head,.iadc-share-row{display:grid;grid-template-columns:76px minmax(0,1fr) 180px;align-items:center}
+        .iadc-share-table-head{min-height:54px;background:#f6f8fa;border-bottom:1px solid #dfe7ec}
+        .iadc-share-table-head span{padding:0 20px;font-size:13px;font-weight:900;letter-spacing:1px;color:#718294}
+        .iadc-share-row{min-height:58px;border-bottom:1px solid #edf1f4}
+        .iadc-share-row:last-child{border-bottom:0}
+        .iadc-share-row>*{padding:0 20px;box-sizing:border-box}
+        .iadc-share-rank{font-size:16px;font-weight:900;color:#647789}
+        .iadc-share-row b{font-size:19px;color:#17283d}
+        .iadc-share-score{
+          justify-self:center;display:inline-flex;align-items:center;justify-content:center;min-width:118px;padding:9px 15px;
+          border-radius:12px;font-size:18px;font-weight:900;background:#eef2f4;color:#3d5367
+        }
+        .iadc-share-score.critical{background:#ffe7e5;color:#9f332f;border:1px solid #f0aaa6}
+        .iadc-share-score.watch{background:#fff3d8;color:#95680d;border:1px solid #ecd07a}
+        .iadc-share-score.good{background:#edf7d9;color:#477516;border:1px solid #c8df91}
+        .iadc-share-score.excellent{background:#dff4ea;color:#17684c;border:1px solid #a8d8c4}
+        .iadc-share-footer{
+          display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:16px;padding:20px 26px;
+          border-radius:16px;background:#16304a;color:#fff;font-size:16px
+        }
+        .iadc-share-footer b{white-space:nowrap}
 
         .iadcpro-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
         .iadcpro-kpis article{

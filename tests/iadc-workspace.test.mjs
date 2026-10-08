@@ -25,3 +25,17 @@ test("IADC workspace uses a focused database loader and preserves daily/weekly e
   assert.ok(router.includes('if(metric==="iadc") return <IadcComplianceView'));
   assert.ok(router.includes("<IadcComplianceView"));
 });
+
+
+test("IADC workspace can export a WhatsApp-ready PNG", () => {
+  const view = read("components/operations/IadcComplianceView.jsx");
+
+  assert.ok(view.includes('import { toBlob } from "html-to-image"'));
+  assert.ok(view.includes("Save PNG"));
+  assert.ok(view.includes("Send WhatsApp"));
+  assert.ok(view.includes("createShareImage"));
+  assert.ok(view.includes("navigator.share"));
+  assert.ok(view.includes("https://wa.me/?text="));
+  assert.ok(view.includes("iadc-share-card"));
+  assert.ok(view.includes("IADC Performance"));
+});
