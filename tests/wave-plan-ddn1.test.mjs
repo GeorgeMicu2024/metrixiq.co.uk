@@ -131,3 +131,24 @@ test("DEH1 cropped Wave screenshots are parsed even when the DCSL column is not 
   assert.ok(view.includes("mergeDeh1ImageRows(gridRows,structuredRows,sparseScreenshotRows,denseScreenshotRows)"));
   assert.ok(view.includes("Wave number, Load Time and Route column are visible"));
 });
+
+
+test("headerless DCSL workbooks are detected as Wave Plans", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+
+  assert.ok(view.includes("const dispatchRows=rows.filter"));
+  assert.ok(view.includes("dcslDsp(cells[0])"));
+  assert.ok(view.includes("Boolean(routeOf(cells))"));
+  assert.ok(view.includes("Boolean(timeOf(cells))"));
+  assert.ok(view.includes("dispatchRows>=2"));
+});
+
+test("Daily Dispatch exposes an explicit Save Image download button", () => {
+  const view = read("components/sites/WavePlanView.jsx");
+  const css = read("app/globals.css");
+
+  assert.ok(view.includes("↓ Save Image"));
+  assert.ok(view.includes("onClick={()=>exportPng(false)}"));
+  assert.ok(view.includes("waveplan-save-image"));
+  assert.ok(css.includes("Wave Plan action row with explicit Save Image"));
+});

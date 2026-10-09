@@ -3558,3 +3558,25 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     overflow:visible;
   }
 }
+
+
+/* Wave Plan action row with explicit Save Image */
+.waveplan-actions.clean{
+  grid-template-columns:minmax(0,1.45fr) minmax(180px,.65fr) minmax(140px,.48fr) minmax(105px,.32fr)!important;
+}
+.waveplan-actions.clean .waveplan-save-image{
+  border-color:#75b8ac;
+  color:#176c5d;
+  background:#f4fbf9;
+}
+.waveplan-actions.clean .ready{
+  grid-column:1/-1!important;
+}
+@media(max-width:760px){
+  .waveplan-actions.clean{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .waveplan-actions.clean .ready{
+    grid-column:1/-1!important;
+  }
+}
