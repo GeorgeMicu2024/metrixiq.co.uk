@@ -79,3 +79,15 @@ test("IADC PNG export paginates at 25 drivers per image without changing the car
   assert.ok(view.includes('" · " + (pageIndex + 1) + "/" + sharePages.length'));
   assert.ok(view.includes("for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1)"));
 });
+
+
+test("IADC final PNG page keeps the same 25-row layout", () => {
+  const view = read("components/operations/IadcComplianceView.jsx");
+
+  assert.ok(view.includes('Array.from({ length: IADC_EXPORT_PAGE_SIZE }'));
+  assert.ok(view.includes('const row = pageRows[index] || null'));
+  assert.ok(view.includes('iadc-share-row-placeholder'));
+  assert.ok(view.includes('placeholder-" + pageIndex + "-" + index'));
+  assert.ok(view.includes('color:transparent!important'));
+  assert.ok(view.includes('background:transparent!important'));
+});

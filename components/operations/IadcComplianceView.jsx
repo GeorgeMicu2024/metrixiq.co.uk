@@ -976,10 +976,20 @@ export default function IadcComplianceView({
                 <div className="iadc-share-table-head">
                   <span>#</span><span>DRIVER</span><span>IADC</span>
                 </div>
-                {pageRows.map((row, index) => {
+                {Array.from({ length: IADC_EXPORT_PAGE_SIZE }, (_, index) => {
+                  const row = pageRows[index] || null;
+                  const absoluteIndex = pageIndex * IADC_EXPORT_PAGE_SIZE + index;
+                  if (!row) {
+                    return (
+                      <div className="iadc-share-row iadc-share-row-placeholder" key={"placeholder-" + pageIndex + "-" + index}>
+                        <span className="iadc-share-rank">&nbsp;</span>
+                        <b>&nbsp;</b>
+                        <span className="iadc-share-score">&nbsp;</span>
+                      </div>
+                    );
+                  }
                   const score = n(row?.iadc);
                   const tone = toneFor(score, IADC_TARGET);
-                  const absoluteIndex = pageIndex * IADC_EXPORT_PAGE_SIZE + index;
                   return (
                     <div className="iadc-share-row" key={row.id || row.driver_id || absoluteIndex}>
                       <span className="iadc-share-rank">{absoluteIndex + 1}</span>
@@ -1046,6 +1056,10 @@ export default function IadcComplianceView({
         .iadc-share-table-head span{padding:0 20px;font-size:13px;font-weight:900;letter-spacing:1px;color:#718294}
         .iadc-share-row{min-height:58px;border-bottom:1px solid #edf1f4}
         .iadc-share-row:last-child{border-bottom:0}
+        .iadc-share-row-placeholder .iadc-share-rank,
+        .iadc-share-row-placeholder b,
+        .iadc-share-row-placeholder .iadc-share-score{color:transparent!important}
+        .iadc-share-row-placeholder .iadc-share-score{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
         .iadc-share-row>*{padding:0 20px;box-sizing:border-box}
         .iadc-share-rank{font-size:16px;font-weight:900;color:#647789}
         .iadc-share-row b{font-size:19px;color:#17283d}
