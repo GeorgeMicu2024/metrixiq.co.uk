@@ -64,3 +64,18 @@ test("IADC PNG omits MetrixIQ from the export header", () => {
   assert.equal(view.includes("METRIXIQ · WORKFLOW COMPLIANCE"), false);
   assert.ok(view.includes("<span>WORKFLOW COMPLIANCE</span>"));
 });
+
+
+test("IADC PNG export paginates at 25 drivers per image without changing the card design", () => {
+  const view = read("components/operations/IadcComplianceView.jsx");
+
+  assert.ok(view.includes("const IADC_EXPORT_PAGE_SIZE = 25"));
+  assert.ok(view.includes("const sharePages = useMemo"));
+  assert.ok(view.includes("visible.slice(index, index + IADC_EXPORT_PAGE_SIZE)"));
+  assert.ok(view.includes("const shareCardRefs = useRef([])"));
+  assert.ok(view.includes("shareCardRefs.current[pageIndex] = node"));
+  assert.ok(view.includes("pageIndex * IADC_EXPORT_PAGE_SIZE + index"));
+  assert.ok(view.includes('shareFileName.replace(/\\.png$/i, "-p" + (pageIndex + 1) + ".png")'));
+  assert.ok(view.includes('" · " + (pageIndex + 1) + "/" + sharePages.length'));
+  assert.ok(view.includes("for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1)"));
+});

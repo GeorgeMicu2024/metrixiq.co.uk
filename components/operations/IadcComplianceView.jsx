@@ -110,7 +110,7 @@ export default function IadcComplianceView({
   const [importMessage, setImportMessage] = useState("");
   const [importError, setImportError] = useState("");
   const fileInput = useRef(null);
-  const shareCardRef = useRef(null);
+  const shareCardRefs = useRef([]);
   const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
@@ -491,9 +491,17 @@ export default function IadcComplianceView({
     ? "All sites"
     : String(siteFilter || "").trim().toUpperCase();
   const shareFileName = `metrixiq-iadc-${shareSite.replace(/[^A-Z0-9]+/gi, "-").toLowerCase()}-${sharePeriod || "report"}.png`;
+  const IADC_EXPORT_PAGE_SIZE = 25;
+  const sharePages = useMemo(() => {
+    const pages = [];
+    for (let index = 0; index < visible.length; index += IADC_EXPORT_PAGE_SIZE) {
+      pages.push(visible.slice(index, index + IADC_EXPORT_PAGE_SIZE));
+    }
+    return pages;
+  }, [visible]);
 
-  async function createShareImage() {
-    if (!shareCardRef.current || !visible.length) {
+  async function createShareImage(node) {
+    if (!node || !visible.length) {
       throw new Error("There is no IADC data to export.");
     }
 
@@ -503,7 +511,7 @@ export default function IadcComplianceView({
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     await new Promise((resolve) => setTimeout(resolve, 80));
 
-    const blob = await toBlob(shareCardRef.current, {
+    const blob = await toBlob(node, {
       cacheBust: true,
       pixelRatio: 2,
       backgroundColor: "#eef3f5",
@@ -524,22 +532,29 @@ export default function IadcComplianceView({
     return blob;
   }
 
-  function downloadShareBlob(blob) {
+  function downloadShareBlob(blob, pageIndex = 0, totalPages = 1) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = shareFileName;
+    anchor.download = totalPages === 1 ? shareFileName : shareFileName.replace(/\.png$/i, "-p" + (pageIndex + 1) + ".png");
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 500);
   }
 
   async function saveIadcImage() {
     if (tab !== "iadc" || !visible.length) return;
-    setShareMessage("Creating IADC image…");
+    const totalPages = sharePages.length;
+    setShareMessage(totalPages > 1 ? "Creating " + totalPages + " IADC pages…" : "Creating IADC image…");
     try {
-      const blob = await createShareImage();
-      downloadShareBlob(blob);
-      setShareMessage("IADC image saved.");
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
+        const node = shareCardRefs.current[pageIndex];
+        const blob = await createShareImage(node);
+        downloadShareBlob(blob, pageIndex, totalPages);
+        if (totalPages > 1 && pageIndex < totalPages - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        }
+      }
+      setShareMessage(totalPages > 1 ? totalPages + " IADC pages saved." : "IADC image saved.");
     } catch (error) {
       setShareMessage(error?.message || "Could not save the IADC image.");
     }
@@ -931,45 +946,60 @@ export default function IadcComplianceView({
         </section>
       )}
 
-      {tab === "iadc" && visible.length > 0 && (
-        <section ref={shareCardRef} className="iadc-share-card" aria-hidden="true">
-          <header className="iadc-share-head">
-            <div>
-              <span>WORKFLOW COMPLIANCE</span>
-              <h1>IADC Performance</h1>
-              <p>{mode === "daily" ? formatDate(selectedDay) : selectedWeek} · {shareSite}</p>
-            </div>
-          </header>
-
-          <div className="iadc-share-kpis">
-            <article><span>DRIVERS</span><strong>{visible.length}</strong></article>
-            <article><span>IADC AVERAGE</span><strong>{average == null ? "—" : pct(average, 1)}</strong></article>
-            <article><span>TARGET</span><strong>{IADC_TARGET}%+</strong></article>
-            <article><span>BELOW TARGET</span><strong>{visible.filter((row) => Number(n(row?.iadc)) < IADC_TARGET).length}</strong></article>
-          </div>
-
-          <div className="iadc-share-table">
-            <div className="iadc-share-table-head">
-              <span>#</span><span>DRIVER</span><span>IADC</span>
-            </div>
-            {visible.map((row, index) => {
-              const score = n(row?.iadc);
-              const tone = toneFor(score, IADC_TARGET);
-              return (
-                <div className="iadc-share-row" key={row.id || row.driver_id || index}>
-                  <span className="iadc-share-rank">{index + 1}</span>
-                  <b>{dname(row.drivers)}</b>
-                  <span className={"iadc-share-score " + tone}>{pct(score, 1)}</span>
+      {tab === "iadc" && sharePages.length > 0 && (
+        <>
+          {sharePages.map((pageRows, pageIndex) => (
+            <section
+              key={"iadc-share-page-" + pageIndex}
+              ref={(node) => {
+                shareCardRefs.current[pageIndex] = node;
+              }}
+              className="iadc-share-card"
+              aria-hidden="true"
+            >
+              <header className="iadc-share-head">
+                <div>
+                  <span>WORKFLOW COMPLIANCE</span>
+                  <h1>IADC Performance</h1>
+                  <p>{mode === "daily" ? formatDate(selectedDay) : selectedWeek} · {shareSite}</p>
                 </div>
-              );
-            })}
-          </div>
+              </header>
 
-          <footer className="iadc-share-footer">
-            <span>Target ≥ {IADC_TARGET}% · Please review your score and improve where needed.</span>
-            <b>{mode === "daily" ? formatDate(selectedDay) : selectedWeek}</b>
-          </footer>
-        </section>
+              <div className="iadc-share-kpis">
+                <article><span>DRIVERS</span><strong>{visible.length}</strong></article>
+                <article><span>IADC AVERAGE</span><strong>{average == null ? "—" : pct(average, 1)}</strong></article>
+                <article><span>TARGET</span><strong>{IADC_TARGET}%+</strong></article>
+                <article><span>BELOW TARGET</span><strong>{visible.filter((row) => Number(n(row?.iadc)) < IADC_TARGET).length}</strong></article>
+              </div>
+
+              <div className="iadc-share-table">
+                <div className="iadc-share-table-head">
+                  <span>#</span><span>DRIVER</span><span>IADC</span>
+                </div>
+                {pageRows.map((row, index) => {
+                  const score = n(row?.iadc);
+                  const tone = toneFor(score, IADC_TARGET);
+                  const absoluteIndex = pageIndex * IADC_EXPORT_PAGE_SIZE + index;
+                  return (
+                    <div className="iadc-share-row" key={row.id || row.driver_id || absoluteIndex}>
+                      <span className="iadc-share-rank">{absoluteIndex + 1}</span>
+                      <b>{dname(row.drivers)}</b>
+                      <span className={"iadc-share-score " + tone}>{pct(score, 1)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <footer className="iadc-share-footer">
+                <span>Target ≥ {IADC_TARGET}% · Please review your score and improve where needed.</span>
+                <b>
+                  {mode === "daily" ? formatDate(selectedDay) : selectedWeek}
+                  {sharePages.length > 1 ? " · " + (pageIndex + 1) + "/" + sharePages.length : ""}
+                </b>
+              </footer>
+            </section>
+          ))}
+        </>
       )}
 
       <style jsx global>{`
