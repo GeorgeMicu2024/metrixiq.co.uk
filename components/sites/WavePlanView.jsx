@@ -673,12 +673,27 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
      return {...r,launchPad:String(pad)};
    });
  };
- const waveRouteKeys=useMemo(()=>{const header=waveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const h=header?.cells.map(v=>norm(v))||[];const ri=h.findIndex(v=>v==="ROUTE CODE");const out=[];for(const x of waveRows){if(x===header)continue;const route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);if(route)out.push(norm(route))}return [...new Set(out)]},[waveRows]);
+ // DXM3 spreadsheets may include the dispatch for every DSP at the station.
+ // Scope matching and rendering to the uploaded DCSL Route Plan only; retain
+ // the original wave times, staging locations and colours for matching routes.
+ const scopedWaveRows=useMemo(()=>{
+   if(norm(site)!=="DXM3"||!routeIdentity.size)return waveRows;
+   const header=waveRows.find(row=>row.cells.some(value=>/route\s*code/i.test(clean(value))));
+   if(!header)return waveRows;
+   const columns=header.cells.map(norm),dspIndex=columns.findIndex(value=>value==="DSP"),routeIndex=columns.findIndex(value=>value==="ROUTE CODE");
+   if(dspIndex<0||routeIndex<0)return waveRows;
+   const data=waveRows.filter(row=>row!==header);
+   const dsps=new Set(data.map(row=>norm(row.cells[dspIndex])).filter(Boolean));
+   if(dsps.size<2)return waveRows;
+   const matched=data.filter(row=>dcslDsp(row.cells[dspIndex])&&routeIdentity.has(norm(routeOf([row.cells[routeIndex]]))));
+   return matched.length?[header,...matched]:waveRows;
+ },[site,waveRows,routeIdentity]);
+ const waveRouteKeys=useMemo(()=>{const header=scopedWaveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const h=header?.cells.map(v=>norm(v))||[];const ri=h.findIndex(v=>v==="ROUTE CODE");const out=[];for(const x of scopedWaveRows){if(x===header)continue;const route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);if(route)out.push(norm(route))}return [...new Set(out)]},[scopedWaveRows]);
  const routeCompatibility=useMemo(()=>{const available=new Set(routeIdentity.keys());const matched=waveRouteKeys.filter(route=>available.has(route));const total=waveRouteKeys.length;return{matched:matched.length,total,ratio:total?matched.length/total:1,missing:waveRouteKeys.filter(route=>!available.has(route))}},[waveRouteKeys,routeIdentity]);
- const scheduleAlignment=useMemo(()=>{const waveHeader=waveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const wh=waveHeader?.cells.map(v=>norm(v))||[];const wti=wh.findIndex(v=>v==="TIME");const routeHeader=routeRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const rh=routeHeader?.cells.map(v=>norm(v))||[];const rti=rh.findIndex(v=>/PLANNED DEPARTURE TIME/.test(v));if(wti<0||rti<0)return null;const wc=new Map(),rc=new Map();for(const x of waveRows){if(x===waveHeader)continue;const m=toMinutes(timeOf([x.cells[wti]]));if(m!=null)wc.set(m,(wc.get(m)||0)+1)}for(const x of routeRows){if(x===routeHeader)continue;const m=toMinutes(timeOf([x.cells[rti]]));if(m!=null)rc.set(m,(rc.get(m)||0)+1)}let best={minutes:0,matched:0};for(let delta=-60;delta<=60;delta+=5){let score=0;for(const [m,count] of wc)score+=Math.min(count,rc.get(m+delta)||0);if(score>best.matched)best={minutes:delta,matched:score}}return best.matched?best:null},[waveRows,routeRows]);
+ const scheduleAlignment=useMemo(()=>{const waveHeader=scopedWaveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const wh=waveHeader?.cells.map(v=>norm(v))||[];const wti=wh.findIndex(v=>v==="TIME");const routeHeader=routeRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v))));const rh=routeHeader?.cells.map(v=>norm(v))||[];const rti=rh.findIndex(v=>/PLANNED DEPARTURE TIME/.test(v));if(wti<0||rti<0)return null;const wc=new Map(),rc=new Map();for(const x of scopedWaveRows){if(x===waveHeader)continue;const m=toMinutes(timeOf([x.cells[wti]]));if(m!=null)wc.set(m,(wc.get(m)||0)+1)}for(const x of routeRows){if(x===routeHeader)continue;const m=toMinutes(timeOf([x.cells[rti]]));if(m!=null)rc.set(m,(rc.get(m)||0)+1)}let best={minutes:0,matched:0};for(let delta=-60;delta<=60;delta+=5){let score=0;for(const [m,count] of wc)score+=Math.min(count,rc.get(m+delta)||0);if(score>best.matched)best={minutes:delta,matched:score}}return best.matched?best:null},[scopedWaveRows,routeRows]);
  const plan=useMemo(()=>{
-   const header=waveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v)))),h=header?.cells.map(v=>norm(v))||[],ri=h.findIndex(v=>v==="ROUTE CODE"),wi=h.findIndex(v=>v==="WAVE"),si=h.findIndex(v=>/STAGING LOCATION/.test(v)),ti=h.findIndex(v=>v==="TIME"),ni=h.findIndex(v=>/DRIVER NAME/.test(v)),isDeh1=norm(site)==="DEH1",exactDeh1Routes=isDeh1?new Set(waveRows.map(row=>{const r=ri>=0?routeOf([row.cells[ri]]):routeOf(row.cells);return r&&routeIdentity.has(norm(r))?norm(r):""}).filter(Boolean)):new Set();
-   const parsed=waveRows.map(x=>{
+   const header=scopedWaveRows.find(x=>x.cells.some(v=>/route\s*code/i.test(clean(v)))),h=header?.cells.map(v=>norm(v))||[],ri=h.findIndex(v=>v==="ROUTE CODE"),wi=h.findIndex(v=>v==="WAVE"),si=h.findIndex(v=>/STAGING LOCATION/.test(v)),ti=h.findIndex(v=>v==="TIME"),ni=h.findIndex(v=>/DRIVER NAME/.test(v)),isDeh1=norm(site)==="DEH1",exactDeh1Routes=isDeh1?new Set(scopedWaveRows.map(row=>{const r=ri>=0?routeOf([row.cells[ri]]):routeOf(row.cells);return r&&routeIdentity.has(norm(r))?norm(r):""}).filter(Boolean)):new Set();
+   const parsed=scopedWaveRows.map(x=>{
      if(x===header)return null;
      let route=ri>=0?routeOf([x.cells[ri]]):routeOf(x.cells);
      if(isDeh1&&routeIdentity.size&&route&&!routeIdentity.has(norm(route))){
@@ -700,14 +715,14 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    const templates=new Map(),candidatesByDeparture=new Map();
    for(const row of base){const departure=deh1RouteDeparture.get(norm(row.route));if(!departure)continue;const key=norm(departure),arr=candidatesByDeparture.get(key)||[];arr.push(row);candidatesByDeparture.set(key,arr)}
    for(const [departure,rows] of candidatesByDeparture){const counts=new Map();for(const row of rows){const sig=[row.wave,row.time,row.gateTime||"",row.staging||""].join("|");counts.set(sig,(counts.get(sig)||0)+1)}const best=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0]?.[0],template=rows.find(row=>[row.wave,row.time,row.gateTime||"",row.staging||""].join("|")===best)||rows[0];if(template)templates.set(departure,template)}
-   const rawTemplates=[...new Map(waveRows.filter(r=>r.directLoadTime&&r.explicitWave&&timeOf(r.cells)).map(r=>{const time=timeOf(r.cells),gate=r.gateTime||"";return [[r.explicitWave,time].join("|"),{wave:r.explicitWave,time,amazonTime:time,gateTime:gate,staging:"",directLoadTime:true,sourceColour:""}]})).values()].sort((a,b)=>(toMinutes(a.time)??9999)-(toMinutes(b.time)??9999));
+   const rawTemplates=[...new Map(scopedWaveRows.filter(r=>r.directLoadTime&&r.explicitWave&&timeOf(r.cells)).map(r=>{const time=timeOf(r.cells),gate=r.gateTime||"";return [[r.explicitWave,time].join("|"),{wave:r.explicitWave,time,amazonTime:time,gateTime:gate,staging:"",directLoadTime:true,sourceColour:""}]})).values()].sort((a,b)=>(toMinutes(a.time)??9999)-(toMinutes(b.time)??9999));
    const departures=[...new Set([...deh1RouteDeparture.values()].map(norm))].sort((a,b)=>(toMinutes(a)??9999)-(toMinutes(b)??9999));
    if(rawTemplates.length&&departures.length){const count=Math.min(rawTemplates.length,departures.length);for(let i=0;i<count;i++)if(!templates.has(departures[i]))templates.set(departures[i],rawTemplates[i])}
    for(const route of routeIdentity.keys()){if(seen.has(route))continue;const departure=deh1RouteDeparture.get(route),template=departure?templates.get(norm(departure)):null;if(!template)continue;base.push({...template,route,driver:routeDrivers.get(route)||"UNASSIGNED",launchPad:"",sourceY:null,recoveredFromRoutePlan:true});seen.add(route)}
    const byWave=new Map();for(const row of base){const key=[row.wave,row.time,row.gateTime||""].join("|"),arr=byWave.get(key)||[];arr.push(row);byWave.set(key,arr)}
    base=[...byWave.values()].flatMap(rows=>fillDeh1LaunchPads(rows));
    return base;
- },[waveRows,routeDrivers,driverByTrid,adjust,routeIdentity,site,deh1RouteDeparture]);
+ },[scopedWaveRows,routeDrivers,driverByTrid,adjust,routeIdentity,site,deh1RouteDeparture]);
  const deh1Recovery=useMemo(()=>{
    if(norm(site)!=="DEH1"||!routeIdentity.size)return{eligible:false,recoverable:0,matched:0,total:routeIdentity.size,ratio:0,delta:null};
    const resolved=new Map();
