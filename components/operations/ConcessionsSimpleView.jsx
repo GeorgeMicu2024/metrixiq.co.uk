@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toBlob } from "html-to-image";
 import {
   buildFourWeekConcessionMatrix,
   fetchConcessionSnapshots,
@@ -15,6 +16,8 @@ const cellTone = (value) => {
   if (count === 2) return "two";
   return "high";
 };
+
+const CONCESSIONS_PAGE_SIZE = 25;
 
 const latestConcessionWeeks = (rows, site, limit = 8) =>
   [...new Set(
@@ -89,6 +92,9 @@ export default function ConcessionsSimpleView({
   const [show, setShow] = useState("all");
   const [range, setRange] = useState(8);
   const [showTrid, setShowTrid] = useState(true);
+  const [page, setPage] = useState(1);
+  const [saveMessage, setSaveMessage] = useState("");
+  const exportPageRefs = useRef([]);
 
   useEffect(() => {
     let alive = true;
@@ -223,6 +229,22 @@ export default function ConcessionsSimpleView({
     });
   }, [matrix, query, show, latestWeek]);
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / CONCESSIONS_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageStart = (currentPage - 1) * CONCESSIONS_PAGE_SIZE;
+  const pagedFiltered = filtered.slice(pageStart, pageStart + CONCESSIONS_PAGE_SIZE);
+  const exportPages = useMemo(() => {
+    const pages = [];
+    for (let index = 0; index < filtered.length; index += CONCESSIONS_PAGE_SIZE) {
+      pages.push(filtered.slice(index, index + CONCESSIONS_PAGE_SIZE));
+    }
+    return pages;
+  }, [filtered]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, show, range, site]);
+
   const selectedTotal = weekly.reduce((sum, item) => sum + item.total, 0);
   const uniqueAffected = matrix.length;
   const repeatDrivers = matrix.filter((row) => row.affectedWeeks >= 2).length;
@@ -264,6 +286,61 @@ export default function ConcessionsSimpleView({
         : "",
     };
   }, [weekly, maxWeek]);
+
+  async function saveConcessionsImages() {
+    if (!filtered.length || !exportPages.length) return;
+    const totalPages = exportPages.length;
+    setSaveMessage(totalPages > 1 ? `Creating ${totalPages} pages…` : "Creating image…");
+    try {
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex += 1) {
+        const node = exportPageRefs.current[pageIndex];
+        if (!node) throw new Error(`Could not prepare page ${pageIndex + 1}.`);
+        const blob = await toBlob(node, {
+          cacheBust: true,
+          pixelRatio: 2,
+          backgroundColor: "#eef3f5",
+          style: {
+            position: "static",
+            left: "0",
+            top: "0",
+            transform: "none",
+            zIndex: "0",
+            margin: "0",
+            opacity: "1",
+            visibility: "visible",
+          },
+        });
+        if (!blob || blob.size < 5000) {
+          throw new Error(`Could not create page ${pageIndex + 1} correctly.`);
+        }
+
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        const siteSlug = String(site || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        const rangeSlug = weeks.length ? `${weeks[0]}-${weeks[weeks.length - 1]}`.toLowerCase() : "report";
+        anchor.href = url;
+        anchor.download =
+          totalPages === 1
+            ? `concessions-${siteSlug}-${rangeSlug}.png`
+            : `concessions-${siteSlug}-${rangeSlug}-p${pageIndex + 1}.png`;
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(url), 500);
+        if (pageIndex < totalPages - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        }
+      }
+
+      setSaveMessage(totalPages > 1 ? `${totalPages} pages saved.` : "Image saved.");
+    } catch (error) {
+      setSaveMessage(error?.message || "Could not save the concessions image.");
+    }
+  }
 
   if (load.loading) return <Loading text="Loading clean concessions history…" />;
   if (load.error) return <ErrorBox error={load.error} />;
@@ -476,6 +553,15 @@ export default function ConcessionsSimpleView({
                   <span aria-hidden="true">{showTrid ? "◉" : "⊘"}</span>
                   {showTrid ? "Hide TRID" : "Show TRID"}
                 </button>
+                <button
+                  type="button"
+                  className="cx5-save-image"
+                  onClick={saveConcessionsImages}
+                  disabled={!filtered.length}
+                >
+                  <span aria-hidden="true">↓</span>
+                  Save Image
+                </button>
               </div>
             </div>
 
@@ -502,14 +588,14 @@ export default function ConcessionsSimpleView({
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((row, index) => {
+                  {pagedFiltered.map((row, index) => {
                     const values = weeks.map((week) => Number(row.byWeek?.[week] || 0));
                     const average = weeks.length ? row.total / weeks.length : 0;
 
                     return (
                       <tr key={row.driver_trid}>
                         <td>
-                          <span className="cx5-rank">{index + 1}</span>
+                          <span className="cx5-rank">{pageStart + index + 1}</span>
                         </td>
                         <td>
                           <div className="cx5-driver">
@@ -584,7 +670,119 @@ export default function ConcessionsSimpleView({
                 </tbody>
               </table>
             </div>
+
+            {filtered.length > 0 && (
+              <div className="cx5-pagination">
+                <div className="cx5-page-buttons">
+                  <button
+                    type="button"
+                    onClick={() => setPage((current) => Math.max(1, current - 1))}
+                    disabled={currentPage === 1}
+                    aria-label="Previous concessions page"
+                  >
+                    ‹
+                  </button>
+                  {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
+                    <button
+                      key={pageNumber}
+                      type="button"
+                      className={pageNumber === currentPage ? "active" : ""}
+                      onClick={() => setPage(pageNumber)}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                </div>
+                <span>
+                  Showing {pageStart + 1}–{Math.min(pageStart + CONCESSIONS_PAGE_SIZE, filtered.length)} of {filtered.length} drivers
+                </span>
+                <b>25 per page</b>
+              </div>
+            )}
+            {saveMessage && <div className="cx5-save-message">{saveMessage}</div>}
           </section>
+
+          {exportPages.length > 0 && (
+            <div className="cx5-export-stack" aria-hidden="true">
+              {exportPages.map((pageRows, pageIndex) => (
+                <section
+                  key={"cx5-export-" + pageIndex}
+                  ref={(node) => {
+                    exportPageRefs.current[pageIndex] = node;
+                  }}
+                  className="cx5-export-page"
+                >
+                  <header className="cx5-export-head">
+                    <div>
+                      <span>DRIVER DETAIL</span>
+                      <h1>Driver concession matrix · last {weeks.length} weeks</h1>
+                      <p>Weekly DNR, total exposure and recent movement in one view.</p>
+                    </div>
+                    <div>
+                      <b>Site: {site}</b>
+                      <small>{weeks.length ? `${weeks[0]}–${weeks[weeks.length - 1]}` : ""}</small>
+                    </div>
+                  </header>
+
+                  <div className="cx5-export-table">
+                    <div
+                      className="cx5-export-row cx5-export-row-head"
+                      style={{ gridTemplateColumns: `64px minmax(280px,1fr) repeat(${weeks.length},96px) 110px` }}
+                    >
+                      <span>#</span>
+                      <span>DRIVER</span>
+                      {weeks.map((week) => <span key={week}>{week}</span>)}
+                      <span>TOTAL</span>
+                    </div>
+
+                    {Array.from({ length: CONCESSIONS_PAGE_SIZE }, (_, rowIndex) => {
+                      const row = pageRows[rowIndex] || null;
+                      const absoluteIndex = pageIndex * CONCESSIONS_PAGE_SIZE + rowIndex;
+                      if (!row) {
+                        return (
+                          <div
+                            key={"placeholder-" + pageIndex + "-" + rowIndex}
+                            className="cx5-export-row placeholder"
+                            style={{ gridTemplateColumns: `64px minmax(280px,1fr) repeat(${weeks.length},96px) 110px` }}
+                          >
+                            <span>&nbsp;</span><b>&nbsp;</b>
+                            {weeks.map((week) => <span key={week}>&nbsp;</span>)}
+                            <span>&nbsp;</span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={row.driver_trid || absoluteIndex}
+                          className="cx5-export-row"
+                          style={{ gridTemplateColumns: `64px minmax(280px,1fr) repeat(${weeks.length},96px) 110px` }}
+                        >
+                          <span className="rank">{absoluteIndex + 1}</span>
+                          <b>{row.driver_name}</b>
+                          {weeks.map((week) => {
+                            const value = Number(row.byWeek?.[week] || 0);
+                            return (
+                              <span key={week}>
+                                <i className={"cx5-export-cell " + cellTone(value)}>{value}</i>
+                              </span>
+                            );
+                          })}
+                          <span><i className="cx5-export-total">{row.total}</i></span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <footer className="cx5-export-foot">
+                    <span>Total {filtered.length} drivers</span>
+                    <b>Page {pageIndex + 1} of {exportPages.length}</b>
+                    <span>{site} · {weeks.length ? `${weeks[0]}–${weeks[weeks.length - 1]}` : ""}</span>
+                  </footer>
+                </section>
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -638,6 +836,9 @@ export default function ConcessionsSimpleView({
         .cx5-filterbar select{height:34px;min-width:158px;border:1px solid #d3dde5;border-radius:8px;background:#fff;padding:0 9px;color:#334b60;font-size:9px;font-weight:750}
         .cx5-trid-toggle{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 10px;border:1px solid #d3dde5;border-radius:8px;background:#fff;color:#5f7486;font-size:9px;font-weight:850;white-space:nowrap;cursor:pointer}
         .cx5-trid-toggle.active{border-color:#bfd7d0;background:#f3faf7;color:#28735f}
+        .cx5-save-image{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 13px;border:1px solid #138a72;border-radius:8px;background:#159b81;color:#fff;font-size:9px;font-weight:900;white-space:nowrap;cursor:pointer;box-shadow:0 4px 10px rgba(21,155,129,.14)}
+        .cx5-save-image:hover{background:#11856f}
+        .cx5-save-image:disabled{opacity:.45;cursor:not-allowed}
 
         .cx5-table-wrap{max-height:610px;overflow:auto;border-top:0}
         .cx5-table-wrap table{width:100%;min-width:1180px;border-collapse:separate;border-spacing:0}
@@ -677,6 +878,45 @@ export default function ConcessionsSimpleView({
         .cx5-open:disabled{opacity:.4;cursor:not-allowed}
         .cx5-no-results{padding:28px;text-align:center;color:#83909c}
 
+        .cx5-pagination{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:11px 15px;border-top:1px solid #e0e8ed;background:#fff}
+        .cx5-page-buttons{display:flex;gap:5px}
+        .cx5-page-buttons button{display:grid;place-items:center;min-width:29px;height:29px;padding:0 7px;border:1px solid #d8e2e8;border-radius:7px;background:#fff;color:#52697d;font-size:9px;font-weight:900;cursor:pointer}
+        .cx5-page-buttons button.active{background:#2e7de9;border-color:#2e7de9;color:#fff}
+        .cx5-page-buttons button:disabled{opacity:.35;cursor:not-allowed}
+        .cx5-pagination>span{text-align:right;color:#708192;font-size:9px}
+        .cx5-pagination>b{height:29px;display:flex;align-items:center;padding:0 10px;border:1px solid #d8e2e8;border-radius:7px;color:#41586c;font-size:9px;background:#fff}
+        .cx5-save-message{padding:0 15px 11px;text-align:right;color:#2d7a68;font-size:9px;font-weight:800;background:#fff}
+
+        .cx5-export-stack{position:fixed;left:0;top:0;transform:translateX(-140vw);z-index:1;pointer-events:none}
+        .cx5-export-page{width:1080px;padding:38px;background:#eef3f5;color:#13253a;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
+        .cx5-export-head{display:flex;justify-content:space-between;align-items:flex-start;gap:30px;padding:27px 30px;border:1px solid #d7e2e8;border-radius:18px;background:#fff}
+        .cx5-export-head>div:first-child>span{font-size:13px;font-weight:900;letter-spacing:1.7px;color:#2d8b78}
+        .cx5-export-head h1{margin:7px 0 4px;font-size:31px;line-height:1.05;color:#10243a}
+        .cx5-export-head p{margin:0;font-size:13px;color:#687b8e}
+        .cx5-export-head>div:last-child{display:grid;gap:5px;text-align:right;color:#344d62}
+        .cx5-export-head>div:last-child b{font-size:13px}
+        .cx5-export-head>div:last-child small{font-size:12px;color:#77899a}
+        .cx5-export-table{margin-top:17px;overflow:hidden;border:1px solid #d9e3e9;border-radius:14px;background:#fff}
+        .cx5-export-row{display:grid;align-items:center;min-height:45px;border-bottom:1px solid #edf1f4}
+        .cx5-export-row:last-child{border-bottom:0}
+        .cx5-export-row>*{padding:0 14px;box-sizing:border-box}
+        .cx5-export-row>span{text-align:center}
+        .cx5-export-row>b{font-size:13px;color:#17283d}
+        .cx5-export-row .rank{font-size:11px;font-weight:900;color:#607589}
+        .cx5-export-row-head{min-height:43px;background:#f6f8fa;border-bottom:1px solid #dfe7ec}
+        .cx5-export-row-head>*{font-size:10px;font-weight:900;letter-spacing:.75px;color:#718294}
+        .cx5-export-row-head>span:nth-child(2){text-align:left}
+        .cx5-export-cell{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;border-radius:8px;font-style:normal;font-size:12px;font-weight:900}
+        .cx5-export-cell.zero{background:#e9f8f0;color:#2d7a5b}
+        .cx5-export-cell.one{background:#f1f7df;color:#697c2a}
+        .cx5-export-cell.two{background:#fff0cf;color:#95630b}
+        .cx5-export-cell.high{background:#f9dfe2;color:#a43f49}
+        .cx5-export-total{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:29px;border-radius:8px;background:#eaf0f4;color:#1a364d;font-style:normal;font-size:12px;font-weight:900}
+        .cx5-export-row.placeholder>*{color:transparent!important}
+        .cx5-export-foot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-top:14px;padding:14px 18px;border-radius:12px;background:#16304a;color:#fff;font-size:11px}
+        .cx5-export-foot b{text-align:center}
+        .cx5-export-foot span:last-child{text-align:right}
+
         .cx5-empty{display:grid;justify-items:center;text-align:center;gap:7px;padding:44px;border-radius:14px}
         .cx5-empty-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:#f0f5f7;color:#5a7184;font-weight:900}
         .cx5-empty h2{margin:3px 0 0;font-size:18px}
@@ -695,6 +935,9 @@ export default function ConcessionsSimpleView({
           .cx5-search{flex:1 1 100%}
           .cx5-filterbar select{flex:1}
           .cx5-trid-toggle{flex:0 0 auto}
+          .cx5-save-image{flex:1}
+          .cx5-pagination{grid-template-columns:1fr;justify-items:start}
+          .cx5-pagination>span{text-align:left}
         }
         @media(max-width:520px){
           .cx5-summary{grid-template-columns:1fr}
