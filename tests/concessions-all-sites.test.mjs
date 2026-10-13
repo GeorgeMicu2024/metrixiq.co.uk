@@ -71,3 +71,19 @@ test("Concessions PNG is compact and phone-readable", () => {
   assert.ok(view.includes("min-width:58px;height:35px"));
   assert.ok(view.includes("56px minmax(300px,1fr)"));
 });
+
+
+test("Concessions uses simplified title and severity colours", () => {
+  const view = read("components/operations/ConcessionsSimpleView.jsx");
+
+  assert.equal(view.includes("Driver concession matrix · last"), false);
+  assert.ok(view.includes("Driver concessions · last {weeks.length} weeks"));
+  assert.ok(view.includes(".cx5-cell.zero{background:#cdf4de;color:#08683f}"));
+  assert.ok(view.includes(".cx5-cell.one{background:#fff0a8;color:#725000}"));
+  assert.ok(view.includes(".cx5-cell.two{background:#ffc58f;color:#a43b00}"));
+  assert.ok(view.includes(".cx5-cell.high{background:#ffb3b3;color:#a31313}"));
+  assert.ok(view.includes(".cx5-export-cell.zero{background:#cdf4de;color:#08683f}"));
+  assert.ok(view.includes(".cx5-export-cell.one{background:#fff0a8;color:#725000}"));
+  assert.ok(view.includes(".cx5-export-cell.two{background:#ffc58f;color:#a43b00}"));
+  assert.ok(view.includes(".cx5-export-cell.high{background:#ffb3b3;color:#a31313}"));
+});

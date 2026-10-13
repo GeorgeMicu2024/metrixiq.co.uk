@@ -603,7 +603,7 @@ export default function ConcessionsSimpleView({
             <div className="cx5-matrix-head">
               <div>
                 <span className="page-kicker">DRIVER DETAIL</span>
-                <h2>Driver concession matrix · last {weeks.length} weeks</h2>
+                <h2>Driver concessions · last {weeks.length} weeks</h2>
                 <p>
                   Weekly DNR, total exposure and recent movement in one view.
                 </p>
@@ -802,7 +802,7 @@ export default function ConcessionsSimpleView({
                   <header className="cx5-export-head">
                     <div>
                       <span>DRIVER DETAIL</span>
-                      <h1>Driver concession matrix · last {weeks.length} weeks</h1>
+                      <h1>Driver concessions · last {weeks.length} weeks</h1>
                       <p>Weekly DNR, total exposure and recent movement in one view.</p>
                     </div>
                     <div>
@@ -929,10 +929,10 @@ export default function ConcessionsSimpleView({
         .cx5-driver small{font-size:7px;font-weight:800;color:#a45a61;text-transform:uppercase;letter-spacing:.04em}
         .cx5-table-wrap code{font-size:8px;background:#f1f4f6;color:#68798a;border-radius:5px;padding:3px 5px;white-space:nowrap}
         .cx5-cell{display:inline-flex;align-items:center;justify-content:center;min-width:29px;height:23px;border-radius:6px;font-size:9px;font-weight:900}
-        .cx5-cell.zero{background:#e9f8f0;color:#2d7a5b}
-        .cx5-cell.one{background:#f1f7df;color:#697c2a}
-        .cx5-cell.two{background:#fff0cf;color:#95630b}
-        .cx5-cell.high{background:#f9dfe2;color:#a43f49}
+        .cx5-cell.zero{background:#cdf4de;color:#08683f}
+        .cx5-cell.one{background:#fff0a8;color:#725000}
+        .cx5-cell.two{background:#ffc58f;color:#a43b00}
+        .cx5-cell.high{background:#ffb3b3;color:#a31313}
         .cx5-total{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:24px;padding:0 6px;border-radius:7px;background:#eaf0f4;color:#1a364d;font-weight:900}
         .cx5-average{font-weight:850;color:#415a70}
         .cx5-weeks,.cx5-repeat{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 6px;border-radius:999px;font-size:8px;font-weight:850}
@@ -979,10 +979,10 @@ export default function ConcessionsSimpleView({
         .cx5-export-row-head>*{font-size:11px;font-weight:900;letter-spacing:.7px;color:#718294}
         .cx5-export-row-head>span:nth-child(2){text-align:left}
         .cx5-export-cell{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:34px;border-radius:9px;font-style:normal;font-size:15px;font-weight:900}
-        .cx5-export-cell.zero{background:#e9f8f0;color:#2d7a5b}
-        .cx5-export-cell.one{background:#f1f7df;color:#697c2a}
-        .cx5-export-cell.two{background:#fff0cf;color:#95630b}
-        .cx5-export-cell.high{background:#f9dfe2;color:#a43f49}
+        .cx5-export-cell.zero{background:#cdf4de;color:#08683f}
+        .cx5-export-cell.one{background:#fff0a8;color:#725000}
+        .cx5-export-cell.two{background:#ffc58f;color:#a43b00}
+        .cx5-export-cell.high{background:#ffb3b3;color:#a31313}
         .cx5-export-total{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:35px;border-radius:9px;background:#eaf0f4;color:#1a364d;font-style:normal;font-size:15px;font-weight:900}
                 .cx5-export-foot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-top:14px;padding:15px 18px;border-radius:12px;background:#16304a;color:#fff;font-size:12px}
         .cx5-export-foot b{text-align:center}
