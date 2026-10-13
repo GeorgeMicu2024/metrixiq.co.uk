@@ -95,6 +95,7 @@ export default function ConcessionsSimpleView({
   const [showTrid, setShowTrid] = useState(true);
   const [page, setPage] = useState(1);
   const [saveMessage, setSaveMessage] = useState("");
+  const [latestSiteRoster, setLatestSiteRoster] = useState([]);
   const exportPageRefs = useRef([]);
 
   useEffect(() => {
@@ -153,6 +154,52 @@ export default function ConcessionsSimpleView({
 
   const site = globalSite !== "ALL" ? globalSite : availableSites[0] || "";
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadLatestSiteRoster() {
+      if (!organizationId || !site) {
+        if (!cancelled) setLatestSiteRoster([]);
+        return;
+      }
+      const supabase = getSupabaseBrowserClient();
+      const { data: latestRows } = await supabase
+        .from("driver_metrics")
+        .select("period_start,period_end,week_label")
+        .eq("organization_id", organizationId)
+        .eq("site", site)
+        .like("week_label", "%:%")
+        .order("period_end", { ascending: false })
+        .order("period_start", { ascending: false })
+        .limit(1);
+
+      if (!latestRows?.length) {
+        if (!cancelled) setLatestSiteRoster([]);
+        return;
+      }
+
+      const latest = latestRows[0];
+      let query = supabase
+        .from("driver_metrics")
+        .select("driver_id,period_start,period_end,driver:drivers!driver_metrics_driver_id_fkey(id,trid,full_name,status)")
+        .eq("organization_id", organizationId)
+        .eq("site", site)
+        .eq("period_start", latest.period_start);
+      if (latest.period_end) query = query.eq("period_end", latest.period_end);
+
+      const { data: rosterRows } = await query;
+      const byTrid = new Map();
+      for (const row of rosterRows || []) {
+        const d = row?.driver;
+        const trid = String(d?.trid || "").trim().toUpperCase();
+        if (!trid) continue;
+        byTrid.set(trid, { id: trid, dbId: d?.id || row?.driver_id || null, name: d?.full_name || trid, site });
+      }
+      if (!cancelled) setLatestSiteRoster([...byTrid.values()]);
+    }
+    loadLatestSiteRoster().catch(() => !cancelled && setLatestSiteRoster([]));
+    return () => { cancelled = true; };
+  }, [organizationId, site, refreshKey]);
+
   const eightWeeks = useMemo(
     () => latestConcessionWeeks(load.rows || [], site, 8),
     [load.rows, site]
@@ -165,13 +212,14 @@ export default function ConcessionsSimpleView({
 
   const matrix = useMemo(() => {
     const snapshotMatrix = buildFourWeekConcessionMatrix(load.rows || [], site, weeks);
-    if (!drivers?.length) return snapshotMatrix;
+    const rosterDrivers = latestSiteRoster.length ? latestSiteRoster : drivers;
+    if (!rosterDrivers?.length) return snapshotMatrix;
 
     const snapshotByTrid = new Map(
       snapshotMatrix.map((row) => [String(row.driver_trid || "").toUpperCase(), row])
     );
 
-    return drivers
+    return rosterDrivers
       .map((driver) => {
         const trid = String(driver?.id || "").trim().toUpperCase();
         if (!trid) return null;
@@ -203,7 +251,7 @@ export default function ConcessionsSimpleView({
           b.affectedWeeks - a.affectedWeeks ||
           a.driver_name.localeCompare(b.driver_name)
       );
-  }, [load.rows, site, weeks, drivers]);
+  }, [load.rows, site, weeks, drivers, latestSiteRoster]);
 
   const weekly = useMemo(
     () =>
