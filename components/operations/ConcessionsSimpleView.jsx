@@ -86,6 +86,7 @@ export default function ConcessionsSimpleView({
   siteFilter = "all",
   onSiteFilterChange,
   refreshKey = 0,
+  drivers = [],
 }) {
   const [load, setLoad] = useState({ loading: true, error: "", rows: [] });
   const [query, setQuery] = useState("");
@@ -162,10 +163,47 @@ export default function ConcessionsSimpleView({
     [eightWeeks, range]
   );
 
-  const matrix = useMemo(
-    () => buildFourWeekConcessionMatrix(load.rows || [], site, weeks),
-    [load.rows, site, weeks]
-  );
+  const matrix = useMemo(() => {
+    const snapshotMatrix = buildFourWeekConcessionMatrix(load.rows || [], site, weeks);
+    if (!drivers?.length) return snapshotMatrix;
+
+    const snapshotByTrid = new Map(
+      snapshotMatrix.map((row) => [String(row.driver_trid || "").toUpperCase(), row])
+    );
+
+    return drivers
+      .map((driver) => {
+        const trid = String(driver?.id || "").trim().toUpperCase();
+        if (!trid) return null;
+
+        const existing = snapshotByTrid.get(trid);
+        if (existing) {
+          return {
+            ...existing,
+            driver_id: existing.driver_id || driver?.dbId || null,
+            driver_name: driver?.name || existing.driver_name || trid,
+            site,
+          };
+        }
+
+        return {
+          driver_id: driver?.dbId || null,
+          driver_trid: trid,
+          driver_name: driver?.name || trid,
+          site,
+          byWeek: Object.fromEntries(weeks.map((week) => [week, 0])),
+          total: 0,
+          affectedWeeks: 0,
+        };
+      })
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          b.total - a.total ||
+          b.affectedWeeks - a.affectedWeeks ||
+          a.driver_name.localeCompare(b.driver_name)
+      );
+  }, [load.rows, site, weeks, drivers]);
 
   const weekly = useMemo(
     () =>

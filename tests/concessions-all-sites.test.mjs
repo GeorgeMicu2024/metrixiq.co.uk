@@ -44,3 +44,17 @@ test("Concessions has 25-driver pagination and PNG export for every site", () =>
   assert.ok(view.includes("Page {pageIndex + 1} of {exportPages.length}"));
   assert.ok(view.includes("Site: {site}"));
 });
+
+
+test("Concessions includes current site drivers with zero DNR", () => {
+  const view = read("components/operations/ConcessionsSimpleView.jsx");
+  const dashboard = read("components/DashboardClient.jsx");
+
+  assert.ok(dashboard.includes('refreshKey={operationalRefreshKey} drivers={drivers}'));
+  assert.ok(view.includes("drivers = []"));
+  assert.ok(view.includes("const snapshotMatrix = buildFourWeekConcessionMatrix"));
+  assert.ok(view.includes("const snapshotByTrid = new Map"));
+  assert.ok(view.includes("byWeek: Object.fromEntries(weeks.map((week) => [week, 0]))"));
+  assert.ok(view.includes("total: 0"));
+  assert.ok(view.includes("affectedWeeks: 0"));
+});
