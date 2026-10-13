@@ -38,7 +38,7 @@ test("Concessions has 25-driver pagination and PNG export for every site", () =>
   assert.ok(view.includes("Save Image"));
   assert.ok(view.includes("saveConcessionsImages"));
   assert.ok(view.includes("exportPageRefs.current[pageIndex] = node"));
-  assert.ok(view.includes("Array.from({ length: CONCESSIONS_PAGE_SIZE }"));
+  assert.ok(view.includes("pageRows.map((row, rowIndex)"));
   assert.ok(view.includes("Showing {pageStart + 1}"));
   assert.ok(view.includes("25 per page"));
   assert.ok(view.includes("Page {pageIndex + 1} of {exportPages.length}"));
@@ -57,4 +57,17 @@ test("Concessions includes current site drivers with zero DNR", () => {
   assert.ok(view.includes("byWeek: Object.fromEntries(weeks.map((week) => [week, 0]))"));
   assert.ok(view.includes("total: 0"));
   assert.ok(view.includes("affectedWeeks: 0"));
+});
+
+
+test("Concessions PNG is compact and phone-readable", () => {
+  const view = read("components/operations/ConcessionsSimpleView.jsx");
+
+  assert.ok(view.includes('style={{ width: Math.max(820, 570 + weeks.length * 125) + "px" }}'));
+  assert.ok(view.includes("pageRows.map((row, rowIndex)"));
+  assert.equal(view.includes('className="cx5-export-row placeholder"'), false);
+  assert.ok(view.includes("font-size:16px;line-height:1.15"));
+  assert.ok(view.includes("min-width:54px;height:34px"));
+  assert.ok(view.includes("min-width:58px;height:35px"));
+  assert.ok(view.includes("56px minmax(300px,1fr)"));
 });

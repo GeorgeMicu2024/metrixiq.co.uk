@@ -797,6 +797,7 @@ export default function ConcessionsSimpleView({
                     exportPageRefs.current[pageIndex] = node;
                   }}
                   className="cx5-export-page"
+                  style={{ width: Math.max(820, 570 + weeks.length * 125) + "px" }}
                 >
                   <header className="cx5-export-head">
                     <div>
@@ -813,7 +814,7 @@ export default function ConcessionsSimpleView({
                   <div className="cx5-export-table">
                     <div
                       className="cx5-export-row cx5-export-row-head"
-                      style={{ gridTemplateColumns: `64px minmax(280px,1fr) repeat(${weeks.length},96px) 110px` }}
+                      style={{ gridTemplateColumns: `56px minmax(300px,1fr) repeat(${weeks.length},104px) 112px` }}
                     >
                       <span>#</span>
                       <span>DRIVER</span>
@@ -821,28 +822,13 @@ export default function ConcessionsSimpleView({
                       <span>TOTAL</span>
                     </div>
 
-                    {Array.from({ length: CONCESSIONS_PAGE_SIZE }, (_, rowIndex) => {
-                      const row = pageRows[rowIndex] || null;
+                    {pageRows.map((row, rowIndex) => {
                       const absoluteIndex = pageIndex * CONCESSIONS_PAGE_SIZE + rowIndex;
-                      if (!row) {
-                        return (
-                          <div
-                            key={"placeholder-" + pageIndex + "-" + rowIndex}
-                            className="cx5-export-row placeholder"
-                            style={{ gridTemplateColumns: `64px minmax(280px,1fr) repeat(${weeks.length},96px) 110px` }}
-                          >
-                            <span>&nbsp;</span><b>&nbsp;</b>
-                            {weeks.map((week) => <span key={week}>&nbsp;</span>)}
-                            <span>&nbsp;</span>
-                          </div>
-                        );
-                      }
-
                       return (
                         <div
                           key={row.driver_trid || absoluteIndex}
                           className="cx5-export-row"
-                          style={{ gridTemplateColumns: `64px minmax(280px,1fr) repeat(${weeks.length},96px) 110px` }}
+                          style={{ gridTemplateColumns: `56px minmax(300px,1fr) repeat(${weeks.length},104px) 112px` }}
                         >
                           <span className="rank">{absoluteIndex + 1}</span>
                           <b>{row.driver_name}</b>
@@ -974,32 +960,31 @@ export default function ConcessionsSimpleView({
         .cx5-save-message{padding:0 15px 11px;text-align:right;color:#2d7a68;font-size:9px;font-weight:800;background:#fff}
 
         .cx5-export-stack{position:fixed;left:0;top:0;transform:translateX(-140vw);z-index:1;pointer-events:none}
-        .cx5-export-page{width:1080px;padding:38px;background:#eef3f5;color:#13253a;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
-        .cx5-export-head{display:flex;justify-content:space-between;align-items:flex-start;gap:30px;padding:27px 30px;border:1px solid #d7e2e8;border-radius:18px;background:#fff}
-        .cx5-export-head>div:first-child>span{font-size:13px;font-weight:900;letter-spacing:1.7px;color:#2d8b78}
-        .cx5-export-head h1{margin:7px 0 4px;font-size:31px;line-height:1.05;color:#10243a}
-        .cx5-export-head p{margin:0;font-size:13px;color:#687b8e}
+        .cx5-export-page{padding:30px;background:#eef3f5;color:#13253a;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
+        .cx5-export-head{display:flex;justify-content:space-between;align-items:flex-start;gap:22px;padding:24px 26px;border:1px solid #d7e2e8;border-radius:18px;background:#fff}
+        .cx5-export-head>div:first-child>span{font-size:14px;font-weight:900;letter-spacing:1.6px;color:#2d8b78}
+        .cx5-export-head h1{margin:7px 0 5px;font-size:34px;line-height:1.04;color:#10243a}
+        .cx5-export-head p{margin:0;font-size:14px;color:#687b8e}
         .cx5-export-head>div:last-child{display:grid;gap:5px;text-align:right;color:#344d62}
-        .cx5-export-head>div:last-child b{font-size:13px}
-        .cx5-export-head>div:last-child small{font-size:12px;color:#77899a}
+        .cx5-export-head>div:last-child b{font-size:14px}
+        .cx5-export-head>div:last-child small{font-size:13px;color:#77899a}
         .cx5-export-table{margin-top:17px;overflow:hidden;border:1px solid #d9e3e9;border-radius:14px;background:#fff}
-        .cx5-export-row{display:grid;align-items:center;min-height:45px;border-bottom:1px solid #edf1f4}
+        .cx5-export-row{display:grid;align-items:center;min-height:54px;border-bottom:1px solid #edf1f4}
         .cx5-export-row:last-child{border-bottom:0}
-        .cx5-export-row>*{padding:0 14px;box-sizing:border-box}
+        .cx5-export-row>*{padding:0 10px;box-sizing:border-box}
         .cx5-export-row>span{text-align:center}
-        .cx5-export-row>b{font-size:13px;color:#17283d}
-        .cx5-export-row .rank{font-size:11px;font-weight:900;color:#607589}
-        .cx5-export-row-head{min-height:43px;background:#f6f8fa;border-bottom:1px solid #dfe7ec}
-        .cx5-export-row-head>*{font-size:10px;font-weight:900;letter-spacing:.75px;color:#718294}
+        .cx5-export-row>b{font-size:16px;line-height:1.15;color:#17283d;font-weight:800}
+        .cx5-export-row .rank{font-size:13px;font-weight:900;color:#607589}
+        .cx5-export-row-head{min-height:48px;background:#f6f8fa;border-bottom:1px solid #dfe7ec}
+        .cx5-export-row-head>*{font-size:11px;font-weight:900;letter-spacing:.7px;color:#718294}
         .cx5-export-row-head>span:nth-child(2){text-align:left}
-        .cx5-export-cell{display:inline-flex;align-items:center;justify-content:center;min-width:42px;height:28px;border-radius:8px;font-style:normal;font-size:12px;font-weight:900}
+        .cx5-export-cell{display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:34px;border-radius:9px;font-style:normal;font-size:15px;font-weight:900}
         .cx5-export-cell.zero{background:#e9f8f0;color:#2d7a5b}
         .cx5-export-cell.one{background:#f1f7df;color:#697c2a}
         .cx5-export-cell.two{background:#fff0cf;color:#95630b}
         .cx5-export-cell.high{background:#f9dfe2;color:#a43f49}
-        .cx5-export-total{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:29px;border-radius:8px;background:#eaf0f4;color:#1a364d;font-style:normal;font-size:12px;font-weight:900}
-        .cx5-export-row.placeholder>*{color:transparent!important}
-        .cx5-export-foot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-top:14px;padding:14px 18px;border-radius:12px;background:#16304a;color:#fff;font-size:11px}
+        .cx5-export-total{display:inline-flex;align-items:center;justify-content:center;min-width:58px;height:35px;border-radius:9px;background:#eaf0f4;color:#1a364d;font-style:normal;font-size:15px;font-weight:900}
+                .cx5-export-foot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-top:14px;padding:15px 18px;border-radius:12px;background:#16304a;color:#fff;font-size:12px}
         .cx5-export-foot b{text-align:center}
         .cx5-export-foot span:last-child{text-align:right}
 
