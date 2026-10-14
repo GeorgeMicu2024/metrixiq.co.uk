@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { LandingAuthTrigger } from "./LandingAuth";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans";
 
 const icons = {
@@ -52,9 +52,16 @@ export default function LandingPricing() {
               <ul>
                 {plan.features.map((feature) => <li key={feature}><b>✓</b>{feature}</li>)}
               </ul>
-              <Link className={featured ? "primary" : ""} href={href}>
+              <LandingAuthTrigger
+                className={featured ? "primary" : ""}
+                mode="register"
+                intent={paid ? "plan" : ""}
+                plan={paid ? plan.key : ""}
+                fallbackHref={href}
+                ctaLocation="homepage_pricing"
+              >
                 {plan.key === "free" ? "Start free" : `Choose ${plan.name}`}
-              </Link>
+              </LandingAuthTrigger>
             </article>
           );
         })}
