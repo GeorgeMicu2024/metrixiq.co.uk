@@ -125,7 +125,7 @@ export default function Landing(){
  const plans=PLAN_CATALOG;
  const planPrice=(plan)=>formatPlanPrice(plan,"month");
  return <main className="marketing mk-home">
-  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><LandingAuthTrigger mode="signin" fallbackHref="/login" ctaLocation="homepage_header">Sign in</LandingAuthTrigger><LandingAuthTrigger className="mk-get" mode="register" intent="trial" fallbackHref="/login?mode=register&start=trial" ctaLocation="homepage_header">Start 7-Day Free Trial <b>→</b></LandingAuthTrigger></div></header>
+  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><LandingAuthTrigger mode="signin" fallbackHref="/login" ctaLocation="homepage_header">Sign in</LandingAuthTrigger><LandingAuthTrigger className="mk-get" mode="register" intent="trial" fallbackHref="/login?mode=register&start=trial" ctaLocation="homepage_header">Start 7-Day Free Trial <b>→</b></LandingAuthTrigger></div></header>
 
   <section className="mk-hero">
     <img
@@ -146,7 +146,6 @@ export default function Landing(){
       <div className="mk-benefits mk-trial-benefits">
         <span><i>✓</i><b>No card required</b></span>
         <span><i>✓</i><b>Full platform access for 7 days</b></span>
-        <span><i>✓</i><b>Secure Stripe billing</b></span>
         <span><i>✓</i><b>Cancel anytime</b></span>
       </div>
     </div>
@@ -156,6 +155,7 @@ export default function Landing(){
   <section className="mk-network-strip" aria-label="Delivery network examples">
     <div><span>DELIVERY NETWORK WORKFLOWS</span><small>Examples only — no affiliation implied.</small></div>
     <div className="mk-network-logos">{carriers.map(([key,name])=><CarrierLogo kind={key} name={name} key={key}/>)}</div>
+    <div className="mk-network-callout"><span>Works across<br/>all your delivery partners</span><i>▱▱</i></div>
   </section>
 
   <LandingPricing/>
