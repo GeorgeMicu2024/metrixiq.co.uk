@@ -57,6 +57,7 @@ export default function LandingPricing() {
                 mode="register"
                 intent={paid ? "plan" : ""}
                 plan={paid ? plan.key : ""}
+                interval={cycle}
                 fallbackHref={href}
                 ctaLocation="homepage_pricing"
               >
