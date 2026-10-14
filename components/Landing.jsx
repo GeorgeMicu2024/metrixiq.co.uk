@@ -203,7 +203,7 @@ export default function Landing(){
       <div className="mk-product-points"><span>✓ Driver-level history</span><span>✓ Site comparisons</span><span>✓ Coaching follow-up</span><span>✓ Executive reporting</span></div>
       <TrackedLink href="/solutions" eventParams={{ cta_label: "Explore solutions", cta_location: "homepage_product" }}>Explore the platform →</TrackedLink>
     </div>
-    <div className="mk-dashboard-wrap"><DashboardPreview/><div className="mk-floating-chip chip-one"><span>Site trend</span><strong>Improving</strong></div><div className="mk-floating-chip chip-two"><span>Alerts</span><strong>3 priorities</strong></div></div>
+    <div className="mk-dashboard-wrap mk-dashboard-wrap-live"><HeroDashboardPreview/></div>
   </section>
 
   <section className="mk-stats" aria-label="Platform capabilities">
