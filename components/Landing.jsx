@@ -1,14 +1,15 @@
 import Link from "next/link";
 import Brand from "./Brand";
-import DeferredLandingSignInCard from "./DeferredLandingSignInCard";
 import CookieSettingsButton from "./CookieSettingsButton";
 import TrackedLink from "./TrackedLink";
+import LandingPricing from "./LandingPricing";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans";
 import { PUBLIC_CONTACT_EMAIL, PUBLIC_LINKEDIN_URL } from "../lib/seo/site";
 
 const benefits=["Scorecards","Compliance","Coaching","Multi-site"];
 const carriers=[
   ["amazon","Amazon Logistics"],
+  ["prime","Prime"],
   ["evri","Evri"],
   ["dpd","DPD"],
   ["dhl","DHL"],
@@ -51,6 +52,7 @@ const faqs=[
 
 function CarrierLogo({kind,name}){
   if(kind==="amazon") return <span className="carrier-logo carrier-amazon" aria-label={name}><b>amazon</b><i>⌣</i><small>logistics</small></span>;
+  if(kind==="prime") return <span className="carrier-logo carrier-prime" aria-label={name}><b>prime</b><i>⌣</i></span>;
   if(kind==="evri") return <span className="carrier-logo carrier-evri" aria-label={name}><strong>EVRi</strong><small>parcel delivery</small></span>;
   if(kind==="dpd") return <span className="carrier-logo carrier-dpd" aria-label={name}><i>◇</i><strong>dpd</strong></span>;
   if(kind==="dhl") return <span className="carrier-logo carrier-dhl" aria-label={name}><i/><strong>DHL</strong></span>;
@@ -107,7 +109,7 @@ export default function Landing(){
  const plans=PLAN_CATALOG;
  const planPrice=(plan)=>formatPlanPrice(plan,"month");
  return <main className="marketing mk-home">
-  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><Link href="/pricing">Pricing</Link><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><a href="#sign-in">Sign in</a><TrackedLink className="mk-get" href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_header" }}>Get started</TrackedLink></div></header>
+  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><Link href="/login">Sign in</Link><TrackedLink className="mk-get" href="/login?mode=register&start=trial" eventParams={{ cta_label: "Start 7-Day Free Trial", cta_location: "homepage_header" }}>Start 7-Day Free Trial <b>→</b></TrackedLink></div></header>
 
   <section className="mk-hero">
     <img
@@ -120,25 +122,26 @@ export default function Landing(){
     />
     <div className="mk-hero-bg"/>
     <div className="mk-hero-copy">
-      <span>FLEET & DRIVER PERFORMANCE SOFTWARE</span>
-      <h1>Turn operational data into <em>clear action.</em></h1>
-      <p>Scorecards, compliance, coaching and multi-site performance in one operational workspace.</p>
-      <div className="mk-actions"><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_hero" }}>Get started <b>→</b></TrackedLink><a href="#product">▶ &nbsp; See how it works</a></div>
-      <div className="mk-benefits">
-        <span><i>▥</i><b>Driver scorecards</b></span>
-        <span><i>◇</i><b>Compliance tracking</b></span>
-        <span><i>♙</i><b>Coaching & development</b></span>
-        <span><i>⌖</i><b>Multi-site performance</b></span>
+      <span>FLEET OPERATIONS INTELLIGENCE</span>
+      <h1>Turn fleet data into <em>clear action.</em></h1>
+      <p>Scorecards, compliance, coaching and multi-site performance in one powerful platform. Give your teams the insights they need to drive safer, more efficient operations.</p>
+      <div className="mk-actions"><TrackedLink href="/login?mode=register&start=trial" eventParams={{ cta_label: "Start 7-Day Free Trial", cta_location: "homepage_hero" }}>Start 7-Day Free Trial <b>→</b></TrackedLink><a href="#pricing">View Pricing</a></div>
+      <div className="mk-benefits mk-trial-benefits">
+        <span><i>✓</i><b>No card required</b></span>
+        <span><i>✓</i><b>Full platform access for 7 days</b></span>
+        <span><i>✓</i><b>Secure Stripe billing</b></span>
+        <span><i>✓</i><b>Cancel anytime</b></span>
       </div>
     </div>
-    <HeroSignals/>
-    <DeferredLandingSignInCard/>
+    <div className="mk-hero-product-preview" aria-label="MetrixIQ product preview"><DashboardPreview/></div>
   </section>
 
   <section className="mk-network-strip" aria-label="Delivery network examples">
     <div><span>DELIVERY NETWORK WORKFLOWS</span><small>Examples only — no affiliation implied.</small></div>
     <div className="mk-network-logos">{carriers.map(([key,name])=><CarrierLogo kind={key} name={name} key={key}/>)}</div>
   </section>
+
+  <LandingPricing/>
 
   <section id="product" className="mk-product-showcase">
     <div className="mk-product-copy">
@@ -193,7 +196,7 @@ export default function Landing(){
     <div className="mk-faq-grid">{faqs.map(([q,a],i)=><details key={q} open={i===0}><summary>{q}<span>＋</span></summary><p>{a}</p></details>)}</div>
   </section>
 
-  <section id="pricing" className="mk-closing" data-plan-count={plans.length} data-starting-price={planPrice(plans[0])}><div><span>READY TO SEE IT IN YOUR OPERATION?</span><h2>Bring the data together. Make the next action obvious.</h2></div><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_closing" }}>Get started →</TrackedLink></section>
+  <section id="get-started" className="mk-closing" data-plan-count={plans.length} data-starting-price={planPrice(plans[0])}><div><span>READY TO SEE IT IN YOUR OPERATION?</span><h2>Bring the data together. Make the next action obvious.</h2></div><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_closing" }}>Get started →</TrackedLink></section>
 
   <footer className="mk-public-footer">
     <Link href="/"><Brand /></Link>
