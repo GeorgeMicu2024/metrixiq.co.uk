@@ -19,15 +19,6 @@ const carriers=[
   ["yodel","Yodel"],
 ];
 
-const features=[
-  ["↗","Performance Analytics","Spot movement across drivers, sites and reporting periods."],
-  ["♟","Driver Scorecards","Keep the KPIs, history and coaching context together."],
-  ["▣","Smart Import","Turn recurring reports into a consistent operational view."],
-  ["◇","Compliance Monitoring","Surface exceptions before they become wider issues."],
-  ["♧","Coaching & Alerts","Convert evidence into focused actions and follow-up."],
-  ["◔","Executive Reporting","Summarise what changed and what needs attention next."],
-];
-
 const solutionLinks=[
   ["/driver-performance-scorecards","Driver Performance Scorecards","KPIs, trends and coaching context at driver level."],
   ["/fleet-compliance-monitoring","Fleet Compliance Monitoring","Operational exceptions and site trends in one view."],
@@ -35,12 +26,6 @@ const solutionLinks=[
   ["/driver-coaching-software","Driver Coaching Software","Performance evidence into targeted follow-up."],
   ["/fleet-data-analytics","Fleet Data Analytics","Driver and site detail connected to fleet trends."],
   ["/fleet-performance-management","Fleet Performance Management","Move from KPI movement into management action."],
-];
-
-const resourceLinks=[
-  ["/resources/driver-performance-scorecard-guide","Driver Performance Scorecard Guide","Build a scorecard that connects metrics, trends and coaching action."],
-  ["/resources/fleet-performance-kpis","Fleet Performance KPIs","Choose KPIs managers can trace from fleet to site to driver."],
-  ["/resources/delivery-driver-coaching-guide","Delivery Driver Coaching Guide","Make coaching more focused, evidence-led and measurable."],
 ];
 
 const faqs=[
@@ -136,26 +121,6 @@ function HeroSignals(){
   </div>
 }
 
-function VisualCards(){
-  return <div className="mk-visual-grid">
-    <article className="mk-visual-card">
-      <div className="mk-visual-head"><span>DRIVER TREND</span><b>Weekly movement</b></div>
-      <div className="mk-bars" aria-hidden="true">{[42,56,48,69,74,82,88].map((v,i)=><i key={i} style={{height:v+"%"}}/>)}</div>
-      <footer><strong>Driver scorecards</strong><span>History that managers can act on.</span></footer>
-    </article>
-    <article className="mk-visual-card">
-      <div className="mk-visual-head"><span>COMPLIANCE</span><b>Exceptions first</b></div>
-      <div className="mk-ring" aria-hidden="true"><div><strong>87%</strong><span>on track</span></div></div>
-      <footer><strong>Compliance view</strong><span>Focus attention where evidence is missing.</span></footer>
-    </article>
-    <article className="mk-visual-card">
-      <div className="mk-visual-head"><span>COACHING QUEUE</span><b>Prioritised</b></div>
-      <div className="mk-queue" aria-hidden="true"><i><b>01</b><span>Speeding trend</span><em>High</em></i><i><b>02</b><span>POD quality</span><em>Review</em></i><i><b>03</b><span>IADC movement</span><em>Watch</em></i></div>
-      <footer><strong>Manager workflow</strong><span>Move from signal to follow-up quickly.</span></footer>
-    </article>
-  </div>
-}
-
 export default function Landing(){
  const plans=PLAN_CATALOG;
  const planPrice=(plan)=>formatPlanPrice(plan,"month");
@@ -195,57 +160,40 @@ export default function Landing(){
 
   <LandingPricing/>
 
-  <section id="product" className="mk-product-showcase">
+  <section id="features" className="mk-product-showcase mk-product-compact">
     <div className="mk-product-copy">
-      <span>ONE OPERATIONS COCKPIT</span>
-      <h2>See the fleet. Find the exception. Take the next action.</h2>
-      <p>MetrixIQ brings recurring driver, safety and compliance evidence into one view so managers can move from reporting to action without rebuilding spreadsheets.</p>
-      <div className="mk-product-points"><span>✓ Driver-level history</span><span>✓ Site comparisons</span><span>✓ Coaching follow-up</span><span>✓ Executive reporting</span></div>
+      <span>WHY METRIXIQ</span>
+      <h2>See the fleet. Find the exception. Take action.</h2>
+      <p>One operational workspace for recurring reports, driver performance, compliance and coaching — without rebuilding spreadsheets every week.</p>
+      <div className="mk-product-points mk-product-points-six">
+        <span>✓ Smart Import</span>
+        <span>✓ Driver Scorecards</span>
+        <span>✓ Compliance</span>
+        <span>✓ Coaching</span>
+        <span>✓ Multi-site</span>
+        <span>✓ Reporting</span>
+      </div>
       <TrackedLink href="/solutions" eventParams={{ cta_label: "Explore solutions", cta_location: "homepage_product" }}>Explore the platform →</TrackedLink>
     </div>
     <div className="mk-dashboard-wrap mk-dashboard-wrap-live"><HeroDashboardPreview/></div>
   </section>
 
-  <section className="mk-stats" aria-label="Platform capabilities">
-    {[["◎","Driver-level","performance history"],["⌘","Multi-site","operational visibility"],["◫","Recurring","report imports"],["◇","Role-based","workspace access"]].map(x=><article key={x[1]}><i>{x[0]}</i><div><strong>{x[1]}</strong><span>{x[2]}</span></div></article>)}
-  </section>
-
-  <section id="features" className="mk-feature-section">
-    <div className="mk-feature-intro">
-      <span>CORE CAPABILITIES</span>
-      <h2>Less reporting clutter. More operational clarity.</h2>
-      <p>Six connected workflows cover the path from raw operational evidence to management action.</p>
-    </div>
-    <div className="mk-features">{features.map(x=><article key={x[1]}><i>{x[0]}</i><h3>{x[1]}</h3><p>{x[2]}</p></article>)}</div>
-  </section>
-
-  <section className="mk-flow">
-    <div className="mk-feature-intro compact"><span>FROM REPORT TO ACTION</span><h2>A simple operational flow.</h2></div>
+  <section className="mk-flow mk-flow-compact">
+    <div className="mk-flow-compact-title"><span>HOW IT WORKS</span><h2>From report to action.</h2></div>
     <div className="mk-flow-grid">
-      {[["01","Import","Bring recurring reports into one workflow."],["02","Match","Keep driver identity and site scope consistent."],["03","Analyse","See movement, exceptions and trends."],["04","Act","Coach, follow up and report with context."]].map(x=><article key={x[0]}><b>{x[0]}</b><i/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}
+      {[["01","Import","Bring reports in."],["02","Match","Keep identity consistent."],["03","Analyse","Find trends and exceptions."],["04","Act","Coach and follow up."]].map(x=><article key={x[0]}><b>{x[0]}</b><i/><h3>{x[1]}</h3><p>{x[2]}</p></article>)}
     </div>
   </section>
 
-  <section className="mk-visual-section">
-    <div className="mk-feature-intro compact"><span>VISUAL INTELLIGENCE</span><h2>Make the important signal impossible to miss.</h2><p>Compact operational views keep managers focused on movement, exceptions and the next action.</p></div>
-    <VisualCards/>
-    <div className="mk-use-cases-more"><Link href="/use-cases">Explore all use cases →</Link></div>
+  <section className="mk-solution-links mk-solutions-compact">
+    <div className="mk-feature-intro compact"><span>TOP USE CASES</span><h2>Three workflows that cover the core operation.</h2></div>
+    <div className="mk-solution-links-grid">{solutionLinks.slice(0,3).map(([href,title,body],index)=><Link href={href} key={href}><i>{String(index+1).padStart(2,"0")}</i><b>{title}</b><p>{body}</p><span>Explore →</span></Link>)}</div>
+    <div className="mk-compact-more"><Link href="/use-cases">View all use cases →</Link></div>
   </section>
 
-  <section className="mk-solution-links">
-    <div className="mk-feature-intro compact"><span>EXPLORE SOLUTIONS</span><h2>Choose the workflow that matches the problem.</h2></div>
-    <div className="mk-solution-links-grid">{solutionLinks.map(([href,title,body],index)=><Link href={href} key={href}><i>{String(index+1).padStart(2,"0")}</i><b>{title}</b><p>{body}</p><span>Explore →</span></Link>)}</div>
-  </section>
-
-  <section className="mk-resource-links">
-    <div className="mk-feature-intro compact"><span>OPERATIONS RESOURCES</span><h2>Practical guidance, without the filler.</h2></div>
-    <div className="mk-resource-links-grid">{resourceLinks.map(([href,title,body],index)=><Link href={href} key={href}><div className={"mk-resource-art art-"+index}><span>METRIXIQ</span><b>{index===0?"SCORECARD":index===1?"KPI":"COACHING"}</b></div><strong>{title}</strong><p>{body}</p><span>Read guide →</span></Link>)}</div>
-    <div className="mk-resource-more"><Link href="/resources">View all resources →</Link></div>
-  </section>
-
-  <section id="faq" className="mk-faq">
-    <div className="mk-feature-intro compact"><span>FAQ</span><h2>Quick answers for delivery teams.</h2></div>
-    <div className="mk-faq-grid">{faqs.map(([q,a],i)=><details key={q} open={i===0}><summary>{q}<span>＋</span></summary><p>{a}</p></details>)}</div>
+  <section id="faq" className="mk-faq mk-faq-compact">
+    <div className="mk-feature-intro compact"><span>FAQ</span><h2>Quick answers.</h2></div>
+    <div className="mk-faq-grid">{faqs.slice(0,3).map(([q,a])=><details key={q}><summary>{q}<span>＋</span></summary><p>{a}</p></details>)}</div>
   </section>
 
   <section id="get-started" className="mk-closing" data-plan-count={plans.length} data-starting-price={planPrice(plans[0])}><div><span>READY TO SEE IT IN YOUR OPERATION?</span><h2>Bring the data together. Make the next action obvious.</h2></div><LandingAuthTrigger mode="register" fallbackHref="/login?mode=register" ctaLocation="homepage_closing">Get started →</LandingAuthTrigger></section>
