@@ -6,14 +6,14 @@ import { getSupabaseBrowserClient } from "../lib/supabase/client";
 const AUTH_EVENT = "metrixiq:auth-open";
 const VALID_PLANS = new Set(["pro", "business", "full"]);
 
-function writeIntent(intent, plan) {
+function writeIntent(intent, plan, interval = "month") {
   try {
     if (intent === "trial") {
       window.localStorage.setItem("metrixiq.onboardingIntent", JSON.stringify({ mode: "trial" }));
       return;
     }
     if (intent === "plan" && VALID_PLANS.has(plan)) {
-      window.localStorage.setItem("metrixiq.onboardingIntent", JSON.stringify({ mode: "plan", plan, interval: "month" }));
+      window.localStorage.setItem("metrixiq.onboardingIntent", JSON.stringify({ mode: "plan", plan, interval: interval === "year" ? "year" : "month" }));
       return;
     }
     window.localStorage.removeItem("metrixiq.onboardingIntent");
@@ -26,13 +26,14 @@ export function LandingAuthTrigger({
   mode = "signin",
   intent = "",
   plan = "",
+  interval = "month",
   fallbackHref = "/login",
   ctaLocation = "homepage",
 }) {
   function open(event) {
     event.preventDefault();
     window.dispatchEvent(new CustomEvent(AUTH_EVENT, {
-      detail: { mode, intent, plan },
+      detail: { mode, intent, plan, interval },
     }));
   }
 
@@ -47,6 +48,7 @@ export function LandingAuthTrigger({
         cta_label: typeof children === "string" ? children : mode,
         cta_location: ctaLocation,
         ...(plan ? { plan } : {}),
+        ...(plan ? { interval } : {}),
       })}
     >
       {children}
@@ -59,6 +61,7 @@ export default function LandingAuthModal() {
   const [mode, setMode] = useState("signin");
   const [intent, setIntent] = useState("");
   const [plan, setPlan] = useState("");
+  const [interval, setInterval] = useState("month");
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
   const [email, setEmail] = useState("");
@@ -75,6 +78,7 @@ export default function LandingAuthModal() {
       setMode(detail.mode === "register" ? "register" : "signin");
       setIntent(detail.intent || "");
       setPlan(detail.plan || "");
+      setInterval(detail.interval === "year" ? "year" : "month");
       setMessage("");
       setIsError(false);
       setOpen(true);
@@ -115,7 +119,7 @@ export default function LandingAuthModal() {
   }
 
   function persistIntent() {
-    writeIntent(intent, plan);
+    writeIntent(intent, plan, interval);
   }
 
   async function submit(event) {
@@ -254,7 +258,7 @@ export default function LandingAuthModal() {
               ? intent === "trial"
                 ? "Full platform access for 7 days. No card required."
                 : selectedPlan
-                  ? `${selectedPlan} is selected. Create your workspace to continue.`
+                  ? `${selectedPlan} is selected on ${interval === "year" ? "annual" : "monthly"} billing. Create your workspace to continue.`
                   : "Create a secure fleet workspace in a few moments."
               : "Access dashboards, scorecards and fleet performance insights."}
           </p>
@@ -262,7 +266,7 @@ export default function LandingAuthModal() {
 
         {selectedPlan && register && (
           <div className="mk-auth-plan">
-            <span>Selected plan</span><b>{selectedPlan}</b><small>Billing is completed securely in Stripe after account setup.</small>
+            <span>Selected plan</span><b>{selectedPlan} · {interval === "year" ? "Annual" : "Monthly"}</b><small>Billing is completed securely in Stripe after account setup.</small>
           </div>
         )}
 
