@@ -1152,3 +1152,304 @@ svg{display:block;max-width:100%}
   .mk-auth-heading h2{font-size:24px}
   .mk-auth-two{grid-template-columns:1fr}
 }
+
+
+/* ===== Homepage V6.2 · align hero + unify full landing page ===== */
+
+/* Keep the hero dashboard straight and clear of the Amazon visual. */
+.mk-hero{
+  grid-template-columns:minmax(460px,.90fr) minmax(590px,1.10fr)!important;
+  gap:42px!important;
+}
+.mk-hero-product-preview{
+  width:92%!important;
+  justify-self:end!important;
+  margin-right:1.5%!important;
+}
+.mk-live-preview{
+  transform:none!important;
+}
+.mk-hero-amazon-sign{
+  left:40%!important;
+  top:24px!important;
+  z-index:2!important;
+}
+.mk-hero-photo{
+  object-position:39% 54%!important;
+}
+.mk-hero-bg{
+  background:
+    linear-gradient(90deg,rgba(3,15,27,.98) 0%,rgba(3,15,27,.91) 27%,rgba(3,15,27,.36) 48%,rgba(3,15,27,.34) 63%,rgba(3,15,27,.82) 100%),
+    linear-gradient(180deg,rgba(2,13,22,.06),rgba(2,13,22,.40))!important;
+}
+
+/* Product section now continues the same visual language instead of reverting to V5. */
+.mk-product-showcase{
+  max-width:none!important;
+  margin:0!important;
+  padding:72px 6%!important;
+  background:
+    radial-gradient(circle at 80% 20%,rgba(39,113,211,.13),transparent 35%),
+    #081725!important;
+  color:#fff!important;
+  border-top:1px solid rgba(108,157,205,.10);
+}
+.mk-product-copy>span{
+  color:#77bfff!important;
+}
+.mk-product-copy h2{
+  color:#fff!important;
+}
+.mk-product-copy p{
+  color:#aebdca!important;
+}
+.mk-product-points{
+  color:#c8d4df!important;
+}
+.mk-product-copy>a{
+  color:#73c8ff!important;
+}
+.mk-dashboard-wrap-live{
+  width:100%;
+}
+.mk-dashboard-wrap-live .mk-live-preview{
+  min-height:370px;
+  box-shadow:0 28px 70px rgba(0,0,0,.34),0 0 36px rgba(42,130,255,.15);
+}
+
+/* Capability strip */
+.mk-stats{
+  background:#071421!important;
+  border-top:1px solid rgba(255,255,255,.04);
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.mk-stats article{
+  background:#0c2034!important;
+  border-color:rgba(111,163,208,.12)!important;
+}
+.mk-stats i,.mk-stats strong{
+  color:#79c8ff!important;
+}
+.mk-stats span{
+  color:#9fb0c1!important;
+}
+
+/* All remaining marketing sections use the same navy / blue system. */
+.mk-feature-section,
+.mk-visual-section,
+.mk-solution-links,
+.mk-resource-links,
+.mk-faq{
+  background:#0a1929!important;
+  color:#fff!important;
+  border-top:1px solid rgba(120,165,205,.08)!important;
+}
+.mk-feature-intro>span,
+.mk-product-copy>span{
+  color:#79c7ff!important;
+}
+.mk-feature-intro h2{
+  color:#fff!important;
+}
+.mk-feature-intro p{
+  color:#9fb0c1!important;
+}
+
+/* Core capability cards */
+.mk-features article{
+  background:linear-gradient(180deg,#10263d,#0d2135)!important;
+  border-color:rgba(112,160,204,.18)!important;
+  box-shadow:0 16px 34px rgba(0,0,0,.12);
+}
+.mk-features i{
+  background:#153754!important;
+  color:#7bcbff!important;
+}
+.mk-features h3{
+  color:#fff!important;
+}
+.mk-features p{
+  color:#9fb0c1!important;
+}
+
+/* Report-to-action band */
+.mk-flow{
+  background:
+    radial-gradient(circle at 50% 0%,rgba(47,127,224,.12),transparent 40%),
+    #071421!important;
+}
+.mk-flow .mk-feature-intro>span,
+.mk-flow-grid b{
+  color:#79c8ff!important;
+}
+.mk-flow-grid i{
+  background:#4faaf5!important;
+}
+.mk-flow-grid p{
+  color:#9fb0c1!important;
+}
+.mk-flow-grid article{
+  border-color:rgba(125,166,205,.14)!important;
+}
+
+/* Visual intelligence cards */
+.mk-visual-card{
+  background:linear-gradient(180deg,#10263d,#0c2034)!important;
+  border-color:rgba(112,160,204,.18)!important;
+  box-shadow:0 18px 38px rgba(0,0,0,.13)!important;
+}
+.mk-visual-head span{
+  color:#8098ad!important;
+}
+.mk-visual-head b,
+.mk-use-cases-more a{
+  color:#79c8ff!important;
+}
+.mk-visual-card footer strong{
+  color:#fff!important;
+}
+.mk-visual-card footer span{
+  color:#95a9bb!important;
+}
+.mk-bars{
+  border-color:rgba(139,172,203,.12)!important;
+}
+.mk-bars i{
+  background:linear-gradient(180deg,#4f9cff,#6ed6f3)!important;
+}
+.mk-ring{
+  background:conic-gradient(#4f9cff 0 87%,#1a3147 87% 100%)!important;
+}
+.mk-ring:after{
+  background:#10263d!important;
+}
+.mk-ring strong{
+  color:#fff!important;
+}
+.mk-ring span{
+  color:#93a8b9!important;
+}
+.mk-queue i{
+  background:#0e2237!important;
+  border-color:rgba(114,160,201,.16)!important;
+}
+.mk-queue b{
+  background:#173a58!important;
+  color:#78c9ff!important;
+}
+.mk-queue span{
+  color:#d6e1ea!important;
+}
+.mk-queue em{
+  color:#87a0b5!important;
+}
+
+/* Solution cards */
+.mk-solution-links-grid a{
+  background:linear-gradient(180deg,#10263d,#0d2135)!important;
+  border-color:rgba(112,160,204,.18)!important;
+}
+.mk-solution-links-grid a:hover{
+  border-color:#428ed1!important;
+  box-shadow:0 14px 32px rgba(0,0,0,.16)!important;
+}
+.mk-solution-links-grid i,
+.mk-solution-links-grid span{
+  color:#79c8ff!important;
+}
+.mk-solution-links-grid b{
+  color:#fff!important;
+}
+.mk-solution-links-grid p{
+  color:#9fb0c1!important;
+}
+
+/* Resources */
+.mk-resource-links{
+  background:#081725!important;
+}
+.mk-resource-links-grid>a{
+  background:#0d2135!important;
+  border-color:rgba(112,160,204,.18)!important;
+  box-shadow:0 15px 34px rgba(0,0,0,.12)!important;
+}
+.mk-resource-links-grid>a>strong{
+  color:#fff!important;
+}
+.mk-resource-links-grid p{
+  color:#9fb0c1!important;
+}
+.mk-resource-links-grid>a>span,
+.mk-resource-more a{
+  color:#79c8ff!important;
+}
+.art-0{background:linear-gradient(135deg,#102c49,#2469ab)!important}
+.art-1{background:linear-gradient(135deg,#102a44,#426fd6)!important}
+.art-2{background:linear-gradient(135deg,#18253d,#485f98)!important}
+
+/* FAQ */
+.mk-faq-grid details{
+  background:#0d2135!important;
+  border-color:rgba(112,160,204,.18)!important;
+}
+.mk-faq-grid summary{
+  color:#fff!important;
+}
+.mk-faq-grid summary span{
+  color:#79c8ff!important;
+}
+.mk-faq-grid p{
+  color:#9fb0c1!important;
+}
+
+/* Closing CTA and footer */
+.mk-closing{
+  background:linear-gradient(180deg,#071421,#081a2d)!important;
+  border-top:1px solid rgba(112,160,204,.10);
+}
+.mk-closing span{
+  color:#79c8ff!important;
+}
+.mk-closing>a{
+  background:linear-gradient(135deg,#3478ff,#39c8f5)!important;
+  color:#fff!important;
+}
+.mk-public-footer{
+  max-width:none!important;
+  margin:0!important;
+  padding:30px 6%!important;
+  background:#06121f!important;
+  border-top:1px solid rgba(112,160,204,.10);
+  color:#fff!important;
+}
+.mk-public-footer p,
+.mk-public-footer nav{
+  color:#8fa4b7!important;
+}
+.mk-public-footer nav a:hover{
+  color:#79c8ff!important;
+}
+
+/* Keep the transition between sections visually continuous. */
+.marketing.mk-home{
+  background:#071421!important;
+}
+
+@media(max-width:1180px){
+  .mk-hero{
+    grid-template-columns:minmax(390px,.82fr) minmax(520px,1.18fr)!important;
+    gap:24px!important;
+  }
+  .mk-hero-product-preview{
+    width:96%!important;
+    margin-right:0!important;
+  }
+  .mk-hero-amazon-sign{
+    left:37%!important;
+  }
+}
+@media(max-width:760px){
+  .mk-product-showcase{
+    padding:54px 20px!important;
+  }
+}
