@@ -3,6 +3,7 @@ import Brand from "./Brand";
 import CookieSettingsButton from "./CookieSettingsButton";
 import TrackedLink from "./TrackedLink";
 import LandingPricing from "./LandingPricing";
+import LandingAuthModal, { LandingAuthTrigger } from "./LandingAuth";
 import { PLAN_CATALOG, formatPlanPrice } from "../lib/config/plans";
 import { PUBLIC_CONTACT_EMAIL, PUBLIC_LINKEDIN_URL } from "../lib/seo/site";
 
@@ -159,7 +160,7 @@ export default function Landing(){
  const plans=PLAN_CATALOG;
  const planPrice=(plan)=>formatPlanPrice(plan,"month");
  return <main className="marketing mk-home">
-  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><Link href="/login">Sign in</Link><TrackedLink className="mk-get" href="/login?mode=register&start=trial" eventParams={{ cta_label: "Start 7-Day Free Trial", cta_location: "homepage_header" }}>Start 7-Day Free Trial <b>→</b></TrackedLink></div></header>
+  <header className="mk-header"><Link href="/"><Brand inverse/></Link><nav><a href="#features">Features</a><Link href="/solutions">Solutions</Link><Link href="/use-cases">Use cases</Link><a href="#pricing">Pricing</a><Link href="/resources">Resources</Link><Link href="/about">About</Link></nav><div><LandingAuthTrigger mode="signin" fallbackHref="/login" ctaLocation="homepage_header">Sign in</LandingAuthTrigger><LandingAuthTrigger className="mk-get" mode="register" intent="trial" fallbackHref="/login?mode=register&start=trial" ctaLocation="homepage_header">Start 7-Day Free Trial <b>→</b></LandingAuthTrigger></div></header>
 
   <section className="mk-hero">
     <img
@@ -176,7 +177,7 @@ export default function Landing(){
       <span>FLEET OPERATIONS INTELLIGENCE</span>
       <h1>Turn fleet data into <em>clear action.</em></h1>
       <p>Scorecards, compliance, coaching and multi-site performance in one powerful platform. Give your teams the insights they need to drive safer, more efficient operations.</p>
-      <div className="mk-actions"><TrackedLink href="/login?mode=register&start=trial" eventParams={{ cta_label: "Start 7-Day Free Trial", cta_location: "homepage_hero" }}>Start 7-Day Free Trial <b>→</b></TrackedLink><a href="#pricing">View Pricing</a></div>
+      <div className="mk-actions"><LandingAuthTrigger mode="register" intent="trial" fallbackHref="/login?mode=register&start=trial" ctaLocation="homepage_hero">Start 7-Day Free Trial <b>→</b></LandingAuthTrigger><a href="#pricing">View Pricing</a></div>
       <div className="mk-benefits mk-trial-benefits">
         <span><i>✓</i><b>No card required</b></span>
         <span><i>✓</i><b>Full platform access for 7 days</b></span>
@@ -247,12 +248,13 @@ export default function Landing(){
     <div className="mk-faq-grid">{faqs.map(([q,a],i)=><details key={q} open={i===0}><summary>{q}<span>＋</span></summary><p>{a}</p></details>)}</div>
   </section>
 
-  <section id="get-started" className="mk-closing" data-plan-count={plans.length} data-starting-price={planPrice(plans[0])}><div><span>READY TO SEE IT IN YOUR OPERATION?</span><h2>Bring the data together. Make the next action obvious.</h2></div><TrackedLink href="/login?mode=register" eventParams={{ cta_label: "Get started", cta_location: "homepage_closing" }}>Get started →</TrackedLink></section>
+  <section id="get-started" className="mk-closing" data-plan-count={plans.length} data-starting-price={planPrice(plans[0])}><div><span>READY TO SEE IT IN YOUR OPERATION?</span><h2>Bring the data together. Make the next action obvious.</h2></div><LandingAuthTrigger mode="register" fallbackHref="/login?mode=register" ctaLocation="homepage_closing">Get started →</LandingAuthTrigger></section>
 
   <footer className="mk-public-footer">
     <Link href="/"><Brand /></Link>
     <p>Fleet and driver performance intelligence for modern delivery operations.</p>
     <nav><Link href="/use-cases">Use cases</Link><Link href="/resources">Resources</Link><Link href="/about">About</Link><Link href="/contact">Contact</Link>{PUBLIC_CONTACT_EMAIL ? <a href={`mailto:${PUBLIC_CONTACT_EMAIL}`}>Email</a> : null}{PUBLIC_LINKEDIN_URL ? <a href={PUBLIC_LINKEDIN_URL} rel="me noopener noreferrer" target="_blank">LinkedIn</a> : null}<Link href="/security">Security</Link><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><CookieSettingsButton /></nav>
   </footer>
+  <LandingAuthModal/>
  </main>
 }
