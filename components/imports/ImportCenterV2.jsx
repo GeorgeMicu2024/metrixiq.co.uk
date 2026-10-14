@@ -243,8 +243,9 @@ export default function ImportCenterV2({
         }
       }
 
-      let result=await analyseFiles(accepted);
-      if(mentorCandidate&&accepted.some((file)=>MENTOR_FILE_HINT.test(file.name))){
+      const reusePreview=accepted.length===importableFiles.length&&accepted.every((file,index)=>fileFingerprint(file)===fileFingerprint(importableFiles[index]));
+      let result=reusePreview?preview:await analyseFiles(accepted);
+      if(!reusePreview&&mentorCandidate&&accepted.some((file)=>MENTOR_FILE_HINT.test(file.name))){
         result=prepareMentorAnalysis(result,mentorMode,mentorDate,mentorWeek);
       }
       result={...result,importContext:{...(result.importContext||{}),activitySite:activitySite||null,fallbackSite:activitySite||null,detectedSites:detectedSitesForAnalysis(result)}};
