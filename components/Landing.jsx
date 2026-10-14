@@ -73,6 +73,56 @@ function DashboardPreview(){
   </div>
 }
 
+function HeroDashboardPreview(){
+  const metrics=[
+    ["♟","Active Drivers","611","Current scope","blue"],
+    ["▥","eMentor (Avg)","806","Below target","red"],
+    ["◇","IADC","73.8%","Needs attention","green"],
+    ["◆","DCR","98.8%","On target","gold"],
+    ["◉","FICO (Avg)","806","Live score","cyan"],
+  ];
+  const priorities=[
+    ["↗","Check eMentor drivers below 815","54 drivers below target","red"],
+    ["△","Review IADC failures","46 drivers below 80% this week","amber"],
+    ["◷","Monitor wave timings","Review today’s waves","blue"],
+  ];
+  const sites=[
+    ["DDN1","83.38","Great","99.06%","867","39"],
+    ["DEH1","71.90","Great","97.47%","261","0"],
+  ];
+  return <div className="mk-live-preview">
+    <aside>
+      <div className="mk-live-brand"><span>W</span><b>MetrixIQ</b></div>
+      <div className="mk-live-nav on">⌂ <span>Home</span></div>
+      <div className="mk-live-nav">▦ <span>Command Center</span></div>
+      <small>OPERATION</small>
+      {["Daily Dispatch","IADC","POD","DCR","Customer Compliance","Driver Coaching","Incidents","Reports"].map((item)=><div className="mk-live-nav" key={item}>◇ <span>{item}</span></div>)}
+    </aside>
+    <section>
+      <header className="mk-live-topbar">
+        <div className="mk-live-site">▣ <b>All Sites</b>⌄</div>
+        <div className="mk-live-top-actions"><span>▣ Week 42</span><i>✉</i><i>♧</i><b>Workspace Admin⌄</b></div>
+      </header>
+      <div className="mk-live-heading">
+        <div><h3>Good morning, Team</h3><p>Here’s today’s overview for all sites</p></div>
+        <span><small>LIVE DASHBOARD</small><b>All Sites</b></span>
+      </div>
+      <div className="mk-live-kpis">{metrics.map(([icon,label,value,detail,tone])=><article className={tone} key={label}><i>{icon}</i><div><small>{label}</small><strong>{value}</strong><em>{detail}</em></div></article>)}</div>
+      <div className="mk-live-grid">
+        <article className="mk-live-priorities">
+          <h4>Today’s Priorities <b>4</b></h4>
+          {priorities.map(([icon,title,detail,tone])=><div key={title}><i className={tone}>{icon}</i><span><b>{title}</b><small>{detail}</small></span><em>›</em></div>)}
+        </article>
+        <article className="mk-live-sites">
+          <div className="mk-live-sites-head"><h4>Site Performance</h4><span>View Details</span></div>
+          <div className="mk-live-table-head"><b>Site</b><b>Overall Score</b><b>DCR</b><b>DSC DPMO</b><b>LoR</b></div>
+          {sites.map((row)=><div className="mk-live-table-row" key={row[0]}><b>{row[0]}</b><span>{row[1]} <i>{row[2]}</i></span><span className={row[3].startsWith("97")?"bad":""}>{row[3]}</span><span>{row[4]}</span><span>{row[5]}</span></div>)}
+        </article>
+      </div>
+    </section>
+  </div>
+}
+
 function HeroSignals(){
   return <div className="mk-hero-signals" aria-hidden="true">
     <article className="signal-card signal-a"><span>DRIVER SCORE</span><strong>Great</strong><i>↑ weekly trend</i></article>
@@ -121,6 +171,7 @@ export default function Landing(){
       decoding="async"
     />
     <div className="mk-hero-bg"/>
+    <div className="mk-hero-amazon-sign" aria-hidden="true"><b>amazon</b><i>⌣</i></div>
     <div className="mk-hero-copy">
       <span>FLEET OPERATIONS INTELLIGENCE</span>
       <h1>Turn fleet data into <em>clear action.</em></h1>
@@ -133,7 +184,7 @@ export default function Landing(){
         <span><i>✓</i><b>Cancel anytime</b></span>
       </div>
     </div>
-    <div className="mk-hero-product-preview" aria-label="MetrixIQ product preview"><DashboardPreview/></div>
+    <div className="mk-hero-product-preview" aria-label="MetrixIQ product preview"><HeroDashboardPreview/></div>
   </section>
 
   <section className="mk-network-strip" aria-label="Delivery network examples">
