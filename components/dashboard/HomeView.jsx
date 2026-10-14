@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { avg, fmt } from "./utils";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { fetchSiteScorecardData } from "../../lib/data/scorecardData";
+import { fetchSiteCards } from "../../lib/data/scorecardData";
 
 const safe=(n)=>Number.isFinite(Number(n))?Number(n):null;
 function metric(v,type){return v==null||Number.isNaN(Number(v))?"—":fmt(v,type)}
@@ -41,8 +41,8 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
  useEffect(()=>{
   let active=true;
   if(!organizationId){setSiteScorecards([]);return ()=>{active=false};}
-  fetchSiteScorecardData(getSupabaseBrowserClient(),organizationId)
-   .then(({cards})=>{if(active)setSiteScorecards(cards||[]);})
+  fetchSiteCards(getSupabaseBrowserClient(),organizationId)
+   .then((cards)=>{if(active)setSiteScorecards(cards||[]);})
    .catch(()=>{if(active)setSiteScorecards([]);});
   return ()=>{active=false};
  },[organizationId]);
