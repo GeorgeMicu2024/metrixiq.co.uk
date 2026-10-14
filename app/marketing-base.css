@@ -1663,3 +1663,330 @@ svg{display:block;max-width:100%}
     grid-template-columns:1fr!important;
   }
 }
+
+
+/* ===== Homepage V6.4 · literal approved mockup geometry ===== */
+.mk-home{
+  --mk-page-gutter:max(24px,calc((100vw - 1300px)/2));
+}
+
+/* Header: centered content footprint like the approved mockup. */
+.mk-header{
+  height:64px!important;
+  padding-left:var(--mk-page-gutter)!important;
+  padding-right:var(--mk-page-gutter)!important;
+  gap:34px!important;
+}
+.mk-header .brand-word{font-size:24px!important}
+.mk-header nav{gap:26px!important;font-size:11px!important}
+.mk-header>div{gap:20px!important;font-size:11px!important}
+.mk-header .mk-get{
+  min-height:40px!important;
+  padding:0 20px!important;
+  border-radius:10px!important;
+}
+
+/* Hero: smaller dashboard, further right, and vertically aligned to the reference. */
+.mk-hero{
+  min-height:368px!important;
+  padding:20px var(--mk-page-gutter) 12px!important;
+  grid-template-columns:minmax(500px,1fr) minmax(650px,740px)!important;
+  gap:34px!important;
+  align-items:start!important;
+}
+.mk-hero-copy{
+  align-self:start!important;
+  max-width:560px!important;
+  margin-top:8px!important;
+}
+.mk-hero-copy>span{
+  font-size:9px!important;
+  letter-spacing:.18em!important;
+}
+.mk-hero h1{
+  max-width:530px!important;
+  margin:10px 0 12px!important;
+  font-size:52px!important;
+  line-height:.98!important;
+}
+.mk-hero-copy>p{
+  max-width:525px!important;
+  font-size:13px!important;
+  line-height:1.52!important;
+}
+.mk-actions{
+  margin-top:17px!important;
+  gap:10px!important;
+}
+.mk-actions>a{
+  height:44px!important;
+  padding:0 20px!important;
+  border-radius:10px!important;
+  font-size:11px!important;
+}
+.mk-trial-benefits{
+  grid-template-columns:repeat(3,max-content)!important;
+  gap:18px!important;
+  margin-top:15px!important;
+}
+.mk-trial-benefits span{
+  gap:7px!important;
+  padding:4px 0!important;
+}
+.mk-trial-benefits i{
+  width:20px!important;
+  height:20px!important;
+  flex-basis:20px!important;
+  font-size:9px!important;
+}
+.mk-trial-benefits b{
+  font-size:8px!important;
+  white-space:nowrap!important;
+}
+
+/* More of the photographic scene remains visible. */
+.mk-hero-photo{
+  object-position:43% 53%!important;
+  filter:saturate(1.02) brightness(.80) contrast(1.07)!important;
+}
+.mk-hero-bg{
+  background:
+    linear-gradient(90deg,rgba(3,15,27,.96) 0%,rgba(3,15,27,.86) 28%,rgba(3,15,27,.30) 50%,rgba(3,15,27,.28) 65%,rgba(3,15,27,.68) 100%),
+    linear-gradient(180deg,rgba(2,13,22,.04),rgba(2,13,22,.28))!important;
+}
+.mk-hero-bg:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 3% 2%,rgba(165,216,255,.58) 0 3px,rgba(72,159,255,.22) 4px 15px,transparent 38px),
+    radial-gradient(circle at 21% 4%,rgba(184,224,255,.48) 0 3px,rgba(72,159,255,.16) 4px 14px,transparent 34px),
+    radial-gradient(circle at 38% 3%,rgba(184,224,255,.42) 0 3px,rgba(72,159,255,.14) 4px 14px,transparent 34px),
+    radial-gradient(circle at 67% 2%,rgba(184,224,255,.35) 0 3px,rgba(72,159,255,.12) 4px 14px,transparent 34px);
+  pointer-events:none;
+}
+.mk-hero-amazon-sign{
+  left:44%!important;
+  top:18px!important;
+  opacity:.88!important;
+}
+.mk-hero-amazon-sign b{font-size:25px!important}
+.mk-hero-amazon-sign i{font-size:26px!important}
+
+/* Dashboard dimensions closely follow the mockup. */
+.mk-hero-product-preview{
+  align-self:start!important;
+  justify-self:end!important;
+  width:100%!important;
+  max-width:740px!important;
+  margin:0!important;
+}
+.mk-hero-product-preview .mk-live-preview{
+  min-height:348px!important;
+  height:348px!important;
+  grid-template-columns:108px 1fr!important;
+  border-radius:14px!important;
+  transform:none!important;
+}
+.mk-live-topbar{min-height:37px!important;padding:5px 9px!important}
+.mk-live-heading{padding:8px 10px 5px!important}
+.mk-live-heading h3{font-size:15px!important}
+.mk-live-kpis{gap:5px!important;padding:0 8px 6px!important}
+.mk-live-kpis article{min-height:49px!important;padding:6px!important}
+.mk-live-grid{gap:6px!important;padding:6px 8px 8px!important}
+.mk-live-grid>article{min-height:142px!important}
+.mk-live-priorities>div{min-height:36px!important}
+.mk-live-table-row{min-height:27px!important}
+
+/* Multi-carrier strip mirrors the reference proportions and right-side callout. */
+.mk-network-strip{
+  min-height:66px!important;
+  padding:7px var(--mk-page-gutter)!important;
+  grid-template-columns:180px minmax(0,1fr) 185px!important;
+  gap:18px!important;
+}
+.mk-network-strip>div:first-child>span:before{
+  content:"BUILT FOR A MULTI-CARRIER WORLD"!important;
+}
+.mk-network-strip>div:first-child>small{font-size:6px!important}
+.mk-network-logos{grid-template-columns:repeat(8,1fr)!important}
+.carrier-logo{
+  height:43px!important;
+  min-height:43px!important;
+  padding:0 11px!important;
+}
+.mk-network-callout{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  color:#d4dfeb;
+  font-size:8px;
+  line-height:1.35;
+}
+.mk-network-callout i{
+  width:44px;height:30px;
+  display:grid;place-items:center;
+  border:1px solid rgba(72,178,255,.28);
+  border-radius:8px;
+  color:#53bfff;
+  font-style:normal;
+  font-size:14px;
+}
+
+/* Pricing: denser so the approved composition fits in one desktop viewport. */
+.mk-home-pricing{
+  padding:14px 0 14px!important;
+}
+.mk-home-pricing-head,
+.mk-home-plan-grid,
+.mk-home-activation,
+.mk-home-trust-row{
+  width:min(1360px,calc(100% - 32px))!important;
+  max-width:1360px!important;
+}
+.mk-home-pricing-head{
+  min-height:54px!important;
+  margin:0 auto 10px!important;
+  align-items:center!important;
+}
+.mk-home-pricing-head>div:first-child{
+  padding-left:260px!important;
+}
+.mk-home-pricing-head>div:first-child>span{
+  display:none!important;
+}
+.mk-home-pricing-head h2{
+  margin:0 0 2px!important;
+  font-size:28px!important;
+}
+.mk-home-pricing-head p{
+  font-size:9px!important;
+}
+.mk-home-pricing-controls{
+  min-width:260px!important;
+  gap:8px!important;
+}
+.mk-home-cycle button{
+  padding:7px 13px!important;
+  font-size:8px!important;
+}
+.mk-home-save{
+  padding:7px 10px!important;
+  font-size:7px!important;
+}
+.mk-home-plan-grid{
+  gap:10px!important;
+}
+.mk-home-plan-grid article{
+  min-height:236px!important;
+  padding:14px 15px 12px!important;
+  border-radius:10px!important;
+}
+.mk-home-plan-title{
+  gap:9px!important;
+}
+.mk-home-plan-title>i{
+  width:36px!important;height:36px!important;flex-basis:36px!important;
+  font-size:16px!important;
+}
+.mk-home-plan-title h3{font-size:15px!important}
+.mk-home-plan-title p{font-size:7.5px!important}
+.mk-home-plan-price{
+  margin:10px 0 8px!important;
+}
+.mk-home-plan-price strong{
+  font-size:27px!important;
+}
+.mk-home-plan-price span{
+  font-size:8px!important;
+}
+.mk-home-plan-grid ul{
+  gap:5px!important;
+  margin-bottom:9px!important;
+}
+.mk-home-plan-grid li{
+  font-size:8.5px!important;
+}
+.mk-home-plan-grid li b{
+  width:15px!important;height:15px!important;flex-basis:15px!important;
+}
+.mk-home-plan-grid article>a{
+  min-height:34px!important;
+  font-size:9px!important;
+}
+.mk-home-popular{
+  top:-8px!important;
+  padding:3px 9px!important;
+  font-size:6px!important;
+}
+.mk-home-activation{
+  min-height:49px!important;
+  margin:8px auto 0!important;
+  padding:7px 12px!important;
+}
+.mk-home-activation-intro b{font-size:11px!important}
+.mk-home-activation-intro span{font-size:7px!important}
+.mk-home-step>i{
+  width:27px!important;height:27px!important;flex-basis:27px!important;
+  font-size:10px!important;
+}
+.mk-home-step b{font-size:8px!important}
+.mk-home-step small{font-size:6px!important}
+.mk-home-trust-row{
+  margin:5px auto 0!important;
+}
+.mk-home-trust-row>span{
+  min-height:38px!important;
+  padding:3px 12px!important;
+}
+.mk-home-trust-row i{
+  width:24px!important;height:24px!important;
+}
+.mk-home-trust-row b{font-size:7px!important}
+.mk-home-trust-row small{font-size:6px!important}
+
+@media(max-width:1400px){
+  .mk-home{--mk-page-gutter:max(32px,calc((100vw - 1180px)/2))}
+  .mk-hero{
+    grid-template-columns:minmax(450px,1fr) minmax(570px,680px)!important;
+  }
+  .mk-hero-product-preview{
+    max-width:680px!important;
+  }
+  .mk-home-pricing-head>div:first-child{
+    padding-left:190px!important;
+  }
+}
+@media(max-width:1100px){
+  .mk-home{--mk-page-gutter:28px}
+  .mk-hero{
+    min-height:430px!important;
+    grid-template-columns:minmax(390px,.78fr) minmax(520px,1.22fr)!important;
+  }
+  .mk-network-strip{
+    grid-template-columns:170px 1fr!important;
+  }
+  .mk-network-callout{display:none!important}
+  .mk-home-pricing-head>div:first-child{
+    padding-left:0!important;
+    text-align:left!important;
+  }
+}
+@media(max-width:760px){
+  .mk-home{--mk-page-gutter:18px}
+  .mk-header{padding-left:18px!important;padding-right:18px!important}
+  .mk-hero{
+    min-height:auto!important;
+    padding:28px 18px!important;
+    grid-template-columns:1fr!important;
+  }
+  .mk-trial-benefits{
+    grid-template-columns:1fr 1fr!important;
+  }
+  .mk-trial-benefits span:nth-child(3){display:none!important}
+  .mk-network-strip{
+    padding:10px 18px!important;
+    grid-template-columns:1fr!important;
+  }
+}
