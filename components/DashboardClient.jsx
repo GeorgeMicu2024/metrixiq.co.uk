@@ -57,6 +57,7 @@ import EnterpriseSettings from "./enterprise/EnterpriseSettings";
 import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 import { fetchOrganizationHierarchy, upsertOrganizationSiteProfile } from "../lib/data/enterpriseV7";
+import { activateWorkspaceMode, createBillingCheckout } from "../lib/data/billing";
 
 const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dcr","cc","cdf","mentor"]);
 
@@ -253,6 +254,49 @@ export default function DashboardClient() {
         const preferredOrganizationId = localStorage.getItem("metrixiq.organizationId");
         const { context, permissionState } = await fetchWorkspaceShellForUser(user, preferredOrganizationId);
         if (!alive) return;
+
+        // Continue the public homepage intent after authentication without sending
+        // the customer through a separate onboarding page.
+        let onboardingIntent = null;
+        try {
+          onboardingIntent = JSON.parse(localStorage.getItem("metrixiq.onboardingIntent") || "null");
+        } catch {
+          onboardingIntent = null;
+        }
+
+        if (!context.platformAdmin && onboardingIntent?.mode === "trial") {
+          localStorage.removeItem("metrixiq.onboardingIntent");
+          try {
+            const trialAccess = await activateWorkspaceMode(
+              supabase,
+              context.resolved.organization.id,
+              "trial"
+            );
+            context.access = trialAccess;
+          } catch {
+            // Fall back to the normal onboarding screen if automatic trial activation fails.
+          }
+        }
+
+        if (
+          !context.platformAdmin &&
+          onboardingIntent?.mode === "plan" &&
+          ["pro", "business", "full"].includes(String(onboardingIntent.plan || ""))
+        ) {
+          localStorage.removeItem("metrixiq.onboardingIntent");
+          try {
+            const checkoutUrl = await createBillingCheckout(supabase, {
+              organizationId: context.resolved.organization.id,
+              plan: onboardingIntent.plan,
+              interval: onboardingIntent.interval === "year" ? "year" : "month",
+            });
+            window.location.assign(checkoutUrl);
+            return;
+          } catch {
+            // If Stripe cannot open, continue into MetrixIQ where Plans & Billing remains available.
+            setActive("billing");
+          }
+        }
 
         // Render the authenticated shell as soon as membership/access is known.
         // Driver metrics and scorecards hydrate immediately afterwards in the background.
