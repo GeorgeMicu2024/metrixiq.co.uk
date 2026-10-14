@@ -39,3 +39,12 @@ test("Import Center routes mixed-site batches per file instead of forcing the se
   const fallbackLast = mentorDaily.indexOf("normalizeSiteCode(site)");
   assert.ok(driverFirst >= 0 && fallbackLast > driverFirst);
 });
+
+
+test("Import Center reuses analysed files on save when the approved batch is unchanged", () => {
+  const view = read("components/imports/ImportCenterV2.jsx");
+
+  assert.ok(view.includes("const reusePreview="));
+  assert.ok(view.includes("let result=reusePreview?preview:await analyseFiles(accepted)"));
+  assert.ok(view.includes("if(!reusePreview&&mentorCandidate"));
+});
