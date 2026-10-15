@@ -9,7 +9,8 @@ import {
   summarizePreflight,
 } from "../../lib/imports/preflight";
 import { buildImportIntelligence } from "../../lib/imports/analysisSummary";
-import { isoWeekDetails, isoWeekFromDate, normalizeSiteCode } from "../../lib/analyzer/core";
+import { normalizeSiteCode } from "../../lib/analyzer/core";
+import { dateFromFileName, prepareMentorAnalysis, weekInputFromDate } from "../../lib/imports/mentorPeriod";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import {
   duplicateMatchesForFile,
@@ -20,52 +21,6 @@ import {
 } from "../../lib/data/importCenterV2";
 
 const MENTOR_FILE_HINT=/mentor|e-?mentor|driver.?report|vrm|edriving/i;
-
-function dateFromFileName(name){
-  const match=String(name||"").match(/(?:^|[^0-9])(20\d{2})[-_.](\d{2})[-_.](\d{2})(?!\d)/);
-  if(!match)return"";
-  const value=match[1]+"-"+match[2]+"-"+match[3];
-  const date=new Date(value+"T12:00:00Z");
-  return Number.isNaN(date.getTime())?"":value;
-}
-
-function weekInputFromDate(value){
-  const date=new Date(String(value||"")+"T12:00:00Z");
-  if(Number.isNaN(date.getTime()))return"";
-  const period=isoWeekFromDate(date);
-  return String(period.year)+"-W"+String(period.week).padStart(2,"0");
-}
-
-function periodFromWeekInput(value){
-  const match=String(value||"").match(/^(20\d{2})-W(\d{2})$/i);
-  if(!match)return null;
-  const year=Number(match[1]),week=Number(match[2]);
-  return week>=1&&week<=53?isoWeekDetails(year,week):null;
-}
-
-function prepareMentorAnalysis(result,mode,reportDate,targetWeek){
-  const recognised=(result?.fileResults||[]).filter((item)=>item.recognized);
-  const hasMentor=recognised.some((item)=>/mentor/i.test(String(item.reportType||"")));
-  const nonMentor=recognised.filter((item)=>{const type=String(item.reportType||"");return type&&!/mentor/i.test(type);});
-  if(!hasMentor)throw new Error("This import mode is for eMentor / Driver Report files only.");
-  if(nonMentor.length)throw new Error("Upload eMentor files separately when using Daily or Weekly eMentor mode.");
-  let period,importContext;
-  if(mode==="daily"){
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(String(reportDate||"")))throw new Error("Choose the date represented by this eMentor report.");
-    period=isoWeekFromDate(new Date(reportDate+"T12:00:00Z"));
-    importContext={type:"mentor-daily",reportDate,weekLabel:period.weekLabel};
-  }else{
-    period=periodFromWeekInput(targetWeek);
-    if(!period)throw new Error("Choose the scorecard week for this weekly eMentor report.");
-    importContext={type:"mentor-weekly",targetWeek,weekLabel:period.weekLabel};
-  }
-  return {
-    ...result,
-    fileResults:(result.fileResults||[]).map((item)=>item.recognized?{...item,period}:item),
-    periods:(result.periods||[]).map((item)=>({...item,...period})),
-    importContext,
-  };
-}
 
 function detectedSitesForAnalysis(result){
   const sites=new Set();
@@ -128,6 +83,9 @@ export default function ImportCenterV2({
   onImported,
   analysis:latestAnalysis,
   canManage=true,
+  initialMentorMode="daily",
+  initialMentorDate="",
+  initialMentorWeek="",
 }){
   const input=useRef(null);
   const [tab,setTab]=useState("queue");
@@ -142,18 +100,26 @@ export default function ImportCenterV2({
   const [history,setHistory]=useState([]);
   const [historyLoading,setHistoryLoading]=useState(false);
   const [busyImport,setBusyImport]=useState("");
-  const [mentorMode,setMentorMode]=useState("daily");
-  const [mentorDate,setMentorDate]=useState(()=>new Date().toISOString().slice(0,10));
+  const today=()=>new Date().toISOString().slice(0,10);
+  const [mentorMode,setMentorMode]=useState(initialMentorMode==="weekly"?"weekly":"daily");
+  const [mentorDate,setMentorDate]=useState(()=>initialMentorDate||today());
   const [activitySite,setActivitySite]=useState(()=>siteFilter!=="all"?siteFilter:"");
-  const [mentorWeek,setMentorWeek]=useState(()=>weekInputFromDate(new Date().toISOString().slice(0,10)));
+  const [mentorWeek,setMentorWeek]=useState(()=>initialMentorWeek||weekInputFromDate(initialMentorDate||today()));
 
   useEffect(()=>{if(siteFilter!=="all")setActivitySite(siteFilter);},[siteFilter]);
+  useEffect(()=>{
+    if(initialMentorMode==="weekly"||initialMentorMode==="daily")setMentorMode(initialMentorMode);
+    if(initialMentorDate){setMentorDate(initialMentorDate);if(!initialMentorWeek)setMentorWeek(weekInputFromDate(initialMentorDate));}
+    if(initialMentorWeek)setMentorWeek(initialMentorWeek);
+  },[initialMentorMode,initialMentorDate,initialMentorWeek]);
   const busy=["analysing","saving"].includes(phase);
   const preflight=useMemo(()=>summarizePreflight(files),[files]);
   const analysis=preview||latestAnalysis;
   const intelligence=useMemo(()=>buildImportIntelligence(analysis),[analysis]);
   const importableFiles=useMemo(()=>preflight.items.filter((item)=>item.assessment.status!=="blocked").map((item)=>item.file),[preflight]);
   const mentorCandidate=useMemo(()=>files.some((file)=>MENTOR_FILE_HINT.test(file.name)),[files]);
+  const mentorBatchWeeks=useMemo(()=>[...new Set(files.map((file)=>dateFromFileName(file.name)).filter(Boolean).map(weekInputFromDate).filter(Boolean))].sort(),[files]);
+  const multiWeekMentorBatch=mentorMode==="weekly"&&mentorBatchWeeks.length>1;
 
   async function loadHistory(){
     if(!organizationId)return;
@@ -306,7 +272,7 @@ export default function ImportCenterV2({
       {files.length>0&&<>
         <section className="importv2-kpis"><article><span>Selected</span><strong>{files.length}</strong><small>{importableFiles.length} importable</small></article><article className={preflight.blocked?"warn":""}><span>Preflight</span><strong>{preflight.blocked?preflight.blocked+" blocked":"Ready"}</strong><small>{preflight.warnings} warnings</small></article><article><span>Total size</span><strong>{(preflight.totalBytes/1024/1024).toFixed(2)} MB</strong><small>Browser analysis</small></article><article className={phase==="error"?"bad":phase==="done"?"good":""}><span>Pipeline</span><strong>{phaseLabel(phase)}</strong><small>Analyse → review → save</small></article>{phase==="done"&&analysis?.reconciliation&&<article className={analysis.reconciliation.balanced?"good":"bad"}><span>Reconciliation</span><strong>{analysis.reconciliation.accountedRows}/{analysis.reconciliation.sourceRows}</strong><small>{analysis.reconciliation.balanced?"All source rows accounted":"Review missing source rows"}</small></article>}</section>
 
-        {mentorCandidate&&<section className="panel importv2-mentor"><div><span className="page-kicker">EMENTOR DETECTED</span><h2>Storage mode</h2><p>Daily history and weekly scorecard FICO remain separate.</p></div><div className="importv2-mentor-controls"><select value={mentorMode} onChange={(e)=>{setMentorMode(e.target.value);setPreview(null);setPhase("idle");}}><option value="daily">Daily history</option><option value="weekly">Weekly scorecard FICO</option></select>{mentorMode==="daily"?<input type="date" value={mentorDate} onChange={(e)=>{setMentorDate(e.target.value);setMentorWeek(weekInputFromDate(e.target.value));setPreview(null);setPhase("idle");}}/>:<input type="week" value={mentorWeek} onChange={(e)=>{setMentorWeek(e.target.value);setPreview(null);setPhase("idle");}}/>}</div></section>}
+        {mentorCandidate&&<section className="panel importv2-mentor"><div><span className="page-kicker">EMENTOR DETECTED</span><h2>Storage mode</h2><p>Daily history and weekly scorecard FICO remain separate.</p></div><div className="importv2-mentor-controls"><select value={mentorMode} onChange={(e)=>{setMentorMode(e.target.value);setPreview(null);setPhase("idle");}}><option value="daily">Daily history</option><option value="weekly">Weekly scorecard FICO</option></select>{mentorMode==="daily"?<input type="date" value={mentorDate} onChange={(e)=>{setMentorDate(e.target.value);setMentorWeek(weekInputFromDate(e.target.value));setPreview(null);setPhase("idle");}}/>:multiWeekMentorBatch?<span className="importv2-notice">Auto weeks · {mentorBatchWeeks.join(" · ")}</span>:<input type="week" value={mentorWeek} onChange={(e)=>{setMentorWeek(e.target.value);setPreview(null);setPhase("idle");}}/>}</div></section>}
 
         <section className="panel importv2-queue">
           <div className="panel-head"><div><h2>File queue</h2><p>Analyse before save. Stored duplicates can be merged, replaced or ignored.</p></div><div className="importv2-head-actions"><button className="btn ghost" onClick={clear} disabled={busy}>Clear</button>{phase==="review"||phase==="done"?<button className="btn primary" onClick={saveQueue} disabled={busy||!canManage}>{phase==="saving"?"Saving…":"Save approved files"}</button>:<button className="btn primary" onClick={analyseQueue} disabled={busy||!importableFiles.length}>{phase==="analysing"?"Analysing…":"Analyse queue"}</button>}</div></div>
