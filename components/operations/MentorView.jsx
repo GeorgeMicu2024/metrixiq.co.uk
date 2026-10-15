@@ -684,7 +684,7 @@ export default function MentorView({
                 <b> eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)}. MetrixIQ reads the Trip /
                 Begin Route Time / End Route Time fields directly. Daily Dispatch is not used.
                 {onImport && (
-                  <button type="button" className="btn ghost" onClick={onImport} style={{ marginLeft: "10px" }}>
+                  <button type="button" className="btn ghost" onClick={() => onImport({ mentorMode: "daily", mentorDate: selectedDate })} style={{ marginLeft: "10px" }}>
                     Import Shift Report
                   </button>
                 )}
