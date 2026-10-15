@@ -94,6 +94,7 @@ export default function DashboardClient() {
   const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
   const [branding, setBranding] = useState(null);
   const [operationalRefreshKey, setOperationalRefreshKey] = useState(0);
+  const [importIntent,setImportIntent]=useState(null);
   const [collapsedGroups,setCollapsedGroups]=useState({});
   const [sidebarCompact,setSidebarCompact]=useState(false);
   const [profileMenuOpen,setProfileMenuOpen]=useState(false);
@@ -394,6 +395,10 @@ export default function DashboardClient() {
     if (siteFilter !== "all") localStorage.setItem("metrixiq.activeSite", siteFilter);
   }, [siteFilter]);
 
+  useEffect(() => {
+    if (active !== "imports" && importIntent) setImportIntent(null);
+  }, [active, importIntent]);
+
   async function createSiteFromDashboard() {
     const organizationId = workspace?.organization?.id;
     const code = String(siteDraft.code || "").trim().toUpperCase();
@@ -557,7 +562,7 @@ export default function DashboardClient() {
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
-    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onSiteFilterChange={setSiteFilter} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
+    case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={(intent) => { setImportIntent(intent || null); navigate("imports"); }} onSiteFilterChange={setSiteFilter} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} drivers={drivers} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
     case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
@@ -566,7 +571,7 @@ export default function DashboardClient() {
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
-    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} />; break;
+    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} initialMentorMode={importIntent?.mentorMode} initialMentorDate={importIntent?.mentorDate} initialMentorWeek={importIntent?.mentorWeek} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
     case "management-views": view = <SavedViewsBulkActions organizationId={workspace?.organization?.id} siteFilter={siteFilter} canBulk={platformAdmin || permissions?.bulk_actions} />; break;
     case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
