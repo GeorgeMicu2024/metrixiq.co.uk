@@ -613,7 +613,7 @@ export default function MentorView({
               </button>
 
               {onImport && (
-                <button type="button" className="btn primary" onClick={onImport}>
+                <button type="button" className="btn primary" onClick={() => onImport({ mentorMode: "daily", mentorDate: selectedDate })}>
                   Import eMentor
                 </button>
               )}
@@ -673,7 +673,7 @@ export default function MentorView({
                 Drivers who never started a trip may be omitted from the Driver Report entirely, so import the
                 <b> eMentor Shift Report (VRM)</b> for {formatDate(selectedDate)} to identify them accurately.
                 {onImport && (
-                  <button type="button" className="btn ghost" onClick={onImport} style={{ marginLeft: "10px" }}>
+                  <button type="button" className="btn ghost" onClick={() => onImport({ mentorMode: "daily", mentorDate: selectedDate })} style={{ marginLeft: "10px" }}>
                     Import Shift Report
                   </button>
                 )}
@@ -780,7 +780,7 @@ export default function MentorView({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search driver…"
           />
-          {onImport && <button type="button" className="btn primary" onClick={onImport}>Import eMentor</button>}
+          {onImport && <button type="button" className="btn primary" onClick={() => onImport({ mentorMode: "weekly", mentorWeek: selectedWeek })}>Import eMentor</button>}
         </div>
       </div>
 
