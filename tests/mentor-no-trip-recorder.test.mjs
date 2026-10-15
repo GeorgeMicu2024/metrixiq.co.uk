@@ -50,3 +50,26 @@ test("Daily eMentor No Trip Recorder is eMentor-only and never depends on Daily 
   assert.ok(persistence.includes("hasTripEvidence"));
   assert.ok(persistence.includes("score == null && !hasTripEvidence"));
 });
+
+
+test("eMentor Shift Report real VRM layout cannot be hijacked by later data rows", () => {
+  const matrix = [
+    ["First Name","Last Name","Vehicle Identifier","Begin Route Time","End Route Time","Total Driver Hours","Total Driver Miles","Trip","Short Trip","Device","Is Supported?"],
+    ["Olisah","Edekobi","VN001","1:40 pm","6:36 pm","N/A","N/A",0,false,"Alps - S24 Ultra - Alps","No"],
+    ["Ionut","Croitoru","VN002","6:25 am","5:10 pm","10:45","148.2",1,false,"Alps - S24 Ultra - Alps","Yes"],
+    // This mirrors the short-name/data pattern that previously fuzzy-matched
+    // as a stronger header candidate than the actual first row.
+    ["D","S","VF1FL000561150754","10:01 am","9:50 pm","N/A","N/A",0,false,"Alps - S24 Ultra - Alps","No"],
+  ];
+
+  const parsed = parseMentorTripMatrix(matrix, "Shift Report_2026-10-14.xlsx", "Shift Report (VRM)");
+  assert.ok(parsed);
+  assert.equal(parsed.reportType, "mentor_trip");
+  assert.equal(parsed.records.length, 2);
+
+  const noTrip = parsed.records.find((row) => row.name === "Olisah Edekobi");
+  assert.equal(noTrip.details.mentor.totalTrips, 0);
+  assert.equal(noTrip.details.mentor.beginRouteTime, "1:40 pm");
+  assert.equal(noTrip.details.mentor.endRouteTime, "6:36 pm");
+  assert.equal(noTrip.details.mentor.tripEvidenceSource, "ementor_shift_report");
+});
