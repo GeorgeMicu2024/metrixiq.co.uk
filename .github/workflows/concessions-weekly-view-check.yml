@@ -1,0 +1,41 @@
+name: Concessions Weekly View Check
+
+on:
+  push:
+    branches:
+      - "feature/concessions-weekly-image-view-20261016"
+  pull_request:
+    paths:
+      - "components/operations/ConcessionsSimpleView.jsx"
+      - "lib/data/concessionsWeeklyView.js"
+      - "tests/concessions-single-week-view.test.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  focused-test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci_service_role_placeholder
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      NEXT_PUBLIC_APP_URL: https://example.com
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies without changing the lockfile
+        run: npm ci
+      - name: Test only concessions single-week behavior
+        run: node --test tests/concessions-single-week-view.test.mjs
+      - name: Build Next.js production bundle
+        run: npm run build
+      - name: Report existing full-suite regressions separately
+        run: npm test
+        continue-on-error: true
