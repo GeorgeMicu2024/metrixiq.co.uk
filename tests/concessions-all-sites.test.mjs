@@ -63,7 +63,7 @@ test("Concessions includes current site drivers with zero DNR", () => {
 test("Concessions PNG is compact and phone-readable", () => {
   const view = read("components/operations/ConcessionsSimpleView.jsx");
 
-  assert.ok(view.includes('style={{ width: Math.max(820, 570 + weeks.length * 125) + "px" }}'));
+  assert.ok(view.includes('style={{ width: range === 1 ? "920px" : Math.max(820, 570 + weeks.length * 125) + "px" }}'));
   assert.ok(view.includes("pageRows.map((row, rowIndex)"));
   assert.equal(view.includes('className="cx5-export-row placeholder"'), false);
   assert.ok(view.includes("font-size:16px;line-height:1.15"));
