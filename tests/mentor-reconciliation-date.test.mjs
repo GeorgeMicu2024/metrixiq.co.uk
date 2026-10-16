@@ -97,7 +97,7 @@ test("positive Shift Report trip rows do not inflate eMentor mapping or unmatche
   assert.ok(panel.includes('"Trip only"'));
 
   assert.ok(view.includes("isActionableMentorReconciliation"));
-  assert.ok(view.includes("if (!isActionableMentorReconciliation(row)) return false"));
+  assert.ok(view.includes("reconciliationEvidenceForDate.filter(isActionableMentorReconciliation)"));
   assert.ok(view.includes("trips >= 1) return false"));
 });
 

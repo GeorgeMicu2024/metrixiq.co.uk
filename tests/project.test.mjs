@@ -1302,8 +1302,10 @@ test("eMentor reconciliation is idempotent by stable source identity", () => {
   const mapping = read("components/operations/MentorMappingPanel.jsx");
 
   assert.ok(persistence.includes('reconciliation_key: reconciliationKey || null'));
-  assert.ok(persistence.includes('row.payload?.driver?.mentorHash'));
-  assert.ok(persistence.includes('row.payload?.driver?.details?.mentor?.identityKey'));
+  assert.ok(persistence.includes('mentorDailySourceIdentityKey(sourceDriver, source)'));
+  const sourceIdentity = read("lib/persistence/mentorDailyIdentity.js");
+  assert.ok(sourceIdentity.includes('driver?.mentorHash'));
+  assert.ok(sourceIdentity.includes('mentor.identityKey'));
   assert.ok(persistence.includes('const pendingByKey = new Map()'));
   assert.ok(persistence.includes('.insert(pending)'));
 
@@ -1320,7 +1322,9 @@ test("daily eMentor supports multiple source accounts per driver and persistent 
   const view = read("components/operations/MentorView.jsx");
   const migration = read("supabase/migrations/20260921154000_mentor_daily_persistent_visibility.sql");
 
-  assert.ok(daily.includes('rowsBySource.set(sourceIdentityKey, row)'));
+  assert.ok(daily.includes('rowsBySource.set('));
+  assert.ok(daily.includes('UNASSIGNED'));
+  assert.ok(daily.includes('sourceIdentityKey'));
   assert.ok(daily.includes('organization_id,site,report_date,source_identity_key'));
   assert.ok(view.includes('setMentorDailyVisibility'));
   assert.ok(view.includes('Show hidden rows'));
