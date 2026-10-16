@@ -381,17 +381,39 @@ export default function MentorView({
     [weeklyRows, selectedWeek]
   );
 
-  const unmatchedForDate = useMemo(() => reconciliationRows.filter((row) => {
+  const reconciliationEvidenceForDate = useMemo(() => reconciliationRows.filter((row) => {
     if (row.status !== "open") return false;
-    if (!isActionableMentorReconciliation(row)) return false;
     if (String(row.payload?.reportDate || "") !== String(selectedDate || "")) return false;
     if (normalizedSelectedSite === "ALL") return true;
     const rowSite = String(row.site || row.payload?.driver?.site || row.payload?.driver?.details?.mentor?.station || "").trim().toUpperCase();
     return rowSite === normalizedSelectedSite;
   }), [reconciliationRows, selectedDate, normalizedSelectedSite]);
 
+  const unmatchedForDate = useMemo(
+    () => reconciliationEvidenceForDate.filter(isActionableMentorReconciliation),
+    [reconciliationEvidenceForDate]
+  );
+
   const noTripRows = useMemo(() => {
     const rows = new Map();
+    // A source account with a positive trip is not a No Trip account,
+    // even when another session for the same account is Trip = 0.
+    const accountKey = (value) => String(value || "").trim().replace(/\\s+/g, " ").toLowerCase();
+    const positiveAccounts = new Set();
+    for (const row of selectedDailyRows) {
+      const details = row.raw_data?.mentor || {};
+      if (n(details.totalTrips) >= 1 && details.tripEvidenceSource === "ementor_shift_report") {
+        const key = accountKey(details.sourceAccountName);
+        if (key) positiveAccounts.add(key);
+      }
+    }
+    for (const row of reconciliationEvidenceForDate) {
+      const details = row.payload?.driver?.details?.mentor || {};
+      if (n(details.totalTrips) >= 1 && details.tripEvidenceSource === "ementor_shift_report") {
+        const key = accountKey(details.sourceAccountName || row.payload?.driver?.name);
+        if (key) positiveAccounts.add(key);
+      }
+    }
 
     // Confirmed No Trip rows from mapped eMentor evidence.
     // Do not infer No Trip from a missing field: it must be an explicit Trip < 1.
@@ -399,6 +421,7 @@ export default function MentorView({
       const details = row.raw_data?.mentor || {};
       const trips = n(details.totalTrips);
       if (trips == null || trips >= 1) continue;
+      if (positiveAccounts.has(accountKey(details.sourceAccountName))) continue;
 
       const driverName = String(dname(row.drivers || {}) || "Unresolved driver").trim();
       const driverTrid = String(trid(row.drivers || {}) || "—").trim();
@@ -422,6 +445,7 @@ export default function MentorView({
       const details = driver.details?.mentor || {};
       const trips = n(details.totalTrips);
       if (trips == null || trips >= 1) continue;
+      if (positiveAccounts.has(accountKey(details.sourceAccountName || driver.name))) continue;
 
       const driverName = String(driver.name || driver.full_name || "Unmatched eMentor driver").trim();
       const driverTrid = String(driver.trid || "—").trim();
@@ -439,7 +463,7 @@ export default function MentorView({
     }
 
     return [...rows.values()].sort((a, b) => a.driverName.localeCompare(b.driverName));
-  }, [selectedDailyRows, unmatchedForDate]);
+  }, [selectedDailyRows, unmatchedForDate, reconciliationEvidenceForDate]);
 
   const tripEvidenceComplete = useMemo(
     () => selectedDailyRows.some((row) => {
@@ -463,15 +487,23 @@ export default function MentorView({
     const recorded = new Set();
     for (const row of selectedDailyRows) {
       const details = row.raw_data?.mentor || {};
-      const trips = n(details.totalTrips);
-      if (!(trips >= 1)) continue;
-      recorded.add(String(row.driver_id || row.source_identity_key || row.id || ""));
+      if (!(n(details.totalTrips) >= 1)) continue;
+      const key = details.tripEvidenceSource === "ementor_shift_report"
+        ? (row.source_identity_key || row.id)
+        : (row.driver_id || row.source_identity_key || row.id);
+      if (key) recorded.add(String(key));
     }
-    recorded.delete("");
+    // Positive trips may still be pending identity mapping. Count evidence,
+    // without marking it as a No Trip or dropping it from the total.
+    for (const row of reconciliationEvidenceForDate) {
+      const details = row.payload?.driver?.details?.mentor || {};
+      if (!(n(details.totalTrips) >= 1)) continue;
+      recorded.add(String(row.id));
+    }
     return recorded.size;
-  }, [selectedDailyRows]);
+  }, [selectedDailyRows, reconciliationEvidenceForDate]);
 
-  const hasExplicitTripCounts = explicitTripRows.length > 0 || noTripRows.length > 0;
+  const hasExplicitTripCounts = explicitTripRows.length > 0 || reconciliationEvidenceForDate.length > 0 || noTripRows.length > 0;
   const noTripCountReady = tripEvidenceComplete || hasExplicitTripCounts;
 
   function applySort(items) {
@@ -641,7 +673,7 @@ export default function MentorView({
           </div>
 
           <div className="mentor-daily-kpis">
-            <article><span>Recorded</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>{hasExplicitTripCounts ? "Drivers with at least 1 eMentor trip" : "Trip count not available in this report"}</small></article>
+            <article><span>Recorded</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>{hasExplicitTripCounts ? "Positive eMentor trip entries" : "Trip count not available in this report"}</small></article>
             <article className={unmatchedForDate.length ? "warn" : ""}><span>Unmatched</span><strong>{unmatchedForDate.length}</strong><small>Identity mapping required</small></article>
             <article className={noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{noTripCountReady ? noTripRows.length : "—"}</strong><small>{tripEvidenceComplete ? "Confirmed from eMentor Shift Report" : noTripRows.length ? "Confirmed Trip < 1 rows found in eMentor" : hasExplicitTripCounts ? "No zero-trip rows in the current Driver Report" : "Import eMentor Shift Report (VRM) to verify"}</small></article>
           </div>
