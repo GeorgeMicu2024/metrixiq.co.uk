@@ -491,7 +491,7 @@ export default function ConcessionsSimpleView({
             <button
               type="button"
               className={range === 8 ? "active" : ""}
-              onClick={() => setRange(8)}
+              onClick={() => { setRange(8); setShow("all"); }}
             >
               8-week view
             </button>
