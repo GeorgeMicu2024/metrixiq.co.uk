@@ -398,7 +398,7 @@ export default function MentorView({
     const rows = new Map();
     // A source account with a positive trip is not a No Trip account,
     // even when another session for the same account is Trip = 0.
-    const accountKey = (value) => String(value || "").trim().replace(/\\s+/g, " ").toLowerCase();
+    const accountKey = (value) => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
     const positiveAccounts = new Set();
     for (const row of selectedDailyRows) {
       const details = row.raw_data?.mentor || {};
