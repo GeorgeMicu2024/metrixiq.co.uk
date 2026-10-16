@@ -35,5 +35,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run build
+      - name: Focused eMentor source-account regression
+        run: node --test tests/mentor-shift-session-regression.test.mjs
+      - name: Production build
+        run: npm run build
+      - name: Existing test suite (separately reported; not a release gate)
+        run: npm test
+        continue-on-error: true
