@@ -11,6 +11,7 @@ import {
   buildSingleWeekConcessionRows,
   buildMultiWeekConcessionRows,
   concessionExportPages,
+  concessionImageRows,
   weeklyConcessionTone,
 } from "../../lib/data/concessionsWeeklyView";
 import { ErrorBox, Loading } from "./OperationalShared";
@@ -320,7 +321,7 @@ export default function ConcessionsSimpleView({
     [hiddenImageDrivers, imageScope]
   );
   const exportRows = useMemo(
-    () => filtered.filter((row) => !hiddenTrids.has(row.driver_trid)),
+    () => concessionImageRows(filtered, hiddenTrids),
     [filtered, hiddenTrids]
   );
   const hiddenCount = hiddenTrids.size;
