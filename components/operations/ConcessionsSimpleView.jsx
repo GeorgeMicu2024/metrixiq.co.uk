@@ -812,7 +812,7 @@ export default function ConcessionsSimpleView({
                       ? historic.total / (range === 1 ? eightWeeks : weeks).length : 0;
 
                     return (
-                      <tr key={row.driver_trid}>
+                      <tr key={row.driver_trid} className={hiddenTrids.has(row.driver_trid) ? "cx5-hidden-from-image" : ""}>
                         <td>
                           <span className="cx5-rank">{pageStart + index + 1}</span>
                         </td>
@@ -855,6 +855,7 @@ export default function ConcessionsSimpleView({
                           </span>
                         </td>
                         <td>
+                          <div className="cx5-driver-actions">
                           <button
                             type="button"
                             className="cx5-open"
@@ -873,6 +874,16 @@ export default function ConcessionsSimpleView({
                             Open
                             <span>→</span>
                           </button>
+                          <button
+                            type="button"
+                            className={`cx5-hide-image ${hiddenTrids.has(row.driver_trid) ? "is-hidden" : ""}`}
+                            aria-pressed={hiddenTrids.has(row.driver_trid)}
+                            onClick={() => toggleImageDriver(row.driver_trid)}
+                            title="Excludes this driver from PNG only, not the data"
+                          >
+                            {hiddenTrids.has(row.driver_trid) ? "Show" : "Hide"}
+                          </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -898,7 +909,7 @@ export default function ConcessionsSimpleView({
                 const historicWeeks = range === 1 ? eightWeeks : weeks;
                 const average = historicWeeks.length ? historic.total / historicWeeks.length : 0;
                 return (
-                  <article className="cx5-mobile-card" key={row.driver_trid}>
+                  <article className={`cx5-mobile-card${hiddenTrids.has(row.driver_trid) ? " cx5-hidden-from-image" : ""}`} key={row.driver_trid}>
                     <div className="cx5-mobile-card-top">
                       <span className="cx5-mobile-rank">#{pageStart + index + 1}</span>
                       <div className="cx5-mobile-driver">
@@ -927,6 +938,7 @@ export default function ConcessionsSimpleView({
                         <span>Average <b>{average.toFixed(1)}/wk</b></span>
                         <span>Weeks <b>{historic.affectedWeeks}/{historicWeeks.length}</b></span>
                       </div>
+                      <div className="cx5-driver-actions">
                       <button
                         type="button"
                         className="cx5-open"
@@ -944,6 +956,16 @@ export default function ConcessionsSimpleView({
                       >
                         Open <span>→</span>
                       </button>
+                      <button
+                        type="button"
+                        className={`cx5-hide-image ${hiddenTrids.has(row.driver_trid) ? "is-hidden" : ""}`}
+                        aria-pressed={hiddenTrids.has(row.driver_trid)}
+                        onClick={() => toggleImageDriver(row.driver_trid)}
+                        title="Excludes this driver from PNG only, not the data"
+                      >
+                        {hiddenTrids.has(row.driver_trid) ? "Show" : "Hide"}
+                      </button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -1082,6 +1104,14 @@ export default function ConcessionsSimpleView({
 
       <style jsx global>{`
         .cx5{display:grid;gap:12px;padding-bottom:28px;max-width:1600px;margin:0 auto}
+        .cx5-driver-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+        .cx5-hide-image,.cx5-restore-images{padding:7px 9px;border:1px solid #d5dfe9;border-radius:8px;background:#f8fafc;color:#465e76;font-size:10px;font-weight:850;cursor:pointer;white-space:nowrap}
+        .cx5-hide-image:hover,.cx5-restore-images:hover{background:#ecf3fa;border-color:#a9c6e4}
+        .cx5-hide-image.is-hidden{background:#e8f4ff;border-color:#9bc4ed;color:#15519c}
+        .cx5-hidden-from-image{box-shadow:inset 3px 0 0 #8ab6e4}
+        .cx5-preview-name{display:flex;align-items:center;justify-content:space-between;min-width:0;gap:4px}
+        .cx5-preview-name>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .cx5-preview-name>button{flex:0 0 auto;margin-right:5px;padding:3px 6px;border:1px solid #d4e0eb;border-radius:5px;background:#f6f9fc;color:#51677d;font-size:8px;font-weight:850;cursor:pointer}
         .cx5-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:7px 2px 2px}
         .cx5-heading h1{margin:4px 0 4px;font-size:29px;line-height:1.05;letter-spacing:-.035em;color:#10263a}
         .cx5-heading p{margin:0;max-width:760px;font-size:11px;line-height:1.5;color:#738395}
