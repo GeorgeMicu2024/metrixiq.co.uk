@@ -216,10 +216,7 @@ function makeDxp1SnapshotFixture() {
   return [
     ...dxp1W41Dnr.map((dnr, i) => row(i, "W41", dnr)),
     ...dxp1W42Dnr.map((dnr, i) => row(i, "W42", dnr)),
-    row(0, "W42", 99) && {
-      ...row(0, "W42", 99),
-      site: "DLS2",
-    },
+    { ...row(0, "W42", 99), site: "DLS2" },
   ];
 }
 
