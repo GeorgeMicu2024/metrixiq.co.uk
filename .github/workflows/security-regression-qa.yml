@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - qa/metrixiq-security-smoke-20261017
+  pull_request:
+    branches:
+      - chore/metrixiq-security-dependencies-20261017
 
 permissions:
   contents: read
