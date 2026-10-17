@@ -1,0 +1,112 @@
+name: Security Visual Parity (public pages only)
+on:
+  pull_request:
+    branches:
+      - chore/metrixiq-security-dependencies-20261017
+
+permissions:
+  contents: read
+
+jobs:
+  compare-public-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci_service_role_placeholder
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3001
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install isolated Chromium test harness
+        run: |
+          npm install --prefix "$RUNNER_TEMP/browserdeps" --no-audit --no-fund playwright@1.56.1 pngjs@7.0.0
+          node "$RUNNER_TEMP/browserdeps/node_modules/playwright/cli.js" install chromium
+      - name: Create ephemeral screenshot scripts
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/capture.cjs" <<'JS'
+          const { chromium }=require(process.env.RUNNER_TEMP+"/browserdeps/node_modules/playwright");
+          const fs=require("node:fs");const path=require("node:path");
+          (async()=>{
+            const kind=process.argv[2];
+            if(!["patched","baseline"].includes(kind))throw new Error("Invalid snapshot kind");
+            const browser=await chromium.launch({headless:true,args:["--no-sandbox"]});
+            const widths=[["mobile",390,844],["desktop",1440,900]];
+            for(const [device,width,height] of widths){
+              const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1,locale:"en-GB",timezoneId:"Europe/London",reducedMotion:"reduce"});
+              await context.route("**/*",route=>{
+                const url=route.request().url();
+                if(url.startsWith("http://127.0.0.1:3001/")||url.startsWith("data:")||url.startsWith("blob:"))return route.continue();
+                return route.abort();
+              });
+              const page=await context.newPage();
+              for(const [label,route] of [["homepage","/"],["pricing","/pricing"],["login","/login"]]){
+                const errors=[];
+                page.on("pageerror",e=>errors.push(String(e.message)));
+                const response=await page.goto("http://127.0.0.1:3001"+route,{waitUntil:"load",timeout:25000});
+                if(response.status()!==200)throw new Error(label+" HTTP "+response.status());
+                await page.evaluate(()=>document.fonts?.ready);
+                await page.waitForTimeout(700);
+                fs.mkdirSync(path.join(process.env.RUNNER_TEMP,"visual",kind),{recursive:true});
+                await page.screenshot({path:path.join(process.env.RUNNER_TEMP,"visual",kind,label+"-"+device+".png"),fullPage:false,animations:"disabled"});
+                console.log(kind+" "+device+" "+label+" HTTP "+response.status()+" JS errors="+errors.length);
+                if(errors.length)throw new Error(label+": "+errors.join("; "));
+              }
+              await context.close();
+            }
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          JS
+          cat > "$RUNNER_TEMP/compare.cjs" <<'JS'
+          const {PNG}=require(process.env.RUNNER_TEMP+"/browserdeps/node_modules/pngjs");
+          const fs=require("node:fs");const path=require("node:path");
+          let worst=0;
+          for(const device of ["mobile","desktop"])for(const label of ["homepage","pricing","login"]){
+            const dir=path.join(process.env.RUNNER_TEMP,"visual");
+            const a=PNG.sync.read(fs.readFileSync(path.join(dir,"baseline",label+"-"+device+".png")));
+            const b=PNG.sync.read(fs.readFileSync(path.join(dir,"patched",label+"-"+device+".png")));
+            if(a.width!==b.width||a.height!==b.height)throw new Error("Viewport size mismatch for "+label);
+            let diff=0;
+            for(let i=0;i<a.data.length;i+=4){
+              if(Math.abs(a.data[i]-b.data[i])>35||Math.abs(a.data[i+1]-b.data[i+1])>35||Math.abs(a.data[i+2]-b.data[i+2])>35)diff++;
+            }
+            const pct=100*diff/(a.width*a.height);
+            worst=Math.max(worst,pct);
+            console.log(device+" "+label+" pixel change above threshold 35: "+pct.toFixed(3)+"%");
+            if(pct>6.0)throw new Error("Visual change over 6% on "+device+" "+label);
+          }
+          console.log("PASS: Public mobile/desktop screenshot parity; worst diff "+worst.toFixed(3)+"%");
+          JS
+      - name: Screenshot current patched dependencies
+        shell: bash
+        run: |
+          npm ci --no-fund
+          npm run build
+          npm run start -- --hostname 127.0.0.1 --port 3001 > "$RUNNER_TEMP/patched-server.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for n in $(seq 1 30); do if curl -fsS http://127.0.0.1:3001/ -o /dev/null; then break; fi; sleep 1; done
+          node "$RUNNER_TEMP/capture.cjs" patched
+      - name: Screenshot exact production baseline dependencies
+        shell: bash
+        run: |
+          git show 3437dabc05c508cadc56e59cc8f4fb34546cb4f7:package-lock.json > package-lock.json
+          npm ci --no-fund
+          npm run build
+          npm run start -- --hostname 127.0.0.1 --port 3001 > "$RUNNER_TEMP/baseline-server.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for n in $(seq 1 30); do if curl -fsS http://127.0.0.1:3001/ -o /dev/null; then break; fi; sleep 1; done
+          node "$RUNNER_TEMP/capture.cjs" baseline
+      - name: Compare screenshots at phone and desktop resolutions
+        run: node "$RUNNER_TEMP/compare.cjs"
