@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   buildSingleWeekConcessionRows,
   buildMultiWeekConcessionRows,
@@ -122,4 +123,50 @@ test("25-driver PNG pagination includes affected drivers after merging history a
   assert.equal(rows.length, 83);
   assert.deepEqual(concessionExportPages(rows).map((page) => page.length), [25, 25, 25, 8]);
   assert.equal(rows.filter((row) => row.total > 0).length, 82);
+});
+
+const concessionsViewSource = () =>
+  readFileSync(new URL("../components/operations/ConcessionsSimpleView.jsx", import.meta.url), "utf8");
+
+test("off-screen PNG image source never overlaps the iPhone viewport", () => {
+  const view = concessionsViewSource();
+  assert.match(view, /\.cx5-export-stack\{position:fixed;left:-20000px;top:0;transform:none/);
+  assert.ok(!view.includes('translateX(-140vw)'), "Viewport-based translation is too small for fixed-width PNG pages");
+  assert.ok(view.includes('exportPageRefs.current[pageIndex] = node'), "Image export refs must be preserved");
+  assert.ok(view.includes('await toBlob(node'), "Existing PNG generation must remain available");
+});
+
+test("mobile driver cards render the same paginated rows and filter state as desktop", () => {
+  const view = concessionsViewSource();
+  assert.ok(view.includes('className="cx5-mobile-cards"'));
+  assert.equal(view.split("pagedFiltered.map((row, index)").length - 1, 2);
+  assert.ok(view.includes('className="cx5-mobile-week-grid"'));
+  assert.ok(view.includes("weeks.map((week) => {"));
+  assert.ok(view.includes("Number(row.byWeek?.[week] || 0)"));
+  assert.ok(view.includes('className="cx5-mobile-total"'));
+  assert.ok(view.includes('showTrid && <code>{row.driver_trid}</code>'));
+});
+
+test("mobile cards preserve the existing open-driver action and numeric meaning", () => {
+  const view = concessionsViewSource();
+  const cardStart = view.indexOf('className="cx5-mobile-cards"');
+  const end = view.indexOf('{filtered.length > 0 && (', cardStart);
+  const card = view.slice(cardStart, end);
+  assert.ok(card.includes('disabled={!row.driver_id}'));
+  assert.ok(card.includes('onOpenDriver?.({'));
+  assert.ok(card.includes('concessions: range === 1 ? Number(row.byWeek?.[latestWeek] || 0) : row.total'));
+  assert.ok(card.includes('historic.total'));
+  assert.ok(card.includes('average.toFixed(1)'));
+  assert.ok(card.includes('historic.affectedWeeks'));
+});
+
+test("mobile-only CSS hides the desktop table and keeps card and filter widths contained", () => {
+  const view = concessionsViewSource();
+  assert.ok(view.includes('.cx5-mobile-cards{display:none}'));
+  assert.ok(view.includes('@media(max-width:760px){'));
+  assert.ok(view.includes('.cx5-table-wrap{display:none}'));
+  assert.ok(view.includes('.cx5-mobile-cards{display:grid'));
+  assert.ok(view.includes('.cx5-filterbar{display:grid'));
+  assert.ok(view.includes('.cx5-pagination{grid-template-columns:1fr'));
+  assert.ok(view.includes('.cx5-summary{grid-template-columns:repeat(2,minmax(0,1fr))}'));
 });
