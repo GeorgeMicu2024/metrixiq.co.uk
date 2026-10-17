@@ -6,6 +6,7 @@ import {
   buildSingleWeekConcessionRows,
   buildMultiWeekConcessionRows,
   concessionExportPages,
+  concessionImageRows,
   weeklyConcessionTone,
 } from "../lib/data/concessionsWeeklyView.js";
 
@@ -246,4 +247,50 @@ test("legacy consumers of concessions snapshots still receive positive DNR rows 
 test("only the Concessions page explicitly requests zero-DNR snapshot rows", () => {
   const view = readFileSync(new URL("../components/operations/ConcessionsSimpleView.jsx", import.meta.url), "utf8");
   assert.match(view, /fetchConcessionSnapshots\(\s*getSupabaseBrowserClient\(\),\s*organizationId,\s*siteFilter,\s*true/);
+});
+
+test("Hide affects PNG rows only; DXP1 snapshot totals and table rows stay untouched", () => {
+  const records = makeDxp1SnapshotFixture().filter((row) => row.site === "DXP1");
+  const tableRows = buildMultiWeekConcessionRows(records, "DXP1", ["W41", "W42"]);
+  const before = JSON.stringify(tableRows);
+  const hidden = new Set([tableRows[0].driver_trid, tableRows[13].driver_trid]);
+  const imageRows = concessionImageRows(tableRows, hidden);
+  assert.equal(tableRows.length, 16);
+  assert.equal(imageRows.length, 14);
+  assert.equal(imageRows.some((row) => hidden.has(row.driver_trid)), false);
+  assert.equal(tableRows.reduce((sum, row) => sum + row.total, 0), 80);
+  assert.equal(JSON.stringify(tableRows), before, "the original report and DNR must not be mutated");
+  assert.deepEqual(concessionExportPages(imageRows).map((page) => page.length), [14]);
+  assert.equal(concessionImageRows(tableRows, new Set()).length, 16, "Show all restores full image");
+});
+
+test("PNG pagination remains contiguous after hiding drivers across image pages", () => {
+  const rows = Array.from({ length: 55 }, (_, i) => ({ driver_trid: "DXP1-" + i, total: i + 1 }));
+  const hidden = new Set(rows.slice(17, 24).map((row) => row.driver_trid));
+  const visible = concessionImageRows(rows, hidden);
+  assert.deepEqual(concessionExportPages(visible).map((page) => page.length), [25, 23]);
+  assert.deepEqual(visible.map((row) => row.driver_trid), rows.filter((row) => !hidden.has(row.driver_trid)).map((row) => row.driver_trid));
+  assert.equal(rows.length, 55);
+  assert.equal(concessionImageRows(rows).length, 55);
+});
+
+test("desktop mobile and weekly image preview expose reversible PNG-only Hide controls", () => {
+  const view = concessionsViewSource();
+  assert.ok(view.includes('const [hiddenImageDrivers, setHiddenImageDrivers] = useState'));
+  assert.ok(view.includes('const imageScope = '), "hide state must be scoped by site, week range, and organization");
+  assert.ok(view.includes('hiddenImageDrivers.scope === imageScope'));
+  assert.ok(view.includes('const exportRows = useMemo('));
+  assert.ok(view.includes('concessionImageRows(filtered, hiddenTrids)'));
+  assert.ok(view.includes('concessionExportPages(exportRows, CONCESSIONS_PAGE_SIZE)'));
+  assert.ok(view.includes('if (!exportRows.length || !exportPages.length) return'));
+  assert.ok(view.includes('restoreAllImageDrivers'));
+  assert.ok(view.includes('↶ Show all ({hiddenCount})'));
+  assert.ok(view.includes('aria-label={`Hide ${row.driver_name} from image`'));
+  assert.equal(view.split('onClick={() => toggleImageDriver(row.driver_trid)}').length - 1, 3, "weekly preview, desktop and mobile must have Hide controls");
+  assert.equal(view.split('aria-pressed={hiddenTrids.has(row.driver_trid)}').length - 1, 2);
+  assert.ok(view.includes('disabled={!exportRows.length}'));
+  assert.ok(view.includes('disabled={!previewReady || !exportRows.length}'));
+  assert.ok(view.includes('const selectedTotal = weekly.reduce('), "verified KPI remains independent of hidden rows");
+  assert.ok(view.includes('const uniqueAffected = matrix.filter('), "driver totals must remain independent of image hide");
+  assert.ok(view.includes('const pagedFiltered = filtered.slice('), "the main list must preserve undo visibility");
 });
