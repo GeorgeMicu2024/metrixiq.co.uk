@@ -9,6 +9,7 @@ import {
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import {
   buildSingleWeekConcessionRows,
+  buildMultiWeekConcessionRows,
   concessionExportPages,
   weeklyConcessionTone,
 } from "../../lib/data/concessionsWeeklyView";
@@ -242,46 +243,9 @@ export default function ConcessionsSimpleView({
         load.rows || [], site, effectiveWeek, latestSiteRoster, drivers
       );
     }
-    const snapshotMatrix = buildFourWeekConcessionMatrix(load.rows || [], site, weeks);
-    const rosterDrivers = latestSiteRoster.length ? latestSiteRoster : drivers;
-    if (!rosterDrivers?.length) return snapshotMatrix;
-
-    const snapshotByTrid = new Map(
-      snapshotMatrix.map((row) => [String(row.driver_trid || "").toUpperCase(), row])
+    return buildMultiWeekConcessionRows(
+      load.rows || [], site, weeks, latestSiteRoster, drivers
     );
-
-    return rosterDrivers
-      .map((driver) => {
-        const trid = String(driver?.id || "").trim().toUpperCase();
-        if (!trid) return null;
-
-        const existing = snapshotByTrid.get(trid);
-        if (existing) {
-          return {
-            ...existing,
-            driver_id: existing.driver_id || driver?.dbId || null,
-            driver_name: driver?.name || existing.driver_name || trid,
-            site,
-          };
-        }
-
-        return {
-          driver_id: driver?.dbId || null,
-          driver_trid: trid,
-          driver_name: driver?.name || trid,
-          site,
-          byWeek: Object.fromEntries(weeks.map((week) => [week, 0])),
-          total: 0,
-          affectedWeeks: 0,
-        };
-      })
-      .filter(Boolean)
-      .sort(
-        (a, b) =>
-          b.total - a.total ||
-          b.affectedWeeks - a.affectedWeeks ||
-          a.driver_name.localeCompare(b.driver_name)
-      );
   }, [load.rows, site, weeks, drivers, latestSiteRoster, range, effectiveWeek]);
 
   const weekly = useMemo(
@@ -364,7 +328,7 @@ export default function ConcessionsSimpleView({
   }, [query, show, range, site, effectiveWeek, load.rows]);
 
   const selectedTotal = weekly.reduce((sum, item) => sum + item.total, 0);
-  const uniqueAffected = matrix.length;
+  const uniqueAffected = matrix.filter((row) => Number(row.total || 0) > 0).length;
   const repeatDrivers = range === 1
     ? historicMatrix.filter((row) => row.affectedWeeks >= 2).length
     : matrix.filter((row) => row.affectedWeeks >= 2).length;

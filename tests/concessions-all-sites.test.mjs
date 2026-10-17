@@ -49,14 +49,16 @@ test("Concessions has 25-driver pagination and PNG export for every site", () =>
 test("Concessions includes current site drivers with zero DNR", () => {
   const view = read("components/operations/ConcessionsSimpleView.jsx");
   const dashboard = read("components/DashboardClient.jsx");
+  const helper = read("lib/data/concessionsWeeklyView.js");
 
   assert.ok(dashboard.includes('refreshKey={operationalRefreshKey} drivers={drivers}'));
   assert.ok(view.includes("drivers = []"));
-  assert.ok(view.includes("const snapshotMatrix = buildFourWeekConcessionMatrix"));
-  assert.ok(view.includes("const snapshotByTrid = new Map"));
-  assert.ok(view.includes("byWeek: Object.fromEntries(weeks.map((week) => [week, 0]))"));
-  assert.ok(view.includes("total: 0"));
-  assert.ok(view.includes("affectedWeeks: 0"));
+  assert.ok(view.includes("buildMultiWeekConcessionRows("));
+  assert.ok(helper.includes("const snapshotMatrix = buildFourWeekConcessionMatrix"));
+  assert.ok(helper.includes("const byTrid = new Map"));
+  assert.ok(helper.includes("byWeek: Object.fromEntries(weeks.map((week) => [week, 0]))"));
+  assert.ok(helper.includes("total: 0"));
+  assert.ok(helper.includes("affectedWeeks: 0"));
 });
 
 

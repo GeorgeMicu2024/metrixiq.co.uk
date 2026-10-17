@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildSingleWeekConcessionRows,
+  buildMultiWeekConcessionRows,
   concessionExportPages,
   weeklyConcessionTone,
 } from "../lib/data/concessionsWeeklyView.js";
@@ -64,4 +65,61 @@ test("weekly aggregation does not mutate source records", () => {
   const original=JSON.stringify(snapshots);
   buildSingleWeekConcessionRows(snapshots,"DLS2","W41",latestRoster);
   assert.equal(JSON.stringify(snapshots),original);
+});
+
+test("8-week view keeps former drivers with DNR even when absent from the latest roster", () => {
+  const rows = buildMultiWeekConcessionRows(snapshots, "DLS2", ["W40", "W41"], latestRoster);
+  assert.deepEqual(rows.map((row) => [row.driver_trid, row.total]), [
+    ["A111", 8],
+    ["A222", 1],
+    ["A444", 0],
+  ]);
+  assert.equal(rows.find((row) => row.driver_trid === "A111").driver_name, "Driver One Corrected");
+  assert.equal(rows.find((row) => row.driver_trid === "A222").driver_name, "Driver Two");
+});
+
+test("unique affected excludes zero-concession roster and repeat drivers count across weeks", () => {
+  const rows = buildMultiWeekConcessionRows(snapshots, "DLS2", ["W40", "W41"], latestRoster);
+  assert.equal(rows.filter((row) => row.total > 0).length, 2);
+  assert.equal(rows.filter((row) => row.affectedWeeks >= 2).length, 1);
+  assert.equal(rows.reduce((sum, row) => sum + row.total, 0), 9);
+});
+
+test("4-week view limits affected counts and DNR totals to the selected weeks", () => {
+  const rows = buildMultiWeekConcessionRows(snapshots, "DLS2", ["W41"], latestRoster);
+  assert.equal(rows.find((row) => row.driver_trid === "A111").total, 6);
+  assert.equal(rows.filter((row) => row.affectedWeeks >= 2).length, 0);
+  assert.equal(rows.reduce((sum, row) => sum + row.total, 0), 7);
+});
+
+test("historical affected drivers survive when latest roster is empty", () => {
+  const rows = buildMultiWeekConcessionRows(snapshots, "DLS2", ["W40", "W41"], []);
+  assert.equal(rows.length, 2);
+  assert.ok(rows.some((row) => row.driver_trid === "A222"));
+});
+
+test("fallback roster contributes zero-concession drivers without removing former affected drivers", () => {
+  const rows = buildMultiWeekConcessionRows(snapshots, "DLS2", ["W41"], [], [{ id: "A555", name: "New Driver" }]);
+  assert.equal(rows.length, 3);
+  assert.equal(rows.find((row) => row.driver_trid === "A555").total, 0);
+  assert.equal(rows.filter((row) => row.total > 0).length, 2);
+});
+
+test("multi-week report is site-isolated and does not mutate uploaded concession snapshots", () => {
+  const before = JSON.stringify(snapshots);
+  const rows = buildMultiWeekConcessionRows(snapshots, "DLS2", ["W40", "W41"], latestRoster);
+  assert.equal(rows.some((row) => row.driver_trid === "C333"), false);
+  assert.equal(JSON.stringify(snapshots), before);
+});
+
+test("25-driver PNG pagination includes affected drivers after merging history and roster", () => {
+  const affected = Array.from({ length: 82 }, (_, index) => ({
+    site: "DLS2", week_label: "W42", driver_trid: "A" + index,
+    driver_name: "Former Driver " + index, dnr: 1
+  }));
+  const roster = [{id: "Z999", name:"Current zero-concession driver"}];
+  const rows = buildMultiWeekConcessionRows(affected, "DLS2", ["W42"], roster);
+  assert.equal(rows.length, 83);
+  assert.deepEqual(concessionExportPages(rows).map((page) => page.length), [25, 25, 25, 8]);
+  assert.equal(rows.filter((row) => row.total > 0).length, 82);
 });
