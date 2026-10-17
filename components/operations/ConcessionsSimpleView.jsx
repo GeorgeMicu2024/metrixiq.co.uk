@@ -1349,7 +1349,7 @@ export default function ConcessionsSimpleView({
         }
 
         @media(max-width:520px){
-          .cx5-summary{grid-template-columns:1fr}
+          .cx5-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
           .cx5-chart-shell{height:160px}
         }
       `}</style>
