@@ -100,7 +100,9 @@ jobs:
       - name: Screenshot exact production baseline dependencies
         shell: bash
         run: |
+          if command -v fuser >/dev/null 2>&1; then fuser -k 3001/tcp || true; fi
           git show 3437dabc05c508cadc56e59cc8f4fb34546cb4f7:package-lock.json > package-lock.json
+          node -e 'const p=require("./package-lock.json").packages;console.log("Baseline Next.js version",p["node_modules/next"].version)'
           npm ci --no-fund
           npm run build
           npm run start -- --hostname 127.0.0.1 --port 3001 > "$RUNNER_TEMP/baseline-server.log" 2>&1 &
