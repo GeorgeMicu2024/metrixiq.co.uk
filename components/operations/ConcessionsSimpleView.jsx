@@ -11,6 +11,7 @@ import {
   buildSingleWeekConcessionRows,
   buildMultiWeekConcessionRows,
   concessionExportPages,
+  concessionImageRows,
   weeklyConcessionTone,
 } from "../../lib/data/concessionsWeeklyView";
 import { ErrorBox, Loading } from "./OperationalShared";
@@ -103,6 +104,8 @@ export default function ConcessionsSimpleView({
   const [showTrid, setShowTrid] = useState(true);
   const [page, setPage] = useState(1);
   const [saveMessage, setSaveMessage] = useState("");
+  // Temporary PNG-only exclusions; never written to the database.
+  const [hiddenImageDrivers, setHiddenImageDrivers] = useState({ scope: "", trids: [] });
   const [latestSiteRoster, setLatestSiteRoster] = useState([]);
   const exportPageRefs = useRef([]);
 
@@ -119,7 +122,8 @@ export default function ConcessionsSimpleView({
         const rows = await fetchConcessionSnapshots(
           getSupabaseBrowserClient(),
           organizationId,
-          siteFilter
+          siteFilter,
+          true // Include saved zero-DNR drivers in Concessions history and PNG.
         );
         if (alive) setLoad({ loading: false, error: "", rows });
       } catch (error) {
@@ -309,13 +313,40 @@ export default function ConcessionsSimpleView({
     });
   }, [matrix, query, show, latestWeek, range, repeatTrids]);
 
+  // PNG and its preview use their own rows. Metrics, main table and charts
+  // continue to use the complete verified snapshot matrix.
+  const imageScope = `${organizationId || ""}:${site}:${range}:${weeks.join(",")}`;
+  const hiddenTrids = useMemo(
+    () => new Set(hiddenImageDrivers.scope === imageScope ? hiddenImageDrivers.trids : []),
+    [hiddenImageDrivers, imageScope]
+  );
+  const exportRows = useMemo(
+    () => concessionImageRows(filtered, hiddenTrids),
+    [filtered, hiddenTrids]
+  );
+  const hiddenCount = hiddenTrids.size;
+
+  function toggleImageDriver(trid) {
+    setHiddenImageDrivers((current) => {
+      const trids = current.scope === imageScope ? current.trids : [];
+      return {
+        scope: imageScope,
+        trids: trids.includes(trid) ? trids.filter((id) => id !== trid) : [...trids, trid],
+      };
+    });
+  }
+
+  function restoreAllImageDrivers() {
+    setHiddenImageDrivers({ scope: imageScope, trids: [] });
+  }
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / CONCESSIONS_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageStart = (currentPage - 1) * CONCESSIONS_PAGE_SIZE;
   const pagedFiltered = filtered.slice(pageStart, pageStart + CONCESSIONS_PAGE_SIZE);
   const exportPages = useMemo(
-    () => concessionExportPages(filtered, CONCESSIONS_PAGE_SIZE),
-    [filtered]
+    () => concessionExportPages(exportRows, CONCESSIONS_PAGE_SIZE),
+    [exportRows]
   );
 
   useEffect(() => {
@@ -381,7 +412,7 @@ export default function ConcessionsSimpleView({
   }, [weekly, maxWeek]);
 
   async function saveConcessionsImages() {
-    if (!filtered.length || !exportPages.length) return;
+    if (!exportRows.length || !exportPages.length) return;
     const totalPages = exportPages.length;
     setSaveMessage(totalPages > 1 ? `Creating ${totalPages} pages…` : "Creating image…");
     try {
@@ -491,7 +522,7 @@ export default function ConcessionsSimpleView({
                 type="button"
                 className="cx5-week-generate"
                 onClick={() => setPreviewReady(true)}
-                disabled={!filtered.length}
+                disabled={!exportRows.length}
               >
                 ▧ Generate weekly images
               </button>
@@ -499,7 +530,7 @@ export default function ConcessionsSimpleView({
                 type="button"
                 className="cx5-week-download"
                 onClick={saveConcessionsImages}
-                disabled={!previewReady || !filtered.length}
+                disabled={!previewReady || !exportRows.length}
               >
                 ↓ Download images
               </button>
@@ -560,11 +591,11 @@ export default function ConcessionsSimpleView({
                 <div>
                   <span className="page-kicker">WEEKLY IMAGES</span>
                   <h2>{site} • {latestWeek} concessions</h2>
-                  <p>{filtered.length} drivers • {exportPages.length} page(s), 25 per page. Previews reflect the current search and filter.</p>
+                  <p>{exportRows.length} drivers in image • {exportPages.length} page(s), 25 per page. {hiddenCount > 0 ? `${hiddenCount} hidden from image.` : "Use Hide to exclude drivers from PNG."}</p>
                 </div>
                 <span className="cx5-preview-status">{previewReady ? "Ready to download" : "Generate to preview"}</span>
               </div>
-              {previewReady ? (
+              {previewReady && exportPages.length > 0 ? (
                 <div className="cx5-preview-grid" aria-label="Weekly concessions image page previews">
                   {exportPages.map((pageRows, pageIndex) => (
                     <div className="cx5-preview-card" key={pageIndex}>
@@ -578,7 +609,15 @@ export default function ConcessionsSimpleView({
                           const value = Number(row.byWeek?.[latestWeek] || 0);
                           return (
                             <div className="cx5-preview-row" key={row.driver_trid}>
-                              <span>{row.driver_name}</span>
+                              <div className="cx5-preview-name">
+                                <span>{row.driver_name}</span>
+                                <button
+                                  type="button"
+                                  aria-label={`Hide ${row.driver_name} from image`}
+                                  title="Hide from PNG only"
+                                  onClick={() => toggleImageDriver(row.driver_trid)}
+                                >Hide</button>
+                              </div>
                               <strong className={weeklyConcessionTone(value)}>{value}</strong>
                             </div>
                           );
@@ -589,7 +628,7 @@ export default function ConcessionsSimpleView({
                 </div>
               ) : (
                 <div className="cx5-preview-placeholder">
-                  Click <b>Generate weekly images</b> to preview all {exportPages.length} export page(s).
+                  {exportRows.length === 0 ? "All drivers hidden. Use Show all to restore them." : <>Click <b>Generate weekly images</b> to preview all {exportPages.length} export page(s).</>}
                 </div>
               )}
             </section>
@@ -722,12 +761,20 @@ export default function ConcessionsSimpleView({
                   <span aria-hidden="true">{showTrid ? "◉" : "⊘"}</span>
                   {showTrid ? "Hide TRID" : "Show TRID"}
                 </button>
+                {hiddenCount > 0 && (
+                  <button
+                    type="button"
+                    className="cx5-restore-images"
+                    onClick={restoreAllImageDrivers}
+                    title="Restore all hidden drivers to the image"
+                  >↶ Show all ({hiddenCount})</button>
+                )}
                 {range !== 1 && (
                   <button
                     type="button"
                     className="cx5-save-image"
                     onClick={saveConcessionsImages}
-                    disabled={!filtered.length}
+                    disabled={!exportRows.length}
                   >
                     <span aria-hidden="true">↓</span>
                     Save Image
@@ -766,7 +813,7 @@ export default function ConcessionsSimpleView({
                       ? historic.total / (range === 1 ? eightWeeks : weeks).length : 0;
 
                     return (
-                      <tr key={row.driver_trid}>
+                      <tr key={row.driver_trid} className={hiddenTrids.has(row.driver_trid) ? "cx5-hidden-from-image" : ""}>
                         <td>
                           <span className="cx5-rank">{pageStart + index + 1}</span>
                         </td>
@@ -809,6 +856,7 @@ export default function ConcessionsSimpleView({
                           </span>
                         </td>
                         <td>
+                          <div className="cx5-driver-actions">
                           <button
                             type="button"
                             className="cx5-open"
@@ -827,6 +875,16 @@ export default function ConcessionsSimpleView({
                             Open
                             <span>→</span>
                           </button>
+                          <button
+                            type="button"
+                            className={`cx5-hide-image ${hiddenTrids.has(row.driver_trid) ? "is-hidden" : ""}`}
+                            aria-pressed={hiddenTrids.has(row.driver_trid)}
+                            onClick={() => toggleImageDriver(row.driver_trid)}
+                            title="Excludes this driver from PNG only, not the data"
+                          >
+                            {hiddenTrids.has(row.driver_trid) ? "Show" : "Hide"}
+                          </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -852,7 +910,7 @@ export default function ConcessionsSimpleView({
                 const historicWeeks = range === 1 ? eightWeeks : weeks;
                 const average = historicWeeks.length ? historic.total / historicWeeks.length : 0;
                 return (
-                  <article className="cx5-mobile-card" key={row.driver_trid}>
+                  <article className={`cx5-mobile-card${hiddenTrids.has(row.driver_trid) ? " cx5-hidden-from-image" : ""}`} key={row.driver_trid}>
                     <div className="cx5-mobile-card-top">
                       <span className="cx5-mobile-rank">#{pageStart + index + 1}</span>
                       <div className="cx5-mobile-driver">
@@ -881,6 +939,7 @@ export default function ConcessionsSimpleView({
                         <span>Average <b>{average.toFixed(1)}/wk</b></span>
                         <span>Weeks <b>{historic.affectedWeeks}/{historicWeeks.length}</b></span>
                       </div>
+                      <div className="cx5-driver-actions">
                       <button
                         type="button"
                         className="cx5-open"
@@ -898,6 +957,16 @@ export default function ConcessionsSimpleView({
                       >
                         Open <span>→</span>
                       </button>
+                      <button
+                        type="button"
+                        className={`cx5-hide-image ${hiddenTrids.has(row.driver_trid) ? "is-hidden" : ""}`}
+                        aria-pressed={hiddenTrids.has(row.driver_trid)}
+                        onClick={() => toggleImageDriver(row.driver_trid)}
+                        title="Excludes this driver from PNG only, not the data"
+                      >
+                        {hiddenTrids.has(row.driver_trid) ? "Show" : "Hide"}
+                      </button>
+                      </div>
                     </div>
                   </article>
                 );
@@ -930,7 +999,7 @@ export default function ConcessionsSimpleView({
                   ))}
                 </div>
                 <span>
-                  Showing {pageStart + 1}–{Math.min(pageStart + CONCESSIONS_PAGE_SIZE, filtered.length)} of {filtered.length} drivers
+                  Showing {pageStart + 1}–{Math.min(pageStart + CONCESSIONS_PAGE_SIZE, filtered.length)} of {exportRows.length} drivers
                 </span>
                 <b>25 per page</b>
               </div>
@@ -967,7 +1036,7 @@ export default function ConcessionsSimpleView({
                         })}
                       </div>
                       <footer className="cx5-single-export-foot">
-                        <span>{filtered.length} drivers • {latestWeek}</span>
+                        <span>{exportRows.length} drivers • {latestWeek}</span>
                         <b>Page {pageIndex + 1} of {exportPages.length}</b>
                       </footer>
                     </>
@@ -1021,7 +1090,7 @@ export default function ConcessionsSimpleView({
                   </div>
 
                   <footer className="cx5-export-foot">
-                    <span>Total {filtered.length} drivers</span>
+                    <span>Total {exportRows.length} drivers</span>
                     <b>Page {pageIndex + 1} of {exportPages.length}</b>
                     <span>{site} · {weeks.length ? `${weeks[0]}–${weeks[weeks.length - 1]}` : ""}</span>
                   </footer>
@@ -1036,6 +1105,14 @@ export default function ConcessionsSimpleView({
 
       <style jsx global>{`
         .cx5{display:grid;gap:12px;padding-bottom:28px;max-width:1600px;margin:0 auto}
+        .cx5-driver-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+        .cx5-hide-image,.cx5-restore-images{padding:7px 9px;border:1px solid #d5dfe9;border-radius:8px;background:#f8fafc;color:#465e76;font-size:10px;font-weight:850;cursor:pointer;white-space:nowrap}
+        .cx5-hide-image:hover,.cx5-restore-images:hover{background:#ecf3fa;border-color:#a9c6e4}
+        .cx5-hide-image.is-hidden{background:#e8f4ff;border-color:#9bc4ed;color:#15519c}
+        .cx5-hidden-from-image{box-shadow:inset 3px 0 0 #8ab6e4}
+        .cx5-preview-name{display:flex;align-items:center;justify-content:space-between;min-width:0;gap:4px}
+        .cx5-preview-name>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .cx5-preview-name>button{flex:0 0 auto;margin-right:5px;padding:3px 6px;border:1px solid #d4e0eb;border-radius:5px;background:#f6f9fc;color:#51677d;font-size:8px;font-weight:850;cursor:pointer}
         .cx5-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding:7px 2px 2px}
         .cx5-heading h1{margin:4px 0 4px;font-size:29px;line-height:1.05;letter-spacing:-.035em;color:#10263a}
         .cx5-heading p{margin:0;max-width:760px;font-size:11px;line-height:1.5;color:#738395}
