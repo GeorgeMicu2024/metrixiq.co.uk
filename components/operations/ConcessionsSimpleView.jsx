@@ -119,7 +119,8 @@ export default function ConcessionsSimpleView({
         const rows = await fetchConcessionSnapshots(
           getSupabaseBrowserClient(),
           organizationId,
-          siteFilter
+          siteFilter,
+          true // Include saved zero-DNR drivers in Concessions history and PNG.
         );
         if (alive) setLoad({ loading: false, error: "", rows });
       } catch (error) {
