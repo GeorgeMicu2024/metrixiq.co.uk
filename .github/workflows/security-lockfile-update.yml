@@ -1,0 +1,78 @@
+name: Security Lockfile Maintenance (isolated)
+on:
+  push:
+    branches:
+      - chore/metrixiq-security-dependencies-20261017
+
+permissions:
+  contents: write
+
+concurrency:
+  group: security-lockfile-isolated
+  cancel-in-progress: false
+
+jobs:
+  patch-lockfile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci_service_role_placeholder
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      NEXT_PUBLIC_APP_URL: https://example.com
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Show baseline dependency versions
+        run: |
+          node -e 'const p=require("./package-lock.json").packages;for (const x of ["next","sharp","source-map-js"]) console.log(x,p["node_modules/"+x]?.version)'
+      - name: Resolve vulnerable production dependencies within existing semver ranges
+        run: npm audit fix --package-lock-only --ignore-scripts --no-fund
+      - name: Enforce no package manifest or source modifications
+        run: |
+          git diff --exit-code -- package.json
+          git diff --check
+          unexpected="$(git diff --name-only | grep -v '^package-lock.json$' || true)"
+          test -z "$unexpected" || { echo "Unexpected changed files: $unexpected"; exit 1; }
+      - name: Verify patched dependencies install
+        run: npm ci --no-fund
+      - name: Require clean high/critical audit on production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Existing suite regression comparison (known baseline 17 failures)
+        shell: bash
+        run: |
+          set +e
+          npm test > "$RUNNER_TEMP/security-tests.log" 2>&1
+          result=$?
+          set -e
+          tail -n 38 "$RUNNER_TEMP/security-tests.log"
+          failure_count="$(grep '^# fail ' "$RUNNER_TEMP/security-tests.log" | tail -n1 | awk '{print $3}')"
+          total_count="$(grep '^# tests ' "$RUNNER_TEMP/security-tests.log" | tail -n1 | awk '{print $3}')"
+          echo "Previous baseline: 343 tests, 17 existing failures. Current: $total_count tests, $failure_count failures (exit $result)."
+          test "$total_count" = "343" || { echo "Unexpected test count"; exit 1; }
+          test -n "$failure_count" || { echo "Missing test summary"; exit 1; }
+          test "$failure_count" -le 17 || { echo "Tests regressed"; exit 1; }
+          grep '^not ok ' "$RUNNER_TEMP/security-tests.log" || true
+      - name: Build production bundle
+        run: npm run build
+      - name: Report patched package versions
+        run: |
+          node -e 'const p=require("./package-lock.json").packages;for (const x of ["next","sharp","source-map-js"]) console.log(x,p["node_modules/"+x]?.version)'
+      - name: Commit only audited lockfile to maintenance branch
+        run: |
+          if ! git diff --quiet -- package-lock.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore(security): patch locked production dependency versions"
+            git push origin HEAD:chore/metrixiq-security-dependencies-20261017
+          else
+            echo "Lockfile already current."
+          fi
