@@ -844,6 +844,69 @@ export default function ConcessionsSimpleView({
               </table>
             </div>
 
+            {/* Compact mobile presentation of the same paginated and filtered rows.
+                Desktop table and image exports are left intact. */}
+            <div className="cx5-mobile-cards" aria-label="Concessions drivers mobile list">
+              {pagedFiltered.map((row, index) => {
+                const historic = range === 1 ? (historicByTrid.get(row.driver_trid) || row) : row;
+                const historicWeeks = range === 1 ? eightWeeks : weeks;
+                const average = historicWeeks.length ? historic.total / historicWeeks.length : 0;
+                return (
+                  <article className="cx5-mobile-card" key={row.driver_trid}>
+                    <div className="cx5-mobile-card-top">
+                      <span className="cx5-mobile-rank">#{pageStart + index + 1}</span>
+                      <div className="cx5-mobile-driver">
+                        <b>{row.driver_name}</b>
+                        {historic.affectedWeeks >= 3 && <small>Repeat pattern</small>}
+                        {showTrid && <code>{row.driver_trid}</code>}
+                      </div>
+                      <div className="cx5-mobile-total">
+                        <span>{range === 1 ? "8-week total" : "Total DNR"}</span>
+                        <strong>{historic.total}</strong>
+                      </div>
+                    </div>
+                    <div className="cx5-mobile-week-grid">
+                      {weeks.map((week) => {
+                        const value = Number(row.byWeek?.[week] || 0);
+                        return (
+                          <div className="cx5-mobile-week" key={week}>
+                            <span>{week}</span>
+                            <strong className={`cx5-cell ${cellTone(value)}`}>{value}</strong>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="cx5-mobile-card-bottom">
+                      <div className="cx5-mobile-stats">
+                        <span>Average <b>{average.toFixed(1)}/wk</b></span>
+                        <span>Weeks <b>{historic.affectedWeeks}/{historicWeeks.length}</b></span>
+                      </div>
+                      <button
+                        type="button"
+                        className="cx5-open"
+                        disabled={!row.driver_id}
+                        onClick={() =>
+                          row.driver_id &&
+                          onOpenDriver?.({
+                            id: row.driver_trid,
+                            dbId: row.driver_id,
+                            name: row.driver_name,
+                            site,
+                            concessions: range === 1 ? Number(row.byWeek?.[latestWeek] || 0) : row.total,
+                          })
+                        }
+                      >
+                        Open <span>→</span>
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+              {!filtered.length && (
+                <div className="cx5-no-results">No drivers match the current filter.</div>
+              )}
+            </div>
+
             {filtered.length > 0 && (
               <div className="cx5-pagination">
                 <div className="cx5-page-buttons">
@@ -1117,7 +1180,7 @@ export default function ConcessionsSimpleView({
         .cx5-pagination>b{height:29px;display:flex;align-items:center;padding:0 10px;border:1px solid #d8e2e8;border-radius:7px;color:#41586c;font-size:9px;background:#fff}
         .cx5-save-message{padding:0 15px 11px;text-align:right;color:#2d7a68;font-size:9px;font-weight:800;background:#fff}
 
-        .cx5-export-stack{position:fixed;left:0;top:0;transform:translateX(-140vw);z-index:1;pointer-events:none}
+        .cx5-export-stack{position:fixed;left:-20000px;top:0;transform:none;z-index:-1;pointer-events:none}
         .cx5-export-page{padding:30px;background:#eef3f5;color:#13253a;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
         .cx5-export-head{display:flex;justify-content:space-between;align-items:flex-start;gap:22px;padding:24px 26px;border:1px solid #d7e2e8;border-radius:18px;background:#fff}
         .cx5-export-head>div:first-child>span{font-size:14px;font-weight:900;letter-spacing:1.6px;color:#2d8b78}
@@ -1221,6 +1284,70 @@ export default function ConcessionsSimpleView({
           .cx5-pagination{grid-template-columns:1fr;justify-items:start}
           .cx5-pagination>span{text-align:left}
         }
+
+        /* Mobile list: same data and filtering as desktop, presented vertically. */
+        .cx5-mobile-cards{display:none}
+        @media(max-width:760px){
+          .cx5{width:100%;max-width:100%;min-width:0;gap:11px}
+          .cx5-heading,.cx5-heading>div,.cx5-matrix,.cx5-trend,.cx5-summary,.cx5-weekly-preview{min-width:0}
+          .cx5-heading{gap:12px}
+          .cx5-heading h1{font-size:25px}
+          .cx5-heading p{font-size:12px;line-height:1.5}
+          .cx5-heading-meta{width:100%;justify-content:flex-start}
+          .cx5-range-switch{width:100%;justify-content:space-between}
+          .cx5-range-switch button{font-size:10px;padding:0 9px;height:32px;flex:1}
+          .cx5-heading-meta>b{height:28px}
+          .cx5-single-controls{width:100%;justify-content:flex-start}
+          .cx5-week-select{flex:1;min-width:130px}
+          .cx5-week-generate,.cx5-week-download{flex:1 1 145px;min-height:39px}
+          .cx5-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .cx5-summary article{min-width:0;padding:12px 10px;gap:8px}
+          .cx5-summary span{font-size:9px}
+          .cx5-summary strong{font-size:23px}
+          .cx5-summary small{font-size:10px}
+          .cx5-matrix-head{padding:14px 12px}
+          .cx5-matrix-head h2{font-size:19px}
+          .cx5-matrix-head p{font-size:11px}
+          .cx5-filterbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-width:0;width:100%;gap:8px}
+          .cx5-search{grid-column:1/-1;width:100%;min-width:0;box-sizing:border-box}
+          .cx5-filterbar select{min-width:0;width:100%}
+          .cx5-trid-toggle,.cx5-save-image{height:39px;font-size:11px;min-width:0;width:100%}
+          .cx5-table-wrap{display:none}
+          .cx5-mobile-cards{display:grid;gap:10px;padding:12px;background:#f3f7fa;min-width:0}
+          .cx5-mobile-card{min-width:0;overflow:hidden;border:1px solid #dbe5ec;border-radius:13px;background:#fff;box-shadow:0 2px 8px rgba(21,42,58,.045)}
+          .cx5-mobile-card-top{display:flex;gap:9px;align-items:flex-start;padding:12px}
+          .cx5-mobile-rank{display:grid;place-items:center;flex:0 0 31px;height:31px;border-radius:9px;background:#eaf0f5;color:#23394d;font-size:11px;font-weight:900}
+          .cx5-mobile-driver{min-width:0;flex:1;display:grid;gap:3px;padding-top:1px}
+          .cx5-mobile-driver b{font-size:14px;font-weight:900;line-height:1.3;color:#101827;overflow-wrap:anywhere}
+          .cx5-mobile-driver small{font-size:9px;font-weight:900;letter-spacing:.025em;color:#b4232c;text-transform:uppercase}
+          .cx5-mobile-driver code{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:700;color:#33465c}
+          .cx5-mobile-total{display:grid;gap:4px;justify-items:center;flex:0 0 73px;background:#e8f2fb;padding:8px 7px;border-radius:10px}
+          .cx5-mobile-total span{font-size:9px;font-weight:800;color:#3d5672;text-align:center}
+          .cx5-mobile-total strong{font-size:23px;line-height:1;font-weight:950;color:#10243a}
+          .cx5-mobile-week-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:0 12px 12px}
+          .cx5-mobile-week{min-width:0;display:grid;gap:4px;text-align:center}
+          .cx5-mobile-week>span{font-size:10px;font-weight:900;color:#455c72}
+          .cx5-mobile-week .cx5-cell{display:grid;place-items:center;width:100%;height:35px;min-width:0;font-size:14px;box-sizing:border-box}
+          .cx5-mobile-card-bottom{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid #e7edf3}
+          .cx5-mobile-stats{display:flex;flex-wrap:wrap;gap:10px;font-size:10px;color:#597083}
+          .cx5-mobile-stats b{color:#132b40;font-weight:900}
+          .cx5-mobile-card-bottom .cx5-open{height:34px;min-width:69px;justify-content:center}
+          .cx5-pagination{grid-template-columns:1fr;gap:10px;padding:12px}
+          .cx5-page-buttons{width:100%;flex-wrap:wrap;gap:6px}
+          .cx5-page-buttons button{min-width:36px;min-height:36px}
+          .cx5-pagination>span{justify-self:start;text-align:left}
+          .cx5-pagination>b{justify-self:start}
+          .cx5-trend{min-width:0;overflow:hidden}
+          .cx5-section-head{align-items:flex-start}
+          .cx5-section-head h2{font-size:15px}
+        }
+        @media(max-width:365px){
+          .cx5-mobile-week-grid{gap:5px;padding-left:9px;padding-right:9px}
+          .cx5-mobile-card-top{gap:7px;padding:10px}
+          .cx5-mobile-total{flex-basis:65px}
+          .cx5-mobile-driver b{font-size:13px}
+        }
+
         @media(max-width:520px){
           .cx5-summary{grid-template-columns:1fr}
           .cx5-chart-shell{height:160px}
