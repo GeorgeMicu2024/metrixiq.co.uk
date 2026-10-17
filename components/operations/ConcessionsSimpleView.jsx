@@ -1151,6 +1151,59 @@ export default function ConcessionsSimpleView({
         .cx5-empty h2{margin:3px 0 0;font-size:18px}
         .cx5-empty p{margin:0;max-width:600px;color:#748493;font-size:11px;line-height:1.5}
 
+
+        /* Concessions high-contrast presentation only: no logic changes */
+        .cx5{color:#111827}
+        .cx5 .cx5-matrix-head{padding:16px 17px 14px}
+        .cx5 .cx5-matrix-head h2{font-size:19px;font-weight:900;color:#101c2d;letter-spacing:-.015em}
+        .cx5 .cx5-matrix-head p{font-size:11px;color:#45576a;font-weight:600}
+        .cx5 .page-kicker{color:#087a65;font-size:10px;font-weight:900}
+        .cx5 .cx5-search{height:37px;border-color:#c9d7e2}
+        .cx5 .cx5-search span{color:#30445b;font-size:17px}
+        .cx5 .cx5-search input{font-size:12px;font-weight:650;color:#111827}
+        .cx5 .cx5-search input::placeholder{color:#617389;opacity:1}
+        .cx5 .cx5-filterbar select{height:37px;font-size:11px;font-weight:800;color:#172a40;border-color:#c9d7e2}
+        .cx5 .cx5-trid-toggle{height:37px;font-size:11px;font-weight:850;color:#264457}
+        .cx5 .cx5-save-image{height:37px;font-size:11px;font-weight:900;background:#0b8e75}
+        .cx5 .cx5-table-wrap table{min-width:1450px}
+        .cx5 .cx5-table-wrap th{padding:11px 9px;font-size:10px;font-weight:900;letter-spacing:.04em;color:#29415a;background:#f3f7fa;border-color:#dce5ed}
+        .cx5 .cx5-table-wrap th.latest-col{background:#e8f5ef;color:#145b49}
+        .cx5 .cx5-table-wrap td{padding:7px 9px;font-size:12px;color:#111827;border-color:#e2eaf0}
+        .cx5 .cx5-table-wrap td.latest-col{background:#f0faf5}
+        .cx5 .cx5-driver{gap:2px;min-width:185px}
+        .cx5 .cx5-driver b{font-size:13px;font-weight:900;color:#101827;letter-spacing:-.015em;white-space:normal;line-height:1.25}
+        .cx5 .cx5-driver small{font-size:9px;font-weight:950;color:#b4232c;letter-spacing:.025em}
+        .cx5 .cx5-rank{width:29px;height:29px;font-size:11px;font-weight:900;color:#243a50;background:#eaf0f4}
+        .cx5 .cx5-table-wrap code{font-size:10px;font-weight:750;color:#33465c;background:#edf2f5}
+        .cx5 .cx5-cell{min-width:34px;height:29px;font-size:12px;font-weight:950;color:#111827;border-radius:7px}
+        .cx5 .cx5-cell.zero{background:#c8f5dc;color:#111827}
+        .cx5 .cx5-cell.one{background:#ffeb91;color:#111827}
+        .cx5 .cx5-cell.two{background:#ffc391;color:#111827}
+        .cx5 .cx5-cell.high{background:#f8a2a7;color:#111827}
+        .cx5 .cx5-total{min-width:40px;height:29px;font-size:12px;font-weight:950;color:#132437;background:#dfeefb}
+        .cx5 .cx5-average{font-size:12px;font-weight:950;color:#15273d}
+        .cx5 .cx5-weeks,.cx5 .cx5-repeat{min-width:43px;height:27px;font-size:10px;font-weight:950;color:#39240d}
+        .cx5 .cx5-repeat{background:#ffe7cc}
+        .cx5 .cx5-mini-trend{min-width:120px}
+        .cx5 .cx5-mini-trend small{font-size:10px;font-weight:950}
+        .cx5 .cx5-open{height:32px;padding:0 10px;font-size:11px;font-weight:900;border-color:#9ccfb8;color:#14583f}
+        .cx5 .cx5-pagination>span,.cx5 .cx5-pagination>b{font-size:11px;font-weight:800;color:#243d55}
+        .cx5 .cx5-page-buttons button{font-size:11px;font-weight:900;min-width:33px;height:33px;color:#283e58}
+        .cx5 .cx5-page-buttons button.active{color:#fff}
+        .cx5 .cx5-save-message{font-size:11px;font-weight:850}
+        .cx5 .cx5-preview-banner b{font-size:12px}
+        .cx5 .cx5-preview-column-head{font-size:11px}
+        .cx5 .cx5-preview-row{font-size:11px;color:#111827}
+        .cx5 .cx5-preview-row strong{font-size:13px;color:#111827}
+        .cx5 .cx5-preview-row .zero,.cx5 .cx5-preview-row .one,.cx5 .cx5-preview-row .two,.cx5 .cx5-preview-row .high{color:#111827}
+        .cx5 .cx5-export-row>b{font-size:18px;font-weight:900;color:#101827}
+        .cx5 .cx5-export-cell{font-size:17px;font-weight:950;color:#111827}
+        .cx5 .cx5-export-cell.zero,.cx5 .cx5-export-cell.one,.cx5 .cx5-export-cell.two,.cx5 .cx5-export-cell.high{color:#111827}
+        .cx5 .cx5-export-total{font-size:17px;font-weight:950;color:#111827}
+        .cx5 .cx5-single-export-row>b{font-weight:900;color:#101827}
+        .cx5 .cx5-single-export-row strong{font-weight:950;color:#111827}
+        .cx5 .cx5-single-export-row .zero,.cx5 .cx5-single-export-row .one,.cx5 .cx5-single-export-row .two,.cx5 .cx5-single-export-row .high{color:#111827}
+
         @media(max-width:1180px){
           .cx5-summary{grid-template-columns:1fr 1fr}
           .cx5-matrix-head{align-items:stretch;flex-direction:column}
