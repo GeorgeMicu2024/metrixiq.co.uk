@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { fetchConcessionSnapshots } from "../lib/data/concessions.js";
 import {
   buildSingleWeekConcessionRows,
   buildMultiWeekConcessionRows,
@@ -169,4 +170,83 @@ test("mobile-only CSS hides the desktop table and keeps card and filter widths c
   assert.ok(view.includes('.cx5-filterbar{display:grid'));
   assert.ok(view.includes('.cx5-pagination{grid-template-columns:1fr'));
   assert.ok(view.includes('.cx5-summary{grid-template-columns:repeat(2,minmax(0,1fr))}'));
+});
+
+function mockConcessionSnapshotQuery(records) {
+  const filters = [];
+  const query = {
+    select() { return this; },
+    eq(column, value) { filters.push({ operator: "eq", column, value }); return this; },
+    gt(column, value) { filters.push({ operator: "gt", column, value }); return this; },
+    order() { return this; },
+    limit() { return this; },
+    then(resolve, reject) {
+      const matching = records.filter((row) =>
+        filters.every(({ operator, column, value }) =>
+          operator === "eq" ? row[column] === value : Number(row[column]) > value
+        )
+      );
+      return Promise.resolve({ data: matching, error: null }).then(resolve, reject);
+    },
+  };
+  return {
+    filters,
+    client: {
+      from(table) {
+        assert.equal(table, "concessions_weekly_snapshots");
+        return query;
+      },
+    },
+  };
+}
+
+const dxp1W41Dnr = [12, 4, 3, 3, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+const dxp1W42Dnr = [24, 8, 6, 6, 4, 2, 2, 2, 1];
+
+function makeDxp1SnapshotFixture() {
+  const row = (i, week_label, dnr) => ({
+    organization_id: "org-dxp1",
+    site: "DXP1",
+    week_label,
+    driver_trid: `DXP1-DRIVER-${String(i + 1).padStart(2, "0")}`,
+    driver_name: `Test Driver ${i + 1}`,
+    driver_id: null,
+    dnr,
+  });
+  return [
+    ...dxp1W41Dnr.map((dnr, i) => row(i, "W41", dnr)),
+    ...dxp1W42Dnr.map((dnr, i) => row(i, "W42", dnr)),
+    row(0, "W42", 99) && {
+      ...row(0, "W42", 99),
+      site: "DLS2",
+    },
+  ];
+}
+
+test("DXP1 two-week PNG retains W41 zero-DNR drivers absent from W42", async () => {
+  const records = makeDxp1SnapshotFixture();
+  const db = mockConcessionSnapshotQuery(records);
+  const rows = await fetchConcessionSnapshots(db.client, "org-dxp1", "DXP1", true);
+  assert.equal(rows.length, 25, "all 16 W41 + 9 W42 snapshot records must load");
+  assert.equal(db.filters.some((f) => f.operator === "gt" && f.column === "dnr"), false);
+  const result = buildMultiWeekConcessionRows(rows, "DXP1", ["W41", "W42"]);
+  assert.equal(result.length, 16, "all 16 distinct DXP1 drivers in the selected weeks must appear");
+  assert.equal(result.reduce((sum, x) => sum + x.total, 0), 80);
+  assert.equal(result.filter((x) => x.total === 0).length, 7);
+  assert.equal(result.filter((x) => x.byWeek.W42 === 0).length, 7);
+  assert.deepEqual(concessionExportPages(result).map((page) => page.length), [16]);
+  assert.equal(result.every((x) => x.byWeek.W41 >= 0 && x.byWeek.W42 >= 0), true);
+});
+
+test("legacy consumers of concessions snapshots still receive positive DNR rows only", async () => {
+  const db = mockConcessionSnapshotQuery(makeDxp1SnapshotFixture());
+  const rows = await fetchConcessionSnapshots(db.client, "org-dxp1", "DXP1");
+  assert.equal(rows.length, 16);
+  assert.equal(db.filters.some((f) => f.operator === "gt" && f.column === "dnr" && f.value === 0), true);
+  assert.equal(buildMultiWeekConcessionRows(rows, "DXP1", ["W41", "W42"]).length, 9);
+});
+
+test("only the Concessions page explicitly requests zero-DNR snapshot rows", () => {
+  const view = readFileSync(new URL("../components/operations/ConcessionsSimpleView.jsx", import.meta.url), "utf8");
+  assert.match(view, /fetchConcessionSnapshots\(\s*getSupabaseBrowserClient\(\),\s*organizationId,\s*siteFilter,\s*true/);
 });
