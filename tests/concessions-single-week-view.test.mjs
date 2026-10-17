@@ -294,3 +294,39 @@ test("desktop mobile and weekly image preview expose reversible PNG-only Hide co
   assert.ok(view.includes('const uniqueAffected = matrix.filter('), "driver totals must remain independent of image hide");
   assert.ok(view.includes('const pagedFiltered = filtered.slice('), "the main list must preserve undo visibility");
 });
+
+
+test("Concessions allows 10, 25, 50 or 100 visible drivers per page on desktop and mobile", () => {
+  const view = concessionsViewSource();
+  assert.ok(view.includes("const TABLE_PAGE_SIZE_OPTIONS = [10, 25, 50, 100]"));
+  assert.ok(view.includes("const [pageSize, setPageSize] = useState(25)"));
+  assert.ok(view.includes('aria-label="Concessions drivers per page"'));
+  assert.ok(view.includes("TABLE_PAGE_SIZE_OPTIONS.map((count) => ("));
+  assert.ok(view.includes("onChange={(event) => setPageSize(Number(event.target.value))}"));
+  assert.ok(view.includes("Math.ceil(filtered.length / pageSize)"));
+  assert.ok(view.includes("const pageStart = (currentPage - 1) * pageSize"));
+  assert.ok(view.includes("const pagedFiltered = filtered.slice(pageStart, pageStart + pageSize)"));
+  assert.ok(view.includes("Showing {pageStart + 1}–{Math.min(pageStart + pageSize, filtered.length)} of {filtered.length} drivers"));
+  assert.ok(view.includes("[query, show, range, site, effectiveWeek, pageSize]"), "page change must reset to first page");
+  assert.ok(view.includes('.cx5-page-size{justify-self:start}'), "selector should stay visible on mobile");
+  assert.equal(view.split("pagedFiltered.map((row, index)").length - 1, 2, "desktop/mobile both display selected page rows");
+});
+
+test("Table page-size selector does not alter PNG exports or image-only Hide", () => {
+  const view = concessionsViewSource();
+  assert.ok(view.includes("concessionExportPages(exportRows, CONCESSIONS_PAGE_SIZE)"));
+  assert.ok(view.includes("const CONCESSIONS_PAGE_SIZE = 25"));
+  assert.ok(view.includes('onClick={() => toggleImageDriver(row.driver_trid)}'));
+  assert.ok(view.includes('onClick={restoreAllImageDrivers}'));
+  assert.ok(view.includes("const selectedTotal = weekly.reduce("));
+  assert.ok(view.includes("const uniqueAffected = matrix.filter("));
+  assert.ok(!view.includes("concessionExportPages(exportRows, pageSize)"));
+  const drivers = Array.from({ length: 52 }, (_, i) => ({ driver_trid: `T${i}` }));
+  for (const visiblePageSize of [10, 25, 50, 100]) {
+    const visibleCount = Math.ceil(drivers.length / visiblePageSize);
+    const pieces = Array.from({ length: visibleCount }, (_, i) => drivers.slice(i * visiblePageSize, (i + 1) * visiblePageSize));
+    assert.equal(pieces.flat().length, drivers.length);
+    assert.deepEqual(pieces.flat(), drivers);
+  }
+  assert.deepEqual(concessionExportPages(drivers).map((page) => page.length), [25, 25, 2]);
+});
