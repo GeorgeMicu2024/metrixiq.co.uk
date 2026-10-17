@@ -24,7 +24,9 @@ const cellTone = (value) => {
   return "high";
 };
 
+// Image exports always use 25 rows per PNG, independent of visible table pages.
 const CONCESSIONS_PAGE_SIZE = 25;
+const TABLE_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 const latestConcessionWeeks = (rows, site, limit = 8) =>
   [...new Set(
@@ -103,6 +105,7 @@ export default function ConcessionsSimpleView({
   const [previewReady, setPreviewReady] = useState(false);
   const [showTrid, setShowTrid] = useState(true);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [saveMessage, setSaveMessage] = useState("");
   // Temporary PNG-only exclusions; never written to the database.
   const [hiddenImageDrivers, setHiddenImageDrivers] = useState({ scope: "", trids: [] });
@@ -340,10 +343,10 @@ export default function ConcessionsSimpleView({
     setHiddenImageDrivers({ scope: imageScope, trids: [] });
   }
 
-  const pageCount = Math.max(1, Math.ceil(filtered.length / CONCESSIONS_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const pageStart = (currentPage - 1) * CONCESSIONS_PAGE_SIZE;
-  const pagedFiltered = filtered.slice(pageStart, pageStart + CONCESSIONS_PAGE_SIZE);
+  const pageStart = (currentPage - 1) * pageSize;
+  const pagedFiltered = filtered.slice(pageStart, pageStart + pageSize);
   const exportPages = useMemo(
     () => concessionExportPages(exportRows, CONCESSIONS_PAGE_SIZE),
     [exportRows]
@@ -351,7 +354,7 @@ export default function ConcessionsSimpleView({
 
   useEffect(() => {
     setPage(1);
-  }, [query, show, range, site, effectiveWeek]);
+  }, [query, show, range, site, effectiveWeek, pageSize]);
 
   useEffect(() => {
     setPreviewReady(false);
@@ -999,9 +1002,20 @@ export default function ConcessionsSimpleView({
                   ))}
                 </div>
                 <span>
-                  Showing {pageStart + 1}–{Math.min(pageStart + CONCESSIONS_PAGE_SIZE, filtered.length)} of {exportRows.length} drivers
+                  Showing {pageStart + 1}–{Math.min(pageStart + pageSize, filtered.length)} of {filtered.length} drivers
                 </span>
-                <b>25 per page</b>
+                <label className="cx5-page-size">
+                  <span>Per page</span>
+                  <select
+                    aria-label="Concessions drivers per page"
+                    value={pageSize}
+                    onChange={(event) => setPageSize(Number(event.target.value))}
+                  >
+                    {TABLE_PAGE_SIZE_OPTIONS.map((count) => (
+                      <option key={count} value={count}>{count}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
             )}
             {saveMessage && <div className="cx5-save-message">{saveMessage}</div>}
@@ -1254,7 +1268,8 @@ export default function ConcessionsSimpleView({
         .cx5-page-buttons button.active{background:#2e7de9;border-color:#2e7de9;color:#fff}
         .cx5-page-buttons button:disabled{opacity:.35;cursor:not-allowed}
         .cx5-pagination>span{text-align:right;color:#708192;font-size:9px}
-        .cx5-pagination>b{height:29px;display:flex;align-items:center;padding:0 10px;border:1px solid #d8e2e8;border-radius:7px;color:#41586c;font-size:9px;background:#fff}
+        .cx5-page-size{min-height:36px;display:inline-flex;align-items:center;gap:9px;padding:0 9px;border:1px solid #d8e2e8;border-radius:8px;color:#41586c;font-size:11px;font-weight:800;background:#fff;white-space:nowrap}
+        .cx5-page-size select{height:36px;min-width:52px;border:0;background:transparent;color:#19374d;font:inherit;font-size:12px;font-weight:900;outline-offset:2px;cursor:pointer}
         .cx5-save-message{padding:0 15px 11px;text-align:right;color:#2d7a68;font-size:9px;font-weight:800;background:#fff}
 
         .cx5-export-stack{position:fixed;left:-20000px;top:0;transform:none;z-index:-1;pointer-events:none}
@@ -1327,7 +1342,7 @@ export default function ConcessionsSimpleView({
         .cx5 .cx5-mini-trend{min-width:120px}
         .cx5 .cx5-mini-trend small{font-size:10px;font-weight:950}
         .cx5 .cx5-open{height:32px;padding:0 10px;font-size:11px;font-weight:900;border-color:#9ccfb8;color:#14583f}
-        .cx5 .cx5-pagination>span,.cx5 .cx5-pagination>b{font-size:11px;font-weight:800;color:#243d55}
+        .cx5 .cx5-pagination>span,.cx5 .cx5-page-size{font-size:11px;font-weight:800;color:#243d55}
         .cx5 .cx5-page-buttons button{font-size:11px;font-weight:900;min-width:33px;height:33px;color:#283e58}
         .cx5 .cx5-page-buttons button.active{color:#fff}
         .cx5 .cx5-save-message{font-size:11px;font-weight:850}
@@ -1413,7 +1428,7 @@ export default function ConcessionsSimpleView({
           .cx5-page-buttons{width:100%;flex-wrap:wrap;gap:6px}
           .cx5-page-buttons button{min-width:36px;min-height:36px}
           .cx5-pagination>span{justify-self:start;text-align:left}
-          .cx5-pagination>b{justify-self:start}
+          .cx5-page-size{justify-self:start}
           .cx5-trend{min-width:0;overflow:hidden}
           .cx5-section-head{align-items:flex-start}
           .cx5-section-head h2{font-size:15px}
