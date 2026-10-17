@@ -1,0 +1,151 @@
+name: Security Regression Verification (no deploy)
+
+on:
+  push:
+    branches:
+      - qa/metrixiq-security-smoke-20261017
+  pull_request:
+    branches:
+      - chore/metrixiq-security-dependencies-20261017
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci_service_role_placeholder
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Verify production source unchanged
+        run: |
+          changed="$(git diff --name-only 3437dabc05c508cadc56e59cc8f4fb34546cb4f7 HEAD)"
+          echo "Changed files since current production:"
+          printf '%s\n' "$changed"
+          test "$changed" = "$(printf 'package-lock.json\n.github/workflows/security-regression-qa.yml' | sort)" || {
+            unexpected="$(printf '%s\n' "$changed" | grep -vE '^(package-lock.json|.github/workflows/security-regression-qa.yml|.github/workflows/security-visual-parity.yml) || true)"
+            test -z "$unexpected" || { echo "Unexpected app source changes: $unexpected"; exit 1; }
+          }
+          git diff --check 3437dabc05c508cadc56e59cc8f4fb34546cb4f7 HEAD
+      - name: Clean install
+        run: npm ci --no-fund
+      - name: Require zero high or critical production vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify patched dependencies
+        run: |
+          node --input-type=module -e 'import fs from "node:fs";import assert from "node:assert/strict";const p=JSON.parse(fs.readFileSync("package-lock.json","utf8")).packages;for(const [name,version] of [["next","16.4.2"],["sharp","0.35.5"],["source-map-js","1.2.2"]]){assert.equal(p["node_modules/"+name].version,version);console.log(name,version)}'
+      - name: Full regression suite — exact known failure parity
+        shell: bash
+        run: |
+          set +e
+          npm test > "$RUNNER_TEMP/metrixiq-regression.log" 2>&1
+          test_exit=$?
+          set -e
+          echo "npm test exit code: $test_exit (baseline has 17 pre-existing failures)"
+          tail -n 24 "$RUNNER_TEMP/metrixiq-regression.log"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const s=fs.readFileSync(process.env.RUNNER_TEMP+'/metrixiq-regression.log','utf8');
+          const actual=[...s.matchAll(/^not ok \d+ - ([^\r\n]+)/gm)].map(m=>m[1]).sort();
+          const expected=["IADC workspace uses a focused database loader and preserves daily/weekly evidence","homepage sign-in authenticates directly instead of forwarding to a second login","public root no longer ships the full private application stylesheet","homepage sign-in hydration is deferred until the card nears the viewport","homepage visual redesign replaces long text walls with operational visuals","Root-Cause Engine explains the exact point-band loss","exact driver scorecard point bands match the Google Sheet","public landing page consumes the same canonical plan catalogue","team invite signup flow joins an existing workspace instead of asking for a new organisation","Concessions no longer reads its page data from the mixed operational matrix","homepage and About page define MetrixIQ as fleet and driver performance software","public navigation points to the dedicated pricing page","homepage and public navigation link to the resources hub","primary homepage CTAs are conversion tracked after analytics consent","solution pages are connected by internal links","homepage, public navigation and solution pages link into use cases","tests/wave-plan-ddn1.test.mjs"].sort();
+          const match=(key)=>{const m=s.match(new RegExp('^# '+key+' (\\d+)','m'));assert.ok(m,'missing '+key+' summary');return Number(m[1]);};
+          assert.equal(match('tests'),343,'test count changed');
+          assert.equal(match('fail'),17,'regression failure count changed');
+          assert.equal(match('pass'),326,'passed-test count changed');
+          assert.deepEqual(actual,expected,'new or different regression failures after dependency patch');
+          console.log('PASS: Exact baseline parity; 326 passing, 17 known failing, 0 new failures.');
+          NODE
+      - name: Production build with new dependencies
+        run: npm run build
+      - name: Public-route HTTP smoke (local preview, no real user data)
+        shell: bash
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > "$RUNNER_TEMP/metrixiq-start.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 25); do
+            if curl -s -o /dev/null http://127.0.0.1:3000; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1 || { cat "$RUNNER_TEMP/metrixiq-start.log"; exit 1; }
+          for route in / /pricing /resources /login; do
+            status="$(curl -s -o "$RUNNER_TEMP/metrixiq-http.html" -w "%{http_code}" "http://127.0.0.1:3000$route")"
+            echo "$route: HTTP $status"
+            test "$status" = 200 || exit 1
+            grep -iq 'metrixiq' "$RUNNER_TEMP/metrixiq-http.html" || exit 1
+          done
+          app_status="$(curl -s -o /dev/null -w "%{http_code}" 'http://127.0.0.1:3000/app?view=concessions')"
+          echo "/app?view=concessions unauthenticated: HTTP $app_status"
+          test "$app_status" -lt 500
+ || true)"
+            test -z "$unexpected" || { echo "Unexpected app source changes: $unexpected"; exit 1; }
+          }
+          git diff --check 3437dabc05c508cadc56e59cc8f4fb34546cb4f7 HEAD
+      - name: Clean install
+        run: npm ci --no-fund
+      - name: Require zero high or critical production vulnerabilities
+        run: npm audit --omit=dev --audit-level=high
+      - name: Verify patched dependencies
+        run: |
+          node --input-type=module -e 'import fs from "node:fs";import assert from "node:assert/strict";const p=JSON.parse(fs.readFileSync("package-lock.json","utf8")).packages;for(const [name,version] of [["next","16.4.2"],["sharp","0.35.5"],["source-map-js","1.2.2"]]){assert.equal(p["node_modules/"+name].version,version);console.log(name,version)}'
+      - name: Full regression suite — exact known failure parity
+        shell: bash
+        run: |
+          set +e
+          npm test > "$RUNNER_TEMP/metrixiq-regression.log" 2>&1
+          test_exit=$?
+          set -e
+          echo "npm test exit code: $test_exit (baseline has 17 pre-existing failures)"
+          tail -n 24 "$RUNNER_TEMP/metrixiq-regression.log"
+          node --input-type=module - <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const s=fs.readFileSync(process.env.RUNNER_TEMP+'/metrixiq-regression.log','utf8');
+          const actual=[...s.matchAll(/^not ok \d+ - ([^\r\n]+)/gm)].map(m=>m[1]).sort();
+          const expected=["IADC workspace uses a focused database loader and preserves daily/weekly evidence","homepage sign-in authenticates directly instead of forwarding to a second login","public root no longer ships the full private application stylesheet","homepage sign-in hydration is deferred until the card nears the viewport","homepage visual redesign replaces long text walls with operational visuals","Root-Cause Engine explains the exact point-band loss","exact driver scorecard point bands match the Google Sheet","public landing page consumes the same canonical plan catalogue","team invite signup flow joins an existing workspace instead of asking for a new organisation","Concessions no longer reads its page data from the mixed operational matrix","homepage and About page define MetrixIQ as fleet and driver performance software","public navigation points to the dedicated pricing page","homepage and public navigation link to the resources hub","primary homepage CTAs are conversion tracked after analytics consent","solution pages are connected by internal links","homepage, public navigation and solution pages link into use cases","tests/wave-plan-ddn1.test.mjs"].sort();
+          const match=(key)=>{const m=s.match(new RegExp('^# '+key+' (\\d+)','m'));assert.ok(m,'missing '+key+' summary');return Number(m[1]);};
+          assert.equal(match('tests'),343,'test count changed');
+          assert.equal(match('fail'),17,'regression failure count changed');
+          assert.equal(match('pass'),326,'passed-test count changed');
+          assert.deepEqual(actual,expected,'new or different regression failures after dependency patch');
+          console.log('PASS: Exact baseline parity; 326 passing, 17 known failing, 0 new failures.');
+          NODE
+      - name: Production build with new dependencies
+        run: npm run build
+      - name: Public-route HTTP smoke (local preview, no real user data)
+        shell: bash
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3000 > "$RUNNER_TEMP/metrixiq-start.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 25); do
+            if curl -s -o /dev/null http://127.0.0.1:3000; then ready=1; break; fi
+            sleep 1
+          done
+          test "$ready" = 1 || { cat "$RUNNER_TEMP/metrixiq-start.log"; exit 1; }
+          for route in / /pricing /resources /login; do
+            status="$(curl -s -o "$RUNNER_TEMP/metrixiq-http.html" -w "%{http_code}" "http://127.0.0.1:3000$route")"
+            echo "$route: HTTP $status"
+            test "$status" = 200 || exit 1
+            grep -iq 'metrixiq' "$RUNNER_TEMP/metrixiq-http.html" || exit 1
+          done
+          app_status="$(curl -s -o /dev/null -w "%{http_code}" 'http://127.0.0.1:3000/app?view=concessions')"
+          echo "/app?view=concessions unauthenticated: HTTP $app_status"
+          test "$app_status" -lt 500
