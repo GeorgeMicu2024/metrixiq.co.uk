@@ -103,6 +103,8 @@ export default function ConcessionsSimpleView({
   const [showTrid, setShowTrid] = useState(true);
   const [page, setPage] = useState(1);
   const [saveMessage, setSaveMessage] = useState("");
+  // Temporary PNG-only exclusions; never written to the database.
+  const [hiddenImageDrivers, setHiddenImageDrivers] = useState({ scope: "", trids: [] });
   const [latestSiteRoster, setLatestSiteRoster] = useState([]);
   const exportPageRefs = useRef([]);
 
@@ -310,13 +312,40 @@ export default function ConcessionsSimpleView({
     });
   }, [matrix, query, show, latestWeek, range, repeatTrids]);
 
+  // PNG and its preview use their own rows. Metrics, main table and charts
+  // continue to use the complete verified snapshot matrix.
+  const imageScope = `${organizationId || ""}:${site}:${range}:${weeks.join(",")}`;
+  const hiddenTrids = useMemo(
+    () => new Set(hiddenImageDrivers.scope === imageScope ? hiddenImageDrivers.trids : []),
+    [hiddenImageDrivers, imageScope]
+  );
+  const exportRows = useMemo(
+    () => filtered.filter((row) => !hiddenTrids.has(row.driver_trid)),
+    [filtered, hiddenTrids]
+  );
+  const hiddenCount = hiddenTrids.size;
+
+  function toggleImageDriver(trid) {
+    setHiddenImageDrivers((current) => {
+      const trids = current.scope === imageScope ? current.trids : [];
+      return {
+        scope: imageScope,
+        trids: trids.includes(trid) ? trids.filter((id) => id !== trid) : [...trids, trid],
+      };
+    });
+  }
+
+  function restoreAllImageDrivers() {
+    setHiddenImageDrivers({ scope: imageScope, trids: [] });
+  }
+
   const pageCount = Math.max(1, Math.ceil(filtered.length / CONCESSIONS_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageStart = (currentPage - 1) * CONCESSIONS_PAGE_SIZE;
   const pagedFiltered = filtered.slice(pageStart, pageStart + CONCESSIONS_PAGE_SIZE);
   const exportPages = useMemo(
-    () => concessionExportPages(filtered, CONCESSIONS_PAGE_SIZE),
-    [filtered]
+    () => concessionExportPages(exportRows, CONCESSIONS_PAGE_SIZE),
+    [exportRows]
   );
 
   useEffect(() => {
@@ -382,7 +411,7 @@ export default function ConcessionsSimpleView({
   }, [weekly, maxWeek]);
 
   async function saveConcessionsImages() {
-    if (!filtered.length || !exportPages.length) return;
+    if (!exportRows.length || !exportPages.length) return;
     const totalPages = exportPages.length;
     setSaveMessage(totalPages > 1 ? `Creating ${totalPages} pages…` : "Creating image…");
     try {
@@ -492,7 +521,7 @@ export default function ConcessionsSimpleView({
                 type="button"
                 className="cx5-week-generate"
                 onClick={() => setPreviewReady(true)}
-                disabled={!filtered.length}
+                disabled={!exportRows.length}
               >
                 ▧ Generate weekly images
               </button>
@@ -500,7 +529,7 @@ export default function ConcessionsSimpleView({
                 type="button"
                 className="cx5-week-download"
                 onClick={saveConcessionsImages}
-                disabled={!previewReady || !filtered.length}
+                disabled={!previewReady || !exportRows.length}
               >
                 ↓ Download images
               </button>
@@ -561,11 +590,11 @@ export default function ConcessionsSimpleView({
                 <div>
                   <span className="page-kicker">WEEKLY IMAGES</span>
                   <h2>{site} • {latestWeek} concessions</h2>
-                  <p>{filtered.length} drivers • {exportPages.length} page(s), 25 per page. Previews reflect the current search and filter.</p>
+                  <p>{exportRows.length} drivers in image • {exportPages.length} page(s), 25 per page. {hiddenCount > 0 ? `${hiddenCount} hidden from image.` : "Use Hide to exclude drivers from PNG."}</p>
                 </div>
                 <span className="cx5-preview-status">{previewReady ? "Ready to download" : "Generate to preview"}</span>
               </div>
-              {previewReady ? (
+              {previewReady && exportPages.length > 0 ? (
                 <div className="cx5-preview-grid" aria-label="Weekly concessions image page previews">
                   {exportPages.map((pageRows, pageIndex) => (
                     <div className="cx5-preview-card" key={pageIndex}>
@@ -579,7 +608,15 @@ export default function ConcessionsSimpleView({
                           const value = Number(row.byWeek?.[latestWeek] || 0);
                           return (
                             <div className="cx5-preview-row" key={row.driver_trid}>
-                              <span>{row.driver_name}</span>
+                              <div className="cx5-preview-name">
+                                <span>{row.driver_name}</span>
+                                <button
+                                  type="button"
+                                  aria-label={`Hide ${row.driver_name} from image`}
+                                  title="Hide from PNG only"
+                                  onClick={() => toggleImageDriver(row.driver_trid)}
+                                >Hide</button>
+                              </div>
                               <strong className={weeklyConcessionTone(value)}>{value}</strong>
                             </div>
                           );
@@ -590,7 +627,7 @@ export default function ConcessionsSimpleView({
                 </div>
               ) : (
                 <div className="cx5-preview-placeholder">
-                  Click <b>Generate weekly images</b> to preview all {exportPages.length} export page(s).
+                  {exportRows.length === 0 ? "All drivers hidden. Use Show all to restore them." : <>Click <b>Generate weekly images</b> to preview all {exportPages.length} export page(s).</>}
                 </div>
               )}
             </section>
@@ -723,12 +760,20 @@ export default function ConcessionsSimpleView({
                   <span aria-hidden="true">{showTrid ? "◉" : "⊘"}</span>
                   {showTrid ? "Hide TRID" : "Show TRID"}
                 </button>
+                {hiddenCount > 0 && (
+                  <button
+                    type="button"
+                    className="cx5-restore-images"
+                    onClick={restoreAllImageDrivers}
+                    title="Restore all hidden drivers to the image"
+                  >↶ Show all ({hiddenCount})</button>
+                )}
                 {range !== 1 && (
                   <button
                     type="button"
                     className="cx5-save-image"
                     onClick={saveConcessionsImages}
-                    disabled={!filtered.length}
+                    disabled={!exportRows.length}
                   >
                     <span aria-hidden="true">↓</span>
                     Save Image
@@ -931,7 +976,7 @@ export default function ConcessionsSimpleView({
                   ))}
                 </div>
                 <span>
-                  Showing {pageStart + 1}–{Math.min(pageStart + CONCESSIONS_PAGE_SIZE, filtered.length)} of {filtered.length} drivers
+                  Showing {pageStart + 1}–{Math.min(pageStart + CONCESSIONS_PAGE_SIZE, filtered.length)} of {exportRows.length} drivers
                 </span>
                 <b>25 per page</b>
               </div>
@@ -968,7 +1013,7 @@ export default function ConcessionsSimpleView({
                         })}
                       </div>
                       <footer className="cx5-single-export-foot">
-                        <span>{filtered.length} drivers • {latestWeek}</span>
+                        <span>{exportRows.length} drivers • {latestWeek}</span>
                         <b>Page {pageIndex + 1} of {exportPages.length}</b>
                       </footer>
                     </>
@@ -1022,7 +1067,7 @@ export default function ConcessionsSimpleView({
                   </div>
 
                   <footer className="cx5-export-foot">
-                    <span>Total {filtered.length} drivers</span>
+                    <span>Total {exportRows.length} drivers</span>
                     <b>Page {pageIndex + 1} of {exportPages.length}</b>
                     <span>{site} · {weeks.length ? `${weeks[0]}–${weeks[weeks.length - 1]}` : ""}</span>
                   </footer>
