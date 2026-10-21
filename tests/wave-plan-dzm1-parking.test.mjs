@@ -44,7 +44,7 @@ test("DZM1 has six aligned columns: route, driver, 1st Floor, 0 Floor Holding, l
   assert.ok(src.includes('PARKING TIME<small>1ST FLOOR</small>'));
   assert.ok(src.includes('HOLDING LANE<small>0 FLOOR</small>'));
   assert.ok(src.includes('<b>STAGING LANE</b>'));
-  assert.ok(src.includes('<span>{parking?.time||"—"}</span><span>{parking?.holdingTime||"—"}</span><span>{shownLoad}</span>'));
+  assert.ok(src.includes('<span>{parking?.time||"—"}</span><span>{parking?.holdingTime||"—"}</span><span className="dzm1-load-time">{shownLoad}</span>'));
   assert.ok(src.includes('r.staging?.replace(/^STG-/i,"")'),"individual staging lane must stay");
   const css=styles();
   assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-columns,'));
