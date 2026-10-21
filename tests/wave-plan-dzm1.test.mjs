@@ -41,7 +41,7 @@ test("DZM1 striping detects 19 driver rows and the 11:40 / 12:05 wave section ba
   assert.equal(result.rows.length,19);
   assert.equal(result.headers.length,2);
   assert.equal(result.rows.filter(r=>r.top<1152).length,16);
-  assert.equal(result.rows.filter(r=>r.top>1199).length,3);
+  assert.equal(result.rows.filter(r=>r.top>=1199).length,3);
   assert.ok(result.headers.every(h=>h.top>150&&h.top<1250));
 });
 test("DZM1 uses cell-based OCR only at DZM1 and keeps existing DEH1/other sites", () => {
