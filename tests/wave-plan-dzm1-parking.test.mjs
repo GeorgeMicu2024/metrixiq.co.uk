@@ -70,6 +70,25 @@ test("DZM1 parking control shows the two floors, while other sites keep original
   assert.ok(src.includes('setDzm1ParkingOverrides({})'));
   assert.ok(!src.includes('supabase.from("dzm1Parking"'));
   assert.ok(src.includes('dzm1-wave-timeline'));
-  assert.ok(src.includes('+10 MIN →'));
-  assert.ok(src.includes('+15 MIN →'));
+  assert.ok(src.includes('className="dzm1-stage-time"'),"parking and holding remain separate");
+  assert.ok(src.includes('className="dzm1-wave-load"'),"load time gets a distinct callout");
+  assert.ok(!src.includes('+10 MIN →') && !src.includes('+15 MIN →'),"intervals are kept in calculations, not repeated in the header");
+});
+
+test("DZM1 variant 2 highlights LOAD TIME without changing times, stages or six-column order",()=>{
+  const source=view(),css=styles();
+  assert.ok(source.includes('PARKING <b>{parking.time}</b>'));
+  assert.ok(source.includes('HOLDING <b>{parking.holdingTime}</b>'));
+  assert.ok(source.includes('className="dzm1-wave-load">LOAD <b>{shownLoad}</b>'));
+  assert.ok(source.includes('<span className="dzm1-load-time">{shownLoad}</span>'));
+  assert.ok(source.includes('PARKING TIME<small>1ST FLOOR</small>'));
+  assert.ok(source.includes('HOLDING LANE<small>0 FLOOR</small>'));
+  assert.ok(source.includes('<b>STAGING LANE</b>'));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-columns>b:nth-child(5)'));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave>div>.dzm1-load-time'));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-wave-load'));
+  assert.equal(dzm1ParkingForWave("WAVE1").loadTime,"11:45");
+  assert.equal(dzm1ParkingForWave("WAVE2").loadTime,"12:05");
+  assert.equal(dzm1ParkingForWave("WAVE1").holdingTime,"11:30");
+  assert.equal(dzm1ParkingForWave("WAVE2").holdingTime,"11:50");
 });
