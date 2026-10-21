@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { parseDzm1WaveImage } from "../../lib/data/dzm1WaveImage.js";
 
 const COLORS={PURPLE:"#762db3",BLUE:"#087fcf",GREEN:"#05ad58",RED:"#d62828",YELLOW:"#d7ad00",ORANGE:"#e67e22",WAVE1:"#35b51b",WAVE2:"#f5a000",WAVE3:"#a63db8",WAVE6:"#e05252",WAVE7:"#2f9e68"};
 const normaliseHex=value=>{const raw=String(value||"").replace(/^#/,"").toUpperCase();const hex=raw.length===8?raw.slice(2):raw.length===6?raw:"";return /^[0-9A-F]{6}$/.test(hex)?"#"+hex:""};
@@ -385,11 +386,16 @@ function deh1WorkbookRows(rows){
 }
 
 
-async function imageRows(file,onProgress){
+async function imageRows(file,onProgress,site=""){
+ try {
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
  let canvasInfo=null;try{canvasInfo=await imageCanvas(file)}catch(e){console.warn("Wave colour scan unavailable",e)}
- const {data}=await worker.recognize(file,{}, {text:true,blocks:true}); await worker.terminate();
+ const {data}=await worker.recognize(file,{}, {text:true,blocks:true});
+ if(norm(site)==="DZM1"&&canvasInfo){
+   const tableRows=await parseDzm1WaveImage(worker,canvasInfo,data);
+   if(tableRows.length)return tableRows;
+ }
  const routeColours=canvasInfo?ocrRouteColours(data.blocks,canvasInfo.ctx,canvasInfo.width,canvasInfo.height):new Map();
  const rows=[];
  const lines=data.text.split(/\r?\n/).map(x=>x.replace(/[|]/g," ").replace(/\s+/g," ").trim()).filter(Boolean);
@@ -402,6 +408,7 @@ async function imageRows(file,onProgress){
    if(route) rows.push({sheet:"Image",row:i+1,cells:[route,time,staging,upper],rowColour:routeColours.get(norm(route))||""});
  }
  return rows;
+ } finally { await worker.terminate(); }
 }
 
 const atlasTrackingOf=value=>{
@@ -571,7 +578,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    }catch{}
    return "unknown";
  };
- const load=async(file,setFile,setRows)=>{if(!file)return;const kind=setFile===setRouteFile?"Route Plan":"Wave Plan";setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress));setOcrProgress(null)}else{const raw=await workbookRows(file),matrix=norm(site)==="DEH1"&&setFile===setWaveFile?deh1WorkbookRows(raw):[];setRows(matrix.length?matrix:raw)}setUploadStatus(prev=>[...prev.filter(x=>x.kind!==kind),{name:file.name,kind}].slice(-6))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
+ const load=async(file,setFile,setRows)=>{if(!file)return;const kind=setFile===setRouteFile?"Route Plan":"Wave Plan";setFile(file);setGenerated(false);if(setFile===setRouteFile){setOverrides({});setDismissedConflicts(new Set())}try{if(file.type?.startsWith("image/")){setOcrProgress(0);setRows(norm(site)==="DEH1"?await deh1ImageRows(file,setOcrProgress):await imageRows(file,setOcrProgress,site));setOcrProgress(null)}else{const raw=await workbookRows(file),matrix=norm(site)==="DEH1"&&setFile===setWaveFile?deh1WorkbookRows(raw):[];setRows(matrix.length?matrix:raw)}setUploadStatus(prev=>[...prev.filter(x=>x.kind!==kind),{name:file.name,kind}].slice(-6))}catch(e){setOcrProgress(null);console.error(e);alert("Could not read this file. Try a clearer image or Excel/CSV.")}};
 
  const loadWaveFiles=async(files)=>{
    const list=[...(files||[])].filter(Boolean);if(!list.length)return;
@@ -583,7 +590,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
        let rows=[];
        if(file.type?.startsWith("image/")){
          const progress=value=>setOcrProgress(Math.min(100,Math.round(((i*100)+Number(value||0))/list.length)));
-         rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress);
+         rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress,site);
        }else{
          const raw=await workbookRows(file),matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):[];
          rows=matrix.length?matrix:raw;
