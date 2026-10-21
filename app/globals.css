@@ -3656,3 +3656,81 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     max-width:1100px!important;
   }
 }
+
+/* DZM1 only: clearer dispatch wave heading + high-contrast LOAD TIME.
+   Keep the six-column layout, route order, loading calculations and other sites. */
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-columns>b:nth-child(5){
+  background:#d7e4f0!important;
+  color:#0c2c4c!important;
+  font-size:12px!important;
+  font-weight:950!important;
+  border-left:2px solid #365976!important;
+  border-right:2px solid #365976!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave>div>.dzm1-load-time{
+  background:rgba(255,255,255,.46)!important;
+  color:#09233c!important;
+  font-size:15px!important;
+  font-weight:950!important;
+  letter-spacing:.025em!important;
+  border-left:2px solid rgba(15,42,67,.52)!important;
+  border-right:2px solid rgba(15,42,67,.52)!important;
+  font-variant-numeric:tabular-nums;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave>div>.dzm1-load-time:hover{
+  background:rgba(255,255,255,.58)!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave>h4{
+  gap:10px!important;
+  padding:10px 14px!important;
+  min-height:56px!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-wave-count{
+  font-size:12px;
+  font-weight:850;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-wave-timeline{
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:9px;
+  flex-wrap:nowrap;
+  font-size:12px;
+  font-weight:850;
+  letter-spacing:0;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-stage-time{
+  white-space:nowrap;
+  font-weight:750;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-stage-time>b{
+  margin-left:3px;
+  font-weight:900;
+  font-size:13px;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-wave-timeline>i{
+  font-size:19px;
+  font-style:normal;
+  font-weight:900;
+  opacity:.78;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-wave-load{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 9px;
+  border-radius:7px;
+  background:#f9fbff;
+  color:#12314d!important;
+  font-size:12px;
+  font-weight:950;
+  box-shadow:0 1px 3px rgba(5,24,44,.15);
+  white-space:nowrap;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dzm1-wave-load>b{
+  color:#082840!important;
+  font-size:17px;
+  line-height:1.05;
+  font-weight:1000;
+  font-variant-numeric:tabular-nums;
+}
