@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { DZM1_PARKING_AREAS, DZM1_PARKING_DEFAULTS, dzm1ShiftTime, dzm1ParkingForWave } from "../lib/data/dzm1Parking.js";
+import { DZM1_PARKING_AREAS, DZM1_PARKING_DEFAULTS, dzm1ShiftTime, dzm1ParkingStartFromEditedTime, dzm1ParkingForWave } from "../lib/data/dzm1Parking.js";
 
 const view=()=>readFileSync(new URL("../components/sites/WavePlanView.jsx",import.meta.url),"utf8");
 const styles=()=>readFileSync(new URL("../app/globals.css",import.meta.url),"utf8");
@@ -64,8 +64,10 @@ test("DZM1 parking control shows the two floors, while other sites keep original
   const src=view();
   assert.ok(src.includes('aria-label={`1st Floor parking time for ${waveLabel(selectedDehWave.wave)}`}'));
   assert.ok(src.includes('aria-label={`0 Floor holding time for ${waveLabel(selectedDehWave.wave)}`}'));
-  assert.ok(src.includes('readOnly title="10 minutes after 1st Floor parking"'));
-  assert.ok(src.includes('dzm1ShiftTime(e.target.value,-25)'));
+  assert.ok(src.includes('editDzm1Time(selectedDehWave.wave,"holding",e.target.value)'),"holding must be editable");
+  assert.ok(src.includes('editDzm1Time(selectedDehWave.wave,"load",e.target.value)'),"load must be editable");
+  assert.ok(src.includes('editDzm1Time(selectedDehWave.wave,"parking",e.target.value)'),"parking must be editable");
+  assert.ok(!src.includes('readOnly title="10 minutes after 1st Floor parking"'));
   assert.ok(src.includes('dehDisplayTime(selectedDehWave.wave,"load",selectedDehWave.time)'));
   assert.ok(src.includes('setDzm1ParkingOverrides({})'));
   assert.ok(!src.includes('supabase.from("dzm1Parking"'));
@@ -91,4 +93,38 @@ test("DZM1 variant 2 highlights LOAD TIME without changing times, stages or six-
   assert.equal(dzm1ParkingForWave("WAVE2").loadTime,"12:05");
   assert.equal(dzm1ParkingForWave("WAVE1").holdingTime,"11:30");
   assert.equal(dzm1ParkingForWave("WAVE2").holdingTime,"11:50");
+});
+
+test("DZM1: each of the three editable time controls recalculates the same +10/+15 sequence",()=>{
+  const changedParking=dzm1ParkingStartFromEditedTime("parking","12:00");
+  const changedHolding=dzm1ParkingStartFromEditedTime("holding","12:10");
+  const changedLoad=dzm1ParkingStartFromEditedTime("load","12:25");
+  assert.equal(changedParking,"12:00");
+  assert.equal(changedHolding,"12:00");
+  assert.equal(changedLoad,"12:00");
+  for (const start of [changedParking,changedHolding,changedLoad]) {
+    const wave=dzm1ParkingForWave("WAVE1",{WAVE1:{time:start}});
+    assert.deepEqual([wave.time,wave.holdingTime,wave.loadTime],["12:00","12:10","12:25"]);
+  }
+  assert.equal(dzm1ParkingForWave("WAVE2").time,"11:40","editing Wave 1 must not modify Wave 2");
+  assert.equal(dzm1ParkingStartFromEditedTime("holding","00:05"),"23:55");
+  assert.equal(dzm1ParkingStartFromEditedTime("load","00:05"),"23:40");
+  assert.equal(dzm1ParkingStartFromEditedTime("parking",""),"");
+  assert.equal(dzm1ParkingStartFromEditedTime("load","12:"),"");
+  assert.equal(dzm1ParkingStartFromEditedTime("holding","25:00"),"");
+  assert.equal(dzm1ParkingStartFromEditedTime("unknown","12:00"),"");
+});
+test("DZM1: native time picker retains draft during partial edits and commits valid HH:MM",()=>{
+  const src=view();
+  assert.ok(src.includes('[dzm1TimeDraft,setDzm1TimeDraft]=useState(null)'));
+  assert.ok(src.includes('setDzm1TimeDraft({wave,field,value})'));
+  assert.ok(src.includes('const parkingStart=dzm1ParkingStartFromEditedTime(field,value)'));
+  assert.ok(src.includes('if(parkingStart)changeDzm1Parking(wave,"time",parkingStart)'));
+  assert.ok(src.includes('dzm1TimeDraft?.wave===wave&&dzm1TimeDraft.field===field?dzm1TimeDraft.value:derived'));
+  assert.ok(src.includes('onFocus={e=>setDzm1TimeDraft({wave:selectedDehWave.wave,field:"holding",value:e.target.value})}'));
+  assert.ok(src.includes('onBlur={()=>setDzm1TimeDraft(null)} title="Edit holding time; parking and load times update automatically"'));
+  assert.ok(src.includes('onBlur={()=>{if(norm(site)==="DZM1")setDzm1TimeDraft(null);}'));
+  assert.ok(src.includes('setDzm1TimeDraft(null);setDehEditorWave(e.target.value);'),"changing wave resets partial input state");
+  assert.equal(src.split('setDzm1ParkingOverrides({});setDzm1TimeDraft(null);').length-1,2,"Clear and station change clear edits");
+  assert.ok(!src.includes('readOnly title="10 minutes after 1st Floor parking"'));
 });
