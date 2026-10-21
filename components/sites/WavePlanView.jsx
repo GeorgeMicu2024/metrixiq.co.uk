@@ -387,9 +387,9 @@ function deh1WorkbookRows(rows){
 
 
 async function imageRows(file,onProgress,site=""){
- try {
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
+ try {
  let canvasInfo=null;try{canvasInfo=await imageCanvas(file)}catch(e){console.warn("Wave colour scan unavailable",e)}
  const {data}=await worker.recognize(file,{}, {text:true,blocks:true});
  if(norm(site)==="DZM1"&&canvasInfo){
