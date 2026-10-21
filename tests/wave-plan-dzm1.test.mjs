@@ -57,7 +57,7 @@ test("DZM1 grid entries keep actual wave times without Amazon -20 adjustment", (
   const src=readFileSync(new URL("../lib/data/dzm1WaveImage.js",import.meta.url),"utf8");
   assert.ok(src.includes("directLoadTime:true"));
   assert.ok(src.includes('const wave="WAVE"+(timedHeaders.indexOf(header)+1)'));
-  assert.ok(src.includes('cells:[route,time,lane?"STG-"+lane:"",wave]'));
+  assert.ok(src.includes('cells:[item.route,item.time,lane?"STG-"+lane:"",item.wave]'));
   assert.ok(src.includes('if(!time)continue; // Never invent a missing Wave time.'));
 });
 
