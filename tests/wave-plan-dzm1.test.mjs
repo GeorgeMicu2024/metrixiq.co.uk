@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { dzm1ImageBands, dzm1RouteCode, dzm1Lane } from "../lib/data/dzm1WaveImage.js";
+import { dzm1ImageBands, dzm1RouteCode, dzm1Lane, dzm1RepairLaneSequence, dzm1VerifiedScreenshotRows } from "../lib/data/dzm1WaveImage.js";
 
 const view = () => readFileSync(new URL("../components/sites/WavePlanView.jsx",import.meta.url),"utf8");
 
@@ -59,4 +59,68 @@ test("DZM1 grid entries keep actual wave times without Amazon -20 adjustment", (
   assert.ok(src.includes('const wave="WAVE"+(timedHeaders.indexOf(header)+1)'));
   assert.ok(src.includes('cells:[route,time,lane?"STG-"+lane:"",wave]'));
   assert.ok(src.includes('if(!time)continue; // Never invent a missing Wave time.'));
+});
+
+test("DZM1 LF2 original: all 19 verified route, lane, wave and time pairs survive noisy OCR", () => {
+  const reference=[
+    ["CA_A153","A.1"],["CA_A146","A.2"],["CA_A151","A.3"],
+    ["CA_A150","A.4"],["CA_A155","A.5"],["CA_A142","A.6"],
+    ["CA_A154","A.7"],["CA_A144","B.4"],["CA_A147","B.5"],
+    ["CA_A148","B.6"],["CA_A139","B.7"],["CA_A149","B.8"],
+    ["CA_A141","B.9"],["CA_A152","B.10"],["CA_A160","B.11"],
+    ["CA_A143","B.12"],["CA_A138","B.1"],["CA_A145","B.2"],
+    ["CA_A156","B.3"]
+  ];
+  const rows=reference.map(([route,lane],i)=>({
+    route, lane, time:i<16?"11:40":"12:05",wave:i<16?"WAVE1":"WAVE2"
+  }));
+  // Actual first-day failures seen on screenshots:
+  for(const i of [1,2,3,4,5])rows[i].lane="";
+  rows[9].lane="B.0";
+  rows[12].lane="B.49";
+  rows[17].route="CA_A14";
+  assert.equal(rows.filter((r,i)=>r.route===reference[i][0]).length,18);
+  const corrected=dzm1VerifiedScreenshotRows(rows);
+  assert.ok(corrected,"the exact verified screenshot fingerprint should be recognized");
+  assert.deepEqual(corrected.map(r=>[r.route,r.lane]),reference);
+  assert.equal(corrected.filter(r=>r.wave==="WAVE1"&&r.time==="11:40").length,16);
+  assert.equal(corrected.filter(r=>r.wave==="WAVE2"&&r.time==="12:05").length,3);
+  assert.equal(new Set(corrected.map(r=>r.route)).size,19);
+});
+test("DZM1 screenshot fingerprint never assigns yesterday's lane to an unrelated route set", () => {
+  const routes=[
+    "153","146","151","150","155","142","154","144","147","148",
+    "139","149","141","152","160","143","138","145","156"
+  ];
+  const rows=routes.map((n,i)=>({route:"CA_A"+n,lane:"",time:i<16?"11:40":"12:05",wave:i<16?"WAVE1":"WAVE2"}));
+  for(const index of [1,2,3])rows[index].route="CA_A900";
+  assert.equal(dzm1VerifiedScreenshotRows(rows),null);
+  assert.equal(dzm1VerifiedScreenshotRows(rows.slice(0,18)),null);
+  assert.equal(dzm1VerifiedScreenshotRows(rows.map(r=>({...r,time:"10:30"}))),null);
+});
+test("DZM1 lane interpolation uses two aligned anchors, not arbitrary guessing", () => {
+  const base=[
+    {wave:"WAVE1",time:"11:40",lane:"A.1"},
+    {wave:"WAVE1",time:"11:40",lane:""},
+    {wave:"WAVE1",time:"11:40",lane:""},
+    {wave:"WAVE1",time:"11:40",lane:"A.4"},
+    {wave:"WAVE1",time:"11:40",lane:"B.4"},
+    {wave:"WAVE1",time:"11:40",lane:"B.0"},
+    {wave:"WAVE1",time:"11:40",lane:"B.6"},
+    {wave:"WAVE2",time:"12:05",lane:"B.1"},
+    {wave:"WAVE2",time:"12:05",lane:""},
+    {wave:"WAVE2",time:"12:05",lane:"B.3"},
+  ];
+  const result=dzm1RepairLaneSequence(base);
+  assert.deepEqual(result.map(r=>r.lane),["A.1","A.2","A.3","A.4","B.4","B.5","B.6","B.1","B.2","B.3"]);
+  assert.equal(base[1].lane,"","original OCR results are never mutated");
+  const sparse=[{wave:"WAVE1",time:"11:40",lane:""},{wave:"WAVE1",time:"11:40",lane:"A.7"}];
+  assert.equal(dzm1RepairLaneSequence(sparse)[0].lane,"","one anchor is not enough");
+});
+test("DZM1 groups same-time drivers together while keeping each staging lane", () => {
+  const src=view();
+  assert.ok(src.includes('norm(site)==="DZM1"?"NO-STAGING"'),"DZM1 may not split a wave by staging letters");
+  assert.ok(src.includes('const groups=useMemo('));
+  assert.ok(src.includes('},[plan,site]);'));
+  assert.ok(src.includes('r.staging||r.gateTime||"—"'),"driver rows continue to display their own staging lane");
 });
