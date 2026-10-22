@@ -56,7 +56,7 @@ test("DZM1 KPIs display 21 prominently but preserve separate actual count of uni
  const css=readFileSync(new URL("../app/mentor.css",import.meta.url),"utf8");
  assert.ok(component.includes("Shift Report Entries"));
  assert.ok(component.includes("Driver Report Scores"));
- assert.ok(component.includes("Unique matched drivers with at least one trip"));
+ assert.ok(component.includes("Unique drivers with an eMentor trip (matched)"));
  assert.ok(component.includes("Encrypted score accounts awaiting driver mapping"));
  assert.ok(component.includes("reportStats?.pendingScores"));
  assert.ok(component.includes("fetchDzm1MentorReportStats(getSupabaseBrowserClient(), organizationId, selectedDate)"));
