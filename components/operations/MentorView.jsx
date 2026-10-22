@@ -674,6 +674,37 @@ export default function MentorView({
             onRestore={(item) => setDailyItemHidden(item, false)}
             visibilityBusy={visibilityBusy}
           />
+          {normalizedSelectedSite==="DZM1"&&dzm1ShiftRows!=null&&(
+            <section className="mentor-shift-source" aria-label="Original eMentor Shift Report entries">
+              <div className="mentor-shift-source-head">
+                <div>
+                  <span className="page-kicker">ORIGINAL SHIFT REPORT</span>
+                  <h2>All Trip Entries — {dzm1ShiftRows}</h2>
+                  <p>Every original Shift Report row, including repeat trips and source-name variants. This is not the FICO score table.</p>
+                </div>
+                <strong>{reportStats?.shiftEntries?.length||0} / {dzm1ShiftRows} entries displayed</strong>
+              </div>
+              {reportStats?.shiftEntries?.length ? (
+                <div className="mentor-shift-source-scroll">
+                  <table className="mentor-shift-source-table">
+                    <thead><tr><th>Excel Row</th><th>Source Driver Name</th><th>Begin Route</th><th>End Route</th><th>Trips</th><th>Trip Status</th></tr></thead>
+                    <tbody>{reportStats.shiftEntries.map((entry,i)=>(
+                      <tr key={String(entry.row)+"-"+i}>
+                        <td>{entry.row}</td>
+                        <td><strong>{entry.name}</strong></td>
+                        <td>{entry.begin||"—"}</td>
+                        <td>{entry.end||"—"}</td>
+                        <td>{entry.trips}</td>
+                        <td><span className={Number(entry.trips)>=1?"mentor-trip-success":"mentor-trip-missing"}>{Number(entry.trips)>=1?"Recorded":"No trip"}</span></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              ):(
+                <p className="mentor-shift-source-empty">The original trip rows were not retained by this earlier import. Reimport the original Shift Report to display every row without changing existing FICO scores.</p>
+              )}
+            </section>
+          )}
           <section className={"mentor-no-trip "+(noTripRows.length ? "has-missing" : "")}>
             <div className="mentor-no-trip-head">
               <div><span className="page-kicker">EMENTOR TRIP CHECK</span><h2>No Trip Recorder</h2></div>
