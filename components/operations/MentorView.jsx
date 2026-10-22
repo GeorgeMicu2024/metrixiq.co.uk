@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchMentorDailyRows, fetchMentorReconciliationRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
+import { mentorShiftReportEntries } from "../../lib/data/mentorSiteProvenance";
 import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
@@ -471,6 +472,8 @@ export default function MentorView({
     return recorded.size;
   }, [selectedDailyRows]);
 
+  const shiftEntryCount = useMemo(() => mentorShiftReportEntries(selectedDailyRows, selectedDate), [selectedDailyRows, selectedDate]);
+
   const hasExplicitTripCounts = explicitTripRows.length > 0 || noTripRows.length > 0;
   const noTripCountReady = tripEvidenceComplete || hasExplicitTripCounts;
 
@@ -641,7 +644,7 @@ export default function MentorView({
           </div>
 
           <div className="mentor-daily-kpis">
-            <article><span>Recorded</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>{hasExplicitTripCounts ? "Drivers with at least 1 eMentor trip" : "Trip count not available in this report"}</small></article>
+            <article><span>Recorded</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>{hasExplicitTripCounts ? `Unique drivers with an eMentor trip${shiftEntryCount != null ? ` · ${shiftEntryCount} Shift Report rows` : ""}` : "Trip count not available in this report"}</small></article>
             <article className={unmatchedForDate.length ? "warn" : ""}><span>Unmatched</span><strong>{unmatchedForDate.length}</strong><small>Identity mapping required</small></article>
             <article className={noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{noTripCountReady ? noTripRows.length : "—"}</strong><small>{tripEvidenceComplete ? "Confirmed from eMentor Shift Report" : noTripRows.length ? "Confirmed Trip < 1 rows found in eMentor" : hasExplicitTripCounts ? "No zero-trip rows in the current Driver Report" : "Import eMentor Shift Report (VRM) to verify"}</small></article>
           </div>
