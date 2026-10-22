@@ -5,6 +5,7 @@ import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchMentorDailyRows, fetchMentorReconciliationRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
 import { mentorShiftReportEntries } from "../../lib/data/mentorSiteProvenance";
+import { fetchDzm1MentorReportStats } from "../../lib/data/mentorReportStats";
 import MentorMappingPanel from "./MentorMappingPanel";
 import {
   ErrorBox,
@@ -246,6 +247,7 @@ export default function MentorView({
     rows: [],
   });
   const [reconciliationRows, setReconciliationRows] = useState([]);
+  const [reportStats, setReportStats] = useState(null);
   const [mode, setMode] = useState("daily");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -316,6 +318,15 @@ export default function MentorView({
     [allDailyRows, siteFilter]
   );
   const normalizedSelectedSite = String(siteFilter || "all").trim().toUpperCase();
+  useEffect(() => {
+    let alive = true;
+    setReportStats(null);
+    if (!organizationId || !selectedDate || normalizedSelectedSite !== "DZM1") return () => {alive=false;};
+    fetchDzm1MentorReportStats(getSupabaseBrowserClient(), organizationId, selectedDate)
+      .then(stats => {if(alive)setReportStats(stats);})
+      .catch(error => {console.error("Could not load DZM1 eMentor report entry totals", error);if(alive)setReportStats(null);});
+    return () => {alive=false;};
+  }, [organizationId, selectedDate, normalizedSelectedSite, refreshKey, mappingRefresh]);
   const globalLatestDate = useMemo(
     () => [...new Set(allDailyRows.map((row) => row.report_date).filter(Boolean))].sort().reverse()[0] || "",
     [allDailyRows]
@@ -473,6 +484,9 @@ export default function MentorView({
   }, [selectedDailyRows]);
 
   const shiftEntryCount = useMemo(() => mentorShiftReportEntries(selectedDailyRows, selectedDate), [selectedDailyRows, selectedDate]);
+  const dzm1ShiftRows = reportStats?.shiftRows ?? shiftEntryCount;
+  const dzm1ScoreRows = reportStats?.driverRows ?? null;
+  const dzm1PendingScores = reportStats?.pendingScores ?? unmatchedForDate.filter(row => row.payload?.score != null).length;
 
   const hasExplicitTripCounts = explicitTripRows.length > 0 || noTripRows.length > 0;
   const noTripCountReady = tripEvidenceComplete || hasExplicitTripCounts;
@@ -643,9 +657,11 @@ export default function MentorView({
             <span>Minimum required score: <b>{TARGETS.mentor}+</b></span>
           </div>
 
-          <div className="mentor-daily-kpis">
-            <article><span>Recorded</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>{hasExplicitTripCounts ? `Unique drivers with an eMentor trip${shiftEntryCount != null ? ` · ${shiftEntryCount} Shift Report rows` : ""}` : "Trip count not available in this report"}</small></article>
-            <article className={unmatchedForDate.length ? "warn" : ""}><span>Unmatched</span><strong>{unmatchedForDate.length}</strong><small>Identity mapping required</small></article>
+          <div className={"mentor-daily-kpis"+(normalizedSelectedSite==="DZM1"?" dzm1-report-kpis":"")}>
+            <article><span>Recorded Drivers</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>Unique matched drivers with at least one trip</small></article>
+            {normalizedSelectedSite==="DZM1"&&<article className="mentor-shift-total"><span>Shift Report Entries</span><strong>{dzm1ShiftRows ?? "—"}</strong><small>Individual trip rows, including repeat trips — not distinct drivers</small></article>}
+            {normalizedSelectedSite==="DZM1"&&<article><span>Driver Report Scores</span><strong>{dzm1ScoreRows ?? "—"}</strong><small>{dzm1ScoreRows != null ? `${dailyMap.length} mapped · ${dzm1PendingScores} awaiting identity match` : "Uploaded score rows, not Shift Report trips"}</small></article>}
+            <article className={(normalizedSelectedSite==="DZM1"?dzm1PendingScores:unmatchedForDate.length) ? "warn" : ""}><span>Unmatched Scores</span><strong>{normalizedSelectedSite==="DZM1"?dzm1PendingScores:unmatchedForDate.length}</strong><small>Encrypted score accounts awaiting driver mapping</small></article>
             <article className={noTripRows.length ? "bad" : ""}><span>No Trip Recorder</span><strong>{noTripCountReady ? noTripRows.length : "—"}</strong><small>{tripEvidenceComplete ? "Confirmed from eMentor Shift Report" : noTripRows.length ? "Confirmed Trip < 1 rows found in eMentor" : hasExplicitTripCounts ? "No zero-trip rows in the current Driver Report" : "Import eMentor Shift Report (VRM) to verify"}</small></article>
           </div>
 
