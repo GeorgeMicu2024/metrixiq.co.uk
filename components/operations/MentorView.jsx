@@ -658,7 +658,7 @@ export default function MentorView({
           </div>
 
           <div className={"mentor-daily-kpis"+(normalizedSelectedSite==="DZM1"?" dzm1-report-kpis":"")}>
-            <article><span>Recorded Drivers</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>Unique matched drivers with at least one trip</small></article>
+            <article><span>Recorded Drivers</span><strong>{hasExplicitTripCounts ? recordedCount : "—"}</strong><small>Unique drivers with an eMentor trip (matched)</small></article>
             {normalizedSelectedSite==="DZM1"&&<article className="mentor-shift-total"><span>Shift Report Entries</span><strong>{dzm1ShiftRows ?? "—"}</strong><small>Individual trip rows, including repeat trips — not distinct drivers</small></article>}
             {normalizedSelectedSite==="DZM1"&&<article><span>Driver Report Scores</span><strong>{dzm1ScoreRows ?? "—"}</strong><small>{dzm1ScoreRows != null ? `${dailyMap.length} mapped · ${dzm1PendingScores} awaiting identity match` : "Uploaded score rows, not Shift Report trips"}</small></article>}
             <article className={(normalizedSelectedSite==="DZM1"?dzm1PendingScores:unmatchedForDate.length) ? "warn" : ""}><span>Unmatched Scores</span><strong>{normalizedSelectedSite==="DZM1"?dzm1PendingScores:unmatchedForDate.length}</strong><small>Encrypted score accounts awaiting driver mapping</small></article>
