@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {dzm1DCSLWaveRows,dzm1FullWavePlanHeaders} from "../lib/data/dzm1FullWavePlan.js";
+import {dzm1DCSLWaveRows,dzm1FullWavePlanHeaders,dzm1SmartUploadFileKind} from "../lib/data/dzm1FullWavePlan.js";
 import {dzm1ParkingForWave,dzm1WaveStart24} from "../lib/data/dzm1Parking.js";
 
 const cols=["Launch PAD","DSP","Route Code","Service Type","Wave Start","Wave Finish","Holding Lane","Wave Number","Staging Location","Late Arrival","No show"];
@@ -76,4 +76,28 @@ test("Only DZM1 uses XLSX DCSL filter; existing image OCR and other sites preser
   assert.ok(s.includes('dzm1ParkingForWave(selectedDehWave.wave,dzm1ParkingOverrides,selectedDehWave.time)'));
   assert.ok(s.includes('norm(site)==="DEH1"?await deh1ImageRows'));
   assert.ok(s.includes('await imageRows(file,progress,site)'));
+});
+
+test("DZM1 Smart Upload classifies the actual generated 35-route file as Wave Plan",()=>{
+  const consolidated="DCSL_DZM1_35_Routes_Wave_Plan_22-10-2026.xlsx";
+  const roster="Routes_DZM1_2026-10-22_09_48 (GMT+1)(1).xlsx";
+  assert.equal(dzm1SmartUploadFileKind(consolidated),"wave",
+    'Wave Plan must win over Routes even when both tokens appear in a filename');
+  assert.equal(dzm1SmartUploadFileKind(roster),"route");
+  assert.equal(dzm1SmartUploadFileKind("Wave Plan 22.10.xlsx"),"wave");
+  assert.equal(dzm1SmartUploadFileKind("DZM1_routes_WAVE_11+12.xlsx"),"wave");
+  assert.equal(dzm1SmartUploadFileKind("unknown.xlsx"),"");
+});
+test("DZM1 special filename classification runs before the generic ROUTE-first branch",()=>{
+  const s=app();
+  const start=s.indexOf("const classifyFile=async(file)=>");
+  const stop=s.indexOf("const load=async(file,",start);
+  assert.ok(start>=0 && stop>start);
+  const classifier=s.slice(start,stop);
+  const special=classifier.indexOf('if(norm(site)==="DZM1")');
+  const legacy=classifier.indexOf('if(/ROUTE|ROUTING|DA.?ROUTE/.test(name))');
+  assert.ok(special>=0 && legacy>special,"DZM1 Wave Plan recognition must run first");
+  assert.ok(classifier.includes("dzm1SmartUploadFileKind(name)"));
+  assert.ok(s.includes('norm(site)==="DZM1"?dzm1DCSLWaveRows(raw)??raw:raw'),
+    "Wave Plan still filters exact DCSL spreadsheet rows");
 });
