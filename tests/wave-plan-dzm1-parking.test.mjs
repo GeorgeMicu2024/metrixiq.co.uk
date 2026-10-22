@@ -56,7 +56,7 @@ test("Wave 1 has 16 and Wave 2 has 3 original routes; no change to routing or OC
   assert.ok(s.includes('const groups=useMemo('));
   assert.ok(s.includes('const stg=norm(site)==="DZM1"?"NO-STAGING"'));
   assert.ok(s.includes('const visibleGroups=useMemo('));
-  assert.ok(s.includes('norm(site)==="DZM1"?dzm1ParkingForWave(wave,dzm1ParkingOverrides):null'));
+  assert.ok(s.includes('norm(site)==="DZM1"?dzm1ParkingForWave(wave,dzm1ParkingOverrides,time):null'));
   assert.ok(s.includes('norm(site)==="DEH1"?await deh1ImageRows'));
   assert.ok(s.includes('const plan=useMemo('));
 });
