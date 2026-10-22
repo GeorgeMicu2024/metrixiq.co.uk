@@ -812,3 +812,38 @@
 @media(max-width:440px){
   .mentor-daily-kpis.dzm1-report-kpis{grid-template-columns:1fr}
 }
+
+/* DZM1 ONLY: original Shift Report rows (including repeated trip entries).
+   Deliberately separate from the score table and identity mappings. */
+.mentor-shift-source {
+  margin:16px;
+  border:1px solid #cbd8e6;
+  border-radius:14px;
+  background:#fff;
+  overflow:hidden;
+}
+.mentor-shift-source-head {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  flex-wrap:wrap;
+  padding:14px 17px;
+  background:#f3f8fc;
+  border-bottom:1px solid #d9e3ee;
+}
+.mentor-shift-source-head h2 {margin:3px 0 4px;font-size:19px;color:#142a43}
+.mentor-shift-source-head p {margin:0;color:#53677e;font-size:12px}
+.mentor-shift-source-head>strong {color:#12694b;font-size:17px;white-space:nowrap}
+.mentor-shift-source-scroll {width:100%;overflow-x:auto}
+.mentor-shift-source-table {border-collapse:collapse;width:100%;min-width:700px;font-size:12px}
+.mentor-shift-source-table th {
+  padding:10px 13px;background:#e8f0f7;color:#1b3c5f;
+  text-align:left;text-transform:uppercase;font-size:11px;letter-spacing:.03em;
+}
+.mentor-shift-source-table td {padding:9px 13px;color:#203449;border-bottom:1px solid #e4ebf2}
+.mentor-shift-source-table tbody tr:nth-child(even){background:#f7fafc}
+.mentor-shift-source-table td:nth-child(5){font-weight:900}
+.mentor-trip-success{font-weight:800;color:#18734f}
+.mentor-trip-missing{font-weight:800;color:#a13c2f}
+.mentor-shift-source-empty{padding:14px 17px;color:#76561e;background:#fff8e8;margin:0}
