@@ -3734,3 +3734,39 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   font-weight:1000;
   font-variant-numeric:tabular-nums;
 }
+
+/* DZM1 ONLY — green/amber operational wave palette.
+   Overrides source fill colours for wave 11/12, never changes other sites. */
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave11>h4{
+  background:#177B50!important;
+  color:#fff!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave12>h4{
+  background:#C37B24!important;
+  color:#fff!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave11>div{
+  background:#DEF3E6!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave11>div:nth-child(odd){
+  background:#EAF8EF!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave12>div{
+  background:#FFF0D8!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave12>div:nth-child(odd){
+  background:#FFF7E9!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave11>div>*,
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave12>div>*{
+  color:#173048!important;
+  border-right-color:rgba(25,49,68,.18)!important;
+}
+.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave>div>.dzm1-load-time{
+  background:#F5F9FD!important;
+  color:#092840!important;
+  font-size:15px!important;
+  font-weight:950!important;
+  border-left:2px solid rgba(18,51,78,.40)!important;
+  border-right:2px solid rgba(18,51,78,.40)!important;
+}
