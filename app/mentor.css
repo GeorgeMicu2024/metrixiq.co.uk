@@ -786,3 +786,29 @@
   .mentor-site-mismatch .btn{width:100%}
   .mentor-daily-kpis{grid-template-columns:1fr}
 }
+
+/* DZM1-only: distinguish 21 source Shift entries from unique drivers and FICO scores. */
+.mentor-daily-kpis.dzm1-report-kpis{
+  grid-template-columns:repeat(5,minmax(0,1fr));
+}
+.mentor-daily-kpis.dzm1-report-kpis .mentor-shift-total{
+  border:2px solid #85b8a5;
+  background:#f3fbf7;
+}
+.mentor-daily-kpis.dzm1-report-kpis .mentor-shift-total strong{
+  color:#12694b;
+  font-size:32px;
+  font-weight:950;
+}
+.mentor-daily-kpis.dzm1-report-kpis article{
+  min-width:0;
+}
+@media(max-width:1120px){
+  .mentor-daily-kpis.dzm1-report-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:680px){
+  .mentor-daily-kpis.dzm1-report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:440px){
+  .mentor-daily-kpis.dzm1-report-kpis{grid-template-columns:1fr}
+}
