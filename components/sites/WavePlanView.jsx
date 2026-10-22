@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { parseDzm1WaveImage } from "../../lib/data/dzm1WaveImage.js";
-import { dzm1DCSLWaveRows } from "../../lib/data/dzm1FullWavePlan.js";
+import { dzm1DCSLWaveRows, dzm1SmartUploadFileKind } from "../../lib/data/dzm1FullWavePlan.js";
 import { dzm1ParkingForWave, dzm1ParkingStartFromEditedTime } from "../../lib/data/dzm1Parking.js";
 
 const COLORS={PURPLE:"#762db3",BLUE:"#087fcf",GREEN:"#05ad58",RED:"#d62828",YELLOW:"#d7ad00",ORANGE:"#e67e22",WAVE1:"#35b51b",WAVE2:"#f5a000",WAVE3:"#a63db8",WAVE6:"#e05252",WAVE7:"#2f9e68"};
@@ -561,6 +561,12 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const classifyFile=async(file)=>{
    const name=norm(file?.name);
    if(/ATLAS/.test(name))return "atlas";
+   // DZM1 files may contain both "Routes" and "Wave Plan"; Wave Plan wins.
+   // Other sites keep their existing upload classification unchanged.
+   if(norm(site)==="DZM1"){
+     const kind=dzm1SmartUploadFileKind(name);
+     if(kind)return kind;
+   }
    if(/ROUTE|ROUTING|DA.?ROUTE/.test(name))return "route";
    if(/WAVE|STAGING|DISPATCH/.test(name)||file?.type?.startsWith("image/"))return "wave";
    if(/\.TXT$/i.test(file?.name||""))return "atlas";
