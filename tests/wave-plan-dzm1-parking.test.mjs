@@ -128,3 +128,35 @@ test("DZM1: native time picker retains draft during partial edits and commits va
   assert.equal(src.split('setDzm1ParkingOverrides({});setDzm1TimeDraft(null);').length-1,2,"Clear and station change clear edits");
   assert.ok(!src.includes('readOnly title="10 minutes after 1st Floor parking"'));
 });
+
+test("DZM1 PNG export uses its entire six-column sheet width, while other sites retain 920px",()=>{
+  const s=view();
+  assert.ok(s.includes('const exportWidth=norm(site)==="DZM1"?Math.ceil(Math.max(1100,node.scrollWidth,node.getBoundingClientRect().width)):920;'),
+    "DZM1 must never be exported using the old clipped 920px capture");
+  assert.ok(s.includes('const exportHeight=Math.ceil(Math.max(node.scrollHeight,node.getBoundingClientRect().height));'));
+  assert.ok(s.includes('width:exportWidth,height:exportHeight,style:{width:exportWidth+"px"'));
+  assert.ok(s.includes('minWidth:exportWidth+"px"'));
+  assert.ok(s.includes('const dataUrl=await toPng(node,'),"the Save Image and share paths reuse the full-width PNG");
+});
+test("DZM1 Wave 11/12 use distinct green/amber colors; dynamic colors of other sites are preserved",()=>{
+  const s=view(),css=styles();
+  assert.ok(s.includes('norm(site)==="DZM1"&&wave==="WAVE11"?"#177B50"'));
+  assert.ok(s.includes('norm(site)==="DZM1"&&wave==="WAVE12"?"#C37B24"'));
+  assert.ok(s.includes(':colourForRows(wave,rows)'),"other sites must still use the source palette");
+  assert.equal(s.split("waveColour=dzm1PresentationColour(site,wave,rows)").length-1,2);
+  assert.ok(s.includes("waveColour=dzm1PresentationColour(site,wave,v)"));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave11>h4'));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave12>h4'));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave11>div'));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave.wave-wave12>div'));
+  assert.ok(css.includes('.daily-dispatch .dcsl-sheet.dzm1-parking-grid .dcsl-wave>div>.dzm1-load-time'));
+  assert.ok(!css.includes('.daily-dispatch .dcsl-wave.wave-wave11>div{'),"avoid global wave coloring");
+});
+test("DZM1 screenshot fix keeps staging lane as the last, sixth column",()=>{
+  const s=view();
+  assert.ok(s.includes('PARKING TIME<small>1ST FLOOR</small>'));
+  assert.ok(s.includes('HOLDING LANE<small>0 FLOOR</small>'));
+  assert.ok(s.includes('<b>STAGING LANE</b>'));
+  assert.ok(s.includes('<span className="dzm1-load-time">{shownLoad}</span><em>{r.staging?.replace(/^STG-/i,"")||"—"}</em>'));
+  assert.ok(styles().includes('grid-template-columns:138px minmax(0,1fr) 144px 154px 130px 145px!important;'));
+});
