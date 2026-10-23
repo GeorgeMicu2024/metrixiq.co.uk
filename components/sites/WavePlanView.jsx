@@ -39,6 +39,21 @@ const formatMinutes=n=>{n=(n+1440)%1440;let h=Math.floor(n/60),m=n%60,a=h>=12?"P
 const adjustTime=(v,delta)=>{const n=toMinutes(v);return n==null?clean(v):formatMinutes(n+delta)};
 const deh1GateFallback=v=>{const n=toMinutes(v);if(n==null)return"";const m=(n-25+1440)%1440;return `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`};
 async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array",cellStyles:true}),rows=[];for(const sheetName of wb.SheetNames){const sheet=wb.Sheets[sheetName],range=XLSX.utils.decode_range(sheet["!ref"]||"A1");XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet:sheetName,row:i+1,cells,rowColour:excelRowColour(sheet,range.s.r+i,range)}))}return rows}
+// DZM1 Amazon matrix contains two independent route tables (B:I and M:T).
+// Only DCSL rows are eligible; never infer a missing route's load time.
+function dzm1WorkbookRows(rows){
+ const out=[];
+ for(const row of rows){
+  for(const [dsp,route,time,stage,wave] of [[1,2,4,8,7],[12,13,15,19,18]]){
+   const c=row.cells||[];
+   if(!dcslDsp(c[dsp])||!routeOf([c[route]]))continue;
+   const load=timeOf([c[time]]),staging=clean(c[stage]);
+   if(!load||!staging)continue;
+   out.push({...row,cells:[c[route],load,staging,c[wave]||"", "DCSL"],directLoadTime:true,explicitWave:clean(c[wave])?"WAVE"+clean(c[wave]):"",sourceY:row.row,dcslHint:true});
+  }
+ }
+ return out;
+}
 async function imageCanvas(file){const canvas=document.createElement("canvas"),ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)throw new Error("Canvas unavailable");if(typeof createImageBitmap==="function"){const bitmap=await createImageBitmap(file);canvas.width=bitmap.width;canvas.height=bitmap.height;ctx.drawImage(bitmap,0,0);bitmap.close?.();return{ctx,width:canvas.width,height:canvas.height}}const url=URL.createObjectURL(file);try{const img=await new Promise((resolve,reject)=>{const node=new Image();node.onload=()=>resolve(node);node.onerror=reject;node.src=url});canvas.width=img.naturalWidth||img.width;canvas.height=img.naturalHeight||img.height;ctx.drawImage(img,0,0);return{ctx,width:canvas.width,height:canvas.height}}finally{URL.revokeObjectURL(url)}}
 function sampledRowColour(ctx,width,height,bbox){if(!ctx||!bbox||!width||!height)return"";const center=Math.max(0,Math.min(height-1,Math.round((bbox.y0+bbox.y1)/2))),rowHeight=Math.max(2,Math.round((bbox.y1-bbox.y0)/2)),ys=[center,Math.max(0,center-rowHeight),Math.min(height-1,center+rowHeight)],step=Math.max(3,Math.floor(width/220)),colours=[];for(const y of ys){let data;try{data=ctx.getImageData(0,y,width,1).data}catch{return""}for(let x=Math.floor(width*.03);x<Math.floor(width*.97);x+=step){const i=x*4,r=data[i],g=data[i+1],b=data[i+2],a=data[i+3];if(a<180)continue;const max=Math.max(r,g,b),min=Math.min(r,g,b),sat=max?((max-min)/max):0,luma=(.2126*r+.7152*g+.0722*b)/255;if(luma<.12||luma>.94)continue;colours.push(quantiseColour("#"+[r,g,b].map(n=>n.toString(16).padStart(2,"0")).join("")))}}return dominantColour(colours)}
 function ocrRouteColours(blocks,ctx,width,height){const out=new Map();for(const block of blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){const route=routeOf([line?.text||""]);if(!route)continue;const colour=sampledRowColour(ctx,width,height,line?.bbox);if(colour)out.set(norm(route),colour)}return out}
@@ -585,7 +600,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
          const progress=value=>setOcrProgress(Math.min(100,Math.round(((i*100)+Number(value||0))/list.length)));
          rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress);
        }else{
-         const raw=await workbookRows(file),matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):[];
+         const raw=await workbookRows(file),matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?dzm1WorkbookRows(raw):[];
          rows=matrix.length?matrix:raw;
        }
        const sourceOffset=i*100000;
