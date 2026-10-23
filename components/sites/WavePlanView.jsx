@@ -44,12 +44,19 @@ async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(
 function dzm1WorkbookRows(rows){
  const out=[];
  for(const row of rows){
-  for(const [dsp,route,time,stage,wave] of [[1,2,4,8,7],[12,13,15,19,18]]){
+  for(const [dsp,route,time,stage,waveCol] of [[1,2,4,8,7],[12,13,15,19,18]]){
    const c=row.cells||[];
    if(!dcslDsp(c[dsp])||!routeOf([c[route]]))continue;
    const load=timeOf([c[time]]),staging=clean(c[stage]);
    if(!load||!staging)continue;
-   out.push({...row,cells:[c[route],load,staging,c[wave]||"", "DCSL"],directLoadTime:true,explicitWave:clean(c[wave])?"WAVE"+clean(c[wave]):"",sourceY:row.row,dcslHint:true});
+   // Large merged wave-number cells have a value only at their top-left anchor.
+   // Find the closest wave number in the same block and colour band above this route.
+   const colour=normaliseHex(row.rowColour);
+   const candidates=rows.filter(r=>r.sheet===row.sheet&&r.row<=row.row&&row.row-r.row<55&&
+     /^\\d{1,2}$/.test(clean(r.cells?.[waveCol]))&&
+     (!colour||!normaliseHex(r.rowColour)||normaliseHex(r.rowColour)===colour));
+   const waveNumber=clean(c[waveCol])||clean(candidates[candidates.length-1]?.cells?.[waveCol]);
+   out.push({...row,cells:[c[route],load,staging,waveNumber, "DCSL"],directLoadTime:true,explicitWave:waveNumber?"WAVE"+waveNumber:"",sourceY:row.row,dcslHint:true});
   }
  }
  return out;
