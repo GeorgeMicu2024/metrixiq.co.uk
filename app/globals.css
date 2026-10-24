@@ -3582,19 +3582,30 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 }
 
 
-/* DZM1 ONLY: reset legacy direct-child wave grid. Launch pads occupy full sheet width. */
+/* DZM1: isolated, fixed-width export sheet. All launch pads are full-width stacked tables. */
+.daily-dispatch .dcsl-sheet:has(> section.dzm-launch-wave) {
+  width:920px!important;
+  min-width:920px!important;
+  max-width:920px!important;
+  box-sizing:border-box!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
 .daily-dispatch .dcsl-sheet section.dzm-launch-wave > div {
   display:block!important;
   width:100%!important;
   min-width:0!important;
   max-width:100%!important;
-  grid-template-columns:none!important;
+  min-height:0!important;
   box-sizing:border-box!important;
   border-right:0!important;
 }
-.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div > * {
-  border-right:0!important;
-  box-sizing:border-box!important;
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:first-child {
+  display:flex!important;
 }
 .daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div {
   display:block!important;
@@ -3603,18 +3614,29 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   max-width:100%!important;
   box-sizing:border-box!important;
 }
-.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(2),
-.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+3) {
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+2) {
   display:grid!important;
   grid-template-columns:110px minmax(0,1fr) 100px 110px!important;
   width:100%!important;
   min-width:0!important;
+  max-width:100%!important;
   box-sizing:border-box!important;
 }
-.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(2) > *,
-.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+3) > * {
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+2) > div {
+  display:block!important;
   min-width:0!important;
-  overflow-wrap:break-word!important;
+  box-sizing:border-box!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
   white-space:normal!important;
+  overflow-wrap:break-word!important;
+  border-right:0!important;
+  font-size:13px!important;
+  line-height:1.35!important;
+  text-align:left!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:first-child {
+  display:block!important;
+  width:100%!important;
   box-sizing:border-box!important;
 }
