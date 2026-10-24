@@ -42,30 +42,19 @@ async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(
 // DZM1 Amazon matrix contains two independent route tables (B:I and M:T).
 // Only DCSL rows are eligible; never infer a missing route's load time.
 function dzm1WorkbookRows(rows){
- const out=[],state=new Map();
+ const out=[],states=new Map();
  for(const row of rows){
-  const c=row.cells||[],sheet=row.sheet||"Wave",prior=state.get(sheet)||{wave:"",pad:""};
-  // Amazon's merged wave number can be in any column between the two route tables.
-  const number=c.slice(7,12).map(clean).find(v=>/^\d{1,2}$/.test(v));
-  if(number)prior.wave=number;
-  const pad=clean(c[0]).toUpperCase();
-  if(/^[ABC]$/.test(pad))prior.pad=pad;
-  state.set(sheet,prior);
-  for(const [dsp,route,start,finish,lane,stage] of [[1,2,4,5,6,8],[12,13,15,16,17,19]]){
-   if(!dcslDsp(c[dsp]))continue;
-   const code=routeOf([c[route]]),load=timeOf([c[start]]),end=timeOf([c[finish]]);
-   if(!code||!load)continue;
-   const staging=clean(c[stage]),holding=clean(c[lane]);
-   // Wave number is printed as a giant merged cell; use the row's colour block
-   // only to carry the number forward, never to label a wave by its colour.
-   const wave=prior.wave;
-   if(!wave)continue;
-   const stagingPad=staging.match(/STG[-.]?([ABC])/i)?.[1]?.toUpperCase()||"";
-   const launchPad=prior.pad||stagingPad;
-   out.push({...row,cells:[code,load,staging,wave,"DCSL"],directLoadTime:true,
-     explicitWave:"WAVE"+wave,launchPad,holdingLane:holding,waveFinish:end,
-     sourceY:row.row,dcslHint:true});
-  }
+  const c=row.cells||[],sheet=row.sheet||"Wave",previous=states.get(sheet)||{wave:"",pad:""};
+  const n=clean(c[7]);if(/^\d{1,2}$/.test(n))previous.wave=n;
+  const p=clean(c[0]).toUpperCase();if(/^[ABC]$/.test(p))previous.pad=p;
+  states.set(sheet,previous);
+  if(!dcslDsp(c[1]))continue;
+  const route=routeOf([c[2]]),start=timeOf([c[4]]),finish=timeOf([c[5]]);
+  if(!route||!start||!previous.wave)continue;
+  out.push({...row,cells:[route,start,clean(c[8]),previous.wave,"DCSL"],
+   directLoadTime:true,explicitWave:"WAVE"+previous.wave,
+   launchPad:previous.pad,holdingLane:clean(c[6]),waveFinish:finish,
+   sourceY:row.row,dcslHint:true});
  }
  return out;
 }
