@@ -3580,3 +3580,41 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     grid-column:1/-1!important;
   }
 }
+
+
+/* DZM1 ONLY: reset legacy direct-child wave grid. Launch pads occupy full sheet width. */
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  grid-template-columns:none!important;
+  box-sizing:border-box!important;
+  border-right:0!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div > * {
+  border-right:0!important;
+  box-sizing:border-box!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div {
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(2),
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+3) {
+  display:grid!important;
+  grid-template-columns:110px minmax(0,1fr) 100px 110px!important;
+  width:100%!important;
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(2) > *,
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+3) > * {
+  min-width:0!important;
+  overflow-wrap:break-word!important;
+  white-space:normal!important;
+  box-sizing:border-box!important;
+}
