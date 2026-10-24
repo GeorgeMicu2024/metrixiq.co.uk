@@ -3640,7 +3640,10 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   width:100%!important;
   box-sizing:border-box!important;
 }
-\n/* DZM1 only: compact table typography for WhatsApp export. */\n.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+3) > div {font-size:11px!important;padding:7px 8px!important;}\n
+
+/* DZM1 only: compact table typography for WhatsApp export. */
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+3) > div {font-size:11px!important;padding:7px 8px!important;}
+
 /* DZM1 mockup: fixed export width; no impact on other sites. */
 .daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) {width:920px!important;min-width:920px!important;max-width:920px!important}
 .daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-wave-banner {display:flex!important;align-items:stretch!important;justify-content:space-between!important;gap:12px!important;padding:7px 12px!important;box-sizing:border-box!important;min-height:66px!important;color:#fff!important}
