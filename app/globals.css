@@ -3641,3 +3641,21 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   box-sizing:border-box!important;
 }
 \n/* DZM1 only: compact table typography for WhatsApp export. */\n.daily-dispatch .dcsl-sheet section.dzm-launch-wave > div:nth-child(2) > div > div:nth-child(n+3) > div {font-size:11px!important;padding:7px 8px!important;}\n
+/* DZM1 mockup: fixed export width; no impact on other sites. */
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) {width:920px!important;min-width:920px!important;max-width:920px!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-wave-banner {display:flex!important;align-items:stretch!important;justify-content:space-between!important;gap:12px!important;padding:7px 12px!important;box-sizing:border-box!important;min-height:66px!important;color:#fff!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-wave-title {display:flex;align-items:center;flex:0 0 190px;font-size:28px!important;font-weight:900;white-space:nowrap}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-wave-times {display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;flex:1;min-width:0}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-wave-time {display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(0,0,0,.2);border-radius:5px;padding:5px 7px!important;min-width:0}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-time-label {font-size:11px!important;font-weight:800!important;line-height:1.2!important;white-space:nowrap}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-time-label small {font-size:10px!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-wave-time strong {font-size:23px!important;font-weight:950!important;line-height:1.25!important;white-space:nowrap}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pads {display:block!important;width:100%!important;padding:9px!important;background:#f2f5f9;box-sizing:border-box}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad {display:block!important;width:100%!important;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:5px;overflow:hidden;background:#fff;margin-bottom:9px}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad-heading {display:block!important;width:100%!important;padding:7px 12px!important;box-sizing:border-box;font-size:16px!important;font-weight:900!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad-row {display:grid!important;grid-template-columns:110px minmax(0,1fr) 100px 110px!important;align-items:center!important;width:100%!important;min-width:0!important;min-height:0!important;box-sizing:border-box!important;border-bottom:1px solid #e0e6ef!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad-row > div {font-size:12px!important;line-height:1.25!important;padding:6px 9px!important;min-width:0!important;overflow-wrap:anywhere!important;white-space:normal!important;text-overflow:clip!important;border-right:0!important;text-align:left!important;color:#12243c!important;font-weight:500!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad-row > .dzm-route {font-weight:900!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad-row > .dzm-driver {font-weight:500!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad-labels {background:#e9edf3!important}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad-labels > div {font-size:11px!important;font-weight:900!important}
