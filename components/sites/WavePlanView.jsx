@@ -42,17 +42,30 @@ async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(
 // DZM1 Amazon matrix contains two independent route tables (B:I and M:T).
 // Only DCSL rows are eligible; never infer a missing route's load time.
 function dzm1WorkbookRows(rows){
- const out=[],lastBySheet=new Map();
+ const out=[],state=new Map();
  for(const row of rows){
-  const c=row.cells||[],sheet=row.sheet||"Wave",last=lastBySheet.get(sheet)||{pad:"",wave:""};
-  const pad=clean(c[0]).toUpperCase(),wave=clean(c[7]);
-  if(/^[A-Z]$/.test(pad))last.pad=pad;
-  if(/^\\d{1,2}$/.test(wave))last.wave=wave;
-  lastBySheet.set(sheet,last);
-  if(!dcslDsp(c[1])||!routeOf([c[2]]))continue;
-  const route=routeOf([c[2]]),start=timeOf([c[4]]),finish=timeOf([c[5]]),holding=clean(c[6]),staging=clean(c[8]);
-  if(!start||!last.wave)continue;
-  out.push({...row,cells:[route,start,staging,last.wave,"DCSL"],directLoadTime:true,explicitWave:"WAVE"+last.wave,launchPad:last.pad,holdingLane:holding,waveFinish:finish,sourceY:row.row,dcslHint:true});
+  const c=row.cells||[],sheet=row.sheet||"Wave",prior=state.get(sheet)||{wave:"",pad:""};
+  // Amazon's merged wave number can be in any column between the two route tables.
+  const number=c.slice(7,12).map(clean).find(v=>/^\d{1,2}$/.test(v));
+  if(number)prior.wave=number;
+  const pad=clean(c[0]).toUpperCase();
+  if(/^[ABC]$/.test(pad))prior.pad=pad;
+  state.set(sheet,prior);
+  for(const [dsp,route,start,finish,lane,stage] of [[1,2,4,5,6,8],[12,13,15,16,17,19]]){
+   if(!dcslDsp(c[dsp]))continue;
+   const code=routeOf([c[route]]),load=timeOf([c[start]]),end=timeOf([c[finish]]);
+   if(!code||!load)continue;
+   const staging=clean(c[stage]),holding=clean(c[lane]);
+   // Wave number is printed as a giant merged cell; use the row's colour block
+   // only to carry the number forward, never to label a wave by its colour.
+   const wave=prior.wave;
+   if(!wave)continue;
+   const stagingPad=staging.match(/STG[-.]?([ABC])/i)?.[1]?.toUpperCase()||"";
+   const launchPad=prior.pad||stagingPad;
+   out.push({...row,cells:[code,load,staging,wave,"DCSL"],directLoadTime:true,
+     explicitWave:"WAVE"+wave,launchPad,holdingLane:holding,waveFinish:end,
+     sourceY:row.row,dcslHint:true});
+  }
  }
  return out;
 }
@@ -603,7 +616,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
          rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress);
        }else{
          const raw=await workbookRows(file),matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?dzm1WorkbookRows(raw):[];
-         rows=matrix.length?matrix:raw;
+         rows=norm(site)==="DZM1"?matrix:(matrix.length?matrix:raw);
        }
        const sourceOffset=i*100000;
        batches.push((rows||[]).map(row=>({...row,
