@@ -3775,3 +3775,15 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   line-height:14px!important;
 }
 .daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pads .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-route {font-weight:900!important}
+
+
+/* DZM1 ONLY: bring Holding and Staging columns closer to Driver Name.
+   Preserve the existing 920px export, row layout, typography, and other sites. */
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row > div:nth-child(3) {
+  position:relative!important;
+  left:-60px!important;
+}
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row > div:nth-child(4) {
+  position:relative!important;
+  left:-40px!important;
+}
