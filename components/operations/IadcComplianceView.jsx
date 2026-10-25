@@ -867,24 +867,24 @@ export default function IadcComplianceView({
 
                     return (
                       <tr key={row.id || row.driver_id}>
-                        <td><span className="iadcpro-rank">{index + 1}</span></td>
-                        <td><b>{dname(row.drivers)}</b></td>
-                        {showTrid && <td><code>{trid(row.drivers)}</code></td>}
-                        <td>
+                        <td data-label="No."><span className="iadcpro-rank">{index + 1}</span></td>
+                        <td data-label="Driver"><b>{dname(row.drivers)}</b></td>
+                        {showTrid && <td data-label="TRID"><code>{trid(row.drivers)}</code></td>}
+                        <td data-label={tab.toUpperCase()}>
                           <span className={"iadcpro-score " + tone}>{pct(score, 1)}</span>
                         </td>
-                        <td>{secondary == null ? "—" : pct(secondary, 1)}</td>
-                        <td>
+                        <td data-label={tab === "iadc" ? "DWC" : "IADC"}>{secondary == null ? "—" : pct(secondary, 1)}</td>
+                        <td data-label="Vs previous">
                           <span className={"iadcpro-delta " + (delta == null ? "" : delta > 0 ? "up" : delta < 0 ? "down" : "")}>
                             {delta == null ? "—" : `${delta > 0 ? "+" : ""}${delta.toFixed(1)} pp`}
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Status">
                           <span className={"iadcpro-status " + tone}>
                             {Number(score) >= target ? statusFor(score, target) : "Below target"}
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Last 7 days">
                           <div className="iadcpro-sparkbars" aria-label="Last 7 days">
                             {(last7.length ? last7 : Array(7).fill(null)).map((value, sparkIndex) => (
                               <span
@@ -910,12 +910,12 @@ export default function IadcComplianceView({
                             ))}
                           </div>
                         </td>
-                        <td>
+                        <td data-label="Avg 4W">
                           <span className={"iadcpro-avg4w " + tone}>
                             {avg4w == null ? "—" : pct(avg4w, 1)}
                           </span>
                         </td>
-                        <td>
+                        <td data-label="Action">
                           <button
                             type="button"
                             onClick={() =>
