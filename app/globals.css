@@ -3712,3 +3712,14 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   line-height:1.25!important;
   letter-spacing:0!important;
 }
+
+
+/* DZM1: holding and staging match driver-name typography. */
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div:nth-child(3),
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div:nth-child(4) {
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:1.25!important;
+  letter-spacing:0!important;
+}
