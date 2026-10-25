@@ -3723,3 +3723,20 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   line-height:1.25!important;
   letter-spacing:0!important;
 }
+
+
+/* DZM1 authoritative table typography — overrides legacy wave-plan selectors. */
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > .dzm-pads > .dzm-pad > .dzm-pad-row:not(.dzm-pad-labels) > div,
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > .dzm-pads > .dzm-pad > .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-driver,
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > .dzm-pads > .dzm-pad > .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-route {
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:11px!important;
+  font-style:normal!important;
+  line-height:1.25!important;
+  letter-spacing:0!important;
+  font-weight:700!important;
+  text-transform:none!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave > .dzm-pads > .dzm-pad > .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-route {
+  font-weight:900!important;
+}
