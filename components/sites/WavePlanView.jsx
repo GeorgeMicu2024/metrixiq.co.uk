@@ -41,6 +41,34 @@ const deh1GateFallback=v=>{const n=toMinutes(v);if(n==null)return"";const m=(n-2
 async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array",cellStyles:true}),rows=[];for(const sheetName of wb.SheetNames){const sheet=wb.Sheets[sheetName],range=XLSX.utils.decode_range(sheet["!ref"]||"A1");XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet:sheetName,row:i+1,cells,rowColour:excelRowColour(sheet,range.s.r+i,range)}))}return rows}
 // DZM1 Amazon matrix contains two independent route tables (B:I and M:T).
 // Only DCSL rows are eligible; never infer a missing route's load time.
+// DZM1 alternate Amazon dispatch format: three side-by-side launch-pad blocks
+// A:D, F:I, K:N. Each block carries DSP, route, loading time, staging.
+function dzm1ThreePadRows(rows){
+ const pads=[{pad:"A",dsp:0,route:1,time:2,stage:3},{pad:"B",dsp:5,route:6,time:7,stage:8},{pad:"C",dsp:10,route:11,time:12,stage:13}];
+ const candidates=[];
+ const allTimes=new Set();
+ for(const row of rows){
+  const c=row.cells||[];
+  for(const pad of pads){
+   const route=routeOf([c[pad.route]]),time=timeOf([c[pad.time]]);
+   if(!route||!time)continue;
+   const minutes=toMinutes(time);
+   if(minutes==null)continue;
+   allTimes.add(minutes);
+   if(!dcslDsp(c[pad.dsp]))continue;
+   candidates.push({row,route,time,minutes,pad:pad.pad,staging:clean(c[pad.stage])});
+  }
+ }
+ if(!candidates.length)return[];
+ const sorted=[...allTimes].sort((a,b)=>a-b);
+ return candidates.map(({row,route,time,minutes,pad,staging})=>{
+  const wave=String(sorted.indexOf(minutes)+1);
+  return {...row,cells:[route,time,staging,wave,"DCSL"],
+   directLoadTime:true,explicitWave:"WAVE"+wave,launchPad:pad,
+   holdingLane:pad==="A"?"E-G":pad==="B"?"C-D":"A-B",
+   sourceY:row.row,dcslHint:true};
+ });
+}
 function dzm1WorkbookRows(rows){
  const out=[],states=new Map();
  for(const row of rows){
@@ -604,7 +632,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
          const progress=value=>setOcrProgress(Math.min(100,Math.round(((i*100)+Number(value||0))/list.length)));
          rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress);
        }else{
-         const raw=await workbookRows(file),matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?dzm1WorkbookRows(raw):[];
+         const raw=await workbookRows(file),matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?(dzm1ThreePadRows(raw).length?dzm1ThreePadRows(raw):dzm1WorkbookRows(raw)):[];
          rows=norm(site)==="DZM1"?matrix:(matrix.length?matrix:raw);
        }
        const sourceOffset=i*100000;
