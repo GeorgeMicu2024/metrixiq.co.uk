@@ -3759,3 +3759,19 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   font-weight:700!important;
 }
 .daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-route {font-weight:900!important}
+
+
+/* DZM1: suppress browser text inflation, including inside html-to-image SVG export. */
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner),
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) *,
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) *::before,
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) *::after {
+  -webkit-text-size-adjust:none!important;
+  text-size-adjust:none!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pads .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div {
+  font-size:11px!important;
+  font-weight:700!important;
+  line-height:14px!important;
+}
+.daily-dispatch .dcsl-sheet section.dzm-launch-wave .dzm-pads .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-route {font-weight:900!important}
