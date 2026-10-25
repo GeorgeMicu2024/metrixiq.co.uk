@@ -3801,3 +3801,32 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 .daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-route {font-weight:900!important}
 .daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row > div:nth-child(3) {left:-95px!important}
 .daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row > div:nth-child(4) {left:-70px!important}
+
+
+/* DZM1 IADC mobile layout only; no other station or module affected. */
+@media(max-width:760px){
+ .iadcpro.iadcpro-dzm1{width:100%;max-width:100%;min-width:0;overflow-x:hidden;box-sizing:border-box}
+ .iadcpro.iadcpro-dzm1 .iadcpro-hero,
+ .iadcpro.iadcpro-dzm1 .iadcpro-controlbar,
+ .iadcpro.iadcpro-dzm1 .iadcpro-filterbar,
+ .iadcpro.iadcpro-dzm1 .iadcpro-main{min-width:0;width:100%;max-width:100%;box-sizing:border-box}
+ .iadcpro.iadcpro-dzm1 .iadcpro-controlbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+ .iadcpro.iadcpro-dzm1 .iadcpro-tabs,
+ .iadcpro.iadcpro-dzm1 .iadcpro-period-tabs,
+ .iadcpro.iadcpro-dzm1 .iadcpro-controlbar label,
+ .iadcpro.iadcpro-dzm1 .iadcpro-actions{min-width:0}
+ .iadcpro.iadcpro-dzm1 .iadcpro-controlbar select,
+ .iadcpro.iadcpro-dzm1 .iadcpro-filterbar select{max-width:100%;min-width:0;width:100%}
+ .iadcpro.iadcpro-dzm1 .iadcpro-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .iadcpro.iadcpro-dzm1 .iadcpro-actions button{width:100%;min-width:0;white-space:normal}
+ .iadcpro.iadcpro-dzm1 .iadcpro-filterbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+ .iadcpro.iadcpro-dzm1 .iadcpro-search{grid-column:1/-1;min-width:0}
+ .iadcpro.iadcpro-dzm1 .iadcpro-search input{min-width:0;width:100%}
+ .iadcpro.iadcpro-dzm1 .iadcpro-source{grid-column:1/-1}
+ .iadcpro.iadcpro-dzm1 .iadcpro-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;gap:8px}
+ .iadcpro.iadcpro-dzm1 .iadcpro-kpis article{min-width:0;max-width:100%;box-sizing:border-box}
+ .iadcpro.iadcpro-dzm1 .iadcpro-table-card{min-width:0;max-width:100%;overflow:hidden}
+ .iadcpro.iadcpro-dzm1 .iadcpro-table-wrap{display:block;max-width:100%;min-width:0;overflow-x:auto;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+ .iadcpro.iadcpro-dzm1 .iadcpro-table-wrap table{min-width:850px;width:max-content}
+ .iadcpro.iadcpro-dzm1 .iadcpro-card-head{min-width:0;flex-wrap:wrap}
+}
