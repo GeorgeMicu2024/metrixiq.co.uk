@@ -3787,3 +3787,17 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
   position:relative!important;
   left:-40px!important;
 }
+
+
+/* DZM1 ONLY: 12px Arial body and tighter right-hand columns. */
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div {
+  font-family:Arial,Helvetica,sans-serif!important;
+  font-size:12px!important;
+  line-height:15px!important;
+  font-weight:700!important;
+  -webkit-text-size-adjust:none!important;
+  text-size-adjust:none!important;
+}
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row:not(.dzm-pad-labels) > div.dzm-route {font-weight:900!important}
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row > div:nth-child(3) {left:-95px!important}
+.daily-dispatch .dcsl-sheet:has(.dzm-wave-banner) section.dzm-launch-wave .dzm-pad .dzm-pad-row > div:nth-child(4) {left:-70px!important}
