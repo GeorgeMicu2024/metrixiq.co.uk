@@ -7,6 +7,11 @@ import {
   fetchConcessionSnapshots,
 } from "../../lib/data/concessions";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import {
+  buildSingleWeekConcessionRows,
+  concessionExportPages,
+  weeklyConcessionTone,
+} from "../../lib/data/concessionsWeeklyView";
 import { ErrorBox, Loading } from "./OperationalShared";
 
 const cellTone = (value) => {
@@ -92,6 +97,8 @@ export default function ConcessionsSimpleView({
   const [query, setQuery] = useState("");
   const [show, setShow] = useState("all");
   const [range, setRange] = useState(8);
+  const [selectedWeek, setSelectedWeek] = useState("");
+  const [previewReady, setPreviewReady] = useState(false);
   const [showTrid, setShowTrid] = useState(true);
   const [page, setPage] = useState(1);
   const [saveMessage, setSaveMessage] = useState("");
@@ -205,12 +212,36 @@ export default function ConcessionsSimpleView({
     [load.rows, site]
   );
 
+  const effectiveWeek = eightWeeks.includes(selectedWeek)
+    ? selectedWeek
+    : eightWeeks[eightWeeks.length - 1] || "";
+
   const weeks = useMemo(
-    () => (range === 4 ? eightWeeks.slice(-4) : eightWeeks),
-    [eightWeeks, range]
+    () => range === 1
+      ? (effectiveWeek ? [effectiveWeek] : [])
+      : range === 4 ? eightWeeks.slice(-4) : eightWeeks,
+    [eightWeeks, range, effectiveWeek]
+  );
+
+  const historicMatrix = useMemo(
+    () => buildFourWeekConcessionMatrix(load.rows || [], site, eightWeeks),
+    [load.rows, site, eightWeeks]
+  );
+  const historicByTrid = useMemo(
+    () => new Map(historicMatrix.map((row) => [row.driver_trid, row])),
+    [historicMatrix]
+  );
+  const repeatTrids = useMemo(
+    () => new Set(historicMatrix.filter((row) => row.affectedWeeks >= 2).map((row) => row.driver_trid)),
+    [historicMatrix]
   );
 
   const matrix = useMemo(() => {
+    if (range === 1) {
+      return buildSingleWeekConcessionRows(
+        load.rows || [], site, effectiveWeek, latestSiteRoster, drivers
+      );
+    }
     const snapshotMatrix = buildFourWeekConcessionMatrix(load.rows || [], site, weeks);
     const rosterDrivers = latestSiteRoster.length ? latestSiteRoster : drivers;
     if (!rosterDrivers?.length) return snapshotMatrix;
@@ -251,7 +282,7 @@ export default function ConcessionsSimpleView({
           b.affectedWeeks - a.affectedWeeks ||
           a.driver_name.localeCompare(b.driver_name)
       );
-  }, [load.rows, site, weeks, drivers, latestSiteRoster]);
+  }, [load.rows, site, weeks, drivers, latestSiteRoster, range, effectiveWeek]);
 
   const weekly = useMemo(
     () =>
@@ -303,41 +334,53 @@ export default function ConcessionsSimpleView({
     const needle = query.trim().toLowerCase();
 
     return matrix.filter((row) => {
-      if (show === "repeat" && row.affectedWeeks < 2) return false;
-      if (show === "latest" && Number(row.byWeek?.[latestWeek] || 0) <= 0) {
-        return false;
-      }
+      if (show === "repeat" && !(range === 1 ? repeatTrids.has(row.driver_trid) : row.affectedWeeks >= 2)) return false;
+      if (show === "latest" && Number(row.byWeek?.[latestWeek] || 0) <= 0) return false;
+      if (show === "zero" && range === 1 && Number(row.byWeek?.[latestWeek] || 0) !== 0) return false;
 
       if (!needle) return true;
       return `${row.driver_name} ${row.driver_trid}`
         .toLowerCase()
         .includes(needle);
     });
-  }, [matrix, query, show, latestWeek]);
+  }, [matrix, query, show, latestWeek, range, repeatTrids]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / CONCESSIONS_PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const pageStart = (currentPage - 1) * CONCESSIONS_PAGE_SIZE;
   const pagedFiltered = filtered.slice(pageStart, pageStart + CONCESSIONS_PAGE_SIZE);
-  const exportPages = useMemo(() => {
-    const pages = [];
-    for (let index = 0; index < filtered.length; index += CONCESSIONS_PAGE_SIZE) {
-      pages.push(filtered.slice(index, index + CONCESSIONS_PAGE_SIZE));
-    }
-    return pages;
-  }, [filtered]);
+  const exportPages = useMemo(
+    () => concessionExportPages(filtered, CONCESSIONS_PAGE_SIZE),
+    [filtered]
+  );
 
   useEffect(() => {
     setPage(1);
-  }, [query, show, range, site]);
+  }, [query, show, range, site, effectiveWeek]);
+
+  useEffect(() => {
+    setPreviewReady(false);
+    setSaveMessage("");
+  }, [query, show, range, site, effectiveWeek, load.rows]);
 
   const selectedTotal = weekly.reduce((sum, item) => sum + item.total, 0);
   const uniqueAffected = matrix.length;
-  const repeatDrivers = matrix.filter((row) => row.affectedWeeks >= 2).length;
+  const repeatDrivers = range === 1
+    ? historicMatrix.filter((row) => row.affectedWeeks >= 2).length
+    : matrix.filter((row) => row.affectedWeeks >= 2).length;
+  const zeroConcessions = range === 1
+    ? matrix.filter((row) => Number(row.byWeek?.[latestWeek] || 0) === 0).length
+    : 0;
   const latestTotal = latestItem?.total || 0;
   const latestAffected = latestItem?.affected || 0;
-  const latestDelta = deltaMeta(latestItem?.delta ?? null);
-  const affectedDelta = deltaMeta(latestItem?.affectedDelta ?? null);
+  const previousWeek = range === 1 ? eightWeeks[eightWeeks.indexOf(effectiveWeek) - 1] : null;
+  const priorRows = previousWeek
+    ? (load.rows || []).filter((row) => row.site === site && row.week_label === previousWeek && Number(row.dnr || 0) > 0)
+    : [];
+  const priorTotal = previousWeek ? priorRows.reduce((sum, row) => sum + Number(row.dnr || 0), 0) : null;
+  const priorAffected = previousWeek ? new Set(priorRows.map((row) => row.driver_trid)).size : null;
+  const latestDelta = deltaMeta(range === 1 && priorTotal != null ? latestTotal - priorTotal : latestItem?.delta ?? null);
+  const affectedDelta = deltaMeta(range === 1 && priorAffected != null ? latestAffected - priorAffected : latestItem?.affectedDelta ?? null);
   const maxWeek = Math.max(1, ...weekly.map((item) => item.total));
 
   const trend = useMemo(() => {
@@ -440,6 +483,7 @@ export default function ConcessionsSimpleView({
           <p>
             Clean DNR history from dedicated Associates Concessions snapshots.
             Track movement, repeat patterns and driver-level trends.
+            {range === 1 && <span className="cx5-single-helper"> Select one week and export shareable image pages.</span>}
           </p>
         </div>
         <div className="cx5-heading-meta">
@@ -447,19 +491,56 @@ export default function ConcessionsSimpleView({
             <button
               type="button"
               className={range === 8 ? "active" : ""}
-              onClick={() => setRange(8)}
+              onClick={() => { setRange(8); setShow("all"); }}
             >
               8-week view
             </button>
             <button
               type="button"
               className={range === 4 ? "active" : ""}
-              onClick={() => setRange(4)}
+              onClick={() => { setRange(4); setShow("all"); }}
             >
               4-week view
             </button>
+            <button
+              type="button"
+              className={range === 1 ? "active" : ""}
+              onClick={() => { setRange(1); setShow("all"); }}
+            >
+              1-week view
+            </button>
           </div>
           <b>Verified snapshots</b>
+          {range === 1 && (
+            <div className="cx5-single-controls">
+              <label className="cx5-week-select">
+                <span>Week</span>
+                <select
+                  aria-label="Select concessions week"
+                  value={effectiveWeek}
+                  onChange={(event) => setSelectedWeek(event.target.value)}
+                >
+                  {eightWeeks.map((week) => <option value={week} key={week}>{week}</option>)}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="cx5-week-generate"
+                onClick={() => setPreviewReady(true)}
+                disabled={!filtered.length}
+              >
+                ▧ Generate weekly images
+              </button>
+              <button
+                type="button"
+                className="cx5-week-download"
+                onClick={saveConcessionsImages}
+                disabled={!previewReady || !filtered.length}
+              >
+                ↓ Download images
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -486,7 +567,7 @@ export default function ConcessionsSimpleView({
             <article>
               <div className="cx5-kpi-icon blue" aria-hidden="true">◎</div>
               <div>
-                <span>Latest affected</span>
+                <span>{range === 1 ? "Affected drivers" : "Latest affected"}</span>
                 <strong>{latestAffected}</strong>
                 <small className={affectedDelta.tone}>{affectedDelta.label}</small>
               </div>
@@ -502,14 +583,53 @@ export default function ConcessionsSimpleView({
             <article>
               <div className="cx5-kpi-icon violet" aria-hidden="true">◉</div>
               <div>
-                <span>Unique affected</span>
-                <strong>{uniqueAffected}</strong>
-                <small>{selectedTotal} DNR across {weeks.length} weeks</small>
+                <span>{range === 1 ? "Zero concessions" : "Unique affected"}</span>
+                <strong>{range === 1 ? zeroConcessions : uniqueAffected}</strong>
+                <small>{range === 1 ? `No DNR in ${latestWeek} among available roster` : `${selectedTotal} DNR across ${weeks.length} weeks`}</small>
               </div>
             </article>
           </section>
 
-          <section className="panel cx5-trend">
+          {range === 1 ? (
+            <section className="panel cx5-weekly-preview">
+              <div className="cx5-weekly-preview-head">
+                <div>
+                  <span className="page-kicker">WEEKLY IMAGES</span>
+                  <h2>{site} • {latestWeek} concessions</h2>
+                  <p>{filtered.length} drivers • {exportPages.length} page(s), 25 per page. Previews reflect the current search and filter.</p>
+                </div>
+                <span className="cx5-preview-status">{previewReady ? "Ready to download" : "Generate to preview"}</span>
+              </div>
+              {previewReady ? (
+                <div className="cx5-preview-grid" aria-label="Weekly concessions image page previews">
+                  {exportPages.map((pageRows, pageIndex) => (
+                    <div className="cx5-preview-card" key={pageIndex}>
+                      <div className="cx5-preview-banner">
+                        <b>{site} • {latestWeek} CONCESSIONS</b>
+                        <small>Page {pageIndex + 1} of {exportPages.length}</small>
+                      </div>
+                      <div className="cx5-preview-column-head"><b>Driver name</b><b>DNR concessions</b></div>
+                      <div className="cx5-preview-rows">
+                        {pageRows.map((row) => {
+                          const value = Number(row.byWeek?.[latestWeek] || 0);
+                          return (
+                            <div className="cx5-preview-row" key={row.driver_trid}>
+                              <span>{row.driver_name}</span>
+                              <strong className={weeklyConcessionTone(value)}>{value}</strong>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="cx5-preview-placeholder">
+                  Click <b>Generate weekly images</b> to preview all {exportPages.length} export page(s).
+                </div>
+              )}
+            </section>
+          ) : <section className="panel cx5-trend">
             <div className="cx5-section-head">
               <div>
                 <span className="page-kicker">WEEKLY TREND</span>
@@ -597,16 +717,14 @@ export default function ConcessionsSimpleView({
                 })}
               </svg>
             </div>
-          </section>
+          </section>}
 
           <section className="panel cx5-matrix">
             <div className="cx5-matrix-head">
               <div>
                 <span className="page-kicker">DRIVER DETAIL</span>
-                <h2>Driver concessions · last {weeks.length} weeks</h2>
-                <p>
-                  Weekly DNR, total exposure and recent movement in one view.
-                </p>
+                <h2>{range === 1 ? `Driver concessions · ${latestWeek}` : `Driver concessions · last ${weeks.length} weeks`}</h2>
+                <p>{range === 1 ? "Selected-week DNR, with 8-week context in the comparison columns." : "Weekly DNR, total exposure and recent movement in one view."}</p>
               </div>
 
               <div className="cx5-filterbar">
@@ -624,9 +742,10 @@ export default function ConcessionsSimpleView({
                   onChange={(event) => setShow(event.target.value)}
                   aria-label="Filter concessions drivers"
                 >
-                  <option value="all">All affected drivers</option>
+                  <option value="all">{range === 1 ? "All drivers" : "All affected drivers"}</option>
                   <option value="repeat">Repeat · 2+ weeks</option>
-                  <option value="latest">Latest week only</option>
+                  <option value="latest">{range === 1 ? "With concessions" : "Latest week only"}</option>
+                  {range === 1 && <option value="zero">Zero concessions</option>}
                 </select>
 
                 <button
@@ -639,15 +758,17 @@ export default function ConcessionsSimpleView({
                   <span aria-hidden="true">{showTrid ? "◉" : "⊘"}</span>
                   {showTrid ? "Hide TRID" : "Show TRID"}
                 </button>
-                <button
-                  type="button"
-                  className="cx5-save-image"
-                  onClick={saveConcessionsImages}
-                  disabled={!filtered.length}
-                >
-                  <span aria-hidden="true">↓</span>
-                  Save Image
-                </button>
+                {range !== 1 && (
+                  <button
+                    type="button"
+                    className="cx5-save-image"
+                    onClick={saveConcessionsImages}
+                    disabled={!filtered.length}
+                  >
+                    <span aria-hidden="true">↓</span>
+                    Save Image
+                  </button>
+                )}
               </div>
             </div>
 
@@ -666,8 +787,8 @@ export default function ConcessionsSimpleView({
                         {week}
                       </th>
                     ))}
-                    <th>Total</th>
-                    <th>Trend</th>
+                    <th>{range === 1 ? "Total (8W)" : "Total"}</th>
+                    <th>{range === 1 ? "Trend (8W)" : "Trend"}</th>
                     <th>Avg / wk</th>
                     <th>Weeks</th>
                     <th>Actions</th>
@@ -675,8 +796,10 @@ export default function ConcessionsSimpleView({
                 </thead>
                 <tbody>
                   {pagedFiltered.map((row, index) => {
-                    const values = weeks.map((week) => Number(row.byWeek?.[week] || 0));
-                    const average = weeks.length ? row.total / weeks.length : 0;
+                    const historic = range === 1 ? (historicByTrid.get(row.driver_trid) || row) : row;
+                    const values = (range === 1 ? eightWeeks : weeks).map((week) => Number(historic.byWeek?.[week] || 0));
+                    const average = (range === 1 ? eightWeeks : weeks).length
+                      ? historic.total / (range === 1 ? eightWeeks : weeks).length : 0;
 
                     return (
                       <tr key={row.driver_trid}>
@@ -686,7 +809,7 @@ export default function ConcessionsSimpleView({
                         <td>
                           <div className="cx5-driver">
                             <b>{row.driver_name}</b>
-                            {row.affectedWeeks >= 3 && <small>Repeat pattern</small>}
+                            {historic.affectedWeeks >= 3 && <small>Repeat pattern</small>}
                           </div>
                         </td>
                         {showTrid && (
@@ -708,7 +831,7 @@ export default function ConcessionsSimpleView({
                           );
                         })}
                         <td>
-                          <span className="cx5-total">{row.total}</span>
+                          <span className="cx5-total">{historic.total}</span>
                         </td>
                         <td>
                           <MiniTrend values={values} />
@@ -717,8 +840,8 @@ export default function ConcessionsSimpleView({
                           <span className="cx5-average">{average.toFixed(1)}</span>
                         </td>
                         <td>
-                          <span className={row.affectedWeeks >= 2 ? "cx5-repeat" : "cx5-weeks"}>
-                            {row.affectedWeeks}/{weeks.length}
+                          <span className={historic.affectedWeeks >= 2 ? "cx5-repeat" : "cx5-weeks"}>
+                            {historic.affectedWeeks}/{range === 1 ? eightWeeks.length : weeks.length}
                           </span>
                         </td>
                         <td>
@@ -733,7 +856,7 @@ export default function ConcessionsSimpleView({
                                 dbId: row.driver_id,
                                 name: row.driver_name,
                                 site,
-                                concessions: row.total,
+                                concessions: range === 1 ? Number(row.byWeek?.[latestWeek] || 0) : row.total,
                               })
                             }
                           >
@@ -796,9 +919,33 @@ export default function ConcessionsSimpleView({
                   ref={(node) => {
                     exportPageRefs.current[pageIndex] = node;
                   }}
-                  className="cx5-export-page"
-                  style={{ width: Math.max(820, 570 + weeks.length * 125) + "px" }}
+                  className={"cx5-export-page" + (range === 1 ? " weekly" : "")}
+                  style={{ width: range === 1 ? "920px" : Math.max(820, 570 + weeks.length * 125) + "px" }}
                 >
+                  {range === 1 ? (
+                    <>
+                      <div className="cx5-single-export-title">{site} • {latestWeek} CONCESSIONS</div>
+                      <div className="cx5-single-export-header">
+                        <b>Driver name</b><b>DNR concessions</b>
+                      </div>
+                      <div className="cx5-single-export-rows">
+                        {pageRows.map((row) => {
+                          const value = Number(row.byWeek?.[latestWeek] || 0);
+                          return (
+                            <div className="cx5-single-export-row" key={row.driver_trid}>
+                              <b>{row.driver_name}</b>
+                              <strong className={weeklyConcessionTone(value)}>{value}</strong>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <footer className="cx5-single-export-foot">
+                        <span>{filtered.length} drivers • {latestWeek}</span>
+                        <b>Page {pageIndex + 1} of {exportPages.length}</b>
+                      </footer>
+                    </>
+                  ) : (
+                    <>
                   <header className="cx5-export-head">
                     <div>
                       <span>DRIVER DETAIL</span>
@@ -851,6 +998,8 @@ export default function ConcessionsSimpleView({
                     <b>Page {pageIndex + 1} of {exportPages.length}</b>
                     <span>{site} · {weeks.length ? `${weeks[0]}–${weeks[weeks.length - 1]}` : ""}</span>
                   </footer>
+                    </>
+                  )}
                 </section>
               ))}
             </div>
@@ -868,6 +1017,51 @@ export default function ConcessionsSimpleView({
         .cx5-range-switch{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid #dce5eb;border-radius:999px;background:#fff}
         .cx5-range-switch button{height:24px;padding:0 9px;border:0;border-radius:999px;background:transparent;color:#697c8e;font-size:8px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
         .cx5-range-switch button.active{background:#eef6ff;color:#1d66d2;box-shadow:inset 0 0 0 1px #bcd5ff}
+
+
+        .cx5-heading-meta{flex-wrap:wrap;justify-content:flex-end;max-width:700px}
+        .cx5-range-switch button.active{background:#eef6ff;color:#1d66d2}
+        .cx5-single-helper{color:#257b68;font-weight:750}
+        .cx5-single-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;width:100%}
+        .cx5-week-select{display:flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid #d5e1e8;border-radius:9px;background:#fff}
+        .cx5-week-select>span{font-size:9px;font-weight:850;color:#738497}
+        .cx5-week-select select{min-width:80px;border:0;outline:0;font-size:12px;font-weight:900;color:#183249;background:#fff}
+        .cx5-week-generate,.cx5-week-download{height:35px;padding:0 13px;border:1px solid #b8d6cc;border-radius:9px;background:#f8fdfb;color:#246b5a;font-weight:850;font-size:10px;cursor:pointer}
+        .cx5-week-generate{background:#258e74;border-color:#258e74;color:#fff}
+        .cx5-week-generate:disabled,.cx5-week-download:disabled{opacity:.45;cursor:not-allowed}
+        .cx5-weekly-preview{padding:15px 16px;border-radius:14px}
+        .cx5-weekly-preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}
+        .cx5-weekly-preview-head h2{margin:2px 0;font-size:17px;color:#193347}
+        .cx5-weekly-preview-head p{margin:0;color:#78899b;font-size:10px}
+        .cx5-preview-status{padding:7px 10px;border-radius:999px;background:#eaf6f2;color:#267560;font-size:9px;font-weight:850;white-space:nowrap}
+        .cx5-preview-placeholder{padding:38px 12px;text-align:center;color:#728498;background:#f7fafc;border:1px dashed #d9e5ea;border-radius:12px;font-size:11px}
+        .cx5-preview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+        .cx5-preview-card{min-width:0;border:1px solid #dce6ec;border-radius:10px;overflow:hidden;background:#fff}
+        .cx5-preview-banner{display:flex;align-items:center;justify-content:space-between;gap:6px;background:#152a43;color:#fff;padding:10px}
+        .cx5-preview-banner b{font-size:10px;letter-spacing:.02em}
+        .cx5-preview-banner small{font-size:8px;white-space:nowrap;color:#cad7e6}
+        .cx5-preview-column-head,.cx5-preview-row{display:grid;grid-template-columns:minmax(0,1fr) 110px;align-items:stretch}
+        .cx5-preview-column-head{background:#304e6b;color:#fff;font-size:9px}
+        .cx5-preview-column-head b{padding:7px}
+        .cx5-preview-rows{max-height:250px;overflow:auto}
+        .cx5-preview-row{border-bottom:1px solid #e9eef3;min-height:26px;font-size:9px}
+        .cx5-preview-row span{padding:6px 7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .cx5-preview-row strong{display:grid;place-items:center;font-size:11px;font-weight:850}
+        .cx5-preview-row .zero,.cx5-single-export-row .zero{background:#daf7e5;color:#126c43}
+        .cx5-preview-row .one,.cx5-single-export-row .one{background:#ffe892;color:#6c500c}
+        .cx5-preview-row .two,.cx5-single-export-row .two{background:#ffc68d;color:#8b410b}
+        .cx5-preview-row .high,.cx5-single-export-row .high{background:#f6a3a3;color:#8f1a24}
+        .cx5-export-page.weekly{padding:16px;background:#fff}
+        .cx5-single-export-title{padding:22px 16px;background:#142c47;color:#fff;font-size:28px;font-weight:900;letter-spacing:.025em}
+        .cx5-single-export-header,.cx5-single-export-row{display:grid;grid-template-columns:1fr 240px}
+        .cx5-single-export-header{background:#30506c;color:#fff;font-size:20px}
+        .cx5-single-export-header b{padding:12px 14px}
+        .cx5-single-export-row{min-height:39px;border-bottom:1px solid #d7dbe0;font-size:19px}
+        .cx5-single-export-row>b{padding:8px 13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+        .cx5-single-export-row strong{display:grid;place-items:center;font-weight:700;font-size:20px}
+        .cx5-single-export-foot{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;background:#142c47;color:#fff;font-size:13px}
+        @media(max-width:1180px){.cx5-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:760px){.cx5-heading-meta{justify-content:flex-start;max-width:100%}.cx5-single-controls{justify-content:flex-start}.cx5-preview-grid{grid-template-columns:1fr}.cx5-weekly-preview-head{flex-direction:column}}
 
         .cx5-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
         .cx5-summary article{display:flex;align-items:center;gap:12px;min-height:72px;padding:10px 13px;border:1px solid #dfe7ec;border-radius:12px;background:#fff;box-shadow:0 4px 14px rgba(23,48,71,.035)}
