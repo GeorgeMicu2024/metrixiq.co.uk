@@ -1030,10 +1030,10 @@ export default function IadcComplianceView({
         .iadcpro-actions .btn{height:34px;padding:0 14px;font-size:9px}
         .iadcpro-share-message{margin-top:-2px}
 
-        /* DZM1: keep the export-only 1080px canvas completely off-screen on narrow iPhones. */
-        .iadcpro-dzm1 .iadc-share-card{left:-20000px!important;transform:none!important}
+        /* All sites: keep the full-size export template outside the visible viewport.
+           translateX(-120vw) was insufficient for its 1080px width on iPhones. */
         .iadc-share-card{
-          position:fixed;left:0;top:0;transform:translateX(-120vw);width:1080px;padding:44px;
+          position:fixed;left:-20000px;top:0;transform:none;width:1080px;padding:44px;
           background:#eef3f5;color:#13253a;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;
           z-index:1;opacity:1;visibility:visible;pointer-events:none
         }
