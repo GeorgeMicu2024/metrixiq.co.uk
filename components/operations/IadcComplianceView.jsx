@@ -565,7 +565,7 @@ export default function IadcComplianceView({
   if (load.error) return <ErrorBox error={load.error} />;
 
   return (
-    <div className="iadcpro">
+    <div className={"iadcpro" + (String(siteFilter || "").trim().toUpperCase() === "DZM1" ? " iadcpro-dzm1" : "")}>
       <header className="iadcpro-hero">
         <div>
           <span className="page-kicker">WORKFLOW COMPLIANCE</span>
