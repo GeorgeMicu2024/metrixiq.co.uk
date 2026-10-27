@@ -382,7 +382,15 @@ export default function DashboardClient() {
     ])
     .map(validSiteCode)
     .filter(Boolean);
-  const sites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])].sort();
+  // Site scope is a membership restriction, not just a default selection.
+  // Empty scope means all sites (existing owner/admin behaviour).
+  const allowedSiteScope = (workspace?.siteScope || []).map(validSiteCode).filter(Boolean);
+  const sites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])]
+    .filter(site => !allowedSiteScope.length || allowedSiteScope.includes(site))
+    .sort();
+  useEffect(() => {
+    if (siteFilter !== "all" && !sites.includes(siteFilter)) setSiteFilter(sites[0] || "all");
+  }, [siteFilter, sites.join("|"), workspace?.organization?.id]);
 
   useEffect(() => {
     if (!SITE_SCOPED_VIEWS.has(active) || siteFilter !== "all" || !sites.length) return;
@@ -571,7 +579,7 @@ export default function DashboardClient() {
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
-    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} initialMentorMode={importIntent?.mentorMode} initialMentorDate={importIntent?.mentorDate} initialMentorWeek={importIntent?.mentorWeek} />; break;
+    case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} allowedSiteScope={allowedSiteScope} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} initialMentorMode={importIntent?.mentorMode} initialMentorDate={importIntent?.mentorDate} initialMentorWeek={importIntent?.mentorWeek} />; break;
     case "data-quality": view = <DataQualityV2 organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} canResolve={platformAdmin || permissions?.resolve_data_quality} />; break;
     case "management-views": view = <SavedViewsBulkActions organizationId={workspace?.organization?.id} siteFilter={siteFilter} canBulk={platformAdmin || permissions?.bulk_actions} />; break;
     case "audit": view = <AuditCenter organizationId={workspace?.organization?.id} canReset={platformAdmin || permissions?.reset_overrides} />; break;
@@ -614,7 +622,7 @@ export default function DashboardClient() {
       <select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}>
         <option value="all">All Sites</option>
         {sites.map(site=><option key={site} value={site}>{site}</option>)}
-        <option value="__add_site__">＋ Add new site</option>
+        {!allowedSiteScope.length && <option value="__add_site__">＋ Add new site</option>}
       </select>
       <span className="site-switcher-chevron">⌄</span>
     </label>
