@@ -79,6 +79,7 @@ function importDate(value){
 export default function ImportCenterV2({
   organizationId,
   sites = [],
+  allowedSiteScope = [],
   siteFilter = "all",
   onImported,
   analysis:latestAnalysis,
@@ -188,6 +189,18 @@ export default function ImportCenterV2({
 
   async function saveQueue(){
     if(!preview||busy||!canManage)return;
+    // A mixed-site file must never be imported by a site-restricted manager.
+    const allowed = new Set(allowedSiteScope.map(normalizeSiteCode).filter(Boolean));
+    if(allowed.size){
+      const detected = detectedSitesForAnalysis(preview);
+      const selected = normalizeSiteCode(activitySite);
+      if(detected.some(site=>!allowed.has(site)) || (selected && !allowed.has(selected)) ||
+        (!detected.length && !selected)){
+        setMessage("Import blocked: this report includes sites outside your assigned site scope, or its site could not be verified.");
+        setPhase("error");
+        return;
+      }
+    }
     const missingSiteFiles=filesNeedingFallbackSite(preview);
     if(missingSiteFiles.length&&!activitySite){
       setMessage("Choose a fallback site for "+missingSiteFiles.length+" recognised file"+(missingSiteFiles.length===1?"":"s")+" where no station could be detected.");
@@ -237,6 +250,7 @@ export default function ImportCenterV2({
 
   async function rollback(item){
     if(!canManage)return;
+    if(allowedSiteScope.length){setMessage("Rollback is restricted to workspace owners/admins to prevent cross-site changes.");return;}
     setBusyImport(item.id);setMessage("");
     try{
       const previewRollback=await fetchImportChangePreview(getSupabaseBrowserClient(),item.id);
