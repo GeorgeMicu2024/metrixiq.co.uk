@@ -4,6 +4,7 @@ import fs from "node:fs";
 import {
   POD_EXPORT_PAGE_SIZE,
   POD_EXPORT_SITE,
+  POD_WHATSAPP_PAGE_SIZE,
   comparePodScores,
   paginatePodRows,
   podRejectReasons,
@@ -30,13 +31,19 @@ test("POD image export pages contain at most 25 drivers without losing the sort 
   const rows = Array.from({ length: 56 }, (_, i) => ({ driver_id: i }));
   const pages = paginatePodRows(rows);
   assert.equal(POD_EXPORT_PAGE_SIZE, 25);
+  assert.equal(POD_WHATSAPP_PAGE_SIZE, 12);
   assert.deepEqual(pages.map((page) => page.length), [25, 25, 6]);
+  assert.deepEqual(paginatePodRows(rows, POD_WHATSAPP_PAGE_SIZE).map((page) => page.length), [12, 12, 12, 12, 8]);
   assert.deepEqual(pages.flat(), rows);
   assert.deepEqual(paginatePodRows([]), []);
   assert.deepEqual(paginatePodRows(rows.slice(0, 25)).map((page) => page.length), [25]);
 
   const view = read("components/operations/PodQualityView.jsx");
   assert.ok(view.includes("Save All"));
+  assert.ok(view.includes('useState(POD_WHATSAPP_PAGE_SIZE)'));
+  assert.ok(view.includes("WhatsApp · 12 drivers (larger text)"));
+  assert.ok(view.includes("Original · 25 drivers"));
+  assert.ok(view.includes("pageSize: exportPageSize"));
   assert.ok(view.includes("Images to Photos"));
   assert.ok(view.includes('onClick={() => saveImages(true)}'));
   assert.ok(view.includes("Save Current Page"));
@@ -71,7 +78,7 @@ test("POD scorecards and each exported image use lowest-to-highest score orderin
   assert.ok(view.includes('useState({ key: "pod", dir: "asc" })'));
   assert.ok(view.includes('setSort({ key: "pod", dir: "asc" })'));
   assert.ok(view.includes("comparePodScores(a, b, sort.dir)"));
-  assert.ok(view.includes("const imagePages = paginatePodRows(filtered)"));
+  assert.ok(view.includes("const imagePages = paginatePodRows(filtered, exportPageSize)"));
 });
 
 test("POD PNG renderer draws every driver and returns a shareable PNG File", () => {
@@ -130,6 +137,22 @@ test("POD PNG renderer draws every driver and returns a shareable PNG File", () 
     assert.ok(canvas.height > 2000 && canvas.height < 8000);
     assert.equal(drawn.filter((value) => /^Test Driver \d+$/.test(value)).length, 25);
     assert.ok(drawn.some((value) => value.includes("Package In Car")));
+
+    drawn.length = 0;
+    createPodPageImage({
+      drivers: drivers.slice(0, 12),
+      week: "W43",
+      pageNumber: 2,
+      pageCount: 6,
+      pageSize: POD_WHATSAPP_PAGE_SIZE,
+      totalDrivers: 61,
+      podScore: 99.39,
+      rejectedPhotos: 31,
+    });
+    assert.ok(drawn.includes("#13"));
+    assert.ok(drawn.includes("#24"));
+    assert.ok(drawn.some((value) => value.includes("Drivers 13–24 of 61")));
+    assert.ok(canvas.height < 3000);
   } finally {
     globalThis.document = originalDocument;
     globalThis.File = originalFile;

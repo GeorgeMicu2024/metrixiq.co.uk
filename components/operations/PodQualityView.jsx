@@ -6,6 +6,7 @@ import { IMPORT_ACCEPT } from "../../lib/imports/preflight";
 import {
   POD_EXPORT_PAGE_SIZE,
   POD_EXPORT_SITE,
+  POD_WHATSAPP_PAGE_SIZE,
   comparePodScores,
   paginatePodRows,
   podRejectReasons,
@@ -90,6 +91,7 @@ export default function PodQualityView({
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
   const [page, setPage] = useState(1);
+  const [exportPageSize, setExportPageSize] = useState(POD_WHATSAPP_PAGE_SIZE);
   const [exporting, setExporting] = useState("");
   const [exportError, setExportError] = useState("");
   const [previewImages, setPreviewImages] = useState([]);
@@ -239,11 +241,11 @@ export default function PodQualityView({
       if (comparison === 0) return dname(a.drivers).localeCompare(dname(b.drivers));
       return sort.dir === "asc" ? comparison : -comparison;
     });
-  const imagePages = paginatePodRows(filtered);
+  const imagePages = paginatePodRows(filtered, exportPageSize);
   const pageCount = Math.max(1, imagePages.length);
   const currentPage = Math.min(page, pageCount);
   const pageRows = imagePages[currentPage - 1] || [];
-  const pageOffset = (currentPage - 1) * POD_EXPORT_PAGE_SIZE;
+  const pageOffset = (currentPage - 1) * exportPageSize;
 
   const active = detail && base.includes(detail) ? detail : filtered[0] || null;
   const activeDetail = podOf(active);
@@ -398,6 +400,7 @@ export default function PodQualityView({
           week: selectedWeek,
           pageNumber,
           pageCount: imagePages.length,
+          pageSize: exportPageSize,
           totalDrivers: filtered.length,
           podScore: totals.pod,
           rejectedPhotos: totals.rejects,
@@ -464,6 +467,22 @@ export default function PodQualityView({
           >
             {importing ? "Importing…" : "⇧ Import POD"}
           </button>
+
+          <label className="podv3-export-size">
+            <span>IMAGE FORMAT</span>
+            <select
+              aria-label="Drivers per exported image"
+              value={exportPageSize}
+              disabled={!!exporting}
+              onChange={(event) => {
+                setExportPageSize(Number(event.target.value));
+                setPage(1);
+              }}
+            >
+              <option value={POD_WHATSAPP_PAGE_SIZE}>WhatsApp · 12 drivers (larger text)</option>
+              <option value={POD_EXPORT_PAGE_SIZE}>Original · 25 drivers</option>
+            </select>
+          </label>
 
           <button className="btn primary podv3-save-image" disabled={!filtered.length || !!exporting} onClick={() => saveImages(true)}>
             {exporting === "all" ? "Preparing all pages…" : `↗ Save All ${imagePages.length} Images to Photos`}
@@ -627,7 +646,7 @@ export default function PodQualityView({
                     <h2>Driver Scorecards</h2>
                     <p>Scores, rejected photos and every recorded rejection reason · DZM1 only</p>
                   </div>
-                  <span>{POD_EXPORT_PAGE_SIZE} drivers per image</span>
+                  <span>{exportPageSize} drivers per image</span>
                 </div>
                 <div className="table-wrap podv3-desktop-table">
                   <table className={showTransporter ? "" : "transporter-hidden"}>
@@ -731,7 +750,7 @@ export default function PodQualityView({
                 </div>
                 <footer className="podv3-pagination">
                   <span>
-                    {selectedWeek} · Showing {filtered.length ? pageOffset + 1 : 0}–{Math.min(pageOffset + POD_EXPORT_PAGE_SIZE, filtered.length)} of {filtered.length} DZM1 drivers
+                    {selectedWeek} · Showing {filtered.length ? pageOffset + 1 : 0}–{Math.min(pageOffset + exportPageSize, filtered.length)} of {filtered.length} DZM1 drivers
                   </span>
                   <div className="podv3-pagination-controls">
                     <button type="button" aria-label="Previous POD page" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>‹</button>
@@ -740,7 +759,7 @@ export default function PodQualityView({
                   </div>
                 </footer>
                 <div className="podv3-image-note">
-                  ↗ Save All prepares every page ({POD_EXPORT_PAGE_SIZE} drivers per image), in POD score order from lowest to highest.
+                  ↗ Save All prepares every page ({exportPageSize} drivers per image), in POD score order from lowest to highest. WhatsApp format displays larger in chat; select Original to keep 25 per image.
                 </div>
               </article>
             </div>
@@ -928,6 +947,9 @@ export default function PodQualityView({
             .podv2-head h1{font-size:27px}
             .podv2-head p{font-size:11px}
             .podv2-actions .btn{height:38px;padding:0 13px;font-size:10px}
+            .podv3-export-size{height:38px;display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:186px;padding:3px 9px;border:1px solid #cde1e9;border-radius:9px;background:#fff}
+            .podv3-export-size span{font-size:8px;letter-spacing:.08em;font-weight:800;color:#728398}
+            .podv3-export-size select{border:0;background:transparent;outline-offset:2px;width:100%;font-size:10px;font-weight:750;color:#1c5c85;cursor:pointer}
             .podv2-week-picker{height:38px;min-width:88px;padding:4px 9px}
             .podv2-week-picker select{height:22px!important}
 
@@ -1087,7 +1109,8 @@ export default function PodQualityView({
               .podv2-kpis article{min-width:175px}
               .podv2-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
               .podv2-week-picker{grid-column:1}
-              .podv3-save-image{grid-column:1/-1;grid-row:2}
+              .podv3-export-size{grid-column:1/-1;grid-row:2;min-width:0}
+              .podv3-save-image{grid-column:1/-1;grid-row:3}
               .podv2-actions .btn{min-width:0;font-size:10px}
               .podv3-desktop-table{display:none}
               .podv3-mobile-cards{display:grid;gap:9px;padding:9px}
