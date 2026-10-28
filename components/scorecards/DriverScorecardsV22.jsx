@@ -931,7 +931,7 @@ export default function DriverScorecardsV22({
     if (!editRow) return;
     const raw = String(editConcessions).trim();
     const value = Number(raw);
-    if (!/^\\d+$/.test(raw) || !Number.isSafeInteger(value) || value > 10000) {
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value > 10000) {
       setEditMessage("Enter a whole number of concessions between 0 and 10,000.");
       return;
     }
