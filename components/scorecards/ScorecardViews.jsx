@@ -215,6 +215,22 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
       {["Overview", "Safety", "Quality", "Trends"].map((section) => <button key={section} type="button" className={activeSection === section ? "active" : ""} aria-current={activeSection === section ? "page" : undefined} onClick={() => setActiveSection(section)}>{section}</button>)}
     </nav>
 
+    <section className="sitecmd-spotlight" aria-label="Amazon DSP weekly scorecard">
+      <div className="sitecmd-spotlight-main">
+        <span className="sitecmd-spotlight-eyebrow"><i /> OFFICIAL AMAZON DSP SCORECARD · WEEK {card.week || String(card.week_label || "").replace(/\D/g, "")} / {card.year}</span>
+        <div className="sitecmd-spotlight-score">
+          <div><small>Overall performance</small><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong></div>
+          <span className={"sitecmd-tier-pill " + standingClass(card.standing)}>{card.standing || "Not rated"}</span>
+        </div>
+        <p>Official standing from the imported Amazon scorecard. Individual metric groups have their own standings.</p>
+      </div>
+      <div className="sitecmd-spotlight-stats">
+        <div><span>STATION</span><strong>{card.site || "—"}</strong></div>
+        <div><span>SITE RANK</span><strong>{card.site_rank == null ? "Not reported" : "#" + card.site_rank}</strong></div>
+        <div><span>WEEKLY CHANGE</span><strong>{scoreDelta == null ? "First period" : (scoreDelta >= 0 ? "+" : "") + scoreDelta.toFixed(2) + " pts"}</strong></div>
+      </div>
+    </section>
+
     {activeSection === "Overview" && <section className="sitecmd-kpis sitepro-health-grid">
       <article className="hero"><span>Overall score</span><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong><em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em><small className={scoreDelta != null && scoreDelta < 0 ? "negative" : "positive"}>{scoreDelta == null ? "No prior week" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta.toFixed(2)} vs previous week`}</small></article>
       <article><span>Site rank</span><strong>#{card.site_rank ?? "—"}</strong><small>{card.rank_delta != null ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW` : "Rank trend unavailable"}</small></article>
