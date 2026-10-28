@@ -9,6 +9,7 @@ import {
   paginatePodRows,
   podRejectReasons,
 } from "../../lib/pod/exportReport.mjs";
+import { createPodPageImage } from "../../lib/pod/renderImage.mjs";
 import {
   ErrorBox,
   Loading,
@@ -74,7 +75,6 @@ export default function PodQualityView({
     });
   }, [load.rows]);
   const input = useRef(null);
-  const exportStage = useRef(null);
 
   const [week, setWeek] = useState("");
   const [query, setQuery] = useState("");
@@ -91,6 +91,8 @@ export default function PodQualityView({
   const [page, setPage] = useState(1);
   const [exporting, setExporting] = useState("");
   const [exportError, setExportError] = useState("");
+  const [previewImages, setPreviewImages] = useState([]);
+  const [shareMessage, setShareMessage] = useState("");
 
   const weeks = useMemo(
     () =>
@@ -347,39 +349,66 @@ export default function PodQualityView({
     setTimeout(() => URL.revokeObjectURL(url), 300);
   };
 
-  const saveImages = async (allPages = false) => {
+  const shareImages = (images) => {
+    const files = images.map((image) => image.file);
+    if (typeof navigator.share !== "function" || !navigator.canShare?.({ files })) {
+      return false;
+    }
+    try {
+      // Call share() directly from the click handler's user activation.
+      // iOS displays its native sheet, including Save Image(s) to Photos.
+      navigator.share({ files, title: `POD Quality — DZM1 · ${selectedWeek}` })
+        .catch((error) => {
+          if (error?.name !== "AbortError") {
+            setShareMessage("Sharing was unavailable. Touch and hold the image below to save it to Photos.");
+          }
+        });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const saveImages = (allPages = false) => {
     if (!imagePages.length || exporting) return;
     setExportError("");
+    setShareMessage("");
     setExporting(allPages ? "all" : "page");
 
     try {
-      const { toPng } = await import("html-to-image");
-      if (document.fonts?.ready) await document.fonts.ready;
       const targets = allPages
         ? imagePages.map((_, index) => index + 1)
         : [currentPage];
-
-      for (const pageNumber of targets) {
-        const target = exportStage.current?.querySelector(
-          `[data-pod-image-page="${pageNumber}"]`
-        );
-        if (!target) throw new Error("Could not prepare the image for this page.");
-
-        const dataUrl = await toPng(target, {
-          pixelRatio: 2,
-          backgroundColor: "#f3f7fb",
-          cacheBust: true,
+      const images = targets.map((pageNumber) => {
+        const drivers = imagePages[pageNumber - 1].map((row) => {
+          const detailData = podOf(row);
+          return {
+            name: dname(row.drivers),
+            score: n(row.pod),
+            opportunities: Number(detailData.opportunities || 0),
+            rejects: Number(detailData.rejects || 0),
+            reasons: allReasons(row),
+          };
         });
-        const anchor = document.createElement("a");
-        anchor.download = `MetrixIQ_POD_DZM1_${selectedWeek}_Page_${pageNumber}_of_${imagePages.length}.png`;
-        anchor.href = dataUrl;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
+        return createPodPageImage({
+          drivers,
+          week: selectedWeek,
+          pageNumber,
+          pageCount: imagePages.length,
+          totalDrivers: filtered.length,
+          podScore: totals.pod,
+          rejectedPhotos: totals.rejects,
+        });
+      });
+      setPreviewImages(images);
+      setExporting("");
+      // One native share sheet for all selected images, including multiple pages.
+      // A visible preview remains available for browsers without file sharing.
+      if (!shareImages(images)) {
+        setShareMessage("Touch and hold an image below and choose Save to Photos, or use Download PNG.");
       }
     } catch (error) {
-      setExportError(error?.message || "Could not save the POD image.");
-    } finally {
+      setExportError(error?.message || "Could not prepare the POD image.");
       setExporting("");
     }
   };
@@ -434,10 +463,10 @@ export default function PodQualityView({
           </button>
 
           <button className="btn primary podv3-save-image" disabled={!filtered.length || !!exporting} onClick={() => saveImages(false)}>
-            {exporting === "page" ? "Saving image…" : "⇩ Save Page as Image"}
+            {exporting === "page" ? "Preparing image…" : "↗ Save Page to Photos"}
           </button>
           <button className="btn ghost" disabled={!filtered.length || !!exporting} onClick={() => saveImages(true)}>
-            {exporting === "all" ? "Saving pages…" : "⇩ Export All PNGs"}
+            {exporting === "all" ? "Preparing pages…" : "↗ Save All to Photos"}
           </button>
           <button className="btn ghost" disabled={!filtered.length} onClick={exportCsv}>
             ⇩ CSV
@@ -447,6 +476,36 @@ export default function PodQualityView({
 
       {importMessage && <div className="podv2-import-message">{importMessage}</div>}
       {exportError && <div className="podv2-import-message podv3-export-error" role="alert">{exportError}</div>}
+      {!!previewImages.length && (
+        <div className="podv3-photo-backdrop" role="dialog" aria-modal="true" aria-label="POD images ready to save">
+          <div className="podv3-photo-dialog">
+            <header>
+              <div>
+                <h2>{previewImages.length} POD image{previewImages.length === 1 ? "" : "s"} ready</h2>
+                <p>On iPhone, tap Share and select <strong>Save Image</strong> or <strong>Save Images</strong> to add them to Photos.</p>
+              </div>
+              <button type="button" onClick={() => setPreviewImages([])} aria-label="Close image preview">✕</button>
+            </header>
+            {shareMessage && <p className="podv3-photo-help">{shareMessage}</p>}
+            <button type="button" className="btn primary podv3-photo-share" onClick={() => {
+              if (!shareImages(previewImages)) {
+                setShareMessage("Touch and hold an image below, then choose Save to Photos.");
+              }
+            }}>↗ Share / Save to Photos</button>
+            <div className="podv3-photo-preview-list">
+              {previewImages.map((image) => (
+                <figure key={image.filename}>
+                  <img src={image.dataUrl} alt={image.filename} />
+                  <figcaption>
+                    <span>{image.filename}</span>
+                    <a href={image.dataUrl} download={image.filename}>Download PNG</a>
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {!weeks.length ? (
         <section className="panel podv2-empty podv2-no-data">
@@ -673,7 +732,7 @@ export default function PodQualityView({
                   </div>
                 </footer>
                 <div className="podv3-image-note">
-                  ⇩ Save Page as Image downloads the current {POD_EXPORT_PAGE_SIZE}-driver page as a PNG. Export All PNGs saves every page.
+                  ↗ Save Page to Photos prepares {POD_EXPORT_PAGE_SIZE} drivers per PNG. On iPhone, select Save Image(s) from the share sheet.
                 </div>
               </article>
             </div>
@@ -856,59 +915,6 @@ export default function PodQualityView({
             </aside>
           </section>
 
-          <div className="podv3-export-stage" ref={exportStage} aria-hidden="true">
-            {imagePages.map((exportRows, exportPageIndex) => (
-              <section
-                className="podv3-export-page"
-                data-pod-image-page={exportPageIndex + 1}
-                key={exportPageIndex}
-              >
-                <header>
-                  <span>METRIXIQ · DELIVERY QUALITY</span>
-                  <h2>POD Quality — DZM1</h2>
-                  <p>{selectedWeek} · DZM1 Only · Driver scorecards</p>
-                </header>
-                <div className="podv3-export-summary">
-                  <div><small>DRIVERS ON THIS PAGE</small><strong>{exportRows.length}</strong></div>
-                  <div><small>DZM1 POD SCORE</small><strong>{pct(totals.pod, 2)}</strong></div>
-                  <div><small>DZM1 REJECTED PHOTOS</small><strong>{totals.rejects.toLocaleString()}</strong></div>
-                </div>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Driver Name</th>
-                      <th>POD Score</th>
-                      <th>Opportunities</th>
-                      <th>Rejected</th>
-                      <th>Rejection Reasons</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {exportRows.map((row, index) => {
-                      const details = podOf(row);
-                      const score = Number(row.pod) || 0;
-                      return (
-                        <tr key={row.driver_id + "-export-" + index}>
-                          <td>{exportPageIndex * POD_EXPORT_PAGE_SIZE + index + 1}</td>
-                          <td className="podv3-export-name">{dname(row.drivers)}</td>
-                          <td><b className={"podv3-export-score " + band(score)}>{pct(score, 2)}</b></td>
-                          <td>{Number(details.opportunities || 0).toLocaleString()}</td>
-                          <td className={Number(details.rejects) ? "podv3-export-rejected" : ""}>{Number(details.rejects || 0).toLocaleString()}</td>
-                          <td className={Number(details.rejects) ? "podv3-export-reasons" : ""}>{allReasons(row)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                <footer>
-                  <span>DZM1 · {selectedWeek} · Drivers {exportPageIndex * POD_EXPORT_PAGE_SIZE + 1}–{Math.min((exportPageIndex + 1) * POD_EXPORT_PAGE_SIZE, filtered.length)} of {filtered.length}</span>
-                  <strong>Page {exportPageIndex + 1} of {imagePages.length}</strong>
-                </footer>
-              </section>
-            ))}
-          </div>
-
           <style jsx global>{`
             .podv2{gap:11px;padding:18px 22px 26px}
             .podv2-head h1{font-size:27px}
@@ -990,36 +996,19 @@ export default function PodQualityView({
             .podv3-pagination-controls strong{padding:0 9px;color:#173047;font-size:10px;white-space:nowrap}
             .podv3-image-note{margin:0 12px 12px;border:1px solid #cfe3fb;border-radius:8px;background:#f1f8ff;padding:9px;color:#2f6ead;font-size:10px;line-height:1.5}
 
-            /* The export pages have their own fixed-width, high-resolution design.
-               They are laid out off-screen, never display:none, so PNG capture works. */
-            .podv3-export-stage{position:absolute;left:-20000px;top:0;width:1100px;pointer-events:none}
-            .podv3-export-page{box-sizing:border-box;width:1100px;background:#f3f7fb;color:#14263d;padding:34px 38px 28px;font-family:Arial,Helvetica,sans-serif}
-            .podv3-export-page *{box-sizing:border-box}
-            .podv3-export-page>header{padding-bottom:22px;border-bottom:3px solid #278f83}
-            .podv3-export-page>header>span{font-size:13px;letter-spacing:2.3px;font-weight:800;color:#218d7e}
-            .podv3-export-page>header h2{font-size:35px;letter-spacing:-.8px;margin:12px 0 6px;color:#14263d}
-            .podv3-export-page>header p{font-size:17px;margin:0;color:#6c7c91}
-            .podv3-export-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:21px 0}
-            .podv3-export-summary>div{background:#fff;border:1px solid #d9e4ed;border-radius:11px;padding:17px}
-            .podv3-export-summary small{display:block;font-size:11px;letter-spacing:.7px;font-weight:800;color:#718294}
-            .podv3-export-summary strong{display:block;margin-top:7px;font-size:26px;color:#132a43}
-            .podv3-export-page table{width:100%;border-spacing:0;border-collapse:separate;background:#fff;border:1px solid #dce5ed;border-radius:12px;overflow:hidden;table-layout:fixed}
-            .podv3-export-page th{padding:15px 11px;background:#edf2f7;color:#32475f;font-size:13px;text-align:left}
-            .podv3-export-page th:nth-child(1){width:45px}
-            .podv3-export-page th:nth-child(2){width:250px}
-            .podv3-export-page th:nth-child(3){width:124px}
-            .podv3-export-page th:nth-child(4){width:115px}
-            .podv3-export-page th:nth-child(5){width:95px}
-            .podv3-export-page td{padding:14px 11px;border-top:1px solid #e6edf3;font-size:13px;line-height:1.4;vertical-align:middle;overflow-wrap:anywhere}
-            .podv3-export-page tbody tr:nth-child(even){background:#fbfdff}
-            .podv3-export-page .podv3-export-name{font-weight:800;font-size:14px;color:#14263d}
-            .podv3-export-score{display:inline-block;padding:5px 8px;border-radius:8px;white-space:nowrap}
-            .podv3-export-score.excellent,.podv3-export-score.target{background:#def8eb;color:#086c3c}
-            .podv3-export-score.risk{background:#fff0d4;color:#955a0b}
-            .podv3-export-score.critical{background:#ffe3e4;color:#b82d42}
-            .podv3-export-rejected,.podv3-export-reasons{color:#bc3748;font-weight:700}
-            .podv3-export-page>footer{display:flex;justify-content:space-between;margin-top:18px;font-size:13px;color:#60758a}
-            .podv3-export-page>footer strong{color:#14263d}
+            .podv3-photo-backdrop{position:fixed;inset:0;z-index:99999;background:rgba(12,28,45,.66);display:flex;align-items:center;justify-content:center;padding:14px}
+            .podv3-photo-dialog{width:min(720px,100%);max-height:calc(100dvh - 28px);overflow:auto;background:#f3f7fb;border-radius:18px;padding:20px;box-shadow:0 20px 70px rgba(8,28,48,.24);color:#172b43}
+            .podv3-photo-dialog>header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+            .podv3-photo-dialog>header h2{font-size:22px;margin:0 0 8px}
+            .podv3-photo-dialog>header p{font-size:13px;line-height:1.5;color:#5d7085;margin:0}
+            .podv3-photo-dialog>header>button{flex:none;border:1px solid #d6e0e8;border-radius:10px;background:#fff;width:37px;height:37px;font-size:18px;cursor:pointer}
+            .podv3-photo-help{margin:12px 0 0;font-size:12px;color:#a64b4b}
+            .podv3-photo-share{display:block;width:100%;margin:16px 0;background:#258f80!important;border-color:#258f80!important;color:#fff!important}
+            .podv3-photo-preview-list{display:grid;gap:16px}
+            .podv3-photo-preview-list figure{margin:0;background:#fff;border:1px solid #d8e3ec;border-radius:11px;padding:10px}
+            .podv3-photo-preview-list img{display:block;width:100%;height:auto;user-select:auto;-webkit-user-select:auto}
+            .podv3-photo-preview-list figcaption{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:#697c8f;overflow-wrap:anywhere}
+            .podv3-photo-preview-list figcaption a{font-weight:800;color:#286ecc}
 
             .podv3-rail{display:grid;gap:10px;position:sticky;top:12px}
             .podv3-insight{padding:12px;border-radius:12px;overflow:hidden}

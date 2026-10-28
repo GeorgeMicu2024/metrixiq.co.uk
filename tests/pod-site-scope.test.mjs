@@ -7,6 +7,7 @@ import {
   paginatePodRows,
   podRejectReasons,
 } from "../lib/pod/exportReport.mjs";
+import { createPodPageImage, wrapPodImageText } from "../lib/pod/renderImage.mjs";
 
 const read = (path) =>
   fs.readFileSync(new URL("../" + path, import.meta.url), "utf8");
@@ -34,10 +35,75 @@ test("POD image export pages contain at most 25 drivers without losing the sort 
   assert.deepEqual(paginatePodRows(rows.slice(0, 25)).map((page) => page.length), [25]);
 
   const view = read("components/operations/PodQualityView.jsx");
-  assert.ok(view.includes("Save Page as Image"));
-  assert.ok(view.includes("Export All PNGs"));
-  assert.ok(view.includes("data-pod-image-page"));
-  assert.ok(view.includes('await import("html-to-image")'));
+  assert.ok(view.includes("Save Page to Photos"));
+  assert.ok(view.includes("Save All to Photos"));
+  assert.ok(view.includes("createPodPageImage("));
+  assert.ok(view.includes("navigator.share({ files"));
+  assert.ok(view.includes("navigator.canShare?.({ files })"));
+  assert.ok(view.includes("Touch and hold"));
+  assert.equal(view.includes('await import("html-to-image")'), false);
+});
+
+test("POD PNG renderer draws every driver and returns a shareable PNG File", () => {
+  assert.deepEqual(
+    wrapPodImageText({ measureText: (text) => ({ width: text.length * 10 }) }, "Alpha Beta Gamma", 55),
+    ["Alpha", "Beta", "Gamma"]
+  );
+
+  const originalDocument = globalThis.document;
+  const originalFile = globalThis.File;
+  const drawn = [];
+  const context = {
+    measureText: (text) => ({ width: String(text).length * 11 }),
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    quadraticCurveTo() {},
+    closePath() {},
+    fill() {},
+    fillRect() {},
+    fillText(value) { drawn.push(String(value)); },
+  };
+  const canvas = {
+    width: 0,
+    height: 0,
+    getContext: () => context,
+    toDataURL: () => `data:image/png;base64,${Buffer.from("test-png").toString("base64")}`,
+  };
+  globalThis.document = { createElement: () => canvas };
+  if (!globalThis.File) {
+    globalThis.File = class extends Blob {
+      constructor(parts, name, options) { super(parts, options); this.name = name; }
+    };
+  }
+
+  try {
+    const drivers = Array.from({ length: 25 }, (_, index) => ({
+      name: `Test Driver ${index + 1}`,
+      score: 96.25,
+      opportunities: 200,
+      rejects: 7,
+      reasons: "Blurry Photo (4) · Package In Car (3)",
+    }));
+    const image = createPodPageImage({
+      drivers,
+      week: "W43",
+      pageNumber: 1,
+      pageCount: 2,
+      totalDrivers: 48,
+      podScore: 99.39,
+      rejectedPhotos: 48,
+    });
+    assert.equal(image.file.type, "image/png");
+    assert.match(image.filename, /DZM1_W43_Page_1_of_2\.png$/);
+    assert.equal(canvas.width, 1320);
+    assert.ok(canvas.height > 2000 && canvas.height < 8000);
+    assert.equal(drawn.filter((value) => /^Test Driver \d+$/.test(value)).length, 25);
+    assert.ok(drawn.some((value) => value.includes("Package In Car")));
+  } finally {
+    globalThis.document = originalDocument;
+    globalThis.File = originalFile;
+  }
 });
 
 test("POD images contain every available rejection category and count", () => {
