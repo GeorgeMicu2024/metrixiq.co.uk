@@ -364,40 +364,12 @@ export default function MentorView({
     [dailyRows, selectedDate]
   );
 
-  const dailyMap = useMemo(() => {
-    const scoredSnapshots = selectedDailyRows.map(makeItem).filter((item) => item.score != null);
-    // DZM1 Amazon Driver Reports contain encrypted identities. Keep their
-    // original scored accounts visible even before manual name reconciliation.
-    // Never guess a driver name or mutate another station's saved snapshots.
-    if (normalizedSelectedSite !== "DZM1") return scoredSnapshots;
-    const knownKeys = new Set(selectedDailyRows.map((row) => String(row.source_identity_key || "").trim()).filter(Boolean));
-    const sourceAccounts = new Map();
-    for (const record of reconciliationRows) {
-      if (record.report_type !== "mentor_daily" || String(record.payload?.reportDate || "") !== selectedDate) continue;
-      if (String(record.site || "").toUpperCase() !== "DZM1" || record.status === "ignored") continue;
-      const driver = record.payload?.driver || {};
-      const key = String(driver.mentorHash || driver.details?.mentor?.identityKey || "").trim();
-      const rawScore = record.payload?.score;
-      const score = rawScore == null || String(rawScore).trim() === "" ? null : Number(rawScore);
-      if (!key || knownKeys.has(key) || !Number.isFinite(score)) continue;
-      const existing = sourceAccounts.get(key);
-      if (!existing || (record.status === "resolved" && existing.status !== "resolved")) sourceAccounts.set(key, record);
-    }
-    const pending = [...sourceAccounts.values()].map((record) => {
-      const driver = record.payload.driver || {};
-      const key = String(driver.mentorHash || driver.details?.mentor?.identityKey);
-      const row = {
-        id: "unmatched-" + record.id,
-        source_identity_key: key,
-        mentor_score: Number(record.payload.score),
-        raw_data: { mentor: driver.details?.mentor || {} },
-        drivers: { full_name: "Identity pending mapping" },
-        reconciliation_only: true,
-      };
-      return makeItem(row);
-    });
-    return [...scoredSnapshots, ...pending];
-  }, [selectedDailyRows, reconciliationRows, selectedDate, normalizedSelectedSite]);
+  // Keep unresolved encrypted source accounts in Driver Mapping below the report.
+  // The main report must contain only safely identified driver snapshots.
+  const dailyMap = useMemo(
+    () => selectedDailyRows.map(makeItem).filter((item) => item.score != null),
+    [selectedDailyRows]
+  );
 
   const weeklyMap = useMemo(
     () =>
