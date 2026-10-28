@@ -32,6 +32,7 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
     return allCards.filter((item) => String(item.site || "").trim().toUpperCase() === siteFilter);
   }, [load.data, siteFilter]);
   const [selectedId, setSelectedId] = useState("");
+  const [activeSection, setActiveSection] = useState("Overview");
 
   useEffect(() => {
     if (cards.length && !cards.some((item) => item.id === selectedId)) {
@@ -100,6 +101,25 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
   };
 
   const metrics = card?.metrics || {};
+  const safetyMetrics = [
+    ["Safe Driving Metric (FICO)", metrics.mentor_score, "score"],
+    ["Speeding Event Rate", metrics.speeding_event_rate, "plain"],
+    ["Mentor Adoption Rate", metrics.mentor_adoption_rate, "pct"],
+    ["Vehicle Audit Compliance", metrics.vsa, "pct"],
+  ];
+  const qualityMetrics = [
+    ["Delivery Completion Rate", metrics.dcr, "pct"],
+    ["Photo-On-Delivery", metrics.pod, "pct"],
+    ["Contact Compliance", metrics.cc, "pct"],
+    ["Delivery Success Conditions DPMO", metrics.dsc_dpmo, "dpmo"],
+    ["Lost on Road DPMO", metrics.lor, "dpmo"],
+    ["Customer Delivery Feedback DPMO", metrics.cdf_dpmo, "dpmo"],
+    ["Customer Escalation DPMO", metrics.ce_dpmo, "dpmo"],
+    ["Pickup Success Behaviours", metrics.psb, "plain"],
+  ];
+  const visibleMetrics = activeSection === "Safety" ? safetyMetrics
+    : activeSection === "Quality" ? qualityMetrics
+    : [...safetyMetrics.slice(0, 2), ...qualityMetrics.slice(0, 4)];
 
   const sourceFocus = Array.isArray(card?.focus_areas)
     ? card.focus_areas.filter(Boolean)
@@ -192,39 +212,48 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
     </header>
 
     <nav className="sitecmd-tabs" aria-label="Scorecard sections">
-      <button className="active">Overview</button><button>Safety</button><button>Quality</button><button>Drivers at Risk</button><button>Trends</button>
+      {["Overview", "Safety", "Quality", "Trends"].map((section) => <button key={section} type="button" className={activeSection === section ? "active" : ""} aria-current={activeSection === section ? "page" : undefined} onClick={() => setActiveSection(section)}>{section}</button>)}
     </nav>
 
-    <section className="sitecmd-kpis sitepro-health-grid">
+    <section className="sitecmd-spotlight" aria-label="Amazon DSP weekly scorecard">
+      <div className="sitecmd-spotlight-main">
+        <span className="sitecmd-spotlight-eyebrow"><i /> OFFICIAL AMAZON DSP SCORECARD · WEEK {card.week || String(card.week_label || "").replace(/\D/g, "")} / {card.year}</span>
+        <div className="sitecmd-spotlight-score">
+          <div><small>Overall performance</small><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong></div>
+          <span className={"sitecmd-tier-pill " + standingClass(card.standing)}>{card.standing || "Not rated"}</span>
+        </div>
+        <p>Official standing from the imported Amazon scorecard. Individual metric groups have their own standings.</p>
+      </div>
+      <div className="sitecmd-spotlight-stats">
+        <div><span>STATION</span><strong>{card.site || "—"}</strong></div>
+        <div><span>SITE RANK</span><strong>{card.site_rank == null ? "Not reported" : "#" + card.site_rank}</strong></div>
+        <div><span>WEEKLY CHANGE</span><strong>{scoreDelta == null ? "First period" : (scoreDelta >= 0 ? "+" : "") + scoreDelta.toFixed(2) + " pts"}</strong></div>
+      </div>
+    </section>
+
+    {activeSection === "Overview" && <section className="sitecmd-kpis sitepro-health-grid">
       <article className="hero"><span>Overall score</span><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong><em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em><small className={scoreDelta != null && scoreDelta < 0 ? "negative" : "positive"}>{scoreDelta == null ? "No prior week" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta.toFixed(2)} vs previous week`}</small></article>
       <article><span>Site rank</span><strong>#{card.site_rank ?? "—"}</strong><small>{card.rank_delta != null ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW` : "Rank trend unavailable"}</small></article>
       <article><span>Safety</span><strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong><small>FICO · Speeding · Compliance</small></article>
       <article><span>Delivery quality</span><strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong><small>DCR · POD · CC · Customer</small></article>
       <article><span>Capacity</span><strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong><small>Weekly reliability</small></article>
-    </section>
+    </section>}
 
-    <section className="sitecmd-grid">
+    {activeSection !== "Trends" && <section className={activeSection === "Overview" ? "sitecmd-grid" : "sitecmd-grid sitecmd-grid-single"}>
       <article className="panel sitecmd-metrics">
-        <div className="sitecmd-title"><div><span>WEEK {card.week || String(card.week_label || "").replace(/\D/g, "")} · {card.year}</span><h2>Performance signals</h2></div><b>{card.site}</b></div>
+        <div className="sitecmd-title"><div><span>{activeSection === "Overview" ? "PERFORMANCE AT A GLANCE" : activeSection.toUpperCase() + " METRICS"}</span><h2>{activeSection === "Overview" ? "Performance signals" : activeSection + " breakdown"}</h2></div><b>{card.site}</b></div>
         <div className="sitecmd-metric-grid">
-          <MetricLine label="Safe Driving Metric (FICO)" item={metrics.mentor_score} format="score" />
-          <MetricLine label="Speeding Event Rate" item={metrics.speeding_event_rate} />
-          <MetricLine label="Delivery Completion Rate" item={metrics.dcr} format="pct" />
-          <MetricLine label="Photo-On-Delivery" item={metrics.pod} format="pct" />
-          <MetricLine label="Contact Compliance" item={metrics.cc} format="pct" />
-          <MetricLine label="Customer Delivery Feedback" item={metrics.cdf_dpmo} format="dpmo" />
-          <MetricLine label="DSC DPMO" item={metrics.dsc_dpmo} format="dpmo" />
-          <MetricLine label="Pickup Success Behaviours" item={metrics.psb} />
+          {visibleMetrics.map(([label, item, format]) => <MetricLine key={label} label={label} item={item} format={format} />)}
         </div>
       </article>
 
-      <article className="panel sitecmd-focus">
+      {activeSection === "Overview" && <article className="panel sitecmd-focus">
         <div className="sitecmd-title"><div><span>RECOMMENDED FOCUS AREAS</span><h2>Priority focus</h2></div></div>
         <ol>{generatedFocus.length ? generatedFocus.map((focus,index)=><li key={index}><b>{String(index+1).padStart(2,"0")}</b><span>{focus}</span></li>) : <li><span>No immediate focus areas supplied.</span></li>}</ol>
-      </article>
-    </section>
+      </article>}
+    </section>}
 
-    <section className="panel sitecmd-trends">
+    {(activeSection === "Overview" || activeSection === "Trends") && <section className="panel sitecmd-trends">
       <div className="sitecmd-title"><div><span>SITE TREND</span><h2>{card.site} · weekly performance</h2></div><small>{trendCards.length} stored periods</small></div>
       <div className="sitecmd-trend-kpis">
         {latestMetrics.map(([label,value,suffix]) => {
@@ -232,8 +261,8 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
           return <article key={label}><span>{label}</span><strong>{num(value)==null ? "—" : `${Number(value).toFixed(label==="eMentor"?0:2)}${suffix}`}</strong><small>{trendDelta(value,previousValue)}</small></article>
         })}
       </div>
-      <div className="sitecmd-bars">{trendCards.map((item,index)=>{const v=Math.max(5,Math.min(100,Number(item.overall_score)||0));return <div key={item.id}><span style={{height:`${v}%`}}/><small>{item.week_label}</small></div>})}</div>
-    </section>
+      <div className="sitecmd-bars">{trendCards.map((item)=>{const v=Math.max(5,Math.min(100,Number(item.overall_score)||0));return <div key={item.id}><span style={{height:`${v}%`}} title={item.week_label + ": " + Number(item.overall_score).toFixed(2)} /><small>{item.week_label}</small></div>})}</div>
+    </section>}
   </div>;}
 
 
