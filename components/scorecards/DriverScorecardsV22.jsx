@@ -919,7 +919,57 @@ export default function DriverScorecardsV22({
     }
   }
 
+  const openConcessionsEditor = (row) => {
+    setBreakdownRow(null);
+    setEditMetric("concessions");
+    setEditRow(row);
+    setEditConcessions(row.concessions == null ? "0" : String(row.concessions));
+    setEditMessage("");
+  };
+
+  async function saveConcessionsEdit() {
+    if (!editRow) return;
+    const raw = String(editConcessions).trim();
+    const value = Number(raw);
+    if (!/^\\d+$/.test(raw) || !Number.isSafeInteger(value) || value > 10000) {
+      setEditMessage("Enter a whole number of concessions between 0 and 10,000.");
+      return;
+    }
+    if (!organizationId || !editRow.driver_id || !editRow.week_label) {
+      setEditMessage("This driver-week record cannot be updated yet.");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditMessage("");
+    try {
+      await setMetricOverride(getSupabaseBrowserClient(), {
+        organizationId,
+        driverId: editRow.driver_id,
+        weekLabel: editRow.week_label,
+        metricKey: "concessions",
+        value,
+        reason: "Driver Scorecard manual concessions edit",
+      });
+      setManualConcessionOverrides((current) => ({
+        ...current,
+        [manualOverrideKey(editRow)]: value,
+      }));
+      setBreakdownRow(null);
+      setEditMessage("Saved with audit trail");
+      window.setTimeout(() => {
+        setEditRow(null);
+        setEditMessage("");
+      }, 650);
+    } catch (error) {
+      setEditMessage(error?.message || "Could not save concessions.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   const openFicoEditor = (row) => {
+    setEditMetric("fico");
     const currentFico = num(row.mentor_score ?? row.ementor ?? row.fico);
     setBreakdownRow(null);
     setEditRow(row);
