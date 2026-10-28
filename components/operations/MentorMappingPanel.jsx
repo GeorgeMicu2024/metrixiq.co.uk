@@ -28,7 +28,7 @@ function isPositiveTripEvidenceOnly(row) {
   return !evidence.hasScore && evidence.trips != null && evidence.trips >= 1;
 }
 
-export default function MentorMappingPanel({ organizationId, reportDate, onChanged }) {
+export default function MentorMappingPanel({ organizationId, reportDate, onChanged, siteFilter, snapshotIdentityKeys = [] }) {
   const [rows, setRows] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [filter, setFilter] = useState("open");
@@ -56,8 +56,10 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
 
   const dated = useMemo(() => rows.filter((row) => {
     const date = String(row.payload?.reportDate || "");
-    return !reportDate || date === reportDate;
-  }), [rows, reportDate]);
+    if (reportDate && date !== reportDate) return false;
+    if (String(siteFilter || "").toUpperCase() === "DZM1") return String(row.site || "").toUpperCase() === "DZM1";
+    return true;
+  }), [rows, reportDate, siteFilter]);
 
   const reconciled = useMemo(() => {
     const byIdentity = new Map();
@@ -86,23 +88,26 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     return [...byIdentity.values()];
   }, [dated]);
 
-  const actionable = useMemo(
-    () => reconciled.filter((r) =>
-      (r.status === "open" || r.status === "ignored") &&
-      !isPositiveTripEvidenceOnly(r)
-    ),
-    [reconciled]
-  );
+  const actionable = useMemo(() => {
+    const snapshotKeys = new Set(snapshotIdentityKeys.map((key) => String(key || "").trim()));
+    return reconciled.filter((r) => {
+      if (isPositiveTripEvidenceOnly(r)) return false;
+      if (r.status === "open" || r.status === "ignored") return true;
+      if (String(siteFilter || "").toUpperCase() !== "DZM1" || r.status !== "resolved") return false;
+      const key = String(r.reconciliation_key || "").trim();
+      return mentorEvidence(r).hasScore && key && !snapshotKeys.has(key);
+    });
+  }, [reconciled, snapshotIdentityKeys, siteFilter]);
 
   const counts = useMemo(() => ({
     all: actionable.length,
-    open: actionable.filter((r) => r.status === "open").length,
+    open: actionable.filter((r) => r.status === "open" || r.status === "resolved").length,
     hidden: actionable.filter((r) => r.status === "ignored").length,
   }), [actionable]);
 
   const visible = filter === "all"
     ? actionable
-    : actionable.filter((r) => filter === "hidden" ? r.status === "ignored" : r.status === filter);
+    : actionable.filter((r) => filter === "hidden" ? r.status === "ignored" : (r.status === "open" || r.status === "resolved"));
 
   async function createAndResolve() {
     if (!createFor || !newDriver.full_name.trim()) return;
@@ -167,11 +172,11 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
             {visible.map((row) => (
               <tr key={row.id}>
                 <td className="mentor-mapping-actions">
-                  {row.status === "ignored"
+                  {row.status === "resolved" ? <span>Review</span> : row.status === "ignored"
                     ? <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Unhide</button>
                     : <button type="button" disabled={busy === row.id} onClick={() => classify(row, "ignored")}>Hide</button>}
                 </td>
-                <td><b>{row.raw_name || "Unknown / encrypted"}</b></td>
+                <td><b>{row.raw_name || "Unknown / encrypted"}</b>{row.status === "resolved" && <small style={{ display: "block" }}>Previously linked · missing from report</small>}</td>
                 <td><code>{row.raw_trid || row.payload?.driver?.mentorHash || "—"}</code></td>
                 <td>{row.site || "—"}</td>
                 <td><b>{mentorEvidence(row).hasScore ? row.payload?.score : mentorEvidence(row).trips != null ? "Trip only" : "—"}</b></td>
