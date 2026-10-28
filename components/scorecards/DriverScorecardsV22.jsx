@@ -293,6 +293,8 @@ export default function DriverScorecardsV22({
   const [shareScope, setShareScope] = useState("all");
   const [breakdownRow, setBreakdownRow] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const [shareImageBusy, setShareImageBusy] = useState(false);
+  const [shareImageError, setShareImageError] = useState("");
   const [manualFicoOverrides, setManualFicoOverrides] = useState({});
   const [manualConcessionOverrides, setManualConcessionOverrides] = useState({});
   const [editMetric, setEditMetric] = useState("fico");
@@ -584,10 +586,15 @@ export default function DriverScorecardsV22({
   const previousAverage = previousScores.length
     ? previousScores.reduce((a, b) => a + b, 0) / previousScores.length
     : null;
-  const weekDelta =
-    averageDriverScore != null && previousAverage != null
-      ? averageDriverScore - previousAverage
-      : null;
+  const officialScore = num(period?.card?.overall_score);
+  const previousOfficialScore = num(previousPeriod?.card?.overall_score);
+  const headlineScore = officialScore ?? averageDriverScore;
+  const isOfficialHeadline = officialScore != null;
+  const weekDelta = isOfficialHeadline
+    ? (previousOfficialScore == null ? null : officialScore - previousOfficialScore)
+    : (averageDriverScore != null && previousAverage != null
+        ? averageDriverScore - previousAverage
+        : null);
   const improvedCount = enrichedRows.filter((row) => num(row.scoreDelta) != null && row.scoreDelta > 0).length;
   const droppedCount = enrichedRows.filter((row) => num(row.scoreDelta) != null && row.scoreDelta < 0).length;
   const attentionCount = enrichedRows.filter(
@@ -595,9 +602,12 @@ export default function DriverScorecardsV22({
   ).length;
   const formulaCount = enrichedRows.length;
 
-  const headlineScore = averageDriverScore;
   const overallStanding =
-    headlineScore != null ? sourceTier(headlineScore).label : "Not rated";
+    headlineScore != null
+      ? (isOfficialHeadline && period?.card?.standing
+          ? sourceTier(null, period.card.standing).label
+          : sourceTier(headlineScore).label)
+      : "Not rated";
   const overallTier = sourceTier(headlineScore, overallStanding);
 
   const nextTierGap = (row) => {
@@ -897,10 +907,63 @@ export default function DriverScorecardsV22({
     }, 50);
   };
 
+  async function exportWhatsAppPng() {
+    if (shareImageBusy) return;
+    setShareImageBusy(true);
+    setShareImageError("");
+    let imageNode = null;
+    try {
+      const original = document.querySelector(".scorex3-share-sheet");
+      if (!original) throw new Error("Share preview is unavailable.");
+
+      imageNode = original.cloneNode(true);
+      imageNode.classList.add("scorex3-whatsapp-card");
+      imageNode.setAttribute("aria-hidden", "true");
+      imageNode.style.cssText = "position:fixed;left:-12000px;top:0;width:1080px;height:auto;max-height:none;overflow:visible;z-index:-1;";
+      imageNode.querySelector(".scorex3-share-tabs")?.remove();
+      imageNode.querySelector(".scorex3-share-footer")?.remove();
+
+      // WhatsApp remains readable on a phone when the image is a short
+      // performance digest. Full driver lists remain available through PDF.
+      const imageLimit = 12;
+      imageNode.querySelectorAll(".scorex3-share-table tbody tr").forEach((row, index) => {
+        if (index >= imageLimit) row.remove();
+      });
+      const footer = document.createElement("div");
+      footer.className = "scorex3-whatsapp-footer";
+      footer.textContent = `Showing ${Math.min(shareRows.length, imageLimit)} of ${shareRows.length} drivers · ${period?.weekLabel || "Week"} · ${period?.site || "All sites"} · MetrixIQ`;
+      imageNode.appendChild(footer);
+      document.body.appendChild(imageNode);
+
+      const { toPng } = await import("html-to-image");
+      // Let layout settle before capturing the detached-style clone.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const dataUrl = await toPng(imageNode, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+        skipFonts: true,
+      });
+      const link = document.createElement("a");
+      const safeSite = String(period?.site || "site").replace(/[^a-z0-9-]/gi, "-");
+      const safeWeek = String(period?.weekLabel || "week").replace(/[^a-z0-9-]/gi, "-");
+      link.download = `MetrixIQ-${safeSite}-${safeWeek}-WhatsApp.png`;
+      link.href = dataUrl;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      setShareImageError(error?.message || "Image export failed. Please use Export PDF.");
+    } finally {
+      imageNode?.remove();
+      setShareImageBusy(false);
+    }
+  }
+
   async function copyShareSummary() {
     const lines = [
       `${period?.weekLabel || "Week"} Driver Scorecard · ${period?.site || "All sites"}`,
-      `Team score: ${headlineScore == null ? "—" : headlineScore.toFixed(2)} · ${overallStanding}`,
+      `${isOfficialHeadline ? "Official DSP score" : "Average driver score"}: ${headlineScore == null ? "—" : headlineScore.toFixed(2)} · ${overallStanding}`,
       `Drivers: ${totalDrivers} · Improved: ${improvedCount} · Attention: ${attentionCount}`,
       "",
       ...shareRows.slice(0, 30).map((row, index) => {
@@ -1063,15 +1126,17 @@ export default function DriverScorecardsV22({
       </div>
 
       <div className={`scorex3-station-score ${overallTier.cls}`}>
-        <span>Team score</span>
+        <span>{isOfficialHeadline ? "Official DSP score" : "Avg. driver score"}</span>
         <div>
           <strong>{headlineScore == null ? "—" : `${headlineScore.toFixed(2)}%`}</strong>
           <em>{overallStanding}</em>
         </div>
         <small className={weekDelta == null ? "neutral" : weekDelta >= 0 ? "up" : "down"}>
-          {previousPeriod
-            ? `vs ${previousPeriod.weekLabel}: ${weekDelta == null ? "—" : `${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)} pts`}`
-            : "No previous week comparison"}
+          {weekDelta != null && previousPeriod
+            ? `vs ${previousPeriod.weekLabel}: ${weekDelta >= 0 ? "+" : ""}${weekDelta.toFixed(1)} pts`
+            : isOfficialHeadline && averageDriverScore != null
+              ? `Driver average: ${averageDriverScore.toFixed(2)} · No prior DSP score`
+              : "No previous week comparison"}
         </small>
       </div>
     </section>
@@ -1561,11 +1626,11 @@ export default function DriverScorecardsV22({
             <div>
               <span>METRIXIQ · DRIVER SCORECARD</span>
               <h2>{period?.weekLabel} · {period?.site || "All sites"}</h2>
-              <p>{period?.year || "—"} weekly performance summary</p>
+              <p>{period?.year || "—"} weekly performance summary{isOfficialHeadline && averageDriverScore != null ? ` · Driver average: ${averageDriverScore.toFixed(2)}` : ""}</p>
             </div>
             <div>
-              <strong>{headlineScore == null ? "—" : `${headlineScore.toFixed(2)}%`}</strong>
-              <em>{overallStanding}</em>
+              <strong>{headlineScore == null ? "—" : `${headlineScore.toFixed(2)}`}</strong>
+              <em>{overallStanding} · {isOfficialHeadline ? "Official DSP score" : "Driver average"}</em>
             </div>
           </header>
 
@@ -1593,11 +1658,17 @@ export default function DriverScorecardsV22({
               </button>
             ))}
             </div>
-            <button type="button" className="btn ghost scorex3-share-export" onClick={exportSharePdf}>
-              Export
-            </button>
+            <div className="scorex3-share-actions">
+              <button type="button" className="btn primary scorex3-whatsapp-export" onClick={exportWhatsAppPng} disabled={shareImageBusy}>
+                {shareImageBusy ? "Preparing PNG…" : "Download WhatsApp PNG"}
+              </button>
+              <button type="button" className="btn ghost scorex3-share-export" onClick={exportSharePdf}>
+                Export full PDF
+              </button>
+            </div>
           </div>
 
+          {shareImageError && <p className="scorex3-share-image-error" role="alert">{shareImageError}</p>}
           <div className="scorex3-share-table-wrap">
             <table className="scorex3-share-table">
               <thead>
