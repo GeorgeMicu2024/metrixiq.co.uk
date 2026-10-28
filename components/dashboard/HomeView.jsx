@@ -60,6 +60,7 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
  },[siteScorecards,siteFilter]);
  const siteTier=(standing)=>{
   const value=String(standing||"").trim().toLowerCase();
+  if(value.includes("fantastic plus"))return {label:"Fantastic Plus",cls:"fantastic"};
   if(value.includes("fantastic"))return {label:"Fantastic",cls:"fantastic"};
   if(value.includes("great"))return {label:"Great",cls:"great"};
   if(value.includes("fair"))return {label:"Fair",cls:"fair"};
