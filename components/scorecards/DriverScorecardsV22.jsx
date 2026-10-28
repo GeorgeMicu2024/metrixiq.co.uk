@@ -1056,9 +1056,9 @@ export default function DriverScorecardsV22({
     <section className="scorex3-header">
       <div className="scorex3-title">
         <span className="page-kicker">DRIVER SCORECARDS</span>
-        <h1>{period?.weekLabel || "Week"} Driver Scorecards</h1>
+        <h1>Driver Scorecards</h1>
         <p>
-          {period?.site || "All sites"} · {period?.year || "—"} · Weekly ranking with FICO, delivery quality and concessions.
+          {period?.site || "All sites"} · {period?.weekLabel || "Week"} · {period?.year || "—"} · Weekly ranking with FICO, delivery quality and concessions.
         </p>
       </div>
 
@@ -1363,15 +1363,15 @@ export default function DriverScorecardsV22({
                         </button>
                       </div>
                     </td>
-                    <td className="scorex3-delivered-cell">{plain(row.delivered)}</td>
-                    <td className={`scorex3-metric ${metricTone("dcr", row.dcr)}`}>{fmtPercentFlexible(row.dcr)}</td>
-                    <td className={`scorex3-metric ${metricTone("dsc_dpmo", row.dsc_dpmo)}`}>{plain(row.dsc_dpmo)}</td>
-                    <td className={`scorex3-metric ${metricTone("lor", row.lor)}`}>{plain(row.lor)}</td>
-                    <td className={`scorex3-metric ${metricTone("pod", row.pod)}`}>{fmtPercentFlexible(row.pod)}</td>
-                    <td className={`scorex3-metric ${metricTone("cc", row.cc)}`}>{fmtPercentFlexible(row.cc)}</td>
-                    <td className={`scorex3-metric ${metricTone("ce_dpmo", row.ce_dpmo)}`}>{plain(row.ce_dpmo)}</td>
-                    <td className={`scorex3-metric ${metricTone("cdf_dpmo", row.cdf_dpmo)}`}>{plain(row.cdf_dpmo)}</td>
-                    <td className={`scorex3-metric ${metricTone("psb", row.psb)}`}>{plain(row.psb)}</td>
+                    <td className="scorex3-delivered-cell"><span className="scorex3-value-pill">{plain(row.delivered)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("dcr", row.dcr)}`}><span className="scorex3-value-pill">{fmtPercentFlexible(row.dcr)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("dsc_dpmo", row.dsc_dpmo)}`}><span className="scorex3-value-pill">{plain(row.dsc_dpmo)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("lor", row.lor)}`}><span className="scorex3-value-pill">{plain(row.lor)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("pod", row.pod)}`}><span className="scorex3-value-pill">{fmtPercentFlexible(row.pod)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("cc", row.cc)}`}><span className="scorex3-value-pill">{fmtPercentFlexible(row.cc)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("ce_dpmo", row.ce_dpmo)}`}><span className="scorex3-value-pill">{plain(row.ce_dpmo)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("cdf_dpmo", row.cdf_dpmo)}`}><span className="scorex3-value-pill">{plain(row.cdf_dpmo)}</span></td>
+                    <td className={`scorex3-metric ${metricTone("psb", row.psb)}`}><span className="scorex3-value-pill">{plain(row.psb)}</span></td>
                   </tr>;
                 }),
               ];

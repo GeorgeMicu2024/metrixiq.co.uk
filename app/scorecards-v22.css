@@ -1454,3 +1454,158 @@ body.scorex3-resizing-columns *{
 .scorex3-concession-badge small{font-size:7px;font-weight:900;margin-left:3px;color:#1b7c83}
 .scorex3-concession-badge.high small{display:inline!important}
 @media(max-width:800px){.scorex3-concessions-cell{gap:3px}.scorex3-concession-edit{padding:5px 4px;font-size:8px}}
+
+
+/* ===== Reimagined scorecard: white canvas + restrained metric pills =====
+   The application shell and functional controls are intentionally preserved.
+*/
+.scorex3-root{
+  --sx-grid:#e8edf3;
+  --sx-border:#e1e8f0;
+  --sx-ink:#102c4b;
+  --sx-teal:#078f90;
+  --sx-good:#e3f7eb;
+  --sx-warn:#fff1cf;
+  --sx-bad:#fbe1e8;
+  color:#102b4a;
+}
+.scorex3-root .scorex3-header{
+  background:#fff!important;border:1px solid #e6ecf3!important;
+  border-radius:15px!important;box-shadow:0 5px 18px rgba(17,45,75,.035)!important;
+}
+.scorex3-root .scorex3-title h1{color:#102b4a;letter-spacing:-.035em}
+.scorex3-root .page-kicker{color:#058e90!important}
+.scorex3-root .scorex3-kpi-cards article{
+  border:1px solid #e8eef4;background:#fff;border-radius:14px;
+  box-shadow:0 6px 22px rgba(18,45,74,.035);
+}
+.scorex3-root .scorex3-kpi-cards article:before{background:#048f90}
+.scorex3-root .scorex3-kpi-cards article.target:before{background:#36a269}
+.scorex3-root .scorex3-toolbar{
+  background:#fff!important;border:1px solid #e8edf4!important;border-radius:13px!important;
+  box-shadow:0 5px 16px rgba(17,45,75,.035)!important;
+}
+.scorex3-root .scorex3-toolbar select,
+.scorex3-root .scorex3-toolbar input{border-color:#e0e8f0!important;border-radius:8px!important}
+.scorex3-root .scorex3-search input:focus{
+  border-color:#0a9d9a!important;box-shadow:0 0 0 3px rgba(8,157,154,.10)!important;
+}
+.scorex3-root .scorex3-history-scroll button.active{
+  border-color:#13a0a0!important;box-shadow:0 0 0 2px rgba(8,157,154,.09)!important;
+}
+.scorex3-root .scorex3-register{
+  background:#fff!important;border:1px solid #e0e8f0!important;
+  border-radius:13px!important;box-shadow:0 12px 30px rgba(18,44,72,.045)!important;
+}
+.scorex3-root .scorex3-register-head{
+  background:#fff!important;border-bottom:1px solid #e4ebf3!important;
+}
+.scorex3-root .scorex3-register-head h2{color:#122f4f!important}
+.scorex3-root .scorex3-register-head>div:first-child>span{color:#078f90}
+.scorex3-root .scorex3-table-wrap{background:#fff!important;scrollbar-color:#bdcbd8 #f5f8fb}
+.scorex3-root .scorex3-table{
+  color:#153353!important;border-color:#e2eaf2!important;
+}
+.scorex3-root .scorex3-table th,
+.scorex3-root .scorex3-table thead th:nth-child(n){
+  background:#f6f9fc!important;color:#243c58!important;
+  border-right:1px solid #e3ebf3!important;
+  border-bottom:1px solid #cfdae6!important;
+  box-shadow:none!important;
+}
+.scorex3-root .scorex3-table td{
+  border-right:1px solid #e7edf4!important;
+  border-bottom:1px solid #eaf0f5!important;
+}
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row td{
+  background:#fff!important;color:#153352!important;
+}
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row:nth-child(even) td{
+  background:#fcfdff!important;
+}
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row:hover td{
+  box-shadow:inset 0 0 0 999px rgba(12,138,161,.04)!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row td{
+  height:34px!important;padding:0 14px!important;
+  border-top:0!important;border-bottom:1px solid #e6eef4!important;
+  border-left:4px solid transparent!important;
+  color:#123c4c!important;box-shadow:none!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.fantastic-plus td{
+  background:#eaf8f8!important;border-left-color:#009b9e!important;color:#105556!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.fantastic td{
+  background:#edf5fd!important;border-left-color:#1682e4!important;color:#15508a!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.great td{
+  background:#ebf8ef!important;border-left-color:#28ae67!important;color:#236a46!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.fair td{
+  background:#fff7e8!important;border-left-color:#d69f2e!important;color:#8a6426!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.poor td{
+  background:#fff0f1!important;border-left-color:#d75a68!important;color:#9a3947!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row b{font-size:11px!important}
+.scorex3-root .scorex3-table .scorex3-tier-row span{font-size:8px!important;opacity:.7}
+.scorex3-root .scorex3-table .scorex3-tier-row strong{font-size:10px!important}
+.scorex3-root .scorex3-table .scorex3-rank-cell{
+  color:#15395f!important;border-left:0!important;
+}
+.scorex3-root .scorex3-name-cell button{color:#123254!important}
+.scorex3-root .scorex3-name-cell button:hover{color:#078e95!important}
+.scorex3-root .scorex3-table .scorex3-metric,
+.scorex3-root .scorex3-table .scorex3-delivered-cell,
+.scorex3-root .scorex3-table .scorex3-score-cell{
+  color:#173858!important;
+  background:#fff!important;
+  box-shadow:none!important;
+}
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row:nth-child(even) .scorex3-metric,
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row:nth-child(even) .scorex3-delivered-cell,
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row:nth-child(even) .scorex3-score-cell{
+  background:#fcfdff!important;
+}
+.scorex3-root .scorex3-value-pill{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:100%;min-height:27px;padding:3px 5px;border-radius:7px;
+  background:#f4f7fb;color:#23415e;
+  font-size:inherit;font-weight:900;line-height:1.15;
+}
+.scorex3-root .scorex3-metric.good .scorex3-value-pill{background:#e6f8ed;color:#1c6340}
+.scorex3-root .scorex3-metric.warn .scorex3-value-pill{background:#fff2d2;color:#87601b}
+.scorex3-root .scorex3-metric.bad .scorex3-value-pill{background:#fbe3e9;color:#9e3142}
+.scorex3-root .scorex3-metric.neutral .scorex3-value-pill{background:#f1f4f8;color:#8190a1}
+.scorex3-root .scorex3-table .scorex3-score-cell>button{
+  width:calc(100% - 6px);height:29px;margin:auto;border-radius:7px;
+  background:#e2f0ff!important;color:#1555a0!important;
+}
+.scorex3-root .scorex3-table .scorex3-score-cell.great>button{background:#e4f7eb!important;color:#236c45!important}
+.scorex3-root .scorex3-table .scorex3-score-cell.fair>button{background:#fff1d4!important;color:#895e1b!important}
+.scorex3-root .scorex3-table .scorex3-score-cell.poor>button{background:#fbe3e9!important;color:#9d3040!important}
+.scorex3-root .scorex3-score-cell>button>small{background:rgba(255,255,255,.65)!important}
+.scorex3-root .scorex3-fico-cell{gap:3px}
+.scorex3-root .scorex3-fico-cell>span{
+  display:inline-flex;align-items:center;justify-content:center;
+  flex:1;min-width:0;min-height:26px;padding:3px 4px;
+  border-radius:7px;background:#e7f8ed;color:#206541;
+}
+.scorex3-root .scorex3-metric.warn .scorex3-fico-cell>span{background:#fff2d2;color:#87601b}
+.scorex3-root .scorex3-metric.bad .scorex3-fico-cell>span{background:#fbe3e9;color:#9e3142}
+.scorex3-root .scorex3-concession-edit{
+  background:#f1f8fb;border-color:#d3e5ed;color:#32748a;
+  font-size:8px;padding:5px 6px;
+}
+.scorex3-root .scorex3-concession-edit:hover{background:#e2f3fa;border-color:#8fcad9}
+.scorex3-root .scorex3-concession-badge.zero{
+  background:#ebf8ef;border-color:#c2e5cf;color:#266744;
+}
+.scorex3-root .scorex3-table .scorex3-driver-row td{height:39px!important}
+.scorex3-root .scorex3-table.density-compact .scorex3-driver-row td{height:34px!important}
+.scorex3-root .scorex3-table.density-comfortable .scorex3-driver-row td{height:44px!important}
+.scorex3-root .scorex3-table.density-compact .scorex3-value-pill{min-height:23px}
+@media(max-width:800px){
+  .scorex3-root .scorex3-table{min-width:1280px!important}
+  .scorex3-root .scorex3-table .scorex3-tier-row td{padding-left:9px!important}
+}
