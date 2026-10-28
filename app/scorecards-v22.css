@@ -1755,3 +1755,115 @@ body.scorex3-resizing-columns *{
   .scorex3-share-table{min-width:930px!important}
   .scorex3-whatsapp-card .scorex3-share-table{min-width:0!important}
 }
+
+
+/* WhatsApp share: neutral white table, rank immediately after number,
+   with color used as an accent rather than an entire table background. */
+.scorex3-share-head{
+  background:linear-gradient(112deg,#112d4d 0%,#183e64 100%)!important;
+}
+.scorex3-share-head>div:last-child{
+  background:rgba(255,255,255,.07)!important;
+  border-color:rgba(218,232,245,.22)!important;
+}
+.scorex3-share-head.fantastic-plus strong{color:#e9f6ff!important}
+.scorex3-share-table th:nth-child(1){width:4%!important}
+.scorex3-share-table th:nth-child(2){width:14%!important}
+.scorex3-share-table th:nth-child(3){width:28%!important}
+.scorex3-share-table th:nth-child(4){width:7%!important}
+.scorex3-share-table th:nth-child(5){width:7%!important}
+.scorex3-share-table th:nth-child(6){width:6%!important}
+.scorex3-share-table th:nth-child(7){width:9%!important}
+.scorex3-share-table th:nth-child(8){width:9%!important}
+.scorex3-share-table th:nth-child(9){width:9%!important}
+.scorex3-share-table th:nth-child(10){width:7%!important}
+.scorex3-share-table td.share-driver{
+  min-width:0!important;padding-left:11px!important;
+  text-align:left!important;
+}
+.scorex3-share-table .share-rank-badge{
+  min-width:0!important;width:100%!important;
+  max-width:145px!important;min-height:24px;
+  border-radius:6px;box-shadow:none!important;
+}
+.scorex3-share-table .share-rank-badge.fantastic-plus{
+  background:#e8eff9!important;color:#153f70!important;
+  border-left:3px solid #184d87;
+}
+.scorex3-share-table .share-rank-badge.fantastic{
+  background:#eaf5ff!important;color:#216893!important;
+  border-left:3px solid #55a9e5;
+}
+.scorex3-share-table .share-rank-badge.great{
+  background:#eaf7ef!important;color:#2b744c!important;
+  border-left:3px solid #48a96c;
+}
+.scorex3-share-table .share-rank-badge.fair{
+  background:#fff4d9!important;color:#886124!important;
+  border-left:3px solid #d6a344;
+}
+.scorex3-share-table .share-rank-badge.poor{
+  background:#fcecee!important;color:#a14654!important;
+  border-left:3px solid #cf6c77;
+}
+.scorex3-share-table td.share-metric.good{
+  background:#fff!important;color:#246348!important;box-shadow:none!important;
+}
+.scorex3-share-table td.share-metric.warn{
+  background:#fff7e8!important;color:#865e20!important;box-shadow:none!important;
+}
+.scorex3-share-table td.share-metric.bad{
+  background:#fff0f2!important;color:#a13b4e!important;box-shadow:none!important;
+}
+.scorex3-share-table td.share-metric.neutral{
+  background:#f8fafc!important;color:#708094!important;box-shadow:none!important;
+}
+.scorex3-share-table td.share-score.fantastic-plus,
+.scorex3-share-table td.share-score.fantastic{
+  background:#f1f6fd!important;color:#1c5585!important;
+}
+.scorex3-share-table td.share-score.great{
+  background:#f3faf5!important;color:#276a49!important;
+}
+.scorex3-share-table td.share-score.fair{
+  background:#fffaeb!important;color:#886124!important;
+}
+.scorex3-share-table td.share-score.poor{
+  background:#fff3f3!important;color:#a14654!important;
+}
+.scorex3-share-table tbody tr:nth-child(even) td:not(.share-score):not(.share-metric){
+  background:#fbfcfe!important;
+}
+.scorex3-share-table tbody tr:nth-child(odd) td:not(.share-score):not(.share-metric){
+  background:#fff!important;
+}
+.scorex3-whatsapp-card .scorex3-share-head{
+  background:linear-gradient(112deg,#112d4d 0%,#183e64 100%)!important;
+}
+.scorex3-whatsapp-card .scorex3-share-table td.share-metric.good{
+  background:#fff!important;color:#246348!important;
+}
+.scorex3-whatsapp-card .scorex3-share-table td.share-metric.warn{
+  background:#fff7e8!important;color:#865e20!important;
+}
+.scorex3-whatsapp-card .scorex3-share-table td.share-metric.bad{
+  background:#fff0f2!important;color:#a13b4e!important;
+}
+.scorex3-whatsapp-card .scorex3-share-table td.share-metric.neutral{
+  background:#f8fafc!important;color:#708094!important;
+}
+.scorex3-share-actions .scorex3-ranks-export{
+  background:#153e68!important;border-color:#153e68!important;color:#fff!important;
+  font-size:8.5px!important;font-weight:900!important;
+}
+.scorex3-share-actions .scorex3-ranks-export:hover{background:#0d3054!important}
+.scorex3-share-actions .scorex3-ranks-export:disabled{opacity:.6;cursor:wait}
+.scorex3-share-image-progress{
+  margin:0;padding:8px 14px;
+  color:#206d77;background:#f1fafb;
+  border-bottom:1px solid #d5edf0;font-size:10px;font-weight:750;
+}
+@media(max-width:800px){
+  .scorex3-share-actions{flex-wrap:wrap}
+  .scorex3-share-actions button{flex:1 1 140px}
+}
