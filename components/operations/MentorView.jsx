@@ -698,7 +698,7 @@ export default function MentorView({
             <span>{dailyMap.filter((item) => item.row?.is_hidden).length} hidden account(s)</span>
           </div>
 
-          <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} onChanged={() => setMappingRefresh((value) => value + 1)} />
+          <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} siteFilter={siteFilter} snapshotIdentityKeys={selectedDailyRows.map((row) => row.source_identity_key)} onChanged={() => setMappingRefresh((value) => value + 1)} />
 
           <footer className="mentor-report-footer">
             <span>
