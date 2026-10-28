@@ -32,6 +32,7 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
     return allCards.filter((item) => String(item.site || "").trim().toUpperCase() === siteFilter);
   }, [load.data, siteFilter]);
   const [selectedId, setSelectedId] = useState("");
+  const [activeSection, setActiveSection] = useState("Overview");
 
   useEffect(() => {
     if (cards.length && !cards.some((item) => item.id === selectedId)) {
@@ -192,7 +193,7 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
     </header>
 
     <nav className="sitecmd-tabs" aria-label="Scorecard sections">
-      <button className="active">Overview</button><button>Safety</button><button>Quality</button><button>Drivers at Risk</button><button>Trends</button>
+      {["Overview", "Safety", "Quality", "Trends"].map((section) => <button key={section} type="button" className={activeSection === section ? "active" : ""} aria-current={activeSection === section ? "page" : undefined} onClick={() => setActiveSection(section)}>{section}</button>)}
     </nav>
 
     <section className="sitecmd-kpis sitepro-health-grid">
