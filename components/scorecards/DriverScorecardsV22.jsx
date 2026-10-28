@@ -67,6 +67,15 @@ export default function DriverScorecardsV22({
     () => buildDriverScorecardConcessionMap(load.data?.concessionSnapshots || []),
     [load.data?.concessionSnapshots]
   );
+  const persistedConcessionOverrideMap = useMemo(() => {
+    const map = new Map();
+    for (const item of load.data?.overrides || []) {
+      if (item.status === "active" && item.metric_key === "concessions") {
+        map.set(`${item.driver_id}::${item.week_label}`, Number(item.override_value));
+      }
+    }
+    return map;
+  }, [load.data?.overrides]);
 
   const clamp = (value, min = 0, max = 100) =>
     Math.max(min, Math.min(max, Number(value)));
@@ -285,6 +294,9 @@ export default function DriverScorecardsV22({
   const [breakdownRow, setBreakdownRow] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
   const [manualFicoOverrides, setManualFicoOverrides] = useState({});
+  const [manualConcessionOverrides, setManualConcessionOverrides] = useState({});
+  const [editMetric, setEditMetric] = useState("fico");
+  const [editConcessions, setEditConcessions] = useState("");
   const [editRow, setEditRow] = useState(null);
   const [editFico, setEditFico] = useState("");
   const [editSaving, setEditSaving] = useState(false);
@@ -417,11 +429,17 @@ export default function DriverScorecardsV22({
       const trid = String(sourceRow?.drivers?.trid || "").trim().toUpperCase();
       const concessionKey = `${site}::${week}::${trid}`;
       const sameWeekConcessions = concessionSnapshotMap.get(concessionKey);
-      const row = withEffectiveFico(
-        sameWeekConcessions
-          ? { ...sourceRow, concessions: sameWeekConcessions.dnr }
-          : sourceRow
-      );
+      const overrideKey = manualOverrideKey(sourceRow);
+      const localConcessions = Object.prototype.hasOwnProperty.call(manualConcessionOverrides, overrideKey);
+      const persistedConcessions = persistedConcessionOverrideMap.has(overrideKey);
+      const effectiveConcessions = localConcessions
+        ? manualConcessionOverrides[overrideKey]
+        : persistedConcessions
+          ? persistedConcessionOverrideMap.get(overrideKey)
+          : sameWeekConcessions
+            ? sameWeekConcessions.dnr
+            : sourceRow.concessions;
+      const row = withEffectiveFico({ ...sourceRow, concessions: effectiveConcessions });
       const score = calculatedDriverScore(row);
       const tier = sourceTier(
         score.value,
@@ -438,6 +456,7 @@ export default function DriverScorecardsV22({
           manualFicoOverrides,
           manualOverrideKey(row)
         ),
+        manualConcessionOverride: localConcessions || persistedConcessions,
         sourceRank: tier,
       };
     });
@@ -445,7 +464,7 @@ export default function DriverScorecardsV22({
 
   const previousRows = useMemo(
     () => enrichBaseRows(previousPeriod),
-    [previousPeriod, manualFicoOverrides, concessionSnapshotMap]
+    [previousPeriod, manualFicoOverrides, manualConcessionOverrides, concessionSnapshotMap, persistedConcessionOverrideMap]
   );
 
   const previousByDriver = useMemo(() => {
@@ -530,7 +549,7 @@ export default function DriverScorecardsV22({
         flags: performanceFlags(merged),
       };
     });
-  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides, concessionSnapshotMap]);
+  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides, manualConcessionOverrides, concessionSnapshotMap, persistedConcessionOverrideMap]);
 
   const groupOrder = [
     { label: "Fantastic Plus", cls: "fantastic-plus", min: "93+" },
