@@ -1327,10 +1327,14 @@ export default function DriverScorecardsV22({
                       </button>
                     </td>
                     <td className={`scorex3-metric ${metricTone("concessions", row.concessions)}`}>
-                      <span className={`scorex3-concession-badge ${(num(row.concessions) || 0) >= 3 ? "high" : (num(row.concessions) || 0) > 0 ? "active" : "zero"}`}>
-                        {plain(row.concessions)}
-                        {(num(row.concessions) || 0) >= 3 && <small>HIGH</small>}
-                      </span>
+                      <div className="scorex3-concessions-cell">
+                        <span className={`scorex3-concession-badge ${(num(row.concessions) || 0) >= 3 ? "high" : (num(row.concessions) || 0) > 0 ? "active" : "zero"}`} title={row.manualConcessionOverride ? "Manually overridden · audited" : "Imported concessions"}>
+                          {plain(row.concessions)}
+                          {row.manualConcessionOverride && <small>M</small>}
+                          {(num(row.concessions) || 0) >= 3 && <small>HIGH</small>}
+                        </span>
+                        <button type="button" className="scorex3-concession-edit" onClick={() => openConcessionsEditor(row)} aria-label={`Edit concessions for ${displayDriverName(driver)}`} title="Edit concessions">Edit</button>
+                      </div>
                     </td>
                     <td className={`scorex3-score-cell ${row.sourceRank.cls}`}>
                       <button
