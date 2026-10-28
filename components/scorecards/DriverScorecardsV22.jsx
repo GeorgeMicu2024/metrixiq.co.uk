@@ -67,6 +67,15 @@ export default function DriverScorecardsV22({
     () => buildDriverScorecardConcessionMap(load.data?.concessionSnapshots || []),
     [load.data?.concessionSnapshots]
   );
+  const persistedConcessionOverrideMap = useMemo(() => {
+    const map = new Map();
+    for (const item of load.data?.overrides || []) {
+      if (item.status === "active" && item.metric_key === "concessions") {
+        map.set(`${item.driver_id}::${item.week_label}`, Number(item.override_value));
+      }
+    }
+    return map;
+  }, [load.data?.overrides]);
 
   const clamp = (value, min = 0, max = 100) =>
     Math.max(min, Math.min(max, Number(value)));
@@ -285,6 +294,9 @@ export default function DriverScorecardsV22({
   const [breakdownRow, setBreakdownRow] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
   const [manualFicoOverrides, setManualFicoOverrides] = useState({});
+  const [manualConcessionOverrides, setManualConcessionOverrides] = useState({});
+  const [editMetric, setEditMetric] = useState("fico");
+  const [editConcessions, setEditConcessions] = useState("");
   const [editRow, setEditRow] = useState(null);
   const [editFico, setEditFico] = useState("");
   const [editSaving, setEditSaving] = useState(false);
@@ -417,11 +429,17 @@ export default function DriverScorecardsV22({
       const trid = String(sourceRow?.drivers?.trid || "").trim().toUpperCase();
       const concessionKey = `${site}::${week}::${trid}`;
       const sameWeekConcessions = concessionSnapshotMap.get(concessionKey);
-      const row = withEffectiveFico(
-        sameWeekConcessions
-          ? { ...sourceRow, concessions: sameWeekConcessions.dnr }
-          : sourceRow
-      );
+      const overrideKey = manualOverrideKey(sourceRow);
+      const localConcessions = Object.prototype.hasOwnProperty.call(manualConcessionOverrides, overrideKey);
+      const persistedConcessions = persistedConcessionOverrideMap.has(overrideKey);
+      const effectiveConcessions = localConcessions
+        ? manualConcessionOverrides[overrideKey]
+        : persistedConcessions
+          ? persistedConcessionOverrideMap.get(overrideKey)
+          : sameWeekConcessions
+            ? sameWeekConcessions.dnr
+            : sourceRow.concessions;
+      const row = withEffectiveFico({ ...sourceRow, concessions: effectiveConcessions });
       const score = calculatedDriverScore(row);
       const tier = sourceTier(
         score.value,
@@ -438,6 +456,7 @@ export default function DriverScorecardsV22({
           manualFicoOverrides,
           manualOverrideKey(row)
         ),
+        manualConcessionOverride: localConcessions || persistedConcessions,
         sourceRank: tier,
       };
     });
@@ -445,7 +464,7 @@ export default function DriverScorecardsV22({
 
   const previousRows = useMemo(
     () => enrichBaseRows(previousPeriod),
-    [previousPeriod, manualFicoOverrides, concessionSnapshotMap]
+    [previousPeriod, manualFicoOverrides, manualConcessionOverrides, concessionSnapshotMap, persistedConcessionOverrideMap]
   );
 
   const previousByDriver = useMemo(() => {
@@ -530,7 +549,7 @@ export default function DriverScorecardsV22({
         flags: performanceFlags(merged),
       };
     });
-  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides, concessionSnapshotMap]);
+  }, [period, previousByDriver, previousRankByDriver, manualFicoOverrides, manualConcessionOverrides, concessionSnapshotMap, persistedConcessionOverrideMap]);
 
   const groupOrder = [
     { label: "Fantastic Plus", cls: "fantastic-plus", min: "93+" },
@@ -900,7 +919,57 @@ export default function DriverScorecardsV22({
     }
   }
 
+  const openConcessionsEditor = (row) => {
+    setBreakdownRow(null);
+    setEditMetric("concessions");
+    setEditRow(row);
+    setEditConcessions(row.concessions == null ? "0" : String(row.concessions));
+    setEditMessage("");
+  };
+
+  async function saveConcessionsEdit() {
+    if (!editRow) return;
+    const raw = String(editConcessions).trim();
+    const value = Number(raw);
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value > 10000) {
+      setEditMessage("Enter a whole number of concessions between 0 and 10,000.");
+      return;
+    }
+    if (!organizationId || !editRow.driver_id || !editRow.week_label) {
+      setEditMessage("This driver-week record cannot be updated yet.");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditMessage("");
+    try {
+      await setMetricOverride(getSupabaseBrowserClient(), {
+        organizationId,
+        driverId: editRow.driver_id,
+        weekLabel: editRow.week_label,
+        metricKey: "concessions",
+        value,
+        reason: "Driver Scorecard manual concessions edit",
+      });
+      setManualConcessionOverrides((current) => ({
+        ...current,
+        [manualOverrideKey(editRow)]: value,
+      }));
+      setBreakdownRow(null);
+      setEditMessage("Saved with audit trail");
+      window.setTimeout(() => {
+        setEditRow(null);
+        setEditMessage("");
+      }, 650);
+    } catch (error) {
+      setEditMessage(error?.message || "Could not save concessions.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   const openFicoEditor = (row) => {
+    setEditMetric("fico");
     const currentFico = num(row.mentor_score ?? row.ementor ?? row.fico);
     setBreakdownRow(null);
     setEditRow(row);
@@ -1258,10 +1327,14 @@ export default function DriverScorecardsV22({
                       </button>
                     </td>
                     <td className={`scorex3-metric ${metricTone("concessions", row.concessions)}`}>
-                      <span className={`scorex3-concession-badge ${(num(row.concessions) || 0) >= 3 ? "high" : (num(row.concessions) || 0) > 0 ? "active" : "zero"}`}>
-                        {plain(row.concessions)}
-                        {(num(row.concessions) || 0) >= 3 && <small>HIGH</small>}
-                      </span>
+                      <div className="scorex3-concessions-cell">
+                        <span className={`scorex3-concession-badge ${(num(row.concessions) || 0) >= 3 ? "high" : (num(row.concessions) || 0) > 0 ? "active" : "zero"}`} title={row.manualConcessionOverride ? "Manually overridden · audited" : "Imported concessions"}>
+                          {plain(row.concessions)}
+                          {row.manualConcessionOverride && <small>M</small>}
+                          {(num(row.concessions) || 0) >= 3 && <small>HIGH</small>}
+                        </span>
+                        <button type="button" className="scorex3-concession-edit" onClick={() => openConcessionsEditor(row)} aria-label={`Edit concessions for ${displayDriverName(driver)}`} title="Edit concessions">Edit</button>
+                      </div>
                     </td>
                     <td className={`scorex3-score-cell ${row.sourceRank.cls}`}>
                       <button
@@ -1325,25 +1398,32 @@ export default function DriverScorecardsV22({
               <h2>{displayDriverName(editRow.drivers)}</h2>
               <p>{editRow.drivers?.trid || "No Transporter ID"} · {editRow.week_label}</p>
             </div>
-            <button type="button" onClick={() => !editSaving && setEditRow(null)} aria-label="Close FICO editor">×</button>
+            <button type="button" onClick={() => !editSaving && setEditRow(null)} aria-label="Close metric editor">×</button>
           </header>
 
           <div className="scorex3-edit-formula">
-            <span>Formula impact</span>
-            <b>FICO = 17% of Total Score</b>
-            <small>Below 750 = 0 · 810+ = 100% · 750–809 uses (FICO−750)/70.</small>
+            {editMetric === "fico" ? <>
+              <span>Formula impact</span>
+              <b>FICO = up to 17 points of Total Score</b>
+              <small>The score preview below uses the current point-band formula.</small>
+            </> : <>
+              <span>Manual concession correction</span>
+              <b>Count for this driver and this scorecard week</b>
+              <small>Changes concession totals, filters and risk flags; concessions do not directly add or remove Total Score points.</small>
+            </>}
           </div>
 
           <label className="scorex3-edit-field">
-            <span>FICO score</span>
+            <span>{editMetric === "fico" ? "FICO score" : "Number of concessions"}</span>
             <input
               type="number"
               min="0"
-              max="850"
+              max={editMetric === "fico" ? "850" : "10000"}
               step="1"
-              value={editFico}
+              value={editMetric === "fico" ? editFico : editConcessions}
               onChange={(event) => {
-                setEditFico(event.target.value);
+                if (editMetric === "fico") setEditFico(event.target.value);
+                else setEditConcessions(event.target.value);
                 setEditMessage("");
               }}
               autoFocus
@@ -1352,41 +1432,32 @@ export default function DriverScorecardsV22({
 
           <div className="scorex3-edit-preview">
             <div>
-              <span>Current Total Score</span>
-              <strong>{editRow.displayScore == null ? "—" : editRow.displayScore.toFixed(1)}</strong>
+              <span>{editMetric === "fico" ? "Current Total Score" : "Current concessions"}</span>
+              <strong>{editMetric === "fico" ? (editRow.displayScore == null ? "—" : editRow.displayScore.toFixed(1)) : plain(editRow.concessions)}</strong>
             </div>
             <div>
-              <span>Preview Total Score</span>
-              <strong>{editPreview?.value == null ? "—" : editPreview.value.toFixed(1)}</strong>
+              <span>{editMetric === "fico" ? "Preview Total Score" : "New concessions"}</span>
+              <strong>{editMetric === "fico" ? (editPreview?.value == null ? "—" : editPreview.value.toFixed(1)) : (/^\d+$/.test(String(editConcessions).trim()) ? editConcessions : "—")}</strong>
             </div>
             <div>
               <span>Change</span>
-              <strong className={
-                editPreview?.value == null || editRow.displayScore == null
-                  ? "neutral"
-                  : editPreview.value > editRow.displayScore
-                    ? "up"
-                    : editPreview.value < editRow.displayScore
-                      ? "down"
-                      : "neutral"
-              }>
-                {editPreview?.value == null || editRow.displayScore == null
-                  ? "—"
-                  : `${editPreview.value - editRow.displayScore >= 0 ? "+" : ""}${(editPreview.value - editRow.displayScore).toFixed(1)}`}
+              <strong className={editMetric === "fico" ? (editPreview?.value == null || editRow.displayScore == null ? "neutral" : editPreview.value >= editRow.displayScore ? "up" : "down") : (Number(editConcessions) <= Number(editRow.concessions || 0) ? "up" : "down")}>
+                {editMetric === "fico"
+                  ? (editPreview?.value == null || editRow.displayScore == null ? "—" : (editPreview.value - editRow.displayScore >= 0 ? "+" : "") + (editPreview.value - editRow.displayScore).toFixed(1))
+                  : (/^\d+$/.test(String(editConcessions).trim()) ? (Number(editConcessions) - Number(editRow.concessions || 0) >= 0 ? "+" : "") + (Number(editConcessions) - Number(editRow.concessions || 0)) : "—")}
               </strong>
             </div>
           </div>
-
           <div className="scorex3-edit-note">
-            Saving updates FICO for this driver and this scorecard week only. Total Score, Rank and WoW recalculate automatically from the point-band formula.
+            {editMetric === "fico" ? "Saving updates FICO for this driver and week only. Total Score and Rank recalculate from the point-band formula." : "Saving updates concessions for this driver and week only, with an audit trail. Imported source values stay unchanged; risk indicators update immediately."}
           </div>
 
-          {editMessage && <div className={`scorex3-edit-message ${editMessage === "Saved" ? "success" : "error"}`}>{editMessage}</div>}
+          {editMessage && <div className={`scorex3-edit-message ${editMessage.startsWith("Saved") ? "success" : "error"}`}>{editMessage}</div>}
 
           <footer>
             <button type="button" className="btn ghost" disabled={editSaving} onClick={() => setEditRow(null)}>Cancel</button>
-            <button type="button" className="btn primary" disabled={editSaving} onClick={saveFicoEdit}>
-              {editSaving ? "Saving…" : "Save FICO & recalculate"}
+            <button type="button" className="btn primary" disabled={editSaving} onClick={editMetric === "fico" ? saveFicoEdit : saveConcessionsEdit}>
+              {editSaving ? "Saving…" : editMetric === "fico" ? "Save FICO & recalculate" : "Save concessions"}
             </button>
           </footer>
         </section>

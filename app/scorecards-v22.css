@@ -1446,3 +1446,11 @@ body.scorex3-resizing-columns *{
   .scorex3-table{min-width:1280px!important}
   .scorex3-table th:nth-child(2),.scorex3-table td:nth-child(2){left:62px!important}
 }
+
+/* Audited manual concession corrections alongside FICO edits */
+.scorex3-concessions-cell{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0}
+.scorex3-concession-edit{border:1px solid #a7c7c2;background:#f0faf7;color:#126e61;border-radius:6px;font-size:9px;font-weight:850;line-height:1;padding:6px 7px;cursor:pointer;white-space:nowrap}
+.scorex3-concession-edit:hover,.scorex3-concession-edit:focus-visible{background:#d8f1eb;border-color:#3a9b87;outline-offset:2px}
+.scorex3-concession-badge small{font-size:7px;font-weight:900;margin-left:3px;color:#1b7c83}
+.scorex3-concession-badge.high small{display:inline!important}
+@media(max-width:800px){.scorex3-concessions-cell{gap:3px}.scorex3-concession-edit{padding:5px 4px;font-size:8px}}
