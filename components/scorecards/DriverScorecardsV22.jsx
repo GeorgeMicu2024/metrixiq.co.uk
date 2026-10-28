@@ -1449,15 +1449,15 @@ export default function DriverScorecardsV22({
             </div>
           </div>
           <div className="scorex3-edit-note">
-            Saving updates FICO for this driver and this scorecard week only. Total Score, Rank and WoW recalculate automatically from the point-band formula.
+            {editMetric === "fico" ? "Saving updates FICO for this driver and week only. Total Score and Rank recalculate from the point-band formula." : "Saving updates concessions for this driver and week only, with an audit trail. Imported source values stay unchanged; risk indicators update immediately."}
           </div>
 
-          {editMessage && <div className={`scorex3-edit-message ${editMessage === "Saved" ? "success" : "error"}`}>{editMessage}</div>}
+          {editMessage && <div className={`scorex3-edit-message ${editMessage.startsWith("Saved") ? "success" : "error"}`}>{editMessage}</div>}
 
           <footer>
             <button type="button" className="btn ghost" disabled={editSaving} onClick={() => setEditRow(null)}>Cancel</button>
-            <button type="button" className="btn primary" disabled={editSaving} onClick={saveFicoEdit}>
-              {editSaving ? "Saving…" : "Save FICO & recalculate"}
+            <button type="button" className="btn primary" disabled={editSaving} onClick={editMetric === "fico" ? saveFicoEdit : saveConcessionsEdit}>
+              {editSaving ? "Saving…" : editMetric === "fico" ? "Save FICO & recalculate" : "Save concessions"}
             </button>
           </footer>
         </section>
