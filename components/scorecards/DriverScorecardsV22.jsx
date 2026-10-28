@@ -1398,25 +1398,32 @@ export default function DriverScorecardsV22({
               <h2>{displayDriverName(editRow.drivers)}</h2>
               <p>{editRow.drivers?.trid || "No Transporter ID"} · {editRow.week_label}</p>
             </div>
-            <button type="button" onClick={() => !editSaving && setEditRow(null)} aria-label="Close FICO editor">×</button>
+            <button type="button" onClick={() => !editSaving && setEditRow(null)} aria-label="Close metric editor">×</button>
           </header>
 
           <div className="scorex3-edit-formula">
-            <span>Formula impact</span>
-            <b>FICO = 17% of Total Score</b>
-            <small>Below 750 = 0 · 810+ = 100% · 750–809 uses (FICO−750)/70.</small>
+            {editMetric === "fico" ? <>
+              <span>Formula impact</span>
+              <b>FICO = up to 17 points of Total Score</b>
+              <small>The score preview below uses the current point-band formula.</small>
+            </> : <>
+              <span>Manual concession correction</span>
+              <b>Count for this driver and this scorecard week</b>
+              <small>Changes concession totals, filters and risk flags; concessions do not directly add or remove Total Score points.</small>
+            </>}
           </div>
 
           <label className="scorex3-edit-field">
-            <span>FICO score</span>
+            <span>{editMetric === "fico" ? "FICO score" : "Number of concessions"}</span>
             <input
               type="number"
               min="0"
-              max="850"
+              max={editMetric === "fico" ? "850" : "10000"}
               step="1"
-              value={editFico}
+              value={editMetric === "fico" ? editFico : editConcessions}
               onChange={(event) => {
-                setEditFico(event.target.value);
+                if (editMetric === "fico") setEditFico(event.target.value);
+                else setEditConcessions(event.target.value);
                 setEditMessage("");
               }}
               autoFocus
