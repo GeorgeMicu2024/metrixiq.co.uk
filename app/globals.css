@@ -3874,3 +3874,44 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 .sitecmd-tabs button:focus-visible{outline:3px solid #0ebbaa;outline-offset:2px}
 @media(max-width:900px){.sitecmd-spotlight{grid-template-columns:1fr}.sitecmd-spotlight-stats{grid-template-columns:repeat(3,1fr);border-left:0;border-top:1px solid rgba(255,255,255,.13);gap:18px}.sitecmd-spotlight-stats>div{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.sitecmd-spotlight-stats strong{text-align:left}}
 @media(max-width:600px){.sitecmd-spotlight-main{padding:22px}.sitecmd-spotlight-stats{padding:14px 22px;gap:10px}.sitecmd-spotlight-stats strong{font-size:13px}.sitecmd-spotlight-stats span{font-size:8px}.sitecmd-grid-single .sitecmd-metric-grid{grid-template-columns:1fr}}
+
+/* Compact weekly scorecard, podium and first-screen overview */
+.sitecmd-root{gap:10px;padding-bottom:18px}
+.sitecmd-head{align-items:center;gap:12px}
+.sitecmd-head h1{font-size:25px;margin:2px 0}
+.sitecmd-head p{font-size:11px}
+.sitecmd-actions select{height:36px}.sitecmd-actions .btn{min-height:36px;padding:8px 12px}
+.sitecmd-tabs{padding:3px}.sitecmd-tabs button{padding:7px 13px;font-size:11px}
+.sitecmd-spotlight{grid-template-columns:minmax(0,1fr) 310px;border-radius:14px}
+.sitecmd-spotlight-main{padding:15px 22px}
+.sitecmd-spotlight-eyebrow{font-size:9px}
+.sitecmd-spotlight-score{margin:7px 0 3px;gap:14px}
+.sitecmd-spotlight-score strong{font-size:43px}
+.sitecmd-spotlight-score small{font-size:11px}
+.sitecmd-tier-pill{padding:6px 11px;font-size:11px}
+.sitecmd-spotlight-main p{font-size:10px;line-height:1.35}
+.sitecmd-spotlight-stats{padding:12px 20px;gap:5px}
+.sitecmd-spotlight-stats>div{padding:4px 0;display:flex;align-items:flex-start;flex-direction:column;gap:4px}
+.sitecmd-spotlight-stats span{font-size:9px}
+.sitecmd-spotlight-stats strong{font-size:16px}
+.sitecmd-podium-value{display:flex;align-items:center;gap:10px}
+.sitecmd-podium-value strong{font-size:23px}
+.sitecmd-trophy{display:inline-block;font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))}
+.sitecmd-trophy.silver{filter:grayscale(1) brightness(1.28) drop-shadow(0 2px 4px rgba(0,0,0,.18))}
+.sitecmd-trophy.bronze{filter:sepia(1) saturate(2) hue-rotate(330deg) brightness(.8) drop-shadow(0 2px 4px rgba(0,0,0,.18))}
+.sitecmd-podium small{font-size:10px;font-weight:750;color:#b3d2e3}
+.sitecmd-podium small.positive,.sitecmd-score-change strong.positive{color:#83efd1}
+.sitecmd-podium small.negative,.sitecmd-score-change strong.negative{color:#ffb9a7}
+.sitecmd-score-change{border-bottom:0!important}
+.sitecmd-kpis{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sitecmd-kpis article{min-height:72px;padding:11px 16px;border-radius:11px;box-shadow:none}
+.sitecmd-kpis strong{font-size:18px;margin:3px 0 0}
+.sitecmd-kpis span{font-size:9px}.sitecmd-kpis small{font-size:9px;margin:2px 0 0}
+.sitecmd-grid{gap:10px}
+.sitecmd-metrics,.sitecmd-focus,.sitecmd-trends{padding:13px}
+.sitecmd-title{margin-bottom:9px}.sitecmd-title h2{font-size:16px;margin-top:2px}
+.sitecmd-metric-grid .sitepro-metric{padding:8px 11px}
+.sitecmd-focus ol{gap:6px}.sitecmd-focus li{padding:8px}.sitecmd-focus li b{width:24px;height:24px}
+@media(max-width:1000px){.sitecmd-spotlight{grid-template-columns:minmax(0,1fr) 270px}.sitecmd-head h1{font-size:22px}}
+@media(max-width:720px){.sitecmd-head{align-items:flex-start}.sitecmd-spotlight{grid-template-columns:1fr}.sitecmd-spotlight-main{padding:17px}.sitecmd-spotlight-stats{display:grid;grid-template-columns:1fr 1fr;padding:12px 17px;gap:10px}.sitecmd-spotlight-stats>div{border:0}.sitecmd-kpis{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;overflow:visible}.sitecmd-kpis article{min-width:0!important;padding:10px;min-height:75px}.sitecmd-kpis strong{font-size:14px}.sitecmd-kpis small{font-size:8px}.sitecmd-spotlight-score strong{font-size:40px}}
+@media(max-width:480px){.sitecmd-spotlight-eyebrow{font-size:7px}.sitecmd-kpis{grid-template-columns:1fr!important}.sitecmd-kpis article{min-height:58px}.sitecmd-spotlight-score{gap:8px}.sitecmd-tier-pill{font-size:9px}}
