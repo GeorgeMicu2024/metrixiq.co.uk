@@ -15,6 +15,128 @@ import {
 import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimitives";
 
 
+// Canvas-based export avoids SVG foreignObject rendering and delayed download
+// issues found on mobile Safari and in-app browsers.
+function drawMobileScorecardPng({
+  site, week, year, officialScore, standing, category, pageRows,
+  totalDrivers, groupCount, page, pageCount,
+}) {
+  const width = 1080;
+  const height = 310 + Math.max(pageRows.length, 1) * 47 + 55;
+  const ratio = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("This browser cannot create an image.");
+  ctx.scale(ratio, ratio);
+  const fill = (color, x, y, w, h) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
+  const round = (color, x, y, w, h, radius = 8) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fill();
+  };
+  const draw = (value, x, y, color = "#142f4e", font = "bold 14px Arial", align = "left") => {
+    ctx.fillStyle = color;
+    ctx.font = font;
+    ctx.textAlign = align;
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(value ?? "—"), x, y);
+  };
+  const truncated = (value, maxWidth, font) => {
+    ctx.font = font;
+    let result = String(value ?? "—");
+    while (result.length > 2 && ctx.measureText(result).width > maxWidth) {
+      result = result.slice(0, -2) + "…";
+    }
+    return result;
+  };
+  const tierColors = {
+    "fantastic-plus": ["#e7f2fa", "#184e85"],
+    fantastic: ["#eaf5ff", "#2671a7"],
+    great: ["#edf8f0", "#327852"],
+    fair: ["#fff5df", "#94691f"],
+    poor: ["#ffebee", "#a84656"],
+  };
+  const toneColors = {
+    good: ["#ffffff", "#216849"],
+    warn: ["#fff2d8", "#865d21"],
+    bad: ["#ffe8ec", "#9a3546"],
+    neutral: ["#f4f6f9", "#798797"],
+  };
+
+  fill("#ffffff", 0, 0, width, height);
+  fill("#102b49", 0, 0, width, 163);
+  fill("#17446a", 755, 0, 325, 163);
+  fill("#0b7f90", 0, 163, width, 5);
+  draw("METRIXIQ · DRIVER SCORECARDS", 38, 35, "#81d8dd", "bold 13px Arial");
+  draw(`${week} · ${site}`, 38, 83, "#ffffff", "bold 33px Arial");
+  draw(`${year} · ${category}`, 38, 124, "#cadbe9", "14px Arial");
+  draw(officialScore == null ? "—" : Number(officialScore).toFixed(2), 1035, 75, "#ffffff", "bold 44px Arial", "right");
+  draw(standing || "DSP score unavailable", 1035, 112, "#aee1e6", "bold 15px Arial", "right");
+
+  const stats = [
+    ["DRIVERS", totalDrivers],
+    ["CATEGORY", category],
+    ["IN THIS RANK", groupCount],
+  ];
+  stats.forEach(([label, value], index) => {
+    const x = 24 + index * 347;
+    round("#f5f8fc", x, 188, 335, 75, 10);
+    draw(label, x + 17, 210, "#74859a", "bold 11px Arial");
+    draw(value, x + 17, 241, "#173858", "bold 23px Arial");
+  });
+
+  const widths = [45,137,272,76,78,60,105,105,100,82];
+  const labels = ["#", "RANK", "DRIVER", "SCORE", "FICO", "CON", "DCR", "POD", "CC", "PSB"];
+  const positions = [];
+  let position = 10;
+  widths.forEach((w) => { positions.push(position); position += w; });
+  const headerY = 282;
+  fill("#eef3f8", 10, headerY, 1060, 38);
+  labels.forEach((label, i) => draw(label, positions[i] + (i === 2 ? 9 : widths[i] / 2), headerY + 19, "#425b73", "bold 11px Arial", i === 2 ? "left" : "center"));
+
+  pageRows.forEach((row, index) => {
+    const y = 320 + index * 47;
+    fill(index % 2 ? "#fafbfd" : "#ffffff", 10, y, 1060, 47);
+    fill("#e9eef4", 10, y + 46, 1060, 1);
+    const colors = tierColors[row.tier] || toneColors.neutral;
+    draw(row.rank, positions[0] + widths[0] / 2, y + 23, "#415b76", "bold 13px Arial", "center");
+    round(colors[0], positions[1] + 4, y + 9, widths[1] - 8, 28, 6);
+    draw(row.tierLabel, positions[1] + widths[1] / 2, y + 23, colors[1], "bold 12px Arial", "center");
+    draw(truncated(row.name, widths[2] - 18, "bold 13px Arial"), positions[2] + 9, y + 23, "#173552", "bold 13px Arial");
+    round("#eef5fc", positions[3] + 4, y + 9, widths[3] - 8, 28, 5);
+    draw(row.score, positions[3] + widths[3] / 2, y + 23, "#245c92", "bold 13px Arial", "center");
+    const metrics = [
+      [row.fico, row.ficoTone], [row.concessions, row.conTone], [row.dcr, row.dcrTone],
+      [row.pod, row.podTone], [row.cc, row.ccTone], [row.psb, row.psbTone],
+    ];
+    metrics.forEach(([value, tone], m) => {
+      const idx = m + 4;
+      const palette = toneColors[tone] || toneColors.neutral;
+      if (tone === "warn" || tone === "bad") {
+        round(palette[0], positions[idx] + 4, y + 9, widths[idx] - 8, 28, 5);
+      }
+      draw(value, positions[idx] + widths[idx] / 2, y + 23, palette[1], "bold 12px Arial", "center");
+    });
+  });
+  const footerY = 320 + pageRows.length * 47;
+  fill("#f6f9fc", 0, footerY, width, height - footerY);
+  draw(`${category} · Page ${page}/${pageCount} · ${groupCount} in this category`, 29, footerY + 28, "#607891", "bold 12px Arial");
+  draw("MetrixIQ", 1050, footerY + 28, "#0b8d96", "bold 14px Arial", "right");
+  return canvas.toDataURL("image/png");
+}
+
 // Minimal uncompressed ZIP writer for independent rank images (no third-party
 // archive dependency). PNG is already compressed, so storing it is efficient.
 function buildImageZip(files) {
@@ -360,6 +482,9 @@ export default function DriverScorecardsV22({
   const [shareImageBusy, setShareImageBusy] = useState(false);
   const [shareImageError, setShareImageError] = useState("");
   const [shareImageProgress, setShareImageProgress] = useState("");
+  const [mobilePhotoTier, setMobilePhotoTier] = useState("fantastic-plus");
+  const [mobilePhotoPage, setMobilePhotoPage] = useState(1);
+  const [mobilePhotoPreview, setMobilePhotoPreview] = useState(null);
   const [manualFicoOverrides, setManualFicoOverrides] = useState({});
   const [manualConcessionOverrides, setManualConcessionOverrides] = useState({});
   const [editMetric, setEditMetric] = useState("fico");
@@ -972,56 +1097,120 @@ export default function DriverScorecardsV22({
     }, 50);
   };
 
-  async function exportWhatsAppPng() {
-    if (shareImageBusy) return;
-    setShareImageBusy(true);
-    setShareImageError("");
-    let imageNode = null;
+  const rankedPhotoRows = [...enrichedRows].sort(
+    (a, b) => (a.currentRank || Infinity) - (b.currentRank || Infinity)
+  );
+  const rankPhotoGroups = groupOrder.map((group) => ({
+    ...group,
+    rows: rankedPhotoRows.filter((row) => row.sourceRank.cls === group.cls),
+  }));
+  const selectedPhotoGroup = rankPhotoGroups.find((group) => group.cls === mobilePhotoTier)
+    || rankPhotoGroups[0];
+  const selectedPhotoPages = Math.max(1, Math.ceil((selectedPhotoGroup?.rows.length || 0) / 12));
+
+  const preparePhotoRows = (sourceRows) => sourceRows.map((row) => {
+    const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
+    return {
+      rank: `#${row.currentRank || "—"}`,
+      tier: row.sourceRank.cls,
+      tierLabel: row.sourceRank.label,
+      name: displayDriverName(row.drivers),
+      score: row.displayScore == null ? "—" : row.displayScore.toFixed(0),
+      fico: plain(fico),
+      concessions: plain(row.concessions),
+      dcr: fmtPercentFlexible(row.dcr),
+      pod: fmtPercentFlexible(row.pod),
+      cc: fmtPercentFlexible(row.cc),
+      psb: plain(row.psb),
+      ficoTone: metricTone("fico", fico),
+      conTone: metricTone("concessions", row.concessions),
+      dcrTone: metricTone("dcr", row.dcr),
+      podTone: metricTone("pod", row.pod),
+      ccTone: metricTone("cc", row.cc),
+      psbTone: metricTone("psb", row.psb),
+    };
+  });
+  const renderPhoto = (items, category, total, page, pageCount) =>
+    drawMobileScorecardPng({
+      site: period?.site || "All sites",
+      week: period?.weekLabel || "Week",
+      year: period?.year || "",
+      officialScore: headlineScore,
+      standing: overallStanding,
+      category,
+      pageRows: preparePhotoRows(items),
+      totalDrivers,
+      groupCount: total,
+      page,
+      pageCount,
+    });
+  const photoBaseName = () => [
+    "MetrixIQ",
+    String(period?.site || "site").replace(/[^a-z0-9-]/gi, "-"),
+    String(period?.weekLabel || "week").replace(/[^a-z0-9-]/gi, "-"),
+  ].join("-");
+
+  function previewRankPhoto() {
+    const group = selectedPhotoGroup;
+    if (!group?.rows.length) {
+      setShareImageError("No drivers in this rank for the selected week.");
+      return;
+    }
     try {
-      const original = document.querySelector(".scorex3-share-sheet");
-      if (!original) throw new Error("Share preview is unavailable.");
-
-      imageNode = original.cloneNode(true);
-      imageNode.classList.add("scorex3-whatsapp-card");
-      imageNode.setAttribute("aria-hidden", "true");
-      imageNode.style.cssText = "position:fixed;left:-12000px;top:0;width:1080px;height:auto;max-height:none;overflow:visible;z-index:-1;";
-      imageNode.querySelector(".scorex3-share-tabs")?.remove();
-      imageNode.querySelector(".scorex3-share-footer")?.remove();
-
-      // WhatsApp remains readable on a phone when the image is a short
-      // performance digest. Full driver lists remain available through PDF.
-      const imageLimit = 12;
-      imageNode.querySelectorAll(".scorex3-share-table tbody tr").forEach((row, index) => {
-        if (index >= imageLimit) row.remove();
+      const page = Math.min(Math.max(mobilePhotoPage, 1), selectedPhotoPages);
+      const rows = group.rows.slice((page - 1) * 12, page * 12);
+      const dataUrl = renderPhoto(rows, group.label, group.rows.length, page, selectedPhotoPages);
+      setMobilePhotoPreview({
+        dataUrl,
+        fileName: `${photoBaseName()}-${group.cls}-${page}.png`,
+        label: `${group.label} · Page ${page}/${selectedPhotoPages}`,
       });
-      const footer = document.createElement("div");
-      footer.className = "scorex3-whatsapp-footer";
-      footer.textContent = `Showing ${Math.min(shareRows.length, imageLimit)} of ${shareRows.length} drivers · ${period?.weekLabel || "Week"} · ${period?.site || "All sites"} · MetrixIQ`;
-      imageNode.appendChild(footer);
-      document.body.appendChild(imageNode);
-
-      const { toPng } = await import("html-to-image");
-      // Let layout settle before capturing the detached-style clone.
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      const dataUrl = await toPng(imageNode, {
-        cacheBust: true,
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-        skipFonts: true,
-      });
-      const link = document.createElement("a");
-      const safeSite = String(period?.site || "site").replace(/[^a-z0-9-]/gi, "-");
-      const safeWeek = String(period?.weekLabel || "week").replace(/[^a-z0-9-]/gi, "-");
-      link.download = `MetrixIQ-${safeSite}-${safeWeek}-WhatsApp.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      setShareImageError("");
     } catch (error) {
-      setShareImageError(error?.message || "Image export failed. Please use Export PDF.");
-    } finally {
-      imageNode?.remove();
-      setShareImageBusy(false);
+      setShareImageError(error?.message || "Unable to create a rank image on this device.");
+    }
+  }
+
+  function savePreviewPhoto() {
+    if (!mobilePhotoPreview) return;
+    const anchor = document.createElement("a");
+    anchor.href = mobilePhotoPreview.dataUrl;
+    anchor.download = mobilePhotoPreview.fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  async function sharePreviewPhoto() {
+    if (!mobilePhotoPreview) return;
+    try {
+      const data = mobilePhotoPreview.dataUrl;
+      const bytes = atob(data.split(",")[1]);
+      const buffer = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i += 1) buffer[i] = bytes.charCodeAt(i);
+      const file = new File([buffer], mobilePhotoPreview.fileName, { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] }) && navigator.share) {
+        await navigator.share({ files: [file], title: mobilePhotoPreview.label });
+      } else {
+        savePreviewPhoto();
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setShareImageError("Sharing is unavailable here. Hold the preview image to save it to Photos.");
+      }
+    }
+  }
+
+  function exportWhatsAppPng() {
+    try {
+      setShareImageError("");
+      const rows = shareRows.slice(0, 12);
+      const dataUrl = renderPhoto(rows, "Team overview", shareRows.length, 1, Math.max(1, Math.ceil(shareRows.length / 12)));
+      setMobilePhotoPreview({
+        dataUrl, fileName: `${photoBaseName()}-overview.png`, label: "Team overview",
+      });
+    } catch (error) {
+      setShareImageError(error?.message || "Unable to create the overview image.");
     }
   }
 
@@ -1030,110 +1219,43 @@ export default function DriverScorecardsV22({
     setShareImageBusy(true);
     setShareImageError("");
     setShareImageProgress("Preparing rank images…");
-    let imageNode = null;
     try {
-      const original = document.querySelector(".scorex3-share-sheet");
-      if (!original) throw new Error("Share preview is unavailable.");
-      const { toPng } = await import("html-to-image");
       const files = [];
-      const imageLimit = 12;
-      const ranked = [...enrichedRows].sort((a, b) => (a.currentRank || Infinity) - (b.currentRank || Infinity));
-      const groups = groupOrder.map((group) => ({
-        ...group,
-        rows: ranked.filter((row) => row.sourceRank.cls === group.cls),
-      })).filter((group) => group.rows.length > 0);
-      const totalPages = groups.reduce((sum, group) => sum + Math.ceil(group.rows.length / imageLimit), 0);
-      let pageIndex = 0;
-
+      const groups = rankPhotoGroups.filter((group) => group.rows.length > 0);
+      const totalPages = groups.reduce((sum, group) => sum + Math.ceil(group.rows.length / 12), 0);
+      let count = 0;
       for (const group of groups) {
-        const groupPages = Math.ceil(group.rows.length / imageLimit);
-        for (let page = 0; page < groupPages; page += 1) {
-          const pageRows = group.rows.slice(page * imageLimit, (page + 1) * imageLimit);
-          imageNode = original.cloneNode(true);
-          imageNode.classList.add("scorex3-whatsapp-card");
-          imageNode.setAttribute("aria-hidden", "true");
-          imageNode.style.cssText = "position:fixed;left:-12000px;top:0;width:1080px;height:auto;max-height:none;overflow:visible;z-index:-1;";
-          imageNode.querySelector(".scorex3-share-tabs")?.remove();
-          imageNode.querySelector(".scorex3-share-footer")?.remove();
-          const title = imageNode.querySelector(".scorex3-share-head h2");
-          if (title) title.textContent = `${period?.weekLabel || "Week"} · ${period?.site || "All sites"} · ${group.label}`;
-
-          const tbody = imageNode.querySelector(".scorex3-share-table tbody");
-          if (!tbody) throw new Error("Share table is unavailable.");
-          tbody.replaceChildren();
-          const addCell = (rowNode, value, className = "", badge = false) => {
-            const cell = document.createElement("td");
-            if (className) cell.className = className;
-            if (badge) {
-              const span = document.createElement("span");
-              span.className = `share-rank-badge ${className}`;
-              span.textContent = String(value);
-              cell.appendChild(span);
-            } else {
-              cell.textContent = String(value);
-            }
-            rowNode.appendChild(cell);
-          };
-          pageRows.forEach((row, index) => {
-            const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
-            const tr = document.createElement("tr");
-            tr.className = `share-tier-${row.sourceRank.cls}`;
-            addCell(tr, row.currentRank || page * imageLimit + index + 1, "share-index");
-            addCell(tr, row.sourceRank.label, row.sourceRank.cls, true);
-            addCell(tr, displayDriverName(row.drivers), "share-driver");
-            addCell(tr, row.displayScore == null ? "—" : row.displayScore.toFixed(0), `share-score ${row.sourceRank.cls}`);
-            for (const [key, value] of [
-              ["fico", plain(fico)],
-              ["concessions", plain(row.concessions)],
-              ["dcr", fmtPercentFlexible(row.dcr)],
-              ["pod", fmtPercentFlexible(row.pod)],
-              ["cc", fmtPercentFlexible(row.cc)],
-              ["psb", plain(row.psb)],
-            ]) {
-              addCell(tr, value, `share-metric ${metricTone(key, row[key === "fico" ? "mentor_score" : key] ?? (key === "fico" ? fico : row[key]))}`);
-            }
-            tbody.appendChild(tr);
-          });
-          const footer = document.createElement("div");
-          footer.className = "scorex3-whatsapp-footer";
-          footer.textContent = `${group.label} · ${group.rows.length} drivers · Page ${page + 1}/${groupPages} · ${period?.weekLabel || "Week"} · MetrixIQ`;
-          imageNode.appendChild(footer);
-          document.body.appendChild(imageNode);
-          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-          const dataUrl = await toPng(imageNode, {
-            cacheBust: true, pixelRatio: 2, backgroundColor: "#ffffff", skipFonts: true,
-          });
-          const base64 = dataUrl.split(",")[1];
-          const binary = atob(base64);
+        const pageCount = Math.ceil(group.rows.length / 12);
+        for (let page = 1; page <= pageCount; page += 1) {
+          const rows = group.rows.slice((page - 1) * 12, page * 12);
+          const dataUrl = renderPhoto(rows, group.label, group.rows.length, page, pageCount);
+          const binary = atob(dataUrl.split(",")[1]);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
           files.push({
-            name: `${String(group.label).replace(/[^a-z0-9]+/gi, "-")}-${String(page + 1).padStart(2, "0")}.png`,
+            name: `${String(group.label).replace(/[^a-z0-9]+/gi, "-")}-${String(page).padStart(2, "0")}.png`,
             bytes,
           });
-          imageNode.remove();
-          imageNode = null;
-          pageIndex += 1;
-          setShareImageProgress(`Created ${pageIndex} of ${totalPages} images…`);
+          count += 1;
+          setShareImageProgress(`Created ${count} of ${totalPages} images…`);
+          // Yield between images to avoid freezing mobile browser UI.
+          await new Promise((resolve) => setTimeout(resolve, 0));
         }
       }
-      if (!files.length) throw new Error("No driver ranks are available for this week.");
+      if (!files.length) throw new Error("No rank images for this week.");
       const url = URL.createObjectURL(buildImageZip(files));
       const link = document.createElement("a");
-      const safeSite = String(period?.site || "site").replace(/[^a-z0-9-]/gi, "-");
-      const safeWeek = String(period?.weekLabel || "week").replace(/[^a-z0-9-]/gi, "-");
       link.href = url;
-      link.download = `MetrixIQ-${safeSite}-${safeWeek}-Rank-Photos.zip`;
+      link.download = `${photoBaseName()}-Rank-Photos.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-      setShareImageProgress(`Downloaded ${files.length} images by rank.`);
+      setShareImageProgress(`Prepared ${files.length} rank photos. On iPhone use individual photo preview if ZIP does not download.`);
     } catch (error) {
-      setShareImageError(error?.message || "Rank image export failed. Try again.");
+      setShareImageError(error?.message || "Rank image export failed.");
       setShareImageProgress("");
     } finally {
-      imageNode?.remove();
       setShareImageBusy(false);
     }
   }
@@ -1841,7 +1963,7 @@ export default function DriverScorecardsV22({
                 {shareImageBusy ? "Preparing…" : "Download rank photos ZIP"}
               </button>
               <button type="button" className="btn primary scorex3-whatsapp-export" onClick={exportWhatsAppPng} disabled={shareImageBusy}>
-                {shareImageBusy ? "Preparing PNG…" : "Download WhatsApp PNG"}
+                {"Preview overview PNG"}
               </button>
               <button type="button" className="btn ghost scorex3-share-export" onClick={exportSharePdf}>
                 Export full PDF
@@ -1849,6 +1971,33 @@ export default function DriverScorecardsV22({
             </div>
           </div>
 
+          <div className="scorex3-mobile-photo-tools">
+            <div className="scorex3-mobile-photo-heading">
+              <b>Photos for phone / WhatsApp</b>
+              <span>Select a rank, preview the image, then use Share or Save.</span>
+            </div>
+            <label>
+              <span>Rank</span>
+              <select value={mobilePhotoTier} onChange={(event) => { setMobilePhotoTier(event.target.value); setMobilePhotoPage(1); }}>
+                {rankPhotoGroups.map((group) => (
+                  <option key={group.cls} value={group.cls} disabled={!group.rows.length}>
+                    {group.label} ({group.rows.length})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Page</span>
+              <select value={Math.min(mobilePhotoPage, selectedPhotoPages)} onChange={(event) => setMobilePhotoPage(Number(event.target.value))}>
+                {Array.from({ length: selectedPhotoPages }, (_, index) => (
+                  <option key={index + 1} value={index + 1}>{index + 1} / {selectedPhotoPages}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="btn primary scorex3-mobile-photo-open" onClick={previewRankPhoto}>
+              Preview rank photo
+            </button>
+          </div>
           {shareImageError && <p className="scorex3-share-image-error" role="alert">{shareImageError}</p>}
           {shareImageProgress && <p className="scorex3-share-image-progress" role="status">{shareImageProgress}</p>}
           <div className="scorex3-share-table-wrap">
@@ -1898,6 +2047,22 @@ export default function DriverScorecardsV22({
               <button type="button" className="btn primary" onClick={() => setShareOpen(false)}>Close</button>
             </div>
           </footer>
+          {mobilePhotoPreview && (
+            <div className="scorex3-photo-preview-overlay" role="dialog" aria-modal="true" aria-label="Photo preview" onClick={() => setMobilePhotoPreview(null)}>
+              <div className="scorex3-photo-preview-modal" onClick={(event) => event.stopPropagation()}>
+                <div className="scorex3-photo-preview-top">
+                  <div><b>{mobilePhotoPreview.label}</b><span>On iPhone: Share to WhatsApp, or hold the image to save to Photos.</span></div>
+                  <button type="button" aria-label="Close preview" onClick={() => setMobilePhotoPreview(null)}>×</button>
+                </div>
+                <img src={mobilePhotoPreview.dataUrl} alt={mobilePhotoPreview.label} />
+                <div className="scorex3-photo-preview-actions">
+                  <button type="button" className="btn primary" onClick={sharePreviewPhoto}>Share photo</button>
+                  <button type="button" className="btn ghost" onClick={savePreviewPhoto}>Save PNG</button>
+                  <button type="button" className="btn ghost" onClick={() => setMobilePhotoPreview(null)}>Close</button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     )}
