@@ -42,6 +42,173 @@ test("Driver Scorecards V2.2 matches the exact point-band formula", () => {
   }).value, 95);
 });
 
+test("Driver Scorecards matches all 14 independently verified MyDCSL W43 scores", () => {
+  // [name, FICO, DCR%, POD%, CC%, CDF DPMO, verified MyDCSL score].
+  const snapshots = [
+    [
+        "Aronita Voka",
+        850,
+        100,
+        100,
+        100,
+        null,
+        100
+    ],
+    [
+        "Liam Harry Manning",
+        828,
+        100,
+        100,
+        100,
+        null,
+        98
+    ],
+    [
+        "Vasile Catalin Condurache",
+        832,
+        100,
+        100,
+        100,
+        null,
+        98
+    ],
+    [
+        "Vlad Aurel Padure",
+        837,
+        99.57,
+        100,
+        100,
+        null,
+        96
+    ],
+    [
+        "Videl-Alin Goras",
+        839,
+        99.74,
+        100,
+        100,
+        2611,
+        93
+    ],
+    [
+        "Chigozie Samuel Okafor",
+        814,
+        99.73,
+        99.47,
+        100,
+        2717,
+        87
+    ],
+    [
+        "Gordon Cairnes",
+        null,
+        100,
+        96.77,
+        null,
+        3185,
+        85.33
+    ],
+    [
+        "Subhaan Nadeem",
+        751,
+        100,
+        100,
+        100,
+        null,
+        83
+    ],
+    [
+        "Sonia Valentina Balaban",
+        815,
+        98.67,
+        100,
+        100,
+        130,
+        81
+    ],
+    [
+        "Emanuel Daniel Hotin",
+        841,
+        99.18,
+        98.91,
+        100,
+        8299,
+        80
+    ],
+    [
+        "CRISTI MADALIN PADURE",
+        763,
+        100,
+        100,
+        100,
+        42105,
+        73
+    ],
+    [
+        "Dalton James Halliday",
+        null,
+        97.5,
+        97.7,
+        null,
+        null,
+        70.67
+    ],
+    [
+        "Adam James Watson",
+        772,
+        99.46,
+        98.33,
+        100,
+        5450,
+        70
+    ],
+    [
+        "Benjamin Lionel Pepler",
+        780,
+        98.08,
+        100,
+        100,
+        19608,
+        61
+    ]
+];
+  for (const [name, fico, dcr, pod, cc, cdf, expected] of snapshots) {
+    const row = {
+      mentor_score: fico,
+      dcr,
+      dsc_dpmo: 0,
+      lor: 0,
+      pod,
+      cc,
+      ce_dpmo: 0,
+      cdf_dpmo: cdf,
+      psb: 0,
+    };
+    assert.equal(calculateDriverScorecard(row).value, expected, name);
+  }
+
+  const gordon = calculateDriverScorecard({
+    mentor_score: null, dcr: 100, dsc_dpmo: 0, lor: 0,
+    pod: 96.77, cc: null, ce_dpmo: 0, cdf_dpmo: 3185, psb: 0,
+  });
+  assert.equal(gordon.awarded, 64);
+  assert.equal(gordon.maximum, 75);
+  assert.equal(gordon.coverage, 9);
+});
+
+test("Explicit N/A metrics normalize correctly without inflating sparse imports", () => {
+  const complete = calculateDriverScorecard({
+    mentor_score: "—", dcr: 100, dsc_dpmo: 0, lor: 0,
+    pod: 100, cc: "N/A", ce_dpmo: 0, cdf_dpmo: "-", psb: 0,
+  });
+  assert.equal(complete.value, 100);
+  assert.equal(complete.maximum, 75);
+
+  const sparse = calculateDriverScorecard({ dcr: 100 });
+  assert.equal(sparse.value, 17);
+  assert.equal(sparse.components.find((component) => component.key === "cdf_dpmo").points, 0);
+});
+
 test("Driver Scorecards V2.2 persists audited FICO overrides without mutating source metrics", () => {
   const view = read("components/scorecards/DriverScorecardsV22.jsx");
   const governance = read("lib/data/governanceV2.js");

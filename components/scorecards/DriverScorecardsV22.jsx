@@ -14,6 +14,14 @@ import {
 } from "../../lib/data/concessions";
 import { EmptyPanel, ErrorPanel, LoadingPanel, useLoad } from "./ScorecardPrimitives";
 
+// Keep the precision from the MyDCSL calculation (e.g. 85.33 and 70.67).
+// Do not add trailing decimals to whole-number scores.
+const formatDriverScore = (value) => {
+  const score = num(value);
+  if (score == null) return "—";
+  return score.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+};
+
 
 // Canvas-based export avoids SVG foreignObject rendering and delayed download
 // issues found on mobile Safari and in-app browsers.
@@ -1116,7 +1124,7 @@ export default function DriverScorecardsV22({
       tier: row.sourceRank.cls,
       tierLabel: row.sourceRank.label,
       name: displayDriverName(row.drivers),
-      score: row.displayScore == null ? "—" : row.displayScore.toFixed(0),
+      score: formatDriverScore(row.displayScore),
       fico: plain(fico),
       concessions: plain(row.concessions),
       dcr: fmtPercentFlexible(row.dcr),
@@ -1270,7 +1278,7 @@ export default function DriverScorecardsV22({
       "",
       ...shareRows.slice(0, 30).map((row, index) => {
         const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
-        return `${index + 1}. ${displayDriverName(row.drivers)} — ${row.displayScore == null ? "—" : row.displayScore.toFixed(0)} · FICO ${fico ?? "—"} · PSB ${plain(row.psb)}`;
+        return `${index + 1}. ${displayDriverName(row.drivers)} — ${formatDriverScore(row.displayScore)} · FICO ${fico ?? "—"} · PSB ${plain(row.psb)}`;
       }),
     ];
 
@@ -1709,7 +1717,7 @@ export default function DriverScorecardsV22({
                         onClick={() => setBreakdownRow(row)}
                         title="Why this score?"
                       >
-                        <b>{row.displayScore == null ? "—" : row.displayScore.toFixed(0)}</b>
+                        <b>{formatDriverScore(row.displayScore)}</b>
                         <small>FORMULA</small>
                         {row.scoreDelta != null &&
                           <em className={scoreDeltaClass(row.scoreDelta)}>{scoreDeltaLabel(row.scoreDelta)}</em>
@@ -1800,7 +1808,7 @@ export default function DriverScorecardsV22({
           <div className="scorex3-edit-preview">
             <div>
               <span>{editMetric === "fico" ? "Current Total Score" : "Current concessions"}</span>
-              <strong>{editMetric === "fico" ? (editRow.displayScore == null ? "—" : editRow.displayScore.toFixed(1)) : plain(editRow.concessions)}</strong>
+              <strong>{editMetric === "fico" ? (formatDriverScore(editRow.displayScore)) : plain(editRow.concessions)}</strong>
             </div>
             <div>
               <span>{editMetric === "fico" ? "Preview Total Score" : "New concessions"}</span>
@@ -1846,7 +1854,7 @@ export default function DriverScorecardsV22({
           <section className="scorex3-drawer-score">
             <div>
               <span>Total score</span>
-              <strong>{breakdownRow.displayScore == null ? "—" : breakdownRow.displayScore.toFixed(1)}</strong>
+              <strong>{formatDriverScore(breakdownRow.displayScore)}</strong>
               <em className={breakdownRow.sourceRank.cls}>{breakdownRow.sourceRank.label}</em>
             </div>
             <div>
@@ -1866,7 +1874,7 @@ export default function DriverScorecardsV22({
           <div className="scorex3-source-note">
             <b>Scorecard formula · point bands</b>
             <span>
-              Exact Google Sheet logic: FICO max 17 pts, DCR 17, DSC 17, LoR 6, POD 8, CC 8, CE 10, CDF 10 and PSB 7. Blank inputs score 0. Amazon source "-" values for CDF/PSB keep the full N/A points, matching the sheet. Coverage: {breakdownRow.scoreCoverage}/9 metrics.
+              MyDCSL-verified point bands: FICO 17, DCR 17, DSC 17, LoR 6, POD 8, CC 8, CE 10, CDF 10, PSB 7. When FICO or CC is N/A, its maximum is excluded; N/A CDF receives full points. Scores are normalised to 100. Sparse imports never automatically receive N/A points. Coverage: {breakdownRow.scoreCoverage}/9 metrics.
             </span>
           </div>
 
@@ -1877,16 +1885,18 @@ export default function DriverScorecardsV22({
                   <div>
                     <b>{component.label}</b>
                     <span>
-                      {component.inferredDash
-                        ? "— (source N/A)"
-                        : component.defaulted
-                          ? "Missing → 0 pts"
-                          : component.format(component.value)}
+                      {component.naMode === "excluded"
+                        ? "N/A — excluded from maximum"
+                        : component.naMode === "full"
+                          ? "N/A — full points"
+                          : component.defaulted
+                            ? "Missing → 0 pts"
+                            : component.format(component.value)}
                     </span>
                   </div>
                   <div>
-                    <strong>{component.points}/{component.maxPoints}</strong>
-                    <small>{component.maxPoints} max · {component.contribution.toFixed(0)} pts</small>
+                    <strong>{component.naMode === "excluded" ? "Excluded" : `${component.points}/${component.maxPoints}`}</strong>
+                    <small>{component.naMode === "excluded" ? `${component.maxPoints} pts removed from maximum` : `${component.maxPoints} max · ${component.contribution.toFixed(0)} pts`}</small>
                   </div>
                 </div>
                 <div className="scorex3-breakdown-track">
@@ -2026,7 +2036,7 @@ export default function DriverScorecardsV22({
                       <td className="share-index">{index + 1}</td>
                       <td><span className={`share-rank-badge ${row.sourceRank.cls}`}>{row.sourceRank.label}</span></td>
                       <td className="share-driver"><b>{displayDriverName(row.drivers)}</b></td>
-                      <td className={`share-score ${row.sourceRank.cls}`}><b>{row.displayScore == null ? "—" : row.displayScore.toFixed(0)}</b></td>
+                      <td className={`share-score ${row.sourceRank.cls}`}><b>{formatDriverScore(row.displayScore)}</b></td>
                       <td className={`share-metric ${metricTone("fico", fico)}`}>{plain(fico)}</td>
                       <td className={`share-metric ${metricTone("concessions", row.concessions)}`}>{plain(row.concessions)}</td>
                       <td className={`share-metric ${metricTone("dcr", row.dcr)}`}>{fmtPercentFlexible(row.dcr)}</td>
