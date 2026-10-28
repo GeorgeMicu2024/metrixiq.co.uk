@@ -1925,3 +1925,40 @@ body.scorex3-resizing-columns *{
   .scorex3-photo-preview-actions{flex-wrap:wrap}
   .scorex3-photo-preview-actions button{flex:1}
 }
+
+
+/* Keep the desktop export toolbox, but give phones one clear photo flow. */
+.scorex3-photo-share-tip{
+  margin:0;padding:10px 14px;
+  color:#74541d;background:#fff8e9;
+  font-size:11px;font-weight:750;line-height:1.5;
+}
+@media(max-width:800px){
+  .scorex3-share-tabs{display:none!important}
+  .scorex3-mobile-photo-tools{
+    margin:0!important;padding:16px 15px!important;
+    background:#fff!important;border-top:0!important;border-bottom:1px solid #dfe7f0!important;
+  }
+  .scorex3-mobile-photo-heading b{
+    font-size:15px!important;color:#143756;
+  }
+  .scorex3-mobile-photo-heading span{
+    font-size:11px!important;line-height:1.5!important;color:#607b91;
+  }
+  .scorex3-mobile-photo-tools label>span{font-size:10px!important}
+  .scorex3-mobile-photo-tools select{
+    min-height:44px!important;font-size:14px!important;border-radius:9px!important;
+  }
+  .scorex3-mobile-photo-open{
+    min-height:47px!important;font-size:13px!important;
+    border-radius:9px!important;background:#008f8a!important;
+  }
+  .scorex3-desktop-save-png{display:none!important}
+  .scorex3-photo-preview-actions{justify-content:stretch}
+  .scorex3-photo-preview-actions .btn.primary{
+    flex:1 1 auto!important;min-height:43px!important;font-size:13px!important
+  }
+  .scorex3-photo-preview-actions .btn.ghost{
+    flex:0 0 auto!important;min-height:43px!important;
+  }
+}
