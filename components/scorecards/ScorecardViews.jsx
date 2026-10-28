@@ -173,14 +173,25 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
     </>;
   }
 
-  const previousCardIndex = sortedCards.findIndex((item) => item.id === card.id);
-  const previousCard = previousCardIndex >= 0 ? sortedCards[previousCardIndex + 1] : null;
+  const sameSiteCards = sortedCards.filter((item) => String(item.site || "").toUpperCase() === String(card.site || "").toUpperCase());
+  const previousCardIndex = sameSiteCards.findIndex((item) => item.id === card.id);
+  const previousCard = previousCardIndex >= 0 ? sameSiteCards[previousCardIndex + 1] : null;
   const scoreDelta =
     num(card.overall_score) != null && num(previousCard?.overall_score) != null
       ? Number(card.overall_score) - Number(previousCard.overall_score)
       : null;
 
-  const trendCards = sortedCards.filter((item) => item.site === card.site).slice(0, 8).reverse();
+  const rankNumber = num(card.site_rank);
+  const priorRank = num(previousCard?.site_rank);
+  const rankImprovement = rankNumber != null && priorRank != null
+    ? priorRank - rankNumber
+    : num(card.rank_delta);
+  const rankChangeLabel = rankImprovement == null ? "No previous rank available"
+    : rankImprovement === 0 ? "— Same position as last week"
+    : rankImprovement > 0 ? "↑ " + rankImprovement + " place" + (rankImprovement === 1 ? "" : "s") + " better vs last week"
+    : "↓ " + Math.abs(rankImprovement) + " place" + (rankImprovement === -1 ? "" : "s") + " lower vs last week";
+  const medalClass = rankNumber === 1 ? "gold" : rankNumber === 2 ? "silver" : rankNumber === 3 ? "bronze" : "standard";
+  const trendCards = sameSiteCards.slice(0, 8).reverse();
   const latestMetrics = [
     ["Overall", card.overall_score, ""],
     ["DCR", rawItemValue(metrics.dcr), "%"],
@@ -222,18 +233,22 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
           <div><small>Overall performance</small><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong></div>
           <span className={"sitecmd-tier-pill " + standingClass(card.standing)}>{card.standing || "Not rated"}</span>
         </div>
-        <p>Official standing from the imported Amazon scorecard. Individual metric groups have their own standings.</p>
+        <p>{card.site} · Week {card.week || String(card.week_label || "").replace(/\D/g, "")} · Official Amazon standing</p>
       </div>
       <div className="sitecmd-spotlight-stats">
-        <div><span>STATION</span><strong>{card.site || "—"}</strong></div>
-        <div><span>SITE RANK</span><strong>{card.site_rank == null ? "Not reported" : "#" + card.site_rank}</strong></div>
-        <div><span>WEEKLY CHANGE</span><strong>{scoreDelta == null ? "First period" : (scoreDelta >= 0 ? "+" : "") + scoreDelta.toFixed(2) + " pts"}</strong></div>
+        <div className="sitecmd-podium">
+          <span>SITE RANK</span>
+          <div className="sitecmd-podium-value">{rankNumber != null && rankNumber <= 3 && <span className={"sitecmd-trophy " + medalClass} role="img" aria-label={medalClass + " trophy"}>🏆</span>}<strong>{rankNumber == null ? "Not reported" : "#" + rankNumber}</strong></div>
+          <small className={rankImprovement == null ? "neutral" : rankImprovement >= 0 ? "positive" : "negative"}>{rankChangeLabel}</small>
+        </div>
+        <div className="sitecmd-score-change">
+          <span>SCORE VS LAST WEEK</span>
+          <strong className={scoreDelta == null ? "" : scoreDelta >= 0 ? "positive" : "negative"}>{scoreDelta == null ? "No prior score" : (scoreDelta >= 0 ? "+" : "") + scoreDelta.toFixed(2) + " pts"}</strong>
+        </div>
       </div>
     </section>
 
     {activeSection === "Overview" && <section className="sitecmd-kpis sitepro-health-grid">
-      <article className="hero"><span>Overall score</span><strong>{num(card.overall_score) == null ? "—" : Number(card.overall_score).toFixed(2)}</strong><em className={standingClass(card.standing)}>{card.standing || "Not rated"}</em><small className={scoreDelta != null && scoreDelta < 0 ? "negative" : "positive"}>{scoreDelta == null ? "No prior week" : `${scoreDelta >= 0 ? "+" : ""}${scoreDelta.toFixed(2)} vs previous week`}</small></article>
-      <article><span>Site rank</span><strong>#{card.site_rank ?? "—"}</strong><small>{card.rank_delta != null ? `${card.rank_delta >= 0 ? "+" : ""}${card.rank_delta} WoW` : "Rank trend unavailable"}</small></article>
       <article><span>Safety</span><strong className={standingClass(card.safety_standing)}>{card.safety_standing || "—"}</strong><small>FICO · Speeding · Compliance</small></article>
       <article><span>Delivery quality</span><strong className={standingClass(card.delivery_quality_standing)}>{card.delivery_quality_standing || "—"}</strong><small>DCR · POD · CC · Customer</small></article>
       <article><span>Capacity</span><strong className={standingClass(card.capacity_standing)}>{card.capacity_standing || "—"}</strong><small>Weekly reliability</small></article>
@@ -253,7 +268,7 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
       </article>}
     </section>}
 
-    {(activeSection === "Overview" || activeSection === "Trends") && <section className="panel sitecmd-trends">
+    {activeSection === "Trends" && <section className="panel sitecmd-trends">
       <div className="sitecmd-title"><div><span>SITE TREND</span><h2>{card.site} · weekly performance</h2></div><small>{trendCards.length} stored periods</small></div>
       <div className="sitecmd-trend-kpis">
         {latestMetrics.map(([label,value,suffix]) => {
