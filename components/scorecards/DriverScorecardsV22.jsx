@@ -279,7 +279,7 @@ export default function DriverScorecardsV22({
   const [scoreFilter, setScoreFilter] = useState("all");
   const [concessionFilter, setConcessionFilter] = useState("all");
   const [quickFilter, setQuickFilter] = useState("all");
-  const [sort, setSort] = useState({ key: "displayScore", direction: "desc" });
+  const [sort, setSort] = useState({ key: "rank", direction: "asc" });
   const [shareOpen, setShareOpen] = useState(false);
   const [shareScope, setShareScope] = useState("all");
   const [breakdownRow, setBreakdownRow] = useState(null);
@@ -773,7 +773,7 @@ export default function DriverScorecardsV22({
       return;
     }
     if (sort.key === "scoreDelta") {
-      setSort({ key: "displayScore", direction: "desc" });
+      setSort({ key: "rank", direction: "asc" });
     }
   };
 
@@ -1181,8 +1181,8 @@ export default function DriverScorecardsV22({
         <table
           className={`scorex3-table density-${tableDensity} font-${tableFontSize}`}
           style={{
-            width: `${scorecardTableWidth}px`,
-            minWidth: "100%",
+            width: "100%",
+            minWidth: `${scorecardTableWidth}px`,
             "--score-col-rank": `${columnWidths.rank}px`,
             "--score-col-name": `${columnWidths.name}px`,
             "--score-col-concessions": `${columnWidths.concessions}px`,
