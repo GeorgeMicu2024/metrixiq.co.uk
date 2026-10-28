@@ -485,6 +485,7 @@ export default function DriverScorecardsV22({
   const [mobilePhotoTier, setMobilePhotoTier] = useState("fantastic-plus");
   const [mobilePhotoPage, setMobilePhotoPage] = useState(1);
   const [mobilePhotoPreview, setMobilePhotoPreview] = useState(null);
+  const [photoShareTip, setPhotoShareTip] = useState("");
   const [manualFicoOverrides, setManualFicoOverrides] = useState({});
   const [manualConcessionOverrides, setManualConcessionOverrides] = useState({});
   const [editMetric, setEditMetric] = useState("fico");
@@ -1151,6 +1152,7 @@ export default function DriverScorecardsV22({
   ].join("-");
 
   function previewRankPhoto() {
+    setPhotoShareTip("");
     const group = selectedPhotoGroup;
     if (!group?.rows.length) {
       setShareImageError("No drivers in this rank for the selected week.");
@@ -1192,11 +1194,11 @@ export default function DriverScorecardsV22({
       if (navigator.canShare?.({ files: [file] }) && navigator.share) {
         await navigator.share({ files: [file], title: mobilePhotoPreview.label });
       } else {
-        savePreviewPhoto();
+        setPhotoShareTip("This in-app browser cannot share files. Press and hold the image to save it, or open MetrixIQ directly in Safari.");
       }
     } catch (error) {
       if (error?.name !== "AbortError") {
-        setShareImageError("Sharing is unavailable here. Hold the preview image to save it to Photos.");
+        setPhotoShareTip("Sharing is blocked by this browser. Press and hold the image to save it, or open MetrixIQ in Safari.");
       }
     }
   }
@@ -1974,7 +1976,7 @@ export default function DriverScorecardsV22({
           <div className="scorex3-mobile-photo-tools">
             <div className="scorex3-mobile-photo-heading">
               <b>Photos for phone / WhatsApp</b>
-              <span>Select a rank, preview the image, then use Share or Save.</span>
+              <span>Select a rank and page, then open the photo. On iPhone, use Share or press and hold to save.</span>
             </div>
             <label>
               <span>Rank</span>
@@ -1995,7 +1997,7 @@ export default function DriverScorecardsV22({
               </select>
             </label>
             <button type="button" className="btn primary scorex3-mobile-photo-open" onClick={previewRankPhoto}>
-              Preview rank photo
+              Show photo
             </button>
           </div>
           {shareImageError && <p className="scorex3-share-image-error" role="alert">{shareImageError}</p>}
@@ -2051,13 +2053,14 @@ export default function DriverScorecardsV22({
             <div className="scorex3-photo-preview-overlay" role="dialog" aria-modal="true" aria-label="Photo preview" onClick={() => setMobilePhotoPreview(null)}>
               <div className="scorex3-photo-preview-modal" onClick={(event) => event.stopPropagation()}>
                 <div className="scorex3-photo-preview-top">
-                  <div><b>{mobilePhotoPreview.label}</b><span>On iPhone: Share to WhatsApp, or hold the image to save to Photos.</span></div>
+                  <div><b>{mobilePhotoPreview.label}</b><span>Tap Share photo, or press and hold the image to save it to Photos.</span></div>
                   <button type="button" aria-label="Close preview" onClick={() => setMobilePhotoPreview(null)}>×</button>
                 </div>
+                {photoShareTip && <p className="scorex3-photo-share-tip" role="status">{photoShareTip}</p>}
                 <img src={mobilePhotoPreview.dataUrl} alt={mobilePhotoPreview.label} />
                 <div className="scorex3-photo-preview-actions">
                   <button type="button" className="btn primary" onClick={sharePreviewPhoto}>Share photo</button>
-                  <button type="button" className="btn ghost" onClick={savePreviewPhoto}>Save PNG</button>
+                  <button type="button" className="btn ghost scorex3-desktop-save-png" onClick={savePreviewPhoto}>Save PNG</button>
                   <button type="button" className="btn ghost" onClick={() => setMobilePhotoPreview(null)}>Close</button>
                 </div>
               </div>
