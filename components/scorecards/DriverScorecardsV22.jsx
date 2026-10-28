@@ -1432,31 +1432,22 @@ export default function DriverScorecardsV22({
 
           <div className="scorex3-edit-preview">
             <div>
-              <span>Current Total Score</span>
-              <strong>{editRow.displayScore == null ? "—" : editRow.displayScore.toFixed(1)}</strong>
+              <span>{editMetric === "fico" ? "Current Total Score" : "Current concessions"}</span>
+              <strong>{editMetric === "fico" ? (editRow.displayScore == null ? "—" : editRow.displayScore.toFixed(1)) : plain(editRow.concessions)}</strong>
             </div>
             <div>
-              <span>Preview Total Score</span>
-              <strong>{editPreview?.value == null ? "—" : editPreview.value.toFixed(1)}</strong>
+              <span>{editMetric === "fico" ? "Preview Total Score" : "New concessions"}</span>
+              <strong>{editMetric === "fico" ? (editPreview?.value == null ? "—" : editPreview.value.toFixed(1)) : (/^\d+$/.test(String(editConcessions).trim()) ? editConcessions : "—")}</strong>
             </div>
             <div>
               <span>Change</span>
-              <strong className={
-                editPreview?.value == null || editRow.displayScore == null
-                  ? "neutral"
-                  : editPreview.value > editRow.displayScore
-                    ? "up"
-                    : editPreview.value < editRow.displayScore
-                      ? "down"
-                      : "neutral"
-              }>
-                {editPreview?.value == null || editRow.displayScore == null
-                  ? "—"
-                  : `${editPreview.value - editRow.displayScore >= 0 ? "+" : ""}${(editPreview.value - editRow.displayScore).toFixed(1)}`}
+              <strong className={editMetric === "fico" ? (editPreview?.value == null || editRow.displayScore == null ? "neutral" : editPreview.value >= editRow.displayScore ? "up" : "down") : (Number(editConcessions) <= Number(editRow.concessions || 0) ? "up" : "down")}>
+                {editMetric === "fico"
+                  ? (editPreview?.value == null || editRow.displayScore == null ? "—" : (editPreview.value - editRow.displayScore >= 0 ? "+" : "") + (editPreview.value - editRow.displayScore).toFixed(1))
+                  : (/^\d+$/.test(String(editConcessions).trim()) ? (Number(editConcessions) - Number(editRow.concessions || 0) >= 0 ? "+" : "") + (Number(editConcessions) - Number(editRow.concessions || 0)) : "—")}
               </strong>
             </div>
           </div>
-
           <div className="scorex3-edit-note">
             Saving updates FICO for this driver and this scorecard week only. Total Score, Rank and WoW recalculate automatically from the point-band formula.
           </div>
