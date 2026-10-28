@@ -6,6 +6,7 @@ import { IMPORT_ACCEPT } from "../../lib/imports/preflight";
 import {
   POD_EXPORT_PAGE_SIZE,
   POD_EXPORT_SITE,
+  comparePodScores,
   paginatePodRows,
   podRejectReasons,
 } from "../../lib/pod/exportReport.mjs";
@@ -80,7 +81,7 @@ export default function PodQualityView({
   const [query, setQuery] = useState("");
   const [focus, setFocus] = useState("all");
   const [reason, setReason] = useState("all");
-  const [sort, setSort] = useState({ key: "rejects", dir: "desc" });
+  const [sort, setSort] = useState({ key: "pod", dir: "asc" });
   const [detail, setDetail] = useState(null);
   const [showTransporter, setShowTransporter] = useState(true);
   const [showTrend, setShowTrend] = useState(true);
@@ -230,10 +231,12 @@ export default function PodQualityView({
       );
     })
     .sort((a, b) => {
+      if (sort.key === "pod") return comparePodScores(a, b, sort.dir);
       const aValue = valueFor(a, sort.key);
       const bValue = valueFor(b, sort.key);
       const comparison =
         typeof aValue === "string" ? aValue.localeCompare(bValue) : aValue - bValue;
+      if (comparison === 0) return dname(a.drivers).localeCompare(dname(b.drivers));
       return sort.dir === "asc" ? comparison : -comparison;
     });
   const imagePages = paginatePodRows(filtered);
@@ -261,7 +264,7 @@ export default function PodQualityView({
     setQuery("");
     setFocus("all");
     setReason("all");
-    setSort({ key: "rejects", dir: "desc" });
+    setSort({ key: "pod", dir: "asc" });
     setDetail(null);
     setPage(1);
   };
@@ -462,11 +465,11 @@ export default function PodQualityView({
             {importing ? "Importing…" : "⇧ Import POD"}
           </button>
 
-          <button className="btn primary podv3-save-image" disabled={!filtered.length || !!exporting} onClick={() => saveImages(false)}>
-            {exporting === "page" ? "Preparing image…" : "↗ Save Page to Photos"}
+          <button className="btn primary podv3-save-image" disabled={!filtered.length || !!exporting} onClick={() => saveImages(true)}>
+            {exporting === "all" ? "Preparing all pages…" : `↗ Save All ${imagePages.length} Images to Photos`}
           </button>
-          <button className="btn ghost" disabled={!filtered.length || !!exporting} onClick={() => saveImages(true)}>
-            {exporting === "all" ? "Preparing pages…" : "↗ Save All to Photos"}
+          <button className="btn ghost" disabled={!filtered.length || !!exporting} onClick={() => saveImages(false)}>
+            {exporting === "page" ? "Preparing image…" : "↗ Save Current Page"}
           </button>
           <button className="btn ghost" disabled={!filtered.length} onClick={exportCsv}>
             ⇩ CSV
@@ -482,7 +485,7 @@ export default function PodQualityView({
             <header>
               <div>
                 <h2>{previewImages.length} POD image{previewImages.length === 1 ? "" : "s"} ready</h2>
-                <p>On iPhone, tap Share and select <strong>Save Image</strong> or <strong>Save Images</strong> to add them to Photos.</p>
+                <p>All {previewImages.length} PNG pages are ready. On iPhone choose <strong>Save {previewImages.length} Images</strong> from the share sheet. If iOS only saves one, use the individual Save Image buttons below.</p>
               </div>
               <button type="button" onClick={() => setPreviewImages([])} aria-label="Close image preview">✕</button>
             </header>
@@ -491,13 +494,18 @@ export default function PodQualityView({
               if (!shareImages(previewImages)) {
                 setShareMessage("Touch and hold an image below, then choose Save to Photos.");
               }
-            }}>↗ Share / Save to Photos</button>
+            }}>↗ Share All {previewImages.length} Images</button>
             <div className="podv3-photo-preview-list">
               {previewImages.map((image) => (
                 <figure key={image.filename}>
                   <img src={image.dataUrl} alt={image.filename} />
                   <figcaption>
                     <span>{image.filename}</span>
+                    <button type="button" className="podv3-photo-single" onClick={() => {
+                      if (!shareImages([image])) {
+                        setShareMessage("Touch and hold the image to save it to Photos.");
+                      }
+                    }}>↗ Save this image</button>
                     <a href={image.dataUrl} download={image.filename}>Download PNG</a>
                   </figcaption>
                 </figure>
@@ -604,10 +612,10 @@ export default function PodQualityView({
 
                 <select
                   value={sort.key}
-                  onChange={(event) => { setSort({ key: event.target.value, dir: "desc" }); setPage(1); }}
+                  onChange={(event) => { setSort({ key: event.target.value, dir: event.target.value === "pod" ? "asc" : "desc" }); setPage(1); }}
                 >
                   <option value="rejects">Sort: Rejects</option>
-                  <option value="pod">Sort: POD</option>
+                  <option value="pod">Sort: POD (lowest first)</option>
                   <option value="bypass">Sort: Bypass</option>
                   <option value="opportunities">Sort: Opportunities</option>
                 </select>
@@ -732,7 +740,7 @@ export default function PodQualityView({
                   </div>
                 </footer>
                 <div className="podv3-image-note">
-                  ↗ Save Page to Photos prepares {POD_EXPORT_PAGE_SIZE} drivers per PNG. On iPhone, select Save Image(s) from the share sheet.
+                  ↗ Save All prepares every page ({POD_EXPORT_PAGE_SIZE} drivers per image), in POD score order from lowest to highest.
                 </div>
               </article>
             </div>
@@ -1008,6 +1016,7 @@ export default function PodQualityView({
             .podv3-photo-preview-list figure{margin:0;background:#fff;border:1px solid #d8e3ec;border-radius:11px;padding:10px}
             .podv3-photo-preview-list img{display:block;width:100%;height:auto;user-select:auto;-webkit-user-select:auto}
             .podv3-photo-preview-list figcaption{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:9px;font-size:11px;color:#697c8f;overflow-wrap:anywhere}
+            .podv3-photo-single{border:1px solid #bcdad2;background:#e6f7f1;color:#207868;border-radius:7px;padding:9px 12px;font-weight:800;font-size:11px;cursor:pointer}
             .podv3-photo-preview-list figcaption a{font-weight:800;color:#286ecc}
 
             .podv3-rail{display:grid;gap:10px;position:sticky;top:12px}

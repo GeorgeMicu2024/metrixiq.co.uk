@@ -4,6 +4,7 @@ import fs from "node:fs";
 import {
   POD_EXPORT_PAGE_SIZE,
   POD_EXPORT_SITE,
+  comparePodScores,
   paginatePodRows,
   podRejectReasons,
 } from "../lib/pod/exportReport.mjs";
@@ -35,13 +36,42 @@ test("POD image export pages contain at most 25 drivers without losing the sort 
   assert.deepEqual(paginatePodRows(rows.slice(0, 25)).map((page) => page.length), [25]);
 
   const view = read("components/operations/PodQualityView.jsx");
-  assert.ok(view.includes("Save Page to Photos"));
-  assert.ok(view.includes("Save All to Photos"));
+  assert.ok(view.includes("Save All"));
+  assert.ok(view.includes("Images to Photos"));
+  assert.ok(view.includes('onClick={() => saveImages(true)}'));
+  assert.ok(view.includes("Save Current Page"));
+  assert.ok(view.includes("Share All"));
+  assert.ok(view.includes("Save this image"));
+  assert.ok(view.includes("allPages\n        ? imagePages.map"));
   assert.ok(view.includes("createPodPageImage("));
   assert.ok(view.includes("navigator.share({ files"));
   assert.ok(view.includes("navigator.canShare?.({ files })"));
   assert.ok(view.includes("Touch and hold"));
   assert.equal(view.includes('await import("html-to-image")'), false);
+});
+
+test("POD scorecards and each exported image use lowest-to-highest score ordering", () => {
+  const input = [
+    { pod: 100, drivers: { full_name: "Zoe" } },
+    { pod: 97.5, drivers: { full_name: "Alex" } },
+    { pod: 99.1, drivers: { full_name: "Dan" } },
+    { pod: 97.5, drivers: { full_name: "Ben" } },
+    { pod: null, drivers: { full_name: "Unknown" } },
+  ];
+  const sorted = [...input].sort((a, b) => comparePodScores(a, b));
+  assert.deepEqual(sorted.map((row) => row.drivers.full_name), [
+    "Alex", "Ben", "Dan", "Zoe", "Unknown",
+  ]);
+  assert.deepEqual(
+    [...input].sort((a, b) => comparePodScores(a, b, "desc")).map((row) => row.drivers.full_name),
+    ["Zoe", "Dan", "Alex", "Ben", "Unknown"]
+  );
+
+  const view = read("components/operations/PodQualityView.jsx");
+  assert.ok(view.includes('useState({ key: "pod", dir: "asc" })'));
+  assert.ok(view.includes('setSort({ key: "pod", dir: "asc" })'));
+  assert.ok(view.includes("comparePodScores(a, b, sort.dir)"));
+  assert.ok(view.includes("const imagePages = paginatePodRows(filtered)"));
 });
 
 test("POD PNG renderer draws every driver and returns a shareable PNG File", () => {
