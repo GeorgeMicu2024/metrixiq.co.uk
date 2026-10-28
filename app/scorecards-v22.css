@@ -1454,3 +1454,149 @@ body.scorex3-resizing-columns *{
 .scorex3-concession-badge small{font-size:7px;font-weight:900;margin-left:3px;color:#1b7c83}
 .scorex3-concession-badge.high small{display:inline!important}
 @media(max-width:800px){.scorex3-concessions-cell{gap:3px}.scorex3-concession-edit{padding:5px 4px;font-size:8px}}
+
+
+/* ===== Premium white / midnight navy / champagne gold — Driver Scorecards =====
+   Presentation-only overrides. Data, sorting, filters, editing, focus, sharing and
+   print behavior remain driven by the existing component and styles above.
+*/
+.scorex3-root{
+  --sx-border:#e1e6ee;
+  --sx-grid:#e4e9f0;
+  --sx-grid-strong:#cbd5e2;
+  --sx-ink:#182d47;
+  --sx-muted:#78889c;
+  --sx-teal:#ad863d;
+  --sx-good:#edf7f1;
+  --sx-warn:#fff5db;
+  --sx-bad:#fce9ec;
+  --sx-tier-fp:#c6a35d;
+  --sx-tier-fantastic:#879db9;
+  --sx-tier-great:#8cac99;
+  --sx-tier-fair:#d7b777;
+  --sx-tier-poor:#d49aa0;
+  color:#1c3049;
+}
+.scorex3-root .scorex3-header,
+.scorex3-root .scorex3-kpi-cards article,
+.scorex3-root .scorex3-toolbar,
+.scorex3-root .scorex3-register,
+.scorex3-root .scorex3-history-scroll button{
+  border-color:#e0e6ee!important;
+  background:#fff;
+  box-shadow:0 7px 24px rgba(19,39,66,.045);
+}
+.scorex3-root .scorex3-header{border-top:3px solid #b99655}
+.scorex3-root .scorex3-kpi-cards article:before{background:#b99655}
+.scorex3-root .scorex3-kpi-cards article.attention:before,
+.scorex3-root .scorex3-kpi-cards article.concessions:before{background:#bd7180}
+.scorex3-root .scorex3-kpi-cards article.target:before{background:#6b9e81}
+.scorex3-root .scorex3-kpi-cards strong,
+.scorex3-root .scorex3-register-head h2,
+.scorex3-root .scorex3-station-score strong{color:#152b48}
+.scorex3-root .scorex3-register-head{
+  background:linear-gradient(110deg,#fff 0%,#faf8f3 100%);
+  border-bottom:1px solid #e2e8ef;
+}
+.scorex3-root .scorex3-register-head>div:first-child>span,
+.scorex3-root .scorex3-history-label span{color:#9b793d}
+.scorex3-root .scorex3-toolbar input:focus,
+.scorex3-root .scorex3-toolbar select:focus,
+.scorex3-root .scorex3-search input:focus{
+  border-color:#b99655!important;
+  box-shadow:0 0 0 3px rgba(185,150,85,.12)!important;
+}
+.scorex3-root .scorex3-history-scroll button.active,
+.scorex3-root .scorex3-quick-filters button.active{
+  background:#fcf9f1;
+  border-color:#c5a466!important;
+  color:#6c542b;
+  box-shadow:0 0 0 2px rgba(185,150,85,.11);
+}
+.scorex3-root .scorex3-tier-strip .fantastic-plus{border-left-color:#b99655;color:#846324}
+.scorex3-root .scorex3-tier-strip .fantastic{border-left-color:#8298b2;color:#425f80}
+.scorex3-root .scorex3-tier-strip .great{border-left-color:#77a88a;color:#357451}
+.scorex3-root .scorex3-tier-strip .fair{border-left-color:#d2b36d;color:#87672e}
+.scorex3-root .scorex3-tier-strip .poor{border-left-color:#ce8790;color:#9d4252}
+.scorex3-root .scorex3-table-wrap{background:#fff;scrollbar-color:#b7c2ce #f7f9fb}
+.scorex3-root .scorex3-table th{
+  background:#eef2f7!important;
+  color:#243c58!important;
+  border-right:1px solid #dae2eb!important;
+  border-bottom:2px solid #becbda!important;
+}
+.scorex3-root .scorex3-table thead th:nth-child(-n+3){
+  background:#e9eef5!important;
+}
+.scorex3-root .scorex3-table td{
+  border-right:1px solid #e5eaf1;
+  border-bottom:1px solid #e9edf3;
+}
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row td:not(.scorex3-metric):not(.scorex3-score-cell){
+  background:#fff!important;
+}
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row:nth-child(even) td:not(.scorex3-metric):not(.scorex3-score-cell){
+  background:#fafbfd!important;
+}
+.scorex3-root .scorex3-table tbody tr.scorex3-driver-row:hover td{
+  box-shadow:inset 0 0 0 999px rgba(185,150,85,.085)!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row td{
+  height:31px!important;
+  border-top:1px solid #e1e7ee!important;
+  border-bottom:1px solid #dce4ec!important;
+  border-left:4px solid transparent!important;
+  color:#1c344e!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.fantastic-plus td{
+  background:#f5f0e4!important;border-left-color:#b99655!important;color:#644d21!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.fantastic td{
+  background:#edf2f9!important;border-left-color:#7995bb!important;color:#355477!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.great td{
+  background:#eef6f0!important;border-left-color:#77a88a!important;color:#35694d!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.fair td{
+  background:#fff6e5!important;border-left-color:#d2af64!important;color:#7c5b27!important;
+}
+.scorex3-root .scorex3-table .scorex3-tier-row.poor td{
+  background:#fbeff0!important;border-left-color:#ce8790!important;color:#9e4853!important;
+}
+.scorex3-root .scorex3-table .scorex3-rank-cell{
+  background:#f8fafc!important;color:#29415d!important;
+  border-left:3px solid #aab8c8;
+}
+.scorex3-root .scorex3-table .scorex3-rank-cell.fantastic-plus{border-left-color:#b99655;color:#76571f!important}
+.scorex3-root .scorex3-table .scorex3-rank-cell.fantastic{border-left-color:#7995bb}
+.scorex3-root .scorex3-table .scorex3-rank-cell.great{border-left-color:#75a78a}
+.scorex3-root .scorex3-table .scorex3-rank-cell.fair{border-left-color:#d1af65}
+.scorex3-root .scorex3-table .scorex3-rank-cell.poor{border-left-color:#cb808c}
+.scorex3-root .scorex3-table .scorex3-score-cell{
+  background:#f4f7fb!important;color:#233e5e!important;
+}
+.scorex3-root .scorex3-table .scorex3-score-cell.fantastic-plus{background:#f5edda!important;color:#8a6423!important}
+.scorex3-root .scorex3-table .scorex3-score-cell.fantastic{background:#ecf2fa!important;color:#41638c!important}
+.scorex3-root .scorex3-table .scorex3-score-cell.great{background:#eef7f1!important;color:#397453!important}
+.scorex3-root .scorex3-table .scorex3-score-cell.fair{background:#fff4dc!important;color:#916b2e!important}
+.scorex3-root .scorex3-table .scorex3-score-cell.poor{background:#fcebed!important;color:#a54453!important}
+.scorex3-root .scorex3-table .scorex3-metric.good{background:#f0f8f3!important;color:#327052!important;box-shadow:none!important}
+.scorex3-root .scorex3-table .scorex3-metric.warn{background:#fff5df!important;color:#936b29!important;box-shadow:none!important}
+.scorex3-root .scorex3-table .scorex3-metric.bad{background:#fcecef!important;color:#a74455!important;box-shadow:none!important}
+.scorex3-root .scorex3-table .scorex3-metric.neutral{background:#f2f5f8!important;color:#78889b!important}
+.scorex3-root .scorex3-table .scorex3-delivered-cell{background:#f8fafc!important;color:#41556b!important}
+.scorex3-root .scorex3-name-cell button{color:#203954!important}
+.scorex3-root .scorex3-name-cell button:hover{color:#94702f!important}
+.scorex3-root .scorex3-concession-edit{
+  border-color:#dac8a5;background:#fffaf0;color:#81612b;
+}
+.scorex3-root .scorex3-concession-edit:hover,
+.scorex3-root .scorex3-concession-edit:focus-visible{
+  background:#f8edda;border-color:#b99655;
+}
+.scorex3-root .scorex3-fico-cell>button.active{
+  background:#f7efdf;border-color:#b99655;color:#7a5a25;
+}
+@media(max-width:800px){
+  .scorex3-root .scorex3-table .scorex3-tier-row td{border-left-width:3px!important}
+}
