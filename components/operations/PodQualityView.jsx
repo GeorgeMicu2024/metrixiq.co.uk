@@ -4,6 +4,12 @@ import { useMemo, useRef, useState } from "react";
 import { analyseFiles } from "../../lib/analyzer";
 import { IMPORT_ACCEPT } from "../../lib/imports/preflight";
 import {
+  POD_EXPORT_PAGE_SIZE,
+  POD_EXPORT_SITE,
+  paginatePodRows,
+  podRejectReasons,
+} from "../../lib/pod/exportReport.mjs";
+import {
   ErrorBox,
   Loading,
   dname,
@@ -50,26 +56,25 @@ export default function PodQualityView({
   organizationId,
   onOpenDriver,
   onImported,
-  siteFilter = "all",
   refreshKey = 0,
 }) {
   const load = useOperationalRows(organizationId, "pod", refreshKey);
-  const selectedSite = String(siteFilter || "all").trim().toUpperCase();
   const rows = useMemo(() => {
-    const siteRows = filterRowsBySite(load.rows, siteFilter);
+    // POD Quality is intentionally a DZM1-only workspace, independent of the
+    // station currently selected for other metrics in the global header.
+    const siteRows = filterRowsBySite(load.rows, POD_EXPORT_SITE);
 
     // POD is site-specific. Some older imports were saved under the selected
     // metric site even when the linked driver belongs to another station.
     // Keep rows with no master-site assignment, but never surface a driver
     // whose known master site conflicts with the site selected in the header.
-    if (!selectedSite || selectedSite === "ALL") return siteRows;
-
     return siteRows.filter((row) => {
       const driverSite = String(row?.drivers?.site || "").trim().toUpperCase();
-      return !driverSite || driverSite === selectedSite;
+      return !driverSite || driverSite === POD_EXPORT_SITE;
     });
-  }, [load.rows, siteFilter, selectedSite]);
+  }, [load.rows]);
   const input = useRef(null);
+  const exportStage = useRef(null);
 
   const [week, setWeek] = useState("");
   const [query, setQuery] = useState("");
@@ -83,6 +88,9 @@ export default function PodQualityView({
   const [trendWindow, setTrendWindow] = useState(8);
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
+  const [page, setPage] = useState(1);
+  const [exporting, setExporting] = useState("");
+  const [exportError, setExportError] = useState("");
 
   const weeks = useMemo(
     () =>
@@ -191,18 +199,7 @@ export default function PodQualityView({
     .map((segment) => `${segment.color} ${segment.start}% ${segment.end}%`)
     .join(", ");
 
-  const mainReason = (row) => {
-    const detailData = podOf(row);
-    const reasonMap = detailData.reasons || {};
-    const main = reasons
-      .map(([key, text]) => [text, Number(reasonMap[key]) || 0])
-      .sort((a, b) => b[1] - a[1])[0];
-
-    if (main?.[1]) return main[0];
-    if (Number(detailData.rejects) > 0) return "Reason unavailable";
-    if (Number(detailData.bypass) > 0) return "Bypass";
-    return "—";
-  };
+  const allReasons = (row) => podRejectReasons(podOf(row), reasons);
 
   const valueFor = (row, key) => {
     const detailData = podOf(row);
@@ -237,16 +234,23 @@ export default function PodQualityView({
         typeof aValue === "string" ? aValue.localeCompare(bValue) : aValue - bValue;
       return sort.dir === "asc" ? comparison : -comparison;
     });
+  const imagePages = paginatePodRows(filtered);
+  const pageCount = Math.max(1, imagePages.length);
+  const currentPage = Math.min(page, pageCount);
+  const pageRows = imagePages[currentPage - 1] || [];
+  const pageOffset = (currentPage - 1) * POD_EXPORT_PAGE_SIZE;
 
   const active = detail && base.includes(detail) ? detail : filtered[0] || null;
   const activeDetail = podOf(active);
   const activeReasons = activeDetail.reasons || {};
 
-  const toggleSort = (key) =>
+  const toggleSort = (key) => {
+    setPage(1);
     setSort((current) => ({
       key,
       dir: current.key === key && current.dir === "desc" ? "asc" : "desc",
     }));
+  };
 
   const sortArrow = (key) =>
     sort.key === key ? (sort.dir === "desc" ? " ↓" : " ↑") : "";
@@ -257,6 +261,7 @@ export default function PodQualityView({
     setReason("all");
     setSort({ key: "rejects", dir: "desc" });
     setDetail(null);
+    setPage(1);
   };
 
   const quickImport = async (file) => {
@@ -279,11 +284,11 @@ export default function PodQualityView({
         throw new Error("This is not a POD Quality report. Use Import Center for other report types.");
       }
 
-      const selectedSite = String(siteFilter || "").trim().toUpperCase();
-      const importSite =
-        selectedSite && selectedSite !== "ALL"
-          ? selectedSite
-          : inferSiteFromFile(file.name) || null;
+      const filenameSite = inferSiteFromFile(file.name);
+      if (filenameSite && filenameSite !== POD_EXPORT_SITE) {
+        throw new Error(`This POD workspace accepts DZM1 only. File appears to be for ${filenameSite}.`);
+      }
+      const importSite = POD_EXPORT_SITE;
 
       const saved = await onImported?.(result, [file], importSite);
       if (saved && Number(saved.savedMetrics || 0) === 0) {
@@ -317,7 +322,7 @@ export default function PodQualityView({
       "Bypass",
       "Rejects",
       "POD %",
-      "Main reject reason",
+      "Rejection reasons",
     ];
     const body = filtered.map((row) => [
       dname(row.drivers),
@@ -327,7 +332,7 @@ export default function PodQualityView({
       podOf(row).bypass,
       podOf(row).rejects,
       row.pod,
-      mainReason(row),
+      allReasons(row),
     ]);
 
     const blob = new Blob(
@@ -342,6 +347,43 @@ export default function PodQualityView({
     setTimeout(() => URL.revokeObjectURL(url), 300);
   };
 
+  const saveImages = async (allPages = false) => {
+    if (!imagePages.length || exporting) return;
+    setExportError("");
+    setExporting(allPages ? "all" : "page");
+
+    try {
+      const { toPng } = await import("html-to-image");
+      if (document.fonts?.ready) await document.fonts.ready;
+      const targets = allPages
+        ? imagePages.map((_, index) => index + 1)
+        : [currentPage];
+
+      for (const pageNumber of targets) {
+        const target = exportStage.current?.querySelector(
+          `[data-pod-image-page="${pageNumber}"]`
+        );
+        if (!target) throw new Error("Could not prepare the image for this page.");
+
+        const dataUrl = await toPng(target, {
+          pixelRatio: 2,
+          backgroundColor: "#f3f7fb",
+          cacheBust: true,
+        });
+        const anchor = document.createElement("a");
+        anchor.download = `MetrixIQ_POD_DZM1_${selectedWeek}_Page_${pageNumber}_of_${imagePages.length}.png`;
+        anchor.href = dataUrl;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+    } catch (error) {
+      setExportError(error?.message || "Could not save the POD image.");
+    } finally {
+      setExporting("");
+    }
+  };
+
   if (load.loading) return <Loading text="Loading POD quality…" />;
   if (load.error) return <ErrorBox error={load.error} />;
 
@@ -350,8 +392,8 @@ export default function PodQualityView({
       <header className="podv2-head">
         <div>
           <span className="page-kicker">DELIVERY QUALITY</span>
-          <h1>Photo-on-Delivery Compliance</h1>
-          <p>Driver-level POD Quality from dedicated Amazon POD reports only.</p>
+          <h1>POD Quality — DZM1</h1>
+          <p>Driver-level POD Quality from dedicated Amazon POD reports only. <strong>· DZM1 only</strong></p>
         </div>
 
         <div className="podv2-actions">
@@ -364,6 +406,7 @@ export default function PodQualityView({
               onChange={(event) => {
                 setWeek(event.target.value);
                 setDetail(null);
+                setPage(1);
               }}
             >
               {weeks.length ? (
@@ -390,22 +433,25 @@ export default function PodQualityView({
             {importing ? "Importing…" : "⇧ Import POD"}
           </button>
 
-          <button
-            className="btn ghost"
-            disabled={!filtered.length}
-            onClick={exportCsv}
-          >
-            ⇩ Export
+          <button className="btn primary podv3-save-image" disabled={!filtered.length || !!exporting} onClick={() => saveImages(false)}>
+            {exporting === "page" ? "Saving image…" : "⇩ Save Page as Image"}
+          </button>
+          <button className="btn ghost" disabled={!filtered.length || !!exporting} onClick={() => saveImages(true)}>
+            {exporting === "all" ? "Saving pages…" : "⇩ Export All PNGs"}
+          </button>
+          <button className="btn ghost" disabled={!filtered.length} onClick={exportCsv}>
+            ⇩ CSV
           </button>
         </div>
       </header>
 
       {importMessage && <div className="podv2-import-message">{importMessage}</div>}
+      {exportError && <div className="podv2-import-message podv3-export-error" role="alert">{exportError}</div>}
 
       {!weeks.length ? (
         <section className="panel podv2-empty podv2-no-data">
           <div className="podv2-empty-mark">POD</div>
-          <b>No detailed POD Quality report for this site</b>
+          <b>No detailed POD Quality report for this site (DZM1)</b>
           <p>
             Scorecard POD percentages are intentionally excluded here because they do not
             include opportunities, bypasses or reject reasons. Import the dedicated Amazon
@@ -453,7 +499,7 @@ export default function PodQualityView({
                     <button
                       key={key}
                       className={focus === key ? "active" : ""}
-                      onClick={() => setFocus(key)}
+                      onClick={() => { setFocus(key); setPage(1); }}
                     >
                       {text}
                     </button>
@@ -468,7 +514,7 @@ export default function PodQualityView({
                 <div className="podv3-search">
                   <input
                     value={query}
-                    onChange={(event) => setQuery(event.target.value)}
+                    onChange={(event) => { setQuery(event.target.value); setPage(1); }}
                     placeholder={
                       showTransporter
                         ? "⌕ Search driver name or Transporter ID…"
@@ -488,7 +534,7 @@ export default function PodQualityView({
                   {showTransporter ? "Hide Transporter" : "Show Transporter"}
                 </button>
 
-                <select value={reason} onChange={(event) => setReason(event.target.value)}>
+                <select value={reason} onChange={(event) => { setReason(event.target.value); setPage(1); }}>
                   <option value="all">All reject reasons</option>
                   {reasons.map(([key, text]) => (
                     <option key={key} value={key}>
@@ -499,7 +545,7 @@ export default function PodQualityView({
 
                 <select
                   value={sort.key}
-                  onChange={(event) => setSort({ key: event.target.value, dir: "desc" })}
+                  onChange={(event) => { setSort({ key: event.target.value, dir: "desc" }); setPage(1); }}
                 >
                   <option value="rejects">Sort: Rejects</option>
                   <option value="pod">Sort: POD</option>
@@ -509,7 +555,14 @@ export default function PodQualityView({
               </div>
 
               <article className="panel podv2-table podv3-table">
-                <div className="table-wrap">
+                <div className="podv3-scorecard-heading">
+                  <div>
+                    <h2>Driver Scorecards</h2>
+                    <p>Scores, rejected photos and every recorded rejection reason · DZM1 only</p>
+                  </div>
+                  <span>{POD_EXPORT_PAGE_SIZE} drivers per image</span>
+                </div>
+                <div className="table-wrap podv3-desktop-table">
                   <table className={showTransporter ? "" : "transporter-hidden"}>
                     <thead>
                       <tr>
@@ -534,18 +587,18 @@ export default function PodQualityView({
                             {sortArrow(key)}
                           </th>
                         ))}
-                        <th>Main Reject Reason</th>
+                        <th>Rejection Reasons</th>
                         <th>Status</th>
                         <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((row, index) => {
+                      {pageRows.map((row, index) => {
                         const detailData = podOf(row);
                         const podValue = Number(row.pod) || 0;
                         return (
                           <tr key={row.driver_id + "-" + index}>
-                            <td>{index + 1}</td>
+                            <td>{pageOffset + index + 1}</td>
                             <td><b>{dname(row.drivers)}</b></td>
                             {showTransporter && <td><code>{trid(row.drivers)}</code></td>}
                             <td>{detailData.opportunities}</td>
@@ -553,7 +606,7 @@ export default function PodQualityView({
                             <td className={detailData.bypass ? "warn" : ""}>{detailData.bypass}</td>
                             <td className={detailData.rejects ? "bad" : ""}>{detailData.rejects}</td>
                             <td><b className={"podv3-pod-score " + band(podValue)}>{pct(podValue, 2)}</b></td>
-                            <td>{mainReason(row)}</td>
+                            <td className={detailData.rejects ? "podv3-reason-cell bad" : "podv3-reason-cell"}>{allReasons(row)}</td>
                             <td>
                               <span className={"podv2-band " + band(podValue)}>
                                 {label(podValue)}
@@ -584,10 +637,44 @@ export default function PodQualityView({
                     </tbody>
                   </table>
                 </div>
-                <footer>
-                  {selectedWeek} · Showing {filtered.length} driver{filtered.length === 1 ? "" : "s"} ·
-                  click headers to sort
+                <div className="podv3-mobile-cards">
+                  {pageRows.map((row, index) => {
+                    const detailData = podOf(row);
+                    const podValue = Number(row.pod) || 0;
+                    return (
+                      <article className="podv3-mobile-card" key={row.driver_id + "-mobile-" + index}>
+                        <div className="podv3-mobile-top">
+                          <div><small>#{pageOffset + index + 1}</small><strong>{dname(row.drivers)}</strong></div>
+                          <b className={"podv3-pod-score " + band(podValue)}>{pct(podValue, 2)}</b>
+                        </div>
+                        <div className="podv3-mobile-stats">
+                          <span><b>{detailData.opportunities ?? 0}</b> Opportunities</span>
+                          <span><b>{detailData.rejects ?? 0}</b> Rejected</span>
+                          <span><b>{detailData.bypass ?? 0}</b> Bypass</span>
+                        </div>
+                        <p className={detailData.rejects ? "has-rejects" : ""}><b>What went wrong:</b> {allReasons(row)}</p>
+                        <div className="podv3-mobile-bottom">
+                          <span className={"podv2-band " + band(podValue)}>{label(podValue)}</span>
+                          <button type="button" onClick={() => onOpenDriver?.(openShape(row, { pod: n(row.pod) }))}>View driver</button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                  {!pageRows.length && <div className="ops-mini-empty">No drivers match the current POD filters.</div>}
+                </div>
+                <footer className="podv3-pagination">
+                  <span>
+                    {selectedWeek} · Showing {filtered.length ? pageOffset + 1 : 0}–{Math.min(pageOffset + POD_EXPORT_PAGE_SIZE, filtered.length)} of {filtered.length} DZM1 drivers
+                  </span>
+                  <div className="podv3-pagination-controls">
+                    <button type="button" aria-label="Previous POD page" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>‹</button>
+                    <strong>Page {currentPage} of {pageCount}</strong>
+                    <button type="button" aria-label="Next POD page" disabled={currentPage >= pageCount} onClick={() => setPage(currentPage + 1)}>›</button>
+                  </div>
                 </footer>
+                <div className="podv3-image-note">
+                  ⇩ Save Page as Image downloads the current {POD_EXPORT_PAGE_SIZE}-driver page as a PNG. Export All PNGs saves every page.
+                </div>
               </article>
             </div>
 
@@ -754,7 +841,7 @@ export default function PodQualityView({
                           key={segment.key}
                           type="button"
                           className={reason === segment.key ? "active" : ""}
-                          onClick={() => setReason(reason === segment.key ? "all" : segment.key)}
+                          onClick={() => { setReason(reason === segment.key ? "all" : segment.key); setPage(1); }}
                         >
                           <i style={{ background: segment.color }} />
                           <span>{segment.text}</span>
@@ -768,6 +855,59 @@ export default function PodQualityView({
               </article>
             </aside>
           </section>
+
+          <div className="podv3-export-stage" ref={exportStage} aria-hidden="true">
+            {imagePages.map((exportRows, exportPageIndex) => (
+              <section
+                className="podv3-export-page"
+                data-pod-image-page={exportPageIndex + 1}
+                key={exportPageIndex}
+              >
+                <header>
+                  <span>METRIXIQ · DELIVERY QUALITY</span>
+                  <h2>POD Quality — DZM1</h2>
+                  <p>{selectedWeek} · DZM1 Only · Driver scorecards</p>
+                </header>
+                <div className="podv3-export-summary">
+                  <div><small>DRIVERS ON THIS PAGE</small><strong>{exportRows.length}</strong></div>
+                  <div><small>DZM1 POD SCORE</small><strong>{pct(totals.pod, 2)}</strong></div>
+                  <div><small>DZM1 REJECTED PHOTOS</small><strong>{totals.rejects.toLocaleString()}</strong></div>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Driver Name</th>
+                      <th>POD Score</th>
+                      <th>Opportunities</th>
+                      <th>Rejected</th>
+                      <th>Rejection Reasons</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {exportRows.map((row, index) => {
+                      const details = podOf(row);
+                      const score = Number(row.pod) || 0;
+                      return (
+                        <tr key={row.driver_id + "-export-" + index}>
+                          <td>{exportPageIndex * POD_EXPORT_PAGE_SIZE + index + 1}</td>
+                          <td className="podv3-export-name">{dname(row.drivers)}</td>
+                          <td><b className={"podv3-export-score " + band(score)}>{pct(score, 2)}</b></td>
+                          <td>{Number(details.opportunities || 0).toLocaleString()}</td>
+                          <td className={Number(details.rejects) ? "podv3-export-rejected" : ""}>{Number(details.rejects || 0).toLocaleString()}</td>
+                          <td className={Number(details.rejects) ? "podv3-export-reasons" : ""}>{allReasons(row)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                <footer>
+                  <span>DZM1 · {selectedWeek} · Drivers {exportPageIndex * POD_EXPORT_PAGE_SIZE + 1}–{Math.min((exportPageIndex + 1) * POD_EXPORT_PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+                  <strong>Page {exportPageIndex + 1} of {imagePages.length}</strong>
+                </footer>
+              </section>
+            ))}
+          </div>
 
           <style jsx global>{`
             .podv2{gap:11px;padding:18px 22px 26px}
@@ -833,6 +973,53 @@ export default function PodQualityView({
             .podv3-pod-score.excellent,.podv3-pod-score.target{background:#e9f7f0;color:#187455}
             .podv3-pod-score.risk{background:#fff4dd;color:#9c6412}
             .podv3-pod-score.critical{background:#ffe8e9;color:#b63a43}
+            .podv3-save-image{background:#258b7d!important;border-color:#258b7d!important;color:#fff!important}
+            .podv3-save-image:hover:not(:disabled){background:#1d7468!important}
+            .podv3-export-error{color:#a63142!important;background:#fff2f3!important;border-color:#f1cbd1!important}
+            .podv3-scorecard-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 15px 9px}
+            .podv3-scorecard-heading h2{font-size:17px;margin:0;color:#112b43}
+            .podv3-scorecard-heading p{margin:4px 0 0;font-size:10px;color:#758697}
+            .podv3-scorecard-heading>span{flex-shrink:0;border:1px solid #dce7f0;border-radius:8px;padding:7px 9px;background:#f6faff;color:#3572b9;font-size:10px;font-weight:800}
+            .podv3-reason-cell{min-width:200px;max-width:300px;line-height:1.45;color:#2a7c63}
+            .podv3-reason-cell.bad{color:#b34850}
+            .podv3-mobile-cards{display:none}
+            .podv3-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap!important}
+            .podv3-pagination-controls{display:flex;align-items:center;gap:7px}
+            .podv3-pagination-controls button{height:32px;min-width:34px;border:1px solid #dbe5ee;border-radius:8px;background:#fff;color:#224f86;font-size:21px;cursor:pointer}
+            .podv3-pagination-controls button:disabled{opacity:.35;cursor:not-allowed}
+            .podv3-pagination-controls strong{padding:0 9px;color:#173047;font-size:10px;white-space:nowrap}
+            .podv3-image-note{margin:0 12px 12px;border:1px solid #cfe3fb;border-radius:8px;background:#f1f8ff;padding:9px;color:#2f6ead;font-size:10px;line-height:1.5}
+
+            /* The export pages have their own fixed-width, high-resolution design.
+               They are laid out off-screen, never display:none, so PNG capture works. */
+            .podv3-export-stage{position:absolute;left:-20000px;top:0;width:1100px;pointer-events:none}
+            .podv3-export-page{box-sizing:border-box;width:1100px;background:#f3f7fb;color:#14263d;padding:34px 38px 28px;font-family:Arial,Helvetica,sans-serif}
+            .podv3-export-page *{box-sizing:border-box}
+            .podv3-export-page>header{padding-bottom:22px;border-bottom:3px solid #278f83}
+            .podv3-export-page>header>span{font-size:13px;letter-spacing:2.3px;font-weight:800;color:#218d7e}
+            .podv3-export-page>header h2{font-size:35px;letter-spacing:-.8px;margin:12px 0 6px;color:#14263d}
+            .podv3-export-page>header p{font-size:17px;margin:0;color:#6c7c91}
+            .podv3-export-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:21px 0}
+            .podv3-export-summary>div{background:#fff;border:1px solid #d9e4ed;border-radius:11px;padding:17px}
+            .podv3-export-summary small{display:block;font-size:11px;letter-spacing:.7px;font-weight:800;color:#718294}
+            .podv3-export-summary strong{display:block;margin-top:7px;font-size:26px;color:#132a43}
+            .podv3-export-page table{width:100%;border-spacing:0;border-collapse:separate;background:#fff;border:1px solid #dce5ed;border-radius:12px;overflow:hidden;table-layout:fixed}
+            .podv3-export-page th{padding:15px 11px;background:#edf2f7;color:#32475f;font-size:13px;text-align:left}
+            .podv3-export-page th:nth-child(1){width:45px}
+            .podv3-export-page th:nth-child(2){width:250px}
+            .podv3-export-page th:nth-child(3){width:124px}
+            .podv3-export-page th:nth-child(4){width:115px}
+            .podv3-export-page th:nth-child(5){width:95px}
+            .podv3-export-page td{padding:14px 11px;border-top:1px solid #e6edf3;font-size:13px;line-height:1.4;vertical-align:middle;overflow-wrap:anywhere}
+            .podv3-export-page tbody tr:nth-child(even){background:#fbfdff}
+            .podv3-export-page .podv3-export-name{font-weight:800;font-size:14px;color:#14263d}
+            .podv3-export-score{display:inline-block;padding:5px 8px;border-radius:8px;white-space:nowrap}
+            .podv3-export-score.excellent,.podv3-export-score.target{background:#def8eb;color:#086c3c}
+            .podv3-export-score.risk{background:#fff0d4;color:#955a0b}
+            .podv3-export-score.critical{background:#ffe3e4;color:#b82d42}
+            .podv3-export-rejected,.podv3-export-reasons{color:#bc3748;font-weight:700}
+            .podv3-export-page>footer{display:flex;justify-content:space-between;margin-top:18px;font-size:13px;color:#60758a}
+            .podv3-export-page>footer strong{color:#14263d}
 
             .podv3-rail{display:grid;gap:10px;position:sticky;top:12px}
             .podv3-insight{padding:12px;border-radius:12px;overflow:hidden}
@@ -900,6 +1087,30 @@ export default function PodQualityView({
               .podv2{padding:14px 12px 90px}
               .podv2-kpis{display:flex;overflow-x:auto}
               .podv2-kpis article{min-width:175px}
+              .podv2-actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+              .podv2-week-picker{grid-column:1}
+              .podv3-save-image{grid-column:1/-1;grid-row:2}
+              .podv2-actions .btn{min-width:0;font-size:10px}
+              .podv3-desktop-table{display:none}
+              .podv3-mobile-cards{display:grid;gap:9px;padding:9px}
+              .podv3-mobile-card{border:1px solid #dce5ed;border-radius:11px;padding:13px;background:#fff}
+              .podv3-mobile-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+              .podv3-mobile-top>div{display:grid;gap:5px;min-width:0}
+              .podv3-mobile-top small{color:#76889a;font-size:10px}
+              .podv3-mobile-top strong{font-size:13px;overflow-wrap:anywhere;color:#173047}
+              .podv3-mobile-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:12px 0;padding:9px 0;border-block:1px solid #edf1f5}
+              .podv3-mobile-stats span{display:grid;gap:4px;color:#748697;font-size:9px}
+              .podv3-mobile-stats b{font-size:16px;color:#203951}
+              .podv3-mobile-card p{font-size:11px;line-height:1.5;color:#23845e;margin:0 0 11px}
+              .podv3-mobile-card p.has-rejects{color:#b63e4b}
+              .podv3-mobile-bottom{display:flex;align-items:center;justify-content:space-between;gap:8px}
+              .podv3-mobile-bottom>button{border:1px solid #d9e4ee;border-radius:7px;padding:7px 11px;background:#f7fafc;color:#2d6ab0;font-size:10px;font-weight:800}
+              .podv3-scorecard-heading{align-items:flex-start}
+              .podv3-scorecard-heading h2{font-size:15px}
+              .podv3-scorecard-heading p{font-size:9px}
+              .podv3-scorecard-heading>span{font-size:9px}
+              .podv3-pagination{align-items:stretch}
+              .podv3-pagination-controls{width:100%;justify-content:flex-end}
               .podv3-rail{grid-template-columns:1fr}
               .podv3-filters{grid-template-columns:1fr 1fr}
               .podv3-search{grid-column:1/-1}
