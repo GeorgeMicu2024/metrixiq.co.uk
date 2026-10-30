@@ -517,6 +517,10 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   assert.ok(view.includes('return canvas.toDataURL("image/png")'));
   const photoDraw = view.slice(view.indexOf("function drawFullScorecardPhotoPng"), view.indexOf("// Minimal uncompressed ZIP writer"));
   assert.ok(photoDraw.includes('rounded("#123b63", 788'));
+  assert.ok(photoDraw.includes("const cardHeight = 194"));
+  assert.ok(photoDraw.includes("rounded(\"#c5d5e2\", 14"));
+  assert.ok(photoDraw.includes("rectangle(\"#91aabe\", 24"));
+  assert.ok(photoDraw.includes("10px gap"));
   assert.ok(photoDraw.includes('draw(row.score, 864'));
   for (const label of ["CON", "DCR", "POD", "CC", "DSC", "LoR", "SCORE", "FICO", "DEL"]) {
     assert.ok(photoDraw.includes('"' + label + '"'), "Missing WhatsApp label " + label);
