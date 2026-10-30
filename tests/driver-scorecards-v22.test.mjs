@@ -525,7 +525,7 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
     assert.ok(photoDraw.includes(colour), "Missing tier colour " + colour);
   }
   assert.ok(photoDraw.includes("const driversPerPhoto = Math.ceil(totalDrivers / Math.max(1, pageCount))"));
-  assert.ok(photoDraw.includes("const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 80"));
+  assert.ok(photoDraw.includes("const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 60"));
   assert.ok(photoDraw.includes("const outputWidth = Math.round(width * 1.275)"));
   assert.ok(photoDraw.includes("canvas.width = Math.floor(outputWidth * pixelRatio)"));
   assert.ok(photoDraw.includes("ctx.scale(pixelRatio * (outputWidth / width), pixelRatio * (outputHeight / height))"));
@@ -567,11 +567,11 @@ test("WhatsApp export offers 3, 4 and 5 image sizes without missing a driver", (
 test("Dense scorecard pages get a wider WhatsApp layout without losing drivers", () => {
   const layoutWidth = (totalDrivers, pageCount) => {
     const driversPerPhoto = Math.ceil(totalDrivers / Math.max(1, pageCount));
-    const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 80;
+    const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 60;
     return 1200 + extraWidth;
   };
   assert.equal(layoutWidth(61, 4), 1200); // DZM1 photo dimensions remain as before.
-  assert.equal(layoutWidth(134, 6), 1760); // DLS2 is wider with 23 drivers.
-  assert.equal(layoutWidth(130, 6), 1680);
-  assert.equal(layoutWidth(25, 1), 1920);
+  assert.equal(layoutWidth(134, 6), 1620); // DLS2 is wider with 23 drivers.
+  assert.equal(layoutWidth(130, 6), 1560);
+  assert.equal(layoutWidth(25, 1), 1740);
 });

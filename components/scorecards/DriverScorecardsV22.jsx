@@ -164,7 +164,7 @@ function drawFullScorecardPhotoPng({
   // Expand the layout itself (not the text) for dense pages, and use the
   // same width across every photo in the selected export.
   const driversPerPhoto = Math.ceil(totalDrivers / Math.max(1, pageCount));
-  const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 80;
+  const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 60;
   const width = 1200 + extraWidth;
   const outputWidth = Math.round(width * 1.275);
   // Reserve extra header space: WhatsApp overlays its controls at the top
