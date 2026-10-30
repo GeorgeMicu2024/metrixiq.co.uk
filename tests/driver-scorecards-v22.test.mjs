@@ -468,6 +468,6 @@ test("Driver rank ties are deterministic and missing FICO ranks after known FICO
   ]);
   const view = read("components/scorecards/DriverScorecardsV22.jsx");
   assert.ok(view.includes('import { compareDriverScorecardRank }'));
-  assert.equal((view.match(/\\.sort\\(compareDriverScorecardRank\\)/g) || []).length, 1);
+  assert.equal((view.match(/\\.sort\\(compareDriverScorecardRank\\)/g) || []).length, 2);
   assert.equal((view.match(/compareDriverScorecardRank/g) || []).length, 5);
 });
