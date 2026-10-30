@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DriverScorecardsV22 from "./DriverScorecardsV22";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { fetchDriverScorecardData, fetchSiteScorecardData } from "../../lib/data/scorecardData";
+import { fetchDriverScorecardData, fetchSiteCards } from "../../lib/data/scorecardData";
 import { displayDriverName, isUsablePersonName, nameSignature, normalizeName } from "../../lib/identity";
 import { TARGETS, targetLabel } from "../../lib/config/performance";
 import {
@@ -23,7 +23,10 @@ import {
 export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all" }) {
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
-    return fetchSiteScorecardData(supabase, organizationId);
+    // Site-level reporting only uses official site_scorecards. Driver metrics
+    // are a separate, much larger dataset and must not delay this screen.
+    const cards = await fetchSiteCards(supabase, organizationId);
+    return { cards };
   }, [organizationId]);
 
   const cards = useMemo(() => {
@@ -31,17 +34,18 @@ export function SiteScorecardsView({ organizationId, onImport, siteFilter = "all
     if (siteFilter === "all") return allCards;
     return allCards.filter((item) => String(item.site || "").trim().toUpperCase() === siteFilter);
   }, [load.data, siteFilter]);
+  const sortedCards = useMemo(() => cards.slice().sort(weekSort), [cards]);
   const [selectedId, setSelectedId] = useState("");
   const [activeSection, setActiveSection] = useState("Overview");
 
   useEffect(() => {
-    if (cards.length && !cards.some((item) => item.id === selectedId)) {
-      setSelectedId(cards[0].id);
+    if (sortedCards.length && !sortedCards.some((item) => item.id === selectedId)) {
+      // Select the latest available week, not an arbitrary older site.
+      setSelectedId(sortedCards[0].id);
     }
-  }, [cards, selectedId]);
+  }, [sortedCards, selectedId]);
 
-  const sortedCards = useMemo(() => cards.slice().sort(weekSort), [cards]);
-  const card = cards.find((item) => item.id === selectedId) || cards[0];
+  const card = sortedCards.find((item) => item.id === selectedId) || sortedCards[0];
 
   const standingClass = (standing) => {
     const value = String(standing || "").trim().toLowerCase();
