@@ -516,7 +516,14 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   assert.ok(view.includes('kind: "full-scorecard"'));
   assert.ok(view.includes('return canvas.toDataURL("image/png")'));
   const photoDraw = view.slice(view.indexOf("function drawFullScorecardPhotoPng"), view.indexOf("// Minimal uncompressed ZIP writer"));
-  assert.ok(photoDraw.includes('rounded("#123b63", 788'));
+  assert.ok(photoDraw.includes("rounded(palette.score, 788"));
+  assert.ok(photoDraw.includes("palette.ink"));
+  for (const tier of ["fantastic-plus", "fantastic", "great", "fair", "poor"]) {
+    assert.ok(photoDraw.includes(tier + ":") || photoDraw.includes('"' + tier + '":'));
+  }
+  for (const colour of ["#175aa8", "#7accf4", "#218452", "#f5a735", "#c5374d"]) {
+    assert.ok(photoDraw.includes(colour), "Missing tier colour " + colour);
+  }
   assert.ok(photoDraw.includes("const cardHeight = 194"));
   assert.ok(photoDraw.includes("rounded(\"#c5d5e2\", 14"));
   assert.ok(photoDraw.includes("rectangle(\"#91aabe\", 24"));
