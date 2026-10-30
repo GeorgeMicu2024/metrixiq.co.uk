@@ -506,7 +506,7 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   assert.ok(view.includes("<option value={3}>3 photos"));
   assert.ok(view.includes("<option value={4}>4 photos"));
   assert.ok(view.includes("<option value={5}>5 photos"));
-  assert.ok(view.includes("const pixelRatio = Math.min(2, Math.sqrt(15000000 / (width * height)))"));
+  assert.ok(view.includes("const pixelRatio = Math.min(2, Math.sqrt(15000000 / (outputWidth * height)))"));
   assert.ok(view.includes("download full team") || view.includes("Download full team"));
   assert.ok(view.includes("Preview / Share photo"));
   assert.ok(view.includes("exportFullScorecardPhotosZip"));
@@ -524,6 +524,9 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   for (const colour of ["#175aa8", "#7accf4", "#218452", "#f5a735", "#c5374d"]) {
     assert.ok(photoDraw.includes(colour), "Missing tier colour " + colour);
   }
+  assert.ok(photoDraw.includes("const outputWidth = 1700"));
+  assert.ok(photoDraw.includes("canvas.width = Math.floor(outputWidth * pixelRatio)"));
+  assert.ok(photoDraw.includes("ctx.scale(pixelRatio * (outputWidth / width), pixelRatio)"));
   assert.ok(photoDraw.includes("const cardHeight = 194"));
   assert.ok(photoDraw.includes("const headerHeight = 430"));
   assert.ok(photoDraw.includes('rectangle("#102d4c", 0, 0, width, 374)'));

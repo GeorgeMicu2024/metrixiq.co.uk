@@ -157,7 +157,10 @@ function drawFullScorecardPhotoPng({
   site, week, year, headlineScore, standing, pageRows,
   totalDrivers, page, pageCount, firstRank, lastRank,
 }) {
+  // Keep the existing 1200-unit card layout and driver count, but give
+  // WhatsApp a wider image aspect ratio so it fills more of the phone screen.
   const width = 1200;
+  const outputWidth = 1700;
   // Reserve extra header space: WhatsApp overlays its controls at the top
   // when a photo is opened, so driver #1 starts below that overlay.
   const headerHeight = 430;
@@ -165,13 +168,13 @@ function drawFullScorecardPhotoPng({
   const footerHeight = 58;
   const height = headerHeight + pageRows.length * cardHeight + footerHeight;
   // Keep long 21-driver pages within mobile Safari's canvas area limits.
-  const pixelRatio = Math.min(2, Math.sqrt(15000000 / (width * height)));
+  const pixelRatio = Math.min(2, Math.sqrt(15000000 / (outputWidth * height)));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(width * pixelRatio);
+  canvas.width = Math.floor(outputWidth * pixelRatio);
   canvas.height = Math.floor(height * pixelRatio);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Your device cannot create scorecard photos.");
-  ctx.scale(pixelRatio, pixelRatio);
+  ctx.scale(pixelRatio * (outputWidth / width), pixelRatio);
   ctx.textBaseline = "middle";
 
   const rectangle = (color, x, y, w, h) => {
