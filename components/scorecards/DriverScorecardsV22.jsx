@@ -8,7 +8,7 @@ import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
 import { calculateDriverScorecard } from "../../lib/scorecards/driverScoreFormula";
-import { compareDriverScorecardRank } from "../../lib/scorecards/driverRanking";
+import { compareDriverScorecardRank, splitScorecardPhotoPages } from "../../lib/scorecards/driverRanking";
 import { applyMetricOverrides, fetchMetricOverrides, setMetricOverride } from "../../lib/data/governanceV2";
 import {
   buildDriverScorecardConcessionMap,
@@ -146,6 +146,144 @@ function drawMobileScorecardPng({
   draw("MetrixIQ", 1050, footerY + 28, "#0b8d96", "bold 14px Arial", "right");
   return canvas.toDataURL("image/png");
 }
+
+
+/**
+ * Portrait PNG for WhatsApp: one readable driver card per row, with all
+ * scorecard fields. This avoids browser print margins and huge empty snips.
+ */
+function drawFullScorecardPhotoPng({
+  site, week, year, headlineScore, standing, pageRows,
+  totalDrivers, page, pageCount, firstRank, lastRank,
+}) {
+  const width = 1200;
+  const headerHeight = 214;
+  const cardHeight = 122;
+  const footerHeight = 62;
+  const height = headerHeight + pageRows.length * cardHeight + footerHeight;
+  const pixelRatio = 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = width * pixelRatio;
+  canvas.height = height * pixelRatio;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Your device cannot create scorecard photos.");
+  ctx.scale(pixelRatio, pixelRatio);
+  ctx.textBaseline = "middle";
+
+  const rectangle = (color, x, y, w, h) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  };
+  const rounded = (color, x, y, w, h, radius = 8) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.closePath();
+    ctx.fill();
+  };
+  const draw = (value, x, y, color, size = 20, weight = "700", align = "left") => {
+    ctx.fillStyle = color;
+    ctx.font = weight + " " + size + "px Arial, sans-serif";
+    ctx.textAlign = align;
+    ctx.fillText(String(value ?? "—"), x, y);
+  };
+  const fitName = (value, x, y, maxWidth) => {
+    const name = String(value ?? "—");
+    let size = 24;
+    ctx.font = "700 " + size + "px Arial, sans-serif";
+    while (ctx.measureText(name).width > maxWidth && size > 16) {
+      size -= 1;
+      ctx.font = "700 " + size + "px Arial, sans-serif";
+    }
+    if (ctx.measureText(name).width <= maxWidth) {
+      draw(name, x, y, "#183754", size);
+      return;
+    }
+    let shortened = name;
+    while (shortened.length > 1 && ctx.measureText(shortened + "…").width > maxWidth) {
+      shortened = shortened.slice(0, -1);
+    }
+    draw(shortened + "…", x, y, "#183754", size);
+  };
+  const rankPalettes = {
+    "fantastic-plus": ["#164d82", "#e4f1fd"],
+    fantastic: ["#207db3", "#eaf5ff"],
+    great: ["#2d865c", "#e9f7ef"],
+    fair: ["#b27b1a", "#fff5de"],
+    poor: ["#a44255", "#fff0f3"],
+  };
+  const metricColors = {
+    good: "#216c50",
+    warn: "#ad731b",
+    bad: "#b23f52",
+    neutral: "#62798c",
+  };
+  const metricLabels = [
+    ["CON", "concessions", "conTone"],
+    ["DCR", "dcr", "dcrTone"],
+    ["DSC", "dsc", "dscTone"],
+    ["LoR", "lor", "lorTone"],
+    ["POD", "pod", "podTone"],
+    ["CC", "cc", "ccTone"],
+    ["CE", "ce", "ceTone"],
+    ["CDF", "cdf", "cdfTone"],
+    ["PSB", "psb", "psbTone"],
+  ];
+
+  rectangle("#ffffff", 0, 0, width, height);
+  rectangle("#102d4c", 0, 0, width, 174);
+  rectangle("#0c9d9d", 0, 174, width, 6);
+  draw("METRIXIQ  •  FULL DRIVER SCORECARD", 28, 30, "#9fe8e4", 18, "800");
+  draw(String(week) + "  ·  " + String(site), 28, 89, "#ffffff", 46, "800");
+  draw(String(year) + "  •  Drivers " + firstRank + "–" + lastRank + " of " + totalDrivers, 29, 145, "#d1e2ef", 20, "700");
+  if (headlineScore != null) {
+    draw(Number(headlineScore).toFixed(2), 1169, 78, "#ffffff", 45, "800", "right");
+    draw(standing || "DSP score", 1168, 121, "#b7e2e7", 17, "700", "right");
+  }
+  draw("PHOTO " + page + " / " + pageCount, 27, 198, "#45677e", 17, "800");
+  draw("Sorted by total score, then FICO", 1174, 198, "#678196", 16, "600", "right");
+
+  pageRows.forEach((row, index) => {
+    const y = headerHeight + index * cardHeight;
+    const palette = rankPalettes[row.tier] || rankPalettes.great;
+    rectangle(index % 2 ? "#f9fbfe" : "#ffffff", 0, y, width, cardHeight);
+    rectangle(palette[0], 0, y, 7, cardHeight);
+    rectangle("#e4ebf1", 13, y + cardHeight - 1, width - 26, 1);
+
+    draw(row.rank, 30, y + 39, "#57718a", 21, "800");
+    rounded(palette[1], 91, y + 20, 170, 40, 9);
+    draw(row.tierLabel, 176, y + 40, palette[0], 17, "800", "center");
+    fitName(row.name, 282, y + 41, 505);
+
+    draw("SCORE", 897, y + 19, "#6d8394", 13, "800", "center");
+    draw(row.score, 897, y + 46, "#16548b", 26, "800", "center");
+    draw("FICO", 1021, y + 19, "#6d8394", 13, "800", "center");
+    draw(row.fico, 1021, y + 46, metricColors[row.ficoTone] || metricColors.neutral, 25, "800", "center");
+    draw("DEL", 1135, y + 19, "#6d8394", 13, "800", "center");
+    draw(row.delivered, 1135, y + 46, "#284b68", 23, "800", "center");
+
+    rounded("#eff4f8", 24, y + 72, 1152, 42, 7);
+    metricLabels.forEach(([label, valueKey, toneKey], metricIndex) => {
+      const cellX = 24 + metricIndex * 128;
+      if (metricIndex) rectangle("#dfe8ef", cellX, y + 80, 1, 27);
+      draw(label, cellX + 64, y + 84, "#74899a", 12, "800", "center");
+      draw(row[valueKey], cellX + 64, y + 103, metricColors[row[toneKey]] || metricColors.neutral, 17, "800", "center");
+    });
+  });
+
+  const footerY = headerHeight + pageRows.length * cardHeight;
+  rectangle("#eaf2f8", 0, footerY, width, footerHeight);
+  draw(String(site) + "  •  " + String(week) + "  •  Page " + page + " of " + pageCount, 28, footerY + 31, "#466980", 17);
+  draw("MetrixIQ", 1173, footerY + 31, "#087d83", 20, "800", "right");
+  return canvas.toDataURL("image/png");
+}
+
 
 // Minimal uncompressed ZIP writer for independent rank images (no third-party
 // archive dependency). PNG is already compressed, so storing it is efficient.
@@ -495,6 +633,7 @@ export default function DriverScorecardsV22({
   const [shareImageProgress, setShareImageProgress] = useState("");
   const [mobilePhotoTier, setMobilePhotoTier] = useState("fantastic-plus");
   const [mobilePhotoPage, setMobilePhotoPage] = useState(1);
+  const [fullPhotoPage, setFullPhotoPage] = useState(1);
   const [mobilePhotoPreview, setMobilePhotoPreview] = useState(null);
   const [photoShareTip, setPhotoShareTip] = useState("");
   const [manualFicoOverrides, setManualFicoOverrides] = useState({});
@@ -1130,6 +1269,7 @@ export default function DriverScorecardsV22({
   const rankedPhotoRows = [...enrichedRows].sort(
     (a, b) => (a.currentRank || Infinity) - (b.currentRank || Infinity)
   );
+  const fullPhotoPages = splitScorecardPhotoPages(rankedPhotoRows);
   const rankPhotoGroups = groupOrder.map((group) => ({
     ...group,
     rows: rankedPhotoRows.filter((row) => row.sourceRank.cls === group.cls),
@@ -1160,6 +1300,38 @@ export default function DriverScorecardsV22({
       psbTone: metricTone("psb", row.psb),
     };
   });
+  const prepareFullPhotoRows = (sourceRows) => {
+    const rows = preparePhotoRows(sourceRows);
+    return rows.map((row, index) => {
+      const source = sourceRows[index];
+      return {
+        ...row,
+        delivered: plain(source.delivered),
+        dsc: plain(source.dsc_dpmo),
+        lor: plain(source.lor),
+        ce: plain(source.ce_dpmo),
+        cdf: plain(source.cdf_dpmo),
+        dscTone: metricTone("dsc_dpmo", source.dsc_dpmo),
+        lorTone: metricTone("lor", source.lor),
+        ceTone: metricTone("ce_dpmo", source.ce_dpmo),
+        cdfTone: metricTone("cdf_dpmo", source.cdf_dpmo),
+      };
+    });
+  };
+  const renderFullPhoto = (pageItem) => drawFullScorecardPhotoPng({
+    site: period?.site || "All sites",
+    week: period?.weekLabel || "Week",
+    year: period?.year || "",
+    headlineScore,
+    standing: overallStanding,
+    pageRows: prepareFullPhotoRows(pageItem.rows),
+    totalDrivers,
+    page: pageItem.page,
+    pageCount: fullPhotoPages.length,
+    firstRank: pageItem.start,
+    lastRank: pageItem.end,
+  });
+
   const renderPhoto = (items, category, total, page, pageCount) =>
     drawMobileScorecardPng({
       site: period?.site || "All sites",
@@ -1179,6 +1351,74 @@ export default function DriverScorecardsV22({
     String(period?.site || "site").replace(/[^a-z0-9-]/gi, "-"),
     String(period?.weekLabel || "week").replace(/[^a-z0-9-]/gi, "-"),
   ].join("-");
+
+  function previewFullScorecardPhoto(requestedPage = fullPhotoPage) {
+    setPhotoShareTip("");
+    if (!fullPhotoPages.length) {
+      setShareImageError("No drivers are available for this week.");
+      return;
+    }
+    try {
+      const index = Math.min(Math.max(Number(requestedPage) - 1 || 0, 0), fullPhotoPages.length - 1);
+      const selected = fullPhotoPages[index];
+      const dataUrl = renderFullPhoto(selected);
+      setFullPhotoPage(selected.page);
+      setMobilePhotoPreview({
+        dataUrl,
+        fileName: photoBaseName() + "-Full-Scorecard-" + selected.page + "-of-" + fullPhotoPages.length + ".png",
+        label: "Full scorecard · Photo " + selected.page + "/" + fullPhotoPages.length +
+          " · Drivers " + selected.start + "–" + selected.end,
+        kind: "full-scorecard",
+        page: selected.page,
+      });
+      setShareImageError("");
+    } catch (error) {
+      setShareImageError(error?.message || "Unable to prepare the full scorecard photo.");
+    }
+  }
+
+  async function exportFullScorecardPhotosZip() {
+    if (shareImageBusy) return;
+    if (!fullPhotoPages.length) {
+      setShareImageError("No drivers are available for this week.");
+      return;
+    }
+    setShareImageBusy(true);
+    setShareImageError("");
+    setShareImageProgress("Preparing all " + fullPhotoPages.length + " HD scorecard photos…");
+    try {
+      const files = [];
+      for (const pageItem of fullPhotoPages) {
+        const dataUrl = renderFullPhoto(pageItem);
+        const binary = atob(dataUrl.split(",")[1]);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        files.push({
+          name: photoBaseName() + "-Full-Scorecard-" +
+            String(pageItem.page).padStart(2, "0") + "-of-" + fullPhotoPages.length + ".png",
+          bytes,
+        });
+        setShareImageProgress("Created photo " + pageItem.page + " of " + fullPhotoPages.length + "…");
+        // Release the browser event loop between large PNG canvases.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      const url = URL.createObjectURL(buildImageZip(files));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = photoBaseName() + "-Full-Scorecard-" + files.length + "-Photos.zip";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setShareImageProgress("Downloaded " + files.length + " HD PNG photos covering all " + totalDrivers +
+        " drivers. On iPhone, use the photo preview and Share photo to save directly.");
+    } catch (error) {
+      setShareImageError(error?.message || "Unable to download full scorecard photos.");
+      setShareImageProgress("");
+    } finally {
+      setShareImageBusy(false);
+    }
+  }
 
   function previewRankPhoto() {
     setPhotoShareTip("");
@@ -1995,6 +2235,9 @@ export default function DriverScorecardsV22({
               <button type="button" className="btn primary scorex3-ranks-export" onClick={exportRankImagesZip} disabled={shareImageBusy}>
                 {shareImageBusy ? "Preparing…" : "Download rank photos ZIP"}
               </button>
+              <button type="button" className="btn primary scorex3-full-png-export" onClick={exportFullScorecardPhotosZip} disabled={shareImageBusy || !fullPhotoPages.length}>
+                {shareImageBusy ? "Preparing photos…" : "Download full team · " + fullPhotoPages.length + " PNGs"}
+              </button>
               <button type="button" className="btn primary scorex3-whatsapp-export" onClick={exportWhatsAppPng} disabled={shareImageBusy}>
                 {"Preview overview PNG"}
               </button>
@@ -2032,6 +2275,32 @@ export default function DriverScorecardsV22({
             </label>
             <button type="button" className="btn primary scorex3-mobile-photo-open" onClick={previewRankPhoto}>
               Show photo
+            </button>
+          </div>
+          <div className="scorex3-full-photo-tools">
+            <div className="scorex3-full-photo-intro">
+              <b>Full scorecard for WhatsApp · HD photos</b>
+              <span>
+                {totalDrivers} drivers split into {fullPhotoPages.length} balanced PNGs
+                {fullPhotoPages.length ? " (" + fullPhotoPages.map((item) => item.rows.length).join(" / ") + " drivers)" : ""}.
+                Portrait format, all scorecard metrics, no black margins.
+              </span>
+            </div>
+            <label>
+              <span>Choose photo</span>
+              <select value={Math.min(fullPhotoPage, Math.max(fullPhotoPages.length, 1))} onChange={(event) => setFullPhotoPage(Number(event.target.value))} disabled={!fullPhotoPages.length}>
+                {fullPhotoPages.map((item) => (
+                  <option key={item.page} value={item.page}>
+                    {item.page} / {fullPhotoPages.length} · Drivers {item.start}–{item.end}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="button" className="btn primary scorex3-full-photo-preview" onClick={() => previewFullScorecardPhoto()} disabled={!fullPhotoPages.length || shareImageBusy}>
+              Preview / Share photo
+            </button>
+            <button type="button" className="btn ghost scorex3-full-photo-download" onClick={exportFullScorecardPhotosZip} disabled={!fullPhotoPages.length || shareImageBusy}>
+              {shareImageBusy ? "Preparing…" : "Download " + fullPhotoPages.length + " PNGs (ZIP)"}
             </button>
           </div>
           {shareImageError && <p className="scorex3-share-image-error" role="alert">{shareImageError}</p>}
@@ -2101,9 +2370,25 @@ export default function DriverScorecardsV22({
                   <button type="button" aria-label="Close preview" onClick={() => setMobilePhotoPreview(null)}>×</button>
                 </div>
                 {photoShareTip && <p className="scorex3-photo-share-tip" role="status">{photoShareTip}</p>}
-                <img src={mobilePhotoPreview.dataUrl} alt={mobilePhotoPreview.label} />
+                {mobilePhotoPreview.kind === "full-scorecard" ? (
+                  <div className="scorex3-full-photo-scroll">
+                    <img src={mobilePhotoPreview.dataUrl} alt={mobilePhotoPreview.label} />
+                  </div>
+                ) : (
+                  <img src={mobilePhotoPreview.dataUrl} alt={mobilePhotoPreview.label} />
+                )}
                 <div className="scorex3-photo-preview-actions">
+                  {mobilePhotoPreview.kind === "full-scorecard" && mobilePhotoPreview.page > 1 && (
+                    <button type="button" className="btn ghost" onClick={() => previewFullScorecardPhoto(mobilePhotoPreview.page - 1)}>
+                      ← Previous
+                    </button>
+                  )}
                   <button type="button" className="btn primary" onClick={sharePreviewPhoto}>Share photo</button>
+                  {mobilePhotoPreview.kind === "full-scorecard" && mobilePhotoPreview.page < fullPhotoPages.length && (
+                    <button type="button" className="btn ghost" onClick={() => previewFullScorecardPhoto(mobilePhotoPreview.page + 1)}>
+                      Next →
+                    </button>
+                  )}
                   <button type="button" className="btn ghost scorex3-desktop-save-png" onClick={savePreviewPhoto}>Save PNG</button>
                   <button type="button" className="btn ghost" onClick={() => setMobilePhotoPreview(null)}>Close</button>
                 </div>
