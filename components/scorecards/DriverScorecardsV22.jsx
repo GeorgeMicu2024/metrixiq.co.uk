@@ -159,8 +159,14 @@ function drawFullScorecardPhotoPng({
 }) {
   // Preserve the card layout and all drivers per photo, with a slightly
   // more compact WhatsApp image to avoid stretched text and oversized cards.
-  const width = 1200;
-  const outputWidth = 1530;
+  // WhatsApp fits tall images by height. Keep the same visual width as
+  // smaller-site photos even when a site has 22–25 drivers per image.
+  // Expand the layout itself (not the text) for dense pages, and use the
+  // same width across every photo in the selected export.
+  const driversPerPhoto = Math.ceil(totalDrivers / Math.max(1, pageCount));
+  const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 80;
+  const width = 1200 + extraWidth;
+  const outputWidth = Math.round(width * 1.275);
   // Reserve extra header space: WhatsApp overlays its controls at the top
   // when a photo is opened, so driver #1 starts below that overlay.
   const headerHeight = 430;
@@ -168,7 +174,7 @@ function drawFullScorecardPhotoPng({
   const footerHeight = 58;
   const height = headerHeight + pageRows.length * cardHeight + footerHeight;
   const outputHeight = Math.round(height * 0.95);
-  // Keep long 21-driver pages within mobile Safari's canvas area limits.
+  // Keep long 25-driver pages within mobile Safari's canvas area limits.
   const pixelRatio = Math.min(2, Math.sqrt(15000000 / (outputWidth * outputHeight)));
   const canvas = document.createElement("canvas");
   canvas.width = Math.floor(outputWidth * pixelRatio);
@@ -255,17 +261,17 @@ function drawFullScorecardPhotoPng({
   draw(String(week) + "  ·  " + String(site), 28, 247, "#ffffff", 52, "800");
   draw(String(year) + "  •  Drivers " + firstRank + "–" + lastRank + " of " + totalDrivers, 29, 316, "#d1e2ef", 22, "700");
   if (headlineScore != null) {
-    draw(Number(headlineScore).toFixed(2), 1166, 244, "#ffffff", 52, "800", "right");
-    draw(standing || "DSP score", 1166, 303, "#b7e2e7", 21, "700", "right");
+    draw(Number(headlineScore).toFixed(2), width - 34, 244, "#ffffff", 52, "800", "right");
+    draw(standing || "DSP score", width - 34, 303, "#b7e2e7", 21, "700", "right");
   }
   draw("PHOTO " + page + " / " + pageCount, 28, 407, "#45677e", 19, "800");
-  draw("Score · FICO · Delivered · CON · DCR · POD · CC · DSC · LoR", 1171, 407, "#678196", 17, "600", "right");
+  draw("Score · FICO · Delivered · CON · DCR · POD · CC · DSC · LoR", width - 29, 407, "#678196", 17, "600", "right");
 
   pageRows.forEach((row, index) => {
     const y = headerHeight + index * cardHeight;
     const palette = rankPalettes[row.tier] || rankPalettes.great;
     // Give each driver a separate card, a subtle lower shadow and a clear
-    // 10px gap. Keep every score and metric in the same original positions.
+    // 10px gap. Preserve score/metric layout while widening dense pages.
     rectangle("#e1eaf2", 0, y, width, cardHeight);
     rounded("#c5d5e2", 14, y + 6, width - 28, 182, 12);
     rounded(palette.card, 12, y + 2, width - 24, 182, 12);
@@ -275,31 +281,32 @@ function drawFullScorecardPhotoPng({
     draw(row.rank, 27, y + 55, "#516f86", 25, "800");
     rounded(palette.badge, 79, y + 30, 178, 48, 9);
     draw(row.tierLabel, 168, y + 54, palette.accent, 19, "800", "center");
-    fitName(row.name, 275, y + 55, 501);
+    fitName(row.name, 275, y + 55, 501 + extraWidth);
 
     // Total score is the primary result. Make it unmistakable on a phone.
-    rounded(palette.score, 788, y + 15, 151, 78, 13);
-    draw("SCORE", 864, y + 34, palette.hint, 16, "800", "center");
-    draw(row.score, 864, y + 67, palette.ink, 41, "800", "center");
+    rounded(palette.score, 788 + extraWidth, y + 15, 151, 78, 13);
+    draw("SCORE", 864 + extraWidth, y + 34, palette.hint, 16, "800", "center");
+    draw(row.score, 864 + extraWidth, y + 67, palette.ink, 41, "800", "center");
 
-    draw("FICO", 1012, y + 34, "#6b8193", 16, "800", "center");
-    draw(row.fico, 1012, y + 67, metricColors[row.ficoTone] || metricColors.neutral, 31, "800", "center");
-    draw("DEL", 1135, y + 34, "#6b8193", 16, "800", "center");
-    draw(row.delivered, 1135, y + 67, "#244963", 30, "800", "center");
+    draw("FICO", 1012 + extraWidth, y + 34, "#6b8193", 16, "800", "center");
+    draw(row.fico, 1012 + extraWidth, y + 67, metricColors[row.ficoTone] || metricColors.neutral, 31, "800", "center");
+    draw("DEL", 1135 + extraWidth, y + 34, "#6b8193", 16, "800", "center");
+    draw(row.delivered, 1135 + extraWidth, y + 67, "#244963", 30, "800", "center");
 
     quickMetrics.forEach(([label, valueKey, toneKey], metricIndex) => {
-      const chipX = 24 + (metricIndex % 3) * 392;
+      const chipStep = 392 + extraWidth / 3;
+      const chipX = 24 + (metricIndex % 3) * chipStep;
       const chipY = y + 100 + Math.floor(metricIndex / 3) * 42;
-      rounded(palette.metric, chipX, chipY, 376, 36, 8);
+      rounded(palette.metric, chipX, chipY, chipStep - 16, 36, 8);
       draw(label, chipX + 18, chipY + 18, "#183e5e", 23, "900");
-      draw(row[valueKey], chipX + 356, chipY + 18, metricColors[row[toneKey]] || metricColors.neutral, 24, "800", "right");
+      draw(row[valueKey], chipX + chipStep - 36, chipY + 18, metricColors[row[toneKey]] || metricColors.neutral, 24, "800", "right");
     });
   });
 
   const footerY = headerHeight + pageRows.length * cardHeight;
   rectangle("#eaf2f8", 0, footerY, width, footerHeight);
   draw(String(site) + "  •  " + String(week) + "  •  Page " + page + " of " + pageCount, 28, footerY + 29, "#466980", 18);
-  draw("MetrixIQ", 1173, footerY + 29, "#087d83", 21, "800", "right");
+  draw("MetrixIQ", width - 27, footerY + 29, "#087d83", 21, "800", "right");
   return canvas.toDataURL("image/png");
 }
 

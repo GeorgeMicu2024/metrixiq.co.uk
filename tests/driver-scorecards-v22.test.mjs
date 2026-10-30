@@ -506,7 +506,7 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   assert.ok(view.includes("<option value={3}>3 photos"));
   assert.ok(view.includes("<option value={4}>4 photos"));
   assert.ok(view.includes("<option value={5}>5 photos"));
-  assert.ok(view.includes("const pixelRatio = Math.min(2, Math.sqrt(15000000 / (outputWidth * height)))"));
+  assert.ok(view.includes("const pixelRatio = Math.min(2, Math.sqrt(15000000 / (outputWidth * outputHeight)))"));
   assert.ok(view.includes("download full team") || view.includes("Download full team"));
   assert.ok(view.includes("Preview / Share photo"));
   assert.ok(view.includes("exportFullScorecardPhotosZip"));
@@ -516,7 +516,7 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   assert.ok(view.includes('kind: "full-scorecard"'));
   assert.ok(view.includes('return canvas.toDataURL("image/png")'));
   const photoDraw = view.slice(view.indexOf("function drawFullScorecardPhotoPng"), view.indexOf("// Minimal uncompressed ZIP writer"));
-  assert.ok(photoDraw.includes("rounded(palette.score, 788"));
+  assert.ok(photoDraw.includes("rounded(palette.score, 788 + extraWidth"));
   assert.ok(photoDraw.includes("palette.ink"));
   for (const tier of ["fantastic-plus", "fantastic", "great", "fair", "poor"]) {
     assert.ok(photoDraw.includes(tier + ":") || photoDraw.includes('"' + tier + '":'));
@@ -524,9 +524,11 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   for (const colour of ["#175aa8", "#7accf4", "#218452", "#f5a735", "#c5374d"]) {
     assert.ok(photoDraw.includes(colour), "Missing tier colour " + colour);
   }
-  assert.ok(photoDraw.includes("const outputWidth = 1700"));
+  assert.ok(photoDraw.includes("const driversPerPhoto = Math.ceil(totalDrivers / Math.max(1, pageCount))"));
+  assert.ok(photoDraw.includes("const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 80"));
+  assert.ok(photoDraw.includes("const outputWidth = Math.round(width * 1.275)"));
   assert.ok(photoDraw.includes("canvas.width = Math.floor(outputWidth * pixelRatio)"));
-  assert.ok(photoDraw.includes("ctx.scale(pixelRatio * (outputWidth / width), pixelRatio)"));
+  assert.ok(photoDraw.includes("ctx.scale(pixelRatio * (outputWidth / width), pixelRatio * (outputHeight / height))"));
   assert.ok(photoDraw.includes("const cardHeight = 194"));
   assert.ok(photoDraw.includes("const headerHeight = 430"));
   assert.ok(photoDraw.includes('rectangle("#102d4c", 0, 0, width, 374)'));
@@ -537,7 +539,7 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   assert.ok(photoDraw.includes("rounded(\"#c5d5e2\", 14"));
   assert.ok(photoDraw.includes("rectangle(\"#91aabe\", 24"));
   assert.ok(photoDraw.includes("10px gap"));
-  assert.ok(photoDraw.includes('draw(row.score, 864'));
+  assert.ok(photoDraw.includes('draw(row.score, 864 + extraWidth'));
   for (const label of ["CON", "DCR", "POD", "CC", "DSC", "LoR", "SCORE", "FICO", "DEL"]) {
     assert.ok(photoDraw.includes('"' + label + '"'), "Missing WhatsApp label " + label);
   }
@@ -560,4 +562,16 @@ test("WhatsApp export offers 3, 4 and 5 image sizes without missing a driver", (
     assert.deepEqual(pages.map((item) => item.start), expected.map((_, i) => 1 + expected.slice(0, i).reduce((sum, n) => sum + n, 0)));
     assert.equal(pages.at(-1).end, 61);
   }
+});
+
+test("Dense scorecard pages get a wider WhatsApp layout without losing drivers", () => {
+  const layoutWidth = (totalDrivers, pageCount) => {
+    const driversPerPhoto = Math.ceil(totalDrivers / Math.max(1, pageCount));
+    const extraWidth = Math.max(0, Math.min(25, driversPerPhoto) - 16) * 80;
+    return 1200 + extraWidth;
+  };
+  assert.equal(layoutWidth(61, 4), 1200); // DZM1 photo dimensions remain as before.
+  assert.equal(layoutWidth(134, 6), 1760); // DLS2 is wider with 23 drivers.
+  assert.equal(layoutWidth(130, 6), 1680);
+  assert.equal(layoutWidth(25, 1), 1920);
 });
