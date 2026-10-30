@@ -213,12 +213,14 @@ function drawFullScorecardPhotoPng({
     }
     draw(shortened + "…", x, y, "#193651", size);
   };
+  // Each tier uses its own accessible score-box colour and a subtle card tint.
+  // Keep the original score values and metric warning colours unchanged.
   const rankPalettes = {
-    "fantastic-plus": ["#164d82", "#e4f1fd"],
-    fantastic: ["#207db3", "#eaf5ff"],
-    great: ["#2d865c", "#e9f7ef"],
-    fair: ["#b27b1a", "#fff5de"],
-    poor: ["#a44255", "#fff0f3"],
+    "fantastic-plus": { accent: "#175aa8", badge: "#e6f1ff", score: "#175aa8", ink: "#ffffff", hint: "#d7eaff", card: "#f7faff" },
+    fantastic: { accent: "#1687c8", badge: "#e6f7ff", score: "#7accf4", ink: "#163957", hint: "#285876", card: "#f7fcff" },
+    great: { accent: "#238857", badge: "#e5f7ed", score: "#218452", ink: "#ffffff", hint: "#ffffff", card: "#f7fcf8" },
+    fair: { accent: "#b56a14", badge: "#fff0d8", score: "#f5a735", ink: "#263a50", hint: "#263a50", card: "#fffaf4" },
+    poor: { accent: "#b52e45", badge: "#ffe7ec", score: "#c5374d", ink: "#ffffff", hint: "#ffffff", card: "#fff8f9" },
   };
   const metricColors = {
     good: "#206449",
@@ -257,19 +259,19 @@ function drawFullScorecardPhotoPng({
     // 10px gap. Keep every score and metric in the same original positions.
     rectangle("#e1eaf2", 0, y, width, cardHeight);
     rounded("#c5d5e2", 14, y + 6, width - 28, 182, 12);
-    rounded(index % 2 ? "#f7fafd" : "#ffffff", 12, y + 2, width - 24, 182, 12);
-    rectangle(palette[0], 12, y + 7, 7, 172);
+    rounded(palette.card, 12, y + 2, width - 24, 182, 12);
+    rectangle(palette.accent, 12, y + 7, 7, 172);
     rectangle("#91aabe", 24, y + cardHeight - 4, width - 48, 2);
 
     draw(row.rank, 27, y + 55, "#516f86", 25, "800");
-    rounded(palette[1], 79, y + 30, 178, 48, 9);
-    draw(row.tierLabel, 168, y + 54, palette[0], 19, "800", "center");
+    rounded(palette.badge, 79, y + 30, 178, 48, 9);
+    draw(row.tierLabel, 168, y + 54, palette.accent, 19, "800", "center");
     fitName(row.name, 275, y + 55, 501);
 
     // Total score is the primary result. Make it unmistakable on a phone.
-    rounded("#123b63", 788, y + 15, 151, 78, 13);
-    draw("SCORE", 864, y + 34, "#c8e8f2", 16, "800", "center");
-    draw(row.score, 864, y + 67, "#ffffff", 41, "800", "center");
+    rounded(palette.score, 788, y + 15, 151, 78, 13);
+    draw("SCORE", 864, y + 34, palette.hint, 16, "800", "center");
+    draw(row.score, 864, y + 67, palette.ink, 41, "800", "center");
 
     draw("FICO", 1012, y + 34, "#6b8193", 16, "800", "center");
     draw(row.fico, 1012, y + 67, metricColors[row.ficoTone] || metricColors.neutral, 31, "800", "center");
