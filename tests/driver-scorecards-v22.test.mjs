@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { calculateDriverScorecard } from "../lib/scorecards/driverScoreFormula.js";
+import { compareDriverScorecardRank } from "../lib/scorecards/driverRanking.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
@@ -437,4 +438,36 @@ test("Driver Scorecards complete PDF is isolated from dashboard and includes all
   assert.ok(css.includes("html.scorex3-printing-share body > :not(.scorex3-share-overlay)"));
   assert.ok(css.includes("size:A3 landscape"));
   assert.ok(css.includes("scorex3-share-table thead"));
+});
+
+test("Driver ranking breaks equal total scores by verified FICO, without changing totals", () => {
+  const sample = [
+    { displayScore: 98, mentor_score: 825, drivers: { full_name: "Tibi Gangal", trid: "A1HAE5PVBICEXX" } },
+    { displayScore: 97.83, mentor_score: 825, drivers: { full_name: "Nicolae Badarau" } },
+    { displayScore: 98, mentor_score: 847, drivers: { full_name: "Eugen Borto", trid: "A1SSU3R959AIDW" } },
+    { displayScore: 100, mentor_score: 850, drivers: { full_name: "Aronita Voka" } },
+    { displayScore: 98, mentor_score: 836, drivers: { full_name: "Septimiu Gabriel Ionescu" } },
+  ];
+  const ordered = [...sample].sort(compareDriverScorecardRank);
+  assert.deepEqual(ordered.map((row) => row.drivers.full_name), [
+    "Aronita Voka", "Eugen Borto", "Septimiu Gabriel Ionescu",
+    "Tibi Gangal", "Nicolae Badarau",
+  ]);
+  assert.deepEqual(sample.map((row) => row.displayScore), [98, 97.83, 98, 100, 98]);
+});
+
+test("Driver rank ties are deterministic and missing FICO ranks after known FICO", () => {
+  const records = [
+    { displayScore: 98, mentor_score: null, drivers: { full_name: "Zed" } },
+    { displayScore: 98, mentor_score: 825, drivers: { full_name: "Tibi" } },
+    { displayScore: 98, mentor_score: 825, drivers: { full_name: "Alan" } },
+    { displayScore: null, mentor_score: 850, drivers: { full_name: "Missing Score" } },
+  ];
+  assert.deepEqual(records.sort(compareDriverScorecardRank).map((row) => row.drivers.full_name), [
+    "Alan", "Tibi", "Zed", "Missing Score",
+  ]);
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  assert.ok(view.includes('import { compareDriverScorecardRank }'));
+  assert.equal((view.match(/\\.sort\\(compareDriverScorecardRank\\)/g) || []).length, 1);
+  assert.equal((view.match(/compareDriverScorecardRank/g) || []).length, 5);
 });
