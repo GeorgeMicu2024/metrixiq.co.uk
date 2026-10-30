@@ -525,6 +525,12 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
     assert.ok(photoDraw.includes(colour), "Missing tier colour " + colour);
   }
   assert.ok(photoDraw.includes("const cardHeight = 194"));
+  assert.ok(photoDraw.includes("const headerHeight = 430"));
+  assert.ok(photoDraw.includes('rectangle("#102d4c", 0, 0, width, 374)'));
+  assert.ok(photoDraw.includes("rounded(palette.metric, chipX"));
+  for (const color of ["#dceafd", "#d9f0ff", "#daf0e3", "#ffedcb", "#ffe0e5"]) {
+    assert.ok(photoDraw.includes(color), "Missing stronger tier background " + color);
+  }
   assert.ok(photoDraw.includes("rounded(\"#c5d5e2\", 14"));
   assert.ok(photoDraw.includes("rectangle(\"#91aabe\", 24"));
   assert.ok(photoDraw.includes("10px gap"));
