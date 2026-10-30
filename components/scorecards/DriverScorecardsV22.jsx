@@ -159,7 +159,7 @@ function drawFullScorecardPhotoPng({
 }) {
   const width = 1200;
   const headerHeight = 206;
-  const cardHeight = 184;
+  const cardHeight = 194;
   const footerHeight = 58;
   const height = headerHeight + pageRows.length * cardHeight + footerHeight;
   // Keep long 21-driver pages within mobile Safari's canvas area limits.
@@ -253,10 +253,13 @@ function drawFullScorecardPhotoPng({
   pageRows.forEach((row, index) => {
     const y = headerHeight + index * cardHeight;
     const palette = rankPalettes[row.tier] || rankPalettes.great;
-    rectangle(index % 2 ? "#f7fafd" : "#ffffff", 0, y, width, cardHeight);
-    rectangle(palette[0], 0, y, 7, cardHeight);
-    // A stronger horizontal divider separates one driver from the next.
-    rectangle("#bbcfde", 16, y + cardHeight - 3, width - 32, 3);
+    // Give each driver a separate card, a subtle lower shadow and a clear
+    // 10px gap. Keep every score and metric in the same original positions.
+    rectangle("#e1eaf2", 0, y, width, cardHeight);
+    rounded("#c5d5e2", 14, y + 6, width - 28, 182, 12);
+    rounded(index % 2 ? "#f7fafd" : "#ffffff", 12, y + 2, width - 24, 182, 12);
+    rectangle(palette[0], 12, y + 7, 7, 172);
+    rectangle("#91aabe", 24, y + cardHeight - 4, width - 48, 2);
 
     draw(row.rank, 27, y + 55, "#516f86", 25, "800");
     rounded(palette[1], 79, y + 30, 178, 48, 9);
