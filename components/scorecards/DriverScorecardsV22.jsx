@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { fetchDriverScorecardData } from "../../lib/data/scorecardData";
+import { fetchDriverScorecardStartupData, fetchWeeklyScorecardRows } from "../../lib/data/scorecardData";
 import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
@@ -409,7 +409,7 @@ export default function DriverScorecardsV22({
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
     const [scorecardData, overrides, concessionSnapshots] = await Promise.all([
-      fetchDriverScorecardData(supabase, organizationId),
+      fetchDriverScorecardStartupData(supabase, organizationId),
       fetchMetricOverrides(supabase, organizationId, "active"),
       fetchDriverScorecardConcessionSnapshots(supabase, organizationId),
     ]);
@@ -421,7 +421,35 @@ export default function DriverScorecardsV22({
     };
   }, [organizationId]);
 
-  const rows = load.data?.rows || [];
+  // Show the newest scorecards immediately. Complete historical weeks arrive
+  // without blocking the page, while retaining the full archive and exports.
+  const [archive, setArchive] = useState({ organizationId: "", rows: null, loading: false, error: "" });
+  useEffect(() => {
+    if (load.loading || !load.data || !organizationId) return;
+    let alive = true;
+    setArchive({ organizationId, rows: null, loading: true, error: "" });
+    const timer = window.setTimeout(() => {
+      fetchWeeklyScorecardRows(getSupabaseBrowserClient(), organizationId)
+        .then((result) => {
+          if (!alive) return;
+          setArchive({
+            organizationId,
+            rows: applyMetricOverrides(result.rows || [], load.data.overrides || []),
+            loading: false,
+            error: "",
+          });
+        })
+        .catch((error) => {
+          if (!alive) return;
+          setArchive({ organizationId, rows: null, loading: false,
+            error: error?.message || "Could not load older scorecards." });
+        });
+    }, 300);
+    return () => { alive = false; window.clearTimeout(timer); };
+  }, [organizationId, load.loading, load.data]);
+
+  const rows = archive.organizationId === organizationId && archive.rows
+    ? archive.rows : load.data?.rows || [];
   const cards = load.data?.cards || [];
   const concessionSnapshotMap = useMemo(
     () => buildDriverScorecardConcessionMap(load.data?.concessionSnapshots || []),
@@ -1731,8 +1759,14 @@ export default function DriverScorecardsV22({
     }
   }
 
-  if (load.loading) return <LoadingPanel text="Loading weekly scorecard archive…" />;
+  if (load.loading) return <LoadingPanel text="Loading recent driver scorecards…" />;
   if (load.error) return <ErrorPanel error={load.error} />;
+  if (period && !period.rows.length && archive.organizationId === organizationId && archive.loading) {
+    return <LoadingPanel text="Loading drivers from the historical scorecard…" />;
+  }
+  if (period && !period.rows.length && archive.organizationId === organizationId && archive.error) {
+    return <ErrorPanel error={archive.error} />;
+  }
 
   if (!periodMap.length) {
     return <>
