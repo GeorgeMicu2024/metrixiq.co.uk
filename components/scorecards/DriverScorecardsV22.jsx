@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchDriverScorecardData } from "../../lib/data/scorecardData";
 import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
 import { calculateDriverScorecard } from "../../lib/scorecards/driverScoreFormula";
+import { compareDriverScorecardRank } from "../../lib/scorecards/driverRanking";
 import { applyMetricOverrides, fetchMetricOverrides, setMetricOverride } from "../../lib/data/governanceV2";
 import {
   buildDriverScorecardConcessionMap,
@@ -485,6 +487,7 @@ export default function DriverScorecardsV22({
   const [sort, setSort] = useState({ key: "rank", direction: "asc" });
   const [shareOpen, setShareOpen] = useState(false);
   const [shareScope, setShareScope] = useState("all");
+  const [printAllDrivers, setPrintAllDrivers] = useState(false);
   const [breakdownRow, setBreakdownRow] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
   const [shareImageBusy, setShareImageBusy] = useState(false);
@@ -680,7 +683,7 @@ export default function DriverScorecardsV22({
   const previousRankByDriver = useMemo(() => {
     const map = new Map();
     [...previousRows]
-      .sort((a, b) => (num(b.displayScore) ?? -1) - (num(a.displayScore) ?? -1))
+      .sort(compareDriverScorecardRank)
       .forEach((row, index) => {
         const key = driverKey(row);
         if (key) map.set(key, index + 1);
@@ -717,7 +720,7 @@ export default function DriverScorecardsV22({
 
     const base = enrichBaseRows(period);
     const sorted = [...base].sort(
-      (a, b) => (num(b.displayScore) ?? -1) - (num(a.displayScore) ?? -1)
+      compareDriverScorecardRank
     );
     const currentRankByDriver = new Map();
     sorted.forEach((row, index) => {
@@ -1080,7 +1083,7 @@ export default function DriverScorecardsV22({
 
   const shareRows = useMemo(() => {
     const ranked = [...enrichedRows].sort(
-      (a, b) => (num(b.displayScore) ?? -1) - (num(a.displayScore) ?? -1)
+      compareDriverScorecardRank
     );
     if (shareScope === "attention") {
       return ranked.filter(
@@ -1096,14 +1099,32 @@ export default function DriverScorecardsV22({
     return ranked;
   }, [enrichedRows, shareScope]);
 
-  const exportSharePdf = () => {
+  // The PDF can contain the current share selection or the entire selected week.
+  // The share modal is portalled to <body> so hidden dashboard content cannot
+  // reserve blank pages in Chrome's print layout.
+  const printShareRows = printAllDrivers
+    ? [...enrichedRows].sort(compareDriverScorecardRank)
+    : shareRows;
+
+  const exportSharePdf = (allDrivers = false) => {
+    setPrintAllDrivers(allDrivers);
     document.documentElement.classList.add("scorex3-printing-share");
-    window.setTimeout(() => {
-      window.print();
-      window.setTimeout(() => {
-        document.documentElement.classList.remove("scorex3-printing-share");
-      }, 400);
-    }, 50);
+
+    const finishPrint = () => {
+      document.documentElement.classList.remove("scorex3-printing-share");
+      setPrintAllDrivers(false);
+      window.removeEventListener("afterprint", finishPrint);
+    };
+
+    window.addEventListener("afterprint", finishPrint);
+    // Wait for React to render the complete row set before Chrome captures it.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.print();
+        // Fallback for browsers that do not dispatch afterprint reliably.
+        window.setTimeout(finishPrint, 1500);
+      });
+    });
   };
 
   const rankedPhotoRows = [...enrichedRows].sort(
@@ -1931,7 +1952,7 @@ export default function DriverScorecardsV22({
       </div>
     )}
 
-    {shareOpen && (
+    {shareOpen && typeof document !== "undefined" && createPortal(
       <div className="scorex3-share-overlay" role="dialog" aria-modal="true" onClick={() => setShareOpen(false)}>
         <section className="scorex3-share-sheet" onClick={(event) => event.stopPropagation()}>
           <header className={`scorex3-share-head ${overallTier.cls}`}>
@@ -1977,8 +1998,11 @@ export default function DriverScorecardsV22({
               <button type="button" className="btn primary scorex3-whatsapp-export" onClick={exportWhatsAppPng} disabled={shareImageBusy}>
                 {"Preview overview PNG"}
               </button>
-              <button type="button" className="btn ghost scorex3-share-export" onClick={exportSharePdf}>
-                Export full PDF
+              <button type="button" className="btn ghost scorex3-share-export" onClick={() => exportSharePdf(false)}>
+                Export selection PDF
+              </button>
+              <button type="button" className="btn primary scorex3-share-export-all" onClick={() => exportSharePdf(true)}>
+                Export entire scorecard PDF
               </button>
             </div>
           </div>
@@ -2022,14 +2046,19 @@ export default function DriverScorecardsV22({
                   <th>Score</th>
                   <th>FICO</th>
                   <th>Con</th>
+                  <th>Delivered</th>
                   <th>DCR</th>
+                  <th>DSC</th>
+                  <th>LoR</th>
                   <th>POD</th>
                   <th>CC</th>
+                  <th>CE</th>
+                  <th>CDF</th>
                   <th>PSB</th>
                 </tr>
               </thead>
               <tbody>
-                {shareRows.map((row, index) => {
+                {printShareRows.map((row, index) => {
                   const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
                   return (
                     <tr key={`share-${driverKey(row)}-${index}`} className={`share-tier-${row.sourceRank.cls}`}>
@@ -2039,9 +2068,14 @@ export default function DriverScorecardsV22({
                       <td className={`share-score ${row.sourceRank.cls}`}><b>{formatDriverScore(row.displayScore)}</b></td>
                       <td className={`share-metric ${metricTone("fico", fico)}`}>{plain(fico)}</td>
                       <td className={`share-metric ${metricTone("concessions", row.concessions)}`}>{plain(row.concessions)}</td>
+                      <td>{plain(row.delivered)}</td>
                       <td className={`share-metric ${metricTone("dcr", row.dcr)}`}>{fmtPercentFlexible(row.dcr)}</td>
+                      <td className={`share-metric ${metricTone("dsc_dpmo", row.dsc_dpmo)}`}>{plain(row.dsc_dpmo)}</td>
+                      <td className={`share-metric ${metricTone("lor", row.lor)}`}>{plain(row.lor)}</td>
                       <td className={`share-metric ${metricTone("pod", row.pod)}`}>{fmtPercentFlexible(row.pod)}</td>
                       <td className={`share-metric ${metricTone("cc", row.cc)}`}>{fmtPercentFlexible(row.cc)}</td>
+                      <td className={`share-metric ${metricTone("ce_dpmo", row.ce_dpmo)}`}>{plain(row.ce_dpmo)}</td>
+                      <td className={`share-metric ${metricTone("cdf_dpmo", row.cdf_dpmo)}`}>{plain(row.cdf_dpmo)}</td>
                       <td className={`share-metric ${metricTone("psb", row.psb)}`}>{plain(row.psb)}</td>
                     </tr>
                   );
@@ -2077,7 +2111,8 @@ export default function DriverScorecardsV22({
             </div>
           )}
         </section>
-      </div>
+      </div>,
+      document.body
     )}
   </div>;
 }

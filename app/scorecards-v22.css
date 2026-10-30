@@ -1962,3 +1962,63 @@ body.scorex3-resizing-columns *{
     flex:0 0 auto!important;min-height:43px!important;
   }
 }
+
+
+/* Isolated, complete scorecard PDF: the portal is a direct <body> child so
+   earlier dashboard sections cannot leave blank printed pages. */
+@media print{
+  @page{size:A3 landscape;margin:9mm}
+  html.scorex3-printing-share body > :not(.scorex3-share-overlay){
+    display:none!important;
+  }
+  html.scorex3-printing-share .scorex3-share-overlay{
+    display:block!important;
+    position:static!important;
+    inset:auto!important;
+    padding:0!important;
+    margin:0!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    overflow:visible!important;
+  }
+  html.scorex3-printing-share .scorex3-share-sheet{
+    margin:0!important;
+    padding:0!important;
+    width:100%!important;
+    max-width:none!important;
+    overflow:visible!important;
+  }
+  html.scorex3-printing-share .scorex3-mobile-photo-tools,
+  html.scorex3-printing-share .scorex3-share-image-error,
+  html.scorex3-printing-share .scorex3-share-image-progress,
+  html.scorex3-printing-share .scorex3-photo-preview-overlay{
+    display:none!important;
+  }
+  html.scorex3-printing-share .scorex3-share-kpis{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  }
+  html.scorex3-printing-share .scorex3-share-table{
+    width:100%!important;
+    table-layout:auto!important;
+    font-size:7pt!important;
+  }
+  html.scorex3-printing-share .scorex3-share-table th,
+  html.scorex3-printing-share .scorex3-share-table td{
+    padding:1.2mm 1.3mm!important;
+    white-space:nowrap!important;
+  }
+  html.scorex3-printing-share .scorex3-share-table th:nth-child(3),
+  html.scorex3-printing-share .scorex3-share-table td:nth-child(3){
+    width:25%!important;
+    text-align:left!important;
+    white-space:normal!important;
+  }
+  html.scorex3-printing-share .scorex3-share-table thead{
+    display:table-header-group!important;
+  }
+  html.scorex3-printing-share .scorex3-share-table tr{
+    break-inside:avoid!important;
+    page-break-inside:avoid!important;
+  }
+}
