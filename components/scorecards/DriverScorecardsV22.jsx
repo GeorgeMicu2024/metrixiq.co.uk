@@ -149,17 +149,18 @@ function drawMobileScorecardPng({
 
 
 /**
- * Portrait PNG for WhatsApp: one readable driver card per row, with all
- * scorecard fields. This avoids browser print margins and huge empty snips.
+ * Clear portrait PNG for WhatsApp. This is a presentation-only summary: all
+ * scorecard data remains available in the app and complete PDF export.
+ * Show the score prominently, with only the core delivery metrics underneath.
  */
 function drawFullScorecardPhotoPng({
   site, week, year, headlineScore, standing, pageRows,
   totalDrivers, page, pageCount, firstRank, lastRank,
 }) {
   const width = 1200;
-  const headerHeight = 214;
-  const cardHeight = 122;
-  const footerHeight = 62;
+  const headerHeight = 206;
+  const cardHeight = 150;
+  const footerHeight = 58;
   const height = headerHeight + pageRows.length * cardHeight + footerHeight;
   const pixelRatio = 2;
   const canvas = document.createElement("canvas");
@@ -195,21 +196,21 @@ function drawFullScorecardPhotoPng({
   };
   const fitName = (value, x, y, maxWidth) => {
     const name = String(value ?? "—");
-    let size = 24;
+    let size = 27;
     ctx.font = "700 " + size + "px Arial, sans-serif";
-    while (ctx.measureText(name).width > maxWidth && size > 16) {
+    while (ctx.measureText(name).width > maxWidth && size > 19) {
       size -= 1;
       ctx.font = "700 " + size + "px Arial, sans-serif";
     }
     if (ctx.measureText(name).width <= maxWidth) {
-      draw(name, x, y, "#183754", size);
+      draw(name, x, y, "#193651", size);
       return;
     }
     let shortened = name;
     while (shortened.length > 1 && ctx.measureText(shortened + "…").width > maxWidth) {
       shortened = shortened.slice(0, -1);
     }
-    draw(shortened + "…", x, y, "#183754", size);
+    draw(shortened + "…", x, y, "#193651", size);
   };
   const rankPalettes = {
     "fantastic-plus": ["#164d82", "#e4f1fd"],
@@ -219,68 +220,67 @@ function drawFullScorecardPhotoPng({
     poor: ["#a44255", "#fff0f3"],
   };
   const metricColors = {
-    good: "#216c50",
-    warn: "#ad731b",
-    bad: "#b23f52",
-    neutral: "#62798c",
+    good: "#206449",
+    warn: "#a36a15",
+    bad: "#a43e50",
+    neutral: "#506d82",
   };
-  const metricLabels = [
+  // The WhatsApp image intentionally excludes advanced metrics (DSC, LoR,
+  // CE, CDF, PSB) to avoid microscopic text. They remain in the full PDF.
+  const quickMetrics = [
     ["CON", "concessions", "conTone"],
     ["DCR", "dcr", "dcrTone"],
-    ["DSC", "dsc", "dscTone"],
-    ["LoR", "lor", "lorTone"],
     ["POD", "pod", "podTone"],
     ["CC", "cc", "ccTone"],
-    ["CE", "ce", "ceTone"],
-    ["CDF", "cdf", "cdfTone"],
-    ["PSB", "psb", "psbTone"],
   ];
 
   rectangle("#ffffff", 0, 0, width, height);
-  rectangle("#102d4c", 0, 0, width, 174);
-  rectangle("#0c9d9d", 0, 174, width, 6);
-  draw("METRIXIQ  •  FULL DRIVER SCORECARD", 28, 30, "#9fe8e4", 18, "800");
-  draw(String(week) + "  ·  " + String(site), 28, 89, "#ffffff", 46, "800");
-  draw(String(year) + "  •  Drivers " + firstRank + "–" + lastRank + " of " + totalDrivers, 29, 145, "#d1e2ef", 20, "700");
+  rectangle("#102d4c", 0, 0, width, 164);
+  rectangle("#0c9d9d", 0, 164, width, 6);
+  draw("METRIXIQ  •  DRIVER RANKING", 28, 30, "#9fe8e4", 19, "800");
+  draw(String(week) + "  ·  " + String(site), 28, 89, "#ffffff", 48, "800");
+  draw(String(year) + "  •  Drivers " + firstRank + "–" + lastRank + " of " + totalDrivers, 29, 138, "#d1e2ef", 21, "700");
   if (headlineScore != null) {
-    draw(Number(headlineScore).toFixed(2), 1169, 78, "#ffffff", 45, "800", "right");
-    draw(standing || "DSP score", 1168, 121, "#b7e2e7", 17, "700", "right");
+    draw(Number(headlineScore).toFixed(2), 1166, 79, "#ffffff", 48, "800", "right");
+    draw(standing || "DSP score", 1166, 126, "#b7e2e7", 19, "700", "right");
   }
-  draw("PHOTO " + page + " / " + pageCount, 27, 198, "#45677e", 17, "800");
-  draw("Sorted by total score, then FICO", 1174, 198, "#678196", 16, "600", "right");
+  draw("PHOTO " + page + " / " + pageCount, 28, 190, "#45677e", 19, "800");
+  draw("Score · FICO · Delivered · DCR · POD · CC", 1171, 190, "#678196", 17, "600", "right");
 
   pageRows.forEach((row, index) => {
     const y = headerHeight + index * cardHeight;
     const palette = rankPalettes[row.tier] || rankPalettes.great;
-    rectangle(index % 2 ? "#f9fbfe" : "#ffffff", 0, y, width, cardHeight);
+    rectangle(index % 2 ? "#f7fafd" : "#ffffff", 0, y, width, cardHeight);
     rectangle(palette[0], 0, y, 7, cardHeight);
-    rectangle("#e4ebf1", 13, y + cardHeight - 1, width - 26, 1);
+    rectangle("#dce6ee", 16, y + cardHeight - 1, width - 32, 1);
 
-    draw(row.rank, 30, y + 39, "#57718a", 21, "800");
-    rounded(palette[1], 91, y + 20, 170, 40, 9);
-    draw(row.tierLabel, 176, y + 40, palette[0], 17, "800", "center");
-    fitName(row.name, 282, y + 41, 505);
+    draw(row.rank, 27, y + 55, "#516f86", 25, "800");
+    rounded(palette[1], 79, y + 30, 178, 48, 9);
+    draw(row.tierLabel, 168, y + 54, palette[0], 19, "800", "center");
+    fitName(row.name, 275, y + 55, 501);
 
-    draw("SCORE", 897, y + 19, "#6d8394", 13, "800", "center");
-    draw(row.score, 897, y + 46, "#16548b", 26, "800", "center");
-    draw("FICO", 1021, y + 19, "#6d8394", 13, "800", "center");
-    draw(row.fico, 1021, y + 46, metricColors[row.ficoTone] || metricColors.neutral, 25, "800", "center");
-    draw("DEL", 1135, y + 19, "#6d8394", 13, "800", "center");
-    draw(row.delivered, 1135, y + 46, "#284b68", 23, "800", "center");
+    // Total score is the primary result. Make it unmistakable on a phone.
+    rounded("#123b63", 788, y + 15, 151, 78, 13);
+    draw("SCORE", 864, y + 34, "#c8e8f2", 16, "800", "center");
+    draw(row.score, 864, y + 67, "#ffffff", 41, "800", "center");
 
-    rounded("#eff4f8", 24, y + 72, 1152, 42, 7);
-    metricLabels.forEach(([label, valueKey, toneKey], metricIndex) => {
-      const cellX = 24 + metricIndex * 128;
-      if (metricIndex) rectangle("#dfe8ef", cellX, y + 80, 1, 27);
-      draw(label, cellX + 64, y + 84, "#74899a", 12, "800", "center");
-      draw(row[valueKey], cellX + 64, y + 103, metricColors[row[toneKey]] || metricColors.neutral, 17, "800", "center");
+    draw("FICO", 1012, y + 34, "#6b8193", 16, "800", "center");
+    draw(row.fico, 1012, y + 67, metricColors[row.ficoTone] || metricColors.neutral, 31, "800", "center");
+    draw("DEL", 1135, y + 34, "#6b8193", 16, "800", "center");
+    draw(row.delivered, 1135, y + 67, "#244963", 30, "800", "center");
+
+    quickMetrics.forEach(([label, valueKey, toneKey], metricIndex) => {
+      const chipX = 24 + metricIndex * 294;
+      rounded("#eff4f8", chipX, y + 101, 282, 40, 8);
+      draw(label, chipX + 18, y + 121, "#677e91", 17, "800");
+      draw(row[valueKey], chipX + 265, y + 121, metricColors[row[toneKey]] || metricColors.neutral, 23, "800", "right");
     });
   });
 
   const footerY = headerHeight + pageRows.length * cardHeight;
   rectangle("#eaf2f8", 0, footerY, width, footerHeight);
-  draw(String(site) + "  •  " + String(week) + "  •  Page " + page + " of " + pageCount, 28, footerY + 31, "#466980", 17);
-  draw("MetrixIQ", 1173, footerY + 31, "#087d83", 20, "800", "right");
+  draw(String(site) + "  •  " + String(week) + "  •  Page " + page + " of " + pageCount, 28, footerY + 29, "#466980", 18);
+  draw("MetrixIQ", 1173, footerY + 29, "#087d83", 21, "800", "right");
   return canvas.toDataURL("image/png");
 }
 
@@ -2318,11 +2318,11 @@ export default function DriverScorecardsV22({
           </div>
           <div className="scorex3-full-photo-tools">
             <div className="scorex3-full-photo-intro">
-              <b>Full scorecard for WhatsApp · HD photos</b>
+              <b>WhatsApp scorecard · Clear HD photos</b>
               <span>
                 {totalDrivers} drivers split into {fullPhotoPages.length} balanced PNGs
                 {fullPhotoPages.length ? " (" + fullPhotoPages.map((item) => item.rows.length).join(" / ") + " drivers)" : ""}.
-                Portrait format, all scorecard metrics, no black margins.
+                Phone-friendly: bigger score, FICO, Delivered, CON, DCR, POD and CC. Full details stay in PDF.
               </span>
             </div>
             <label>
