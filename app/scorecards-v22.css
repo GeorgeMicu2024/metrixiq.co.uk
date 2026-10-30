@@ -2080,3 +2080,5 @@ body.scorex3-resizing-columns *{
 @media(max-width:680px){
   .scorex3-full-photo-scroll{max-height:calc(96dvh - 205px)}
 }
+
+.scorex3-full-photo-share-all{background:#196f9c!important;color:#fff!important;border-color:#196f9c!important}
