@@ -151,7 +151,7 @@ function drawMobileScorecardPng({
 /**
  * Clear portrait PNG for WhatsApp. This is a presentation-only summary: all
  * scorecard data remains available in the app and complete PDF export.
- * Show the score prominently, with only the core delivery metrics underneath.
+ * Show the score prominently, with six delivery metrics in two legible rows.
  */
 function drawFullScorecardPhotoPng({
   site, week, year, headlineScore, standing, pageRows,
@@ -159,13 +159,14 @@ function drawFullScorecardPhotoPng({
 }) {
   const width = 1200;
   const headerHeight = 206;
-  const cardHeight = 150;
+  const cardHeight = 184;
   const footerHeight = 58;
   const height = headerHeight + pageRows.length * cardHeight + footerHeight;
-  const pixelRatio = 2;
+  // Keep long 21-driver pages within mobile Safari's canvas area limits.
+  const pixelRatio = Math.min(2, Math.sqrt(15000000 / (width * height)));
   const canvas = document.createElement("canvas");
-  canvas.width = width * pixelRatio;
-  canvas.height = height * pixelRatio;
+  canvas.width = Math.floor(width * pixelRatio);
+  canvas.height = Math.floor(height * pixelRatio);
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Your device cannot create scorecard photos.");
   ctx.scale(pixelRatio, pixelRatio);
@@ -225,13 +226,15 @@ function drawFullScorecardPhotoPng({
     bad: "#a43e50",
     neutral: "#506d82",
   };
-  // The WhatsApp image intentionally excludes advanced metrics (DSC, LoR,
-  // CE, CDF, PSB) to avoid microscopic text. They remain in the full PDF.
+  // Two rows keep all six requested metrics readable on WhatsApp.
+  // CE, CDF and PSB remain in the full PDF.
   const quickMetrics = [
     ["CON", "concessions", "conTone"],
     ["DCR", "dcr", "dcrTone"],
     ["POD", "pod", "podTone"],
     ["CC", "cc", "ccTone"],
+    ["DSC", "dsc", "dscTone"],
+    ["LoR", "lor", "lorTone"],
   ];
 
   rectangle("#ffffff", 0, 0, width, height);
@@ -245,14 +248,15 @@ function drawFullScorecardPhotoPng({
     draw(standing || "DSP score", 1166, 126, "#b7e2e7", 19, "700", "right");
   }
   draw("PHOTO " + page + " / " + pageCount, 28, 190, "#45677e", 19, "800");
-  draw("Score · FICO · Delivered · DCR · POD · CC", 1171, 190, "#678196", 17, "600", "right");
+  draw("Score · FICO · Delivered · CON · DCR · POD · CC · DSC · LoR", 1171, 190, "#678196", 17, "600", "right");
 
   pageRows.forEach((row, index) => {
     const y = headerHeight + index * cardHeight;
     const palette = rankPalettes[row.tier] || rankPalettes.great;
     rectangle(index % 2 ? "#f7fafd" : "#ffffff", 0, y, width, cardHeight);
     rectangle(palette[0], 0, y, 7, cardHeight);
-    rectangle("#dce6ee", 16, y + cardHeight - 1, width - 32, 1);
+    // A stronger horizontal divider separates one driver from the next.
+    rectangle("#bbcfde", 16, y + cardHeight - 3, width - 32, 3);
 
     draw(row.rank, 27, y + 55, "#516f86", 25, "800");
     rounded(palette[1], 79, y + 30, 178, 48, 9);
@@ -270,10 +274,11 @@ function drawFullScorecardPhotoPng({
     draw(row.delivered, 1135, y + 67, "#244963", 30, "800", "center");
 
     quickMetrics.forEach(([label, valueKey, toneKey], metricIndex) => {
-      const chipX = 24 + metricIndex * 294;
-      rounded("#e8f1f7", chipX, y + 100, 282, 42, 8);
-      draw(label, chipX + 18, y + 121, "#183e5e", 23, "900");
-      draw(row[valueKey], chipX + 265, y + 121, metricColors[row[toneKey]] || metricColors.neutral, 24, "800", "right");
+      const chipX = 24 + (metricIndex % 3) * 392;
+      const chipY = y + 100 + Math.floor(metricIndex / 3) * 42;
+      rounded("#e8f1f7", chipX, chipY, 376, 36, 8);
+      draw(label, chipX + 18, chipY + 18, "#183e5e", 23, "900");
+      draw(row[valueKey], chipX + 356, chipY + 18, metricColors[row[toneKey]] || metricColors.neutral, 24, "800", "right");
     });
   });
 
