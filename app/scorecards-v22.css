@@ -2022,3 +2022,61 @@ body.scorex3-resizing-columns *{
     page-break-inside:avoid!important;
   }
 }
+
+
+/* Full-team portrait scorecard photo export (all metrics, balanced pages). */
+.scorex3-share-actions .scorex3-full-png-export{
+  background:#007c82!important;color:#fff!important;border-color:#007c82!important;
+  font-size:9px!important;font-weight:900!important;
+}
+.scorex3-full-photo-tools{
+  display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;
+  padding:13px 15px;background:linear-gradient(120deg,#effafa,#f4f8ff);
+  border-bottom:1px solid #d1e7e9;
+}
+.scorex3-full-photo-intro{flex:1 1 300px;align-self:center}
+.scorex3-full-photo-intro b{
+  display:block;font-size:13px;font-weight:900;color:#13576a;
+}
+.scorex3-full-photo-intro span{
+  display:block;margin-top:5px;font-size:10px;line-height:1.45;
+  color:#58788d;
+}
+.scorex3-full-photo-tools label{display:grid;gap:4px;min-width:170px}
+.scorex3-full-photo-tools label>span{
+  font-size:9px;font-weight:900;text-transform:uppercase;color:#627c90;
+}
+.scorex3-full-photo-tools select{
+  min-height:38px;border:1px solid #c4dfe4;border-radius:8px;
+  background:#fff;color:#1b4a5e;font-size:12px;font-weight:800;padding:0 8px;
+}
+.scorex3-full-photo-tools button{min-height:38px!important;font-size:11px!important}
+.scorex3-full-photo-preview{background:#008c8a!important;color:#fff!important}
+.scorex3-full-photo-download{background:#fff!important;border-color:#aacfd2!important;color:#235774!important}
+@media(max-width:800px){
+  .scorex3-full-photo-tools{gap:10px;padding:16px 15px}
+  .scorex3-full-photo-intro{flex-basis:100%}
+  .scorex3-full-photo-intro b{font-size:16px}
+  .scorex3-full-photo-intro span{font-size:12px}
+  .scorex3-full-photo-tools label{flex:1 1 100%;min-width:0}
+  .scorex3-full-photo-tools select{min-height:46px;font-size:14px}
+  .scorex3-full-photo-tools button{flex:1 1 140px;min-height:46px!important;font-size:13px!important}
+}
+@media print{
+  html.scorex3-printing-share .scorex3-full-photo-tools{display:none!important}
+}
+
+/* Scroll tall full-team photos at readable width inside the phone preview. */
+.scorex3-full-photo-scroll{
+  width:100%;flex:1 1 auto;min-height:0;
+  max-height:calc(95dvh - 165px);overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  background:#ffffff;
+}
+.scorex3-full-photo-scroll img{
+  display:block;width:100%;height:auto;max-height:none!important;
+  object-fit:fill!important;-webkit-touch-callout:default;
+}
+@media(max-width:680px){
+  .scorex3-full-photo-scroll{max-height:calc(96dvh - 205px)}
+}
