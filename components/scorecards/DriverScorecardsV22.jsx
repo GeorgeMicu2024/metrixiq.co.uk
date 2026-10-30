@@ -158,7 +158,9 @@ function drawFullScorecardPhotoPng({
   totalDrivers, page, pageCount, firstRank, lastRank,
 }) {
   const width = 1200;
-  const headerHeight = 206;
+  // Reserve extra header space: WhatsApp overlays its controls at the top
+  // when a photo is opened, so driver #1 starts below that overlay.
+  const headerHeight = 430;
   const cardHeight = 194;
   const footerHeight = 58;
   const height = headerHeight + pageRows.length * cardHeight + footerHeight;
@@ -216,11 +218,11 @@ function drawFullScorecardPhotoPng({
   // Each tier uses its own accessible score-box colour and a subtle card tint.
   // Keep the original score values and metric warning colours unchanged.
   const rankPalettes = {
-    "fantastic-plus": { accent: "#175aa8", badge: "#e6f1ff", score: "#175aa8", ink: "#ffffff", hint: "#d7eaff", card: "#f7faff" },
-    fantastic: { accent: "#1687c8", badge: "#e6f7ff", score: "#7accf4", ink: "#163957", hint: "#285876", card: "#f7fcff" },
-    great: { accent: "#238857", badge: "#e5f7ed", score: "#218452", ink: "#ffffff", hint: "#ffffff", card: "#f7fcf8" },
-    fair: { accent: "#b56a14", badge: "#fff0d8", score: "#f5a735", ink: "#263a50", hint: "#263a50", card: "#fffaf4" },
-    poor: { accent: "#b52e45", badge: "#ffe7ec", score: "#c5374d", ink: "#ffffff", hint: "#ffffff", card: "#fff8f9" },
+    "fantastic-plus": { accent: "#175aa8", badge: "#e6f1ff", score: "#175aa8", ink: "#ffffff", hint: "#d7eaff", card: "#dceafd", metric: "#c7defa" },
+    fantastic: { accent: "#1687c8", badge: "#e6f7ff", score: "#7accf4", ink: "#163957", hint: "#285876", card: "#d9f0ff", metric: "#c6e8fa" },
+    great: { accent: "#238857", badge: "#e5f7ed", score: "#218452", ink: "#ffffff", hint: "#ffffff", card: "#daf0e3", metric: "#c5e7d2" },
+    fair: { accent: "#b56a14", badge: "#fff0d8", score: "#f5a735", ink: "#263a50", hint: "#263a50", card: "#ffedcb", metric: "#ffdfaa" },
+    poor: { accent: "#b52e45", badge: "#ffe7ec", score: "#c5374d", ink: "#ffffff", hint: "#ffffff", card: "#ffe0e5", metric: "#fac5d0" },
   };
   const metricColors = {
     good: "#206449",
@@ -240,17 +242,20 @@ function drawFullScorecardPhotoPng({
   ];
 
   rectangle("#ffffff", 0, 0, width, height);
-  rectangle("#102d4c", 0, 0, width, 164);
-  rectangle("#0c9d9d", 0, 164, width, 6);
-  draw("METRIXIQ  •  DRIVER RANKING", 28, 30, "#9fe8e4", 19, "800");
-  draw(String(week) + "  ·  " + String(site), 28, 89, "#ffffff", 48, "800");
-  draw(String(year) + "  •  Drivers " + firstRank + "–" + lastRank + " of " + totalDrivers, 29, 138, "#d1e2ef", 21, "700");
+  // Dark safe banner intentionally absorbs WhatsApp's top overlay without
+  // hiding the first driver. Header content starts below the top controls.
+  rectangle("#102d4c", 0, 0, width, 374);
+  rectangle("#0c9d9d", 0, 374, width, 6);
+  rectangle("#f1f6fa", 0, 380, width, 50);
+  draw("METRIXIQ  •  DRIVER RANKING", 28, 178, "#9fe8e4", 21, "800");
+  draw(String(week) + "  ·  " + String(site), 28, 247, "#ffffff", 52, "800");
+  draw(String(year) + "  •  Drivers " + firstRank + "–" + lastRank + " of " + totalDrivers, 29, 316, "#d1e2ef", 22, "700");
   if (headlineScore != null) {
-    draw(Number(headlineScore).toFixed(2), 1166, 79, "#ffffff", 48, "800", "right");
-    draw(standing || "DSP score", 1166, 126, "#b7e2e7", 19, "700", "right");
+    draw(Number(headlineScore).toFixed(2), 1166, 244, "#ffffff", 52, "800", "right");
+    draw(standing || "DSP score", 1166, 303, "#b7e2e7", 21, "700", "right");
   }
-  draw("PHOTO " + page + " / " + pageCount, 28, 190, "#45677e", 19, "800");
-  draw("Score · FICO · Delivered · CON · DCR · POD · CC · DSC · LoR", 1171, 190, "#678196", 17, "600", "right");
+  draw("PHOTO " + page + " / " + pageCount, 28, 407, "#45677e", 19, "800");
+  draw("Score · FICO · Delivered · CON · DCR · POD · CC · DSC · LoR", 1171, 407, "#678196", 17, "600", "right");
 
   pageRows.forEach((row, index) => {
     const y = headerHeight + index * cardHeight;
@@ -281,7 +286,7 @@ function drawFullScorecardPhotoPng({
     quickMetrics.forEach(([label, valueKey, toneKey], metricIndex) => {
       const chipX = 24 + (metricIndex % 3) * 392;
       const chipY = y + 100 + Math.floor(metricIndex / 3) * 42;
-      rounded("#e8f1f7", chipX, chipY, 376, 36, 8);
+      rounded(palette.metric, chipX, chipY, 376, 36, 8);
       draw(label, chipX + 18, chipY + 18, "#183e5e", 23, "900");
       draw(row[valueKey], chipX + 356, chipY + 18, metricColors[row[toneKey]] || metricColors.neutral, 24, "800", "right");
     });
