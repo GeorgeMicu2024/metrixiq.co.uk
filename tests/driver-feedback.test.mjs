@@ -1,11 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   buildDriverFeedback,
   collectFeedbackPeriods,
   driverFeedbackIssues,
   isDriverScorecardCohortRow,
   scorecardTier,
+  classifyDriverFeedback,
 } from "../lib/scorecards/driverFeedback.js";
 
 const base = {
@@ -109,4 +111,27 @@ test("missing scores request data review, not an accusation", () => {
   assert.equal(feedback.score, null);
   assert.match(feedback.message, /insufficient data/);
   assert.doesNotMatch(feedback.message, /These areas need to improve/);
+});
+
+test("severity distinguishes operational failures from full-points opportunities", () => {
+  assert.equal(classifyDriverFeedback(base), "on-track");
+  assert.equal(classifyDriverFeedback({ ...base, fico: 835 }), "improve");
+  assert.equal(classifyDriverFeedback({ ...base, fico: 788 }), "priority");
+  assert.equal(classifyDriverFeedback({ ...base, pod: 99.7 }), "improve");
+  assert.equal(classifyDriverFeedback({ ...base, pod: 98.5 }), "priority");
+  assert.equal(classifyDriverFeedback({ ...base, fico: null, dcr: null, dsc_dpmo: null,
+    lor: null, pod: null, cc: null, ce_dpmo: null, cdf_dpmo: null, psb: null }), "unknown");
+});
+
+test("futuristic view keeps core messaging actions and mobile navigation", () => {
+  const view = readFileSync(new URL("../components/feedback/DriverFeedbackView.jsx", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../app/driver-feedback.css", import.meta.url), "utf8");
+  assert.match(view, /Copy message/);
+  assert.match(view, /Share WhatsApp/);
+  assert.match(view, /Export messages/);
+  assert.match(view, /setMobilePane\("message"\)/);
+  assert.match(view, /setMobilePane\("list"\)/);
+  assert.match(view, /Professional/);
+  assert.match(view, /Detailed/);
+  assert.match(css, /\.feedback-page\.in-message/);
 });
