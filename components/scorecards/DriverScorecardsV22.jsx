@@ -1420,6 +1420,45 @@ export default function DriverScorecardsV22({
     }
   }
 
+  async function shareAllFullScorecardPhotos() {
+    if (shareImageBusy || !fullPhotoPages.length) return;
+    setShareImageBusy(true);
+    setShareImageError("");
+    setShareImageProgress("Preparing photos for the phone share sheet…");
+    try {
+      // Keep preparation synchronous until navigator.share to preserve the
+      // user's tap activation on Safari/iOS.
+      const files = fullPhotoPages.map((pageItem) => {
+        const dataUrl = renderFullPhoto(pageItem);
+        const binary = atob(dataUrl.split(",")[1]);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return new File(
+          [bytes],
+          photoBaseName() + "-Full-Scorecard-" + String(pageItem.page).padStart(2, "0") + ".png",
+          { type: "image/png" }
+        );
+      });
+      if (navigator.canShare?.({ files }) && navigator.share) {
+        await navigator.share({
+          files,
+          title: String(period?.weekLabel || "Week") + " " + String(period?.site || "") + " Full Scorecard",
+        });
+        setShareImageProgress("All " + files.length + " photos were sent to the share sheet.");
+      } else {
+        setShareImageError("This browser cannot share multiple photos. Use Preview / Share photo for each image, or download the ZIP.");
+        setShareImageProgress("");
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        setShareImageError("Sharing multiple photos is blocked. Use the individual photo previews or the ZIP download.");
+      }
+      setShareImageProgress("");
+    } finally {
+      setShareImageBusy(false);
+    }
+  }
+
   function previewRankPhoto() {
     setPhotoShareTip("");
     const group = selectedPhotoGroup;
@@ -2298,6 +2337,9 @@ export default function DriverScorecardsV22({
             </label>
             <button type="button" className="btn primary scorex3-full-photo-preview" onClick={() => previewFullScorecardPhoto()} disabled={!fullPhotoPages.length || shareImageBusy}>
               Preview / Share photo
+            </button>
+            <button type="button" className="btn primary scorex3-full-photo-share-all" onClick={shareAllFullScorecardPhotos} disabled={!fullPhotoPages.length || shareImageBusy}>
+              Share all {fullPhotoPages.length} photos
             </button>
             <button type="button" className="btn ghost scorex3-full-photo-download" onClick={exportFullScorecardPhotosZip} disabled={!fullPhotoPages.length || shareImageBusy}>
               {shareImageBusy ? "Preparing…" : "Download " + fullPhotoPages.length + " PNGs (ZIP)"}
