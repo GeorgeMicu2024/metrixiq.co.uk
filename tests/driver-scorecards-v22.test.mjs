@@ -419,3 +419,22 @@ test("Driver Scorecards counts only drivers backed by the selected site's DSP sc
   assert.ok(view.includes("if (files.length) return false"));
   assert.ok(view.includes("must never inflate the driver count"));
 });
+
+test("Driver Scorecards complete PDF is isolated from dashboard and includes all metrics", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const css = read("app/scorecards-v22.css");
+
+  assert.ok(view.includes('import { createPortal } from "react-dom"'));
+  assert.ok(view.includes("document.body"));
+  assert.ok(view.includes("printAllDrivers"));
+  assert.ok(view.includes("printShareRows.map"));
+  assert.ok(view.includes("Export selection PDF"));
+  assert.ok(view.includes("Export entire scorecard PDF"));
+  for (const metric of ["<th>Delivered</th>", "<th>DSC</th>", "<th>LoR</th>", "<th>CE</th>", "<th>CDF</th>"]) {
+    assert.ok(view.includes(metric), `Missing PDF metric: ${metric}`);
+  }
+
+  assert.ok(css.includes("html.scorex3-printing-share body > :not(.scorex3-share-overlay)"));
+  assert.ok(css.includes("size:A3 landscape"));
+  assert.ok(css.includes("scorex3-share-table thead"));
+});
