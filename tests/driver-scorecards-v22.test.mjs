@@ -506,13 +506,13 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   assert.ok(view.includes("<option value={3}>3 photos"));
   assert.ok(view.includes("<option value={4}>4 photos"));
   assert.ok(view.includes("<option value={5}>5 photos"));
-  assert.ok(view.includes("const pixelRatio = 2"));
+  assert.ok(view.includes("const pixelRatio = Math.min(2, Math.sqrt(15000000 / (width * height)))"));
   assert.ok(view.includes("download full team") || view.includes("Download full team"));
   assert.ok(view.includes("Preview / Share photo"));
   assert.ok(view.includes("exportFullScorecardPhotosZip"));
   assert.ok(view.includes("shareAllFullScorecardPhotos"));
   assert.ok(view.includes("Share all {fullPhotoPages.length} photos"));
-  assert.ok(view.includes("Full scorecard for WhatsApp"));
+  assert.ok(view.includes("WhatsApp scorecard · Clear HD photos"));
   assert.ok(view.includes('kind: "full-scorecard"'));
   assert.ok(view.includes('return canvas.toDataURL("image/png")'));
   const photoDraw = view.slice(view.indexOf("function drawFullScorecardPhotoPng"), view.indexOf("// Minimal uncompressed ZIP writer"));
