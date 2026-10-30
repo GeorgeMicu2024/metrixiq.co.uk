@@ -639,6 +639,7 @@ export default function DriverScorecardsV22({
   const [mobilePhotoTier, setMobilePhotoTier] = useState("fantastic-plus");
   const [mobilePhotoPage, setMobilePhotoPage] = useState(1);
   const [fullPhotoPage, setFullPhotoPage] = useState(1);
+  const [fullPhotoCount, setFullPhotoCount] = useState(4);
   const [mobilePhotoPreview, setMobilePhotoPreview] = useState(null);
   const [photoShareTip, setPhotoShareTip] = useState("");
   const [manualFicoOverrides, setManualFicoOverrides] = useState({});
@@ -1274,7 +1275,7 @@ export default function DriverScorecardsV22({
   const rankedPhotoRows = [...enrichedRows].sort(
     (a, b) => (a.currentRank || Infinity) - (b.currentRank || Infinity)
   );
-  const fullPhotoPages = splitScorecardPhotoPages(rankedPhotoRows);
+  const fullPhotoPages = splitScorecardPhotoPages(rankedPhotoRows, { preferredPages: fullPhotoCount });
   const rankPhotoGroups = groupOrder.map((group) => ({
     ...group,
     rows: rankedPhotoRows.filter((row) => row.sourceRank.cls === group.cls),
@@ -2327,9 +2328,22 @@ export default function DriverScorecardsV22({
               <span>
                 {totalDrivers} drivers split into {fullPhotoPages.length} balanced PNGs
                 {fullPhotoPages.length ? " (" + fullPhotoPages.map((item) => item.rows.length).join(" / ") + " drivers)" : ""}.
-                Phone-friendly: bigger score, FICO, Delivered, CON, DCR, POD and CC. Full details stay in PDF.
+                Larger images for WhatsApp: Score, FICO, Delivered, CON, DCR, POD, CC, DSC and LoR. Full details stay in PDF.
               </span>
             </div>
+            <label>
+              <span>Image size for WhatsApp</span>
+              <select value={fullPhotoCount} disabled={shareImageBusy} onChange={(event) => {
+                setFullPhotoCount(Number(event.target.value));
+                setFullPhotoPage(1);
+                setMobilePhotoPreview(null);
+                setShareImageError("");
+              }}>
+                <option value={3}>3 photos · compact</option>
+                <option value={4}>4 photos · larger (recommended)</option>
+                <option value={5}>5 photos · largest</option>
+              </select>
+            </label>
             <label>
               <span>Choose photo</span>
               <select value={Math.min(fullPhotoPage, Math.max(fullPhotoPages.length, 1))} onChange={(event) => setFullPhotoPage(Number(event.target.value))} disabled={!fullPhotoPages.length}>

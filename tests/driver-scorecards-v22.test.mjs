@@ -501,27 +501,43 @@ test("Full-team WhatsApp PNG prioritizes readable scores without changing source
   const view = read("components/scorecards/DriverScorecardsV22.jsx");
   const css = read("app/scorecards-v22.css");
   assert.ok(view.includes("drawFullScorecardPhotoPng"));
-  assert.ok(view.includes("splitScorecardPhotoPages(rankedPhotoRows)"));
-  assert.ok(view.includes("const pixelRatio = 2"));
+  assert.ok(view.includes("splitScorecardPhotoPages(rankedPhotoRows, { preferredPages: fullPhotoCount })"));
+  assert.ok(view.includes("const [fullPhotoCount, setFullPhotoCount] = useState(4)"));
+  assert.ok(view.includes("<option value={3}>3 photos"));
+  assert.ok(view.includes("<option value={4}>4 photos"));
+  assert.ok(view.includes("<option value={5}>5 photos"));
+  assert.ok(view.includes("const pixelRatio = Math.min(2, Math.sqrt(15000000 / (width * height)))"));
   assert.ok(view.includes("download full team") || view.includes("Download full team"));
   assert.ok(view.includes("Preview / Share photo"));
   assert.ok(view.includes("exportFullScorecardPhotosZip"));
   assert.ok(view.includes("shareAllFullScorecardPhotos"));
   assert.ok(view.includes("Share all {fullPhotoPages.length} photos"));
-  assert.ok(view.includes("Full scorecard for WhatsApp"));
+  assert.ok(view.includes("WhatsApp scorecard · Clear HD photos"));
   assert.ok(view.includes('kind: "full-scorecard"'));
   assert.ok(view.includes('return canvas.toDataURL("image/png")'));
   const photoDraw = view.slice(view.indexOf("function drawFullScorecardPhotoPng"), view.indexOf("// Minimal uncompressed ZIP writer"));
   assert.ok(photoDraw.includes('rounded("#123b63", 788'));
   assert.ok(photoDraw.includes('draw(row.score, 864'));
-  for (const label of ["CON", "DCR", "POD", "CC", "SCORE", "FICO", "DEL"]) {
+  for (const label of ["CON", "DCR", "POD", "CC", "DSC", "LoR", "SCORE", "FICO", "DEL"]) {
     assert.ok(photoDraw.includes('"' + label + '"'), "Missing WhatsApp label " + label);
   }
-  for (const label of ["DSC", "LoR", "CE", "CDF", "PSB"]) {
+  for (const label of ["CE", "CDF", "PSB"]) {
     assert.equal(photoDraw.includes('["' + label + '",'), false, "Advanced metric should be omitted from WhatsApp view: " + label);
   }
-  assert.ok(view.includes("Phone-friendly: bigger score"));
+  assert.ok(view.includes("Larger images for WhatsApp"));
   assert.ok(view.includes("Full details stay in PDF."));
   assert.ok(css.includes(".scorex3-full-photo-tools"));
   assert.ok(css.includes("html.scorex3-printing-share .scorex3-full-photo-tools"));
+});
+
+
+test("WhatsApp export offers 3, 4 and 5 image sizes without missing a driver", () => {
+  const drivers = Array.from({ length: 61 }, (_, index) => ({ currentRank: index + 1 }));
+  for (const [preferredPages, expected] of [[3, [21, 20, 20]], [4, [16, 15, 15, 15]], [5, [13, 12, 12, 12, 12]]]) {
+    const pages = splitScorecardPhotoPages(drivers, { preferredPages });
+    assert.deepEqual(pages.map((item) => item.rows.length), expected);
+    assert.deepEqual(pages.flatMap((item) => item.rows), drivers);
+    assert.deepEqual(pages.map((item) => item.start), expected.map((_, i) => 1 + expected.slice(0, i).reduce((sum, n) => sum + n, 0)));
+    assert.equal(pages.at(-1).end, 61);
+  }
 });
