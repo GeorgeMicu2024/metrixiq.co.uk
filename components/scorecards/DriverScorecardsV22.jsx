@@ -271,9 +271,9 @@ function drawFullScorecardPhotoPng({
 
     quickMetrics.forEach(([label, valueKey, toneKey], metricIndex) => {
       const chipX = 24 + metricIndex * 294;
-      rounded("#eff4f8", chipX, y + 101, 282, 40, 8);
-      draw(label, chipX + 18, y + 121, "#677e91", 17, "800");
-      draw(row[valueKey], chipX + 265, y + 121, metricColors[row[toneKey]] || metricColors.neutral, 23, "800", "right");
+      rounded("#e8f1f7", chipX, y + 100, 282, 42, 8);
+      draw(label, chipX + 18, y + 121, "#183e5e", 23, "900");
+      draw(row[valueKey], chipX + 265, y + 121, metricColors[row[toneKey]] || metricColors.neutral, 24, "800", "right");
     });
   });
 
