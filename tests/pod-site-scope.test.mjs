@@ -133,7 +133,7 @@ test("POD PNG renderer draws every driver and returns a shareable PNG File", () 
     });
     assert.equal(image.file.type, "image/png");
     assert.match(image.filename, /DZM1_W43_Page_1_of_2\.png$/);
-    assert.equal(canvas.width, 1320);
+    assert.equal(canvas.width, 1200);
     assert.ok(canvas.height > 2000 && canvas.height < 8000);
     assert.equal(drawn.filter((value) => /^Test Driver \d+$/.test(value)).length, 25);
     assert.ok(drawn.some((value) => value.includes("Package In Car")));

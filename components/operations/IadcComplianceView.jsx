@@ -1031,9 +1031,9 @@ export default function IadcComplianceView({
         .iadcpro-share-message{margin-top:-2px}
 
         /* All sites: keep the full-size export template outside the visible viewport.
-           translateX(-120vw) was insufficient for its 1080px width on iPhones. */
+           translateX(-120vw) was insufficient for its wide image on iPhones. */
         .iadc-share-card{
-          position:fixed;left:-20000px;top:0;transform:none;width:1080px;padding:44px;
+          position:fixed;left:-20000px;top:0;transform:none;width:972px;padding:40px;
           background:#eef3f5;color:#13253a;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box;
           z-index:1;opacity:1;visibility:visible;pointer-events:none
         }
@@ -1042,7 +1042,7 @@ export default function IadcComplianceView({
           border:1px solid #d7e2e8;border-radius:22px;background:#fff
         }
         .iadc-share-head span{font-size:16px;font-weight:900;letter-spacing:2.2px;color:#2d8b78}
-        .iadc-share-head h1{margin:10px 0 7px;font-size:48px;line-height:1;color:#10243a}
+        .iadc-share-head h1{margin:10px 0 7px;font-size:46px;line-height:1;color:#10243a}
         .iadc-share-head p{margin:0;font-size:20px;color:#687b8e}
 
         .iadc-share-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
@@ -1050,13 +1050,13 @@ export default function IadcComplianceView({
           padding:22px 24px;border:1px solid #d9e3e9;border-radius:18px;background:#fff;display:flex;flex-direction:column;gap:8px
         }
         .iadc-share-kpis span{font-size:13px;font-weight:900;letter-spacing:1.1px;color:#6b7c8d}
-        .iadc-share-kpis strong{font-size:32px;color:#12263d}
+        .iadc-share-kpis strong{font-size:30px;color:#12263d}
 
         .iadc-share-table{overflow:hidden;border:1px solid #d9e3e9;border-radius:18px;background:#fff}
         .iadc-share-table-head,.iadc-share-row{display:grid;grid-template-columns:76px minmax(0,1fr) 180px;align-items:center}
         .iadc-share-table-head{min-height:54px;background:#f6f8fa;border-bottom:1px solid #dfe7ec}
         .iadc-share-table-head span{padding:0 20px;font-size:13px;font-weight:900;letter-spacing:1px;color:#718294}
-        .iadc-share-row{min-height:58px;border-bottom:1px solid #edf1f4}
+        .iadc-share-row{min-height:55px;border-bottom:1px solid #edf1f4}
         .iadc-share-row:last-child{border-bottom:0}
         .iadc-share-row-placeholder .iadc-share-rank,
         .iadc-share-row-placeholder b,
@@ -1064,10 +1064,10 @@ export default function IadcComplianceView({
         .iadc-share-row-placeholder .iadc-share-score{background:transparent!important;border-color:transparent!important;box-shadow:none!important}
         .iadc-share-row>*{padding:0 20px;box-sizing:border-box}
         .iadc-share-rank{font-size:16px;font-weight:900;color:#647789}
-        .iadc-share-row b{font-size:19px;color:#17283d}
+        .iadc-share-row b{font-size:18px;color:#17283d}
         .iadc-share-score{
           justify-self:center;display:inline-flex;align-items:center;justify-content:center;min-width:118px;padding:9px 15px;
-          border-radius:12px;font-size:18px;font-weight:900;background:#eef2f4;color:#3d5367
+          border-radius:12px;font-size:17px;font-weight:900;background:#eef2f4;color:#3d5367
         }
         .iadc-share-score.critical{background:#ffe7e5;color:#9f332f;border:1px solid #f0aaa6}
         .iadc-share-score.watch{background:#fff3d8;color:#95680d;border:1px solid #ecd07a}
