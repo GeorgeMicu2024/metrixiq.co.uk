@@ -8,6 +8,7 @@ import { displayDriverName } from "../../lib/identity";
 import { TARGETS } from "../../lib/config/performance";
 import { driverShape, num, plain } from "../../lib/scorecards/metrics";
 import { calculateDriverScorecard } from "../../lib/scorecards/driverScoreFormula";
+import { compareDriverScorecardRank } from "../../lib/scorecards/driverRanking";
 import { applyMetricOverrides, fetchMetricOverrides, setMetricOverride } from "../../lib/data/governanceV2";
 import {
   buildDriverScorecardConcessionMap,
@@ -682,7 +683,7 @@ export default function DriverScorecardsV22({
   const previousRankByDriver = useMemo(() => {
     const map = new Map();
     [...previousRows]
-      .sort((a, b) => (num(b.displayScore) ?? -1) - (num(a.displayScore) ?? -1))
+      .sort(compareDriverScorecardRank)
       .forEach((row, index) => {
         const key = driverKey(row);
         if (key) map.set(key, index + 1);
@@ -719,7 +720,7 @@ export default function DriverScorecardsV22({
 
     const base = enrichBaseRows(period);
     const sorted = [...base].sort(
-      (a, b) => (num(b.displayScore) ?? -1) - (num(a.displayScore) ?? -1)
+      compareDriverScorecardRank
     );
     const currentRankByDriver = new Map();
     sorted.forEach((row, index) => {
@@ -1082,7 +1083,7 @@ export default function DriverScorecardsV22({
 
   const shareRows = useMemo(() => {
     const ranked = [...enrichedRows].sort(
-      (a, b) => (num(b.displayScore) ?? -1) - (num(a.displayScore) ?? -1)
+      compareDriverScorecardRank
     );
     if (shareScope === "attention") {
       return ranked.filter(
@@ -1102,7 +1103,7 @@ export default function DriverScorecardsV22({
   // The share modal is portalled to <body> so hidden dashboard content cannot
   // reserve blank pages in Chrome's print layout.
   const printShareRows = printAllDrivers
-    ? [...enrichedRows].sort((a, b) => (num(b.displayScore) ?? -1) - (num(a.displayScore) ?? -1))
+    ? [...enrichedRows].sort(compareDriverScorecardRank)
     : shareRows;
 
   const exportSharePdf = (allDrivers = false) => {
