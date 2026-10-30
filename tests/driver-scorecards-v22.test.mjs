@@ -506,6 +506,8 @@ test("Full-team HD PNG preserves scorecard metrics and phone-first preview and d
   assert.ok(view.includes("download full team") || view.includes("Download full team"));
   assert.ok(view.includes("Preview / Share photo"));
   assert.ok(view.includes("exportFullScorecardPhotosZip"));
+  assert.ok(view.includes("shareAllFullScorecardPhotos"));
+  assert.ok(view.includes("Share all {fullPhotoPages.length} photos"));
   assert.ok(view.includes("Full scorecard for WhatsApp"));
   assert.ok(view.includes('kind: "full-scorecard"'));
   assert.ok(view.includes('return canvas.toDataURL("image/png")'));
