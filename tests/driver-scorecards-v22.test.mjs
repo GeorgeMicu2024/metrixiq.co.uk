@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { calculateDriverScorecard } from "../lib/scorecards/driverScoreFormula.js";
-import { compareDriverScorecardRank } from "../lib/scorecards/driverRanking.js";
+import { compareDriverScorecardRank, splitScorecardPhotoPages } from "../lib/scorecards/driverRanking.js";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 
@@ -308,9 +308,9 @@ test("Share View keeps approved coloured metrics and removes WoW and flags", () 
   const view = read("components/scorecards/DriverScorecardsV22.jsx");
   const css = read("app/scorecards-v22.css");
 
-  const shareStart = view.indexOf('{shareOpen && (');
-  const shareEnd = view.indexOf('  </div>;', shareStart);
-  const shareView = view.slice(shareStart, shareEnd);
+  const shareStart = view.indexOf('{shareOpen && typeof document !== "undefined" && createPortal(');
+  assert.ok(shareStart >= 0, "Share portal not found");
+  const shareView = view.slice(shareStart);
 
   assert.ok(shareView.includes("<th>FICO</th>"));
   assert.ok(shareView.includes("<th>PSB</th>"));
@@ -470,4 +470,48 @@ test("Driver rank ties are deterministic and missing FICO ranks after known FICO
   assert.ok(view.includes('import { compareDriverScorecardRank }'));
   assert.equal((view.match(/\\.sort\\(compareDriverScorecardRank\\)/g) || []).length, 2);
   assert.equal((view.match(/compareDriverScorecardRank/g) || []).length, 5);
+});
+
+
+test("Full-team WhatsApp export splits 61 drivers into exactly 3 balanced images", () => {
+  const rows = Array.from({ length: 61 }, (_, index) => ({ currentRank: index + 1 }));
+  const pages = splitScorecardPhotoPages(rows);
+  assert.equal(pages.length, 3);
+  assert.deepEqual(pages.map((part) => part.rows.length), [21, 20, 20]);
+  assert.deepEqual(pages.map((part) => [part.start, part.end]), [[1, 21], [22, 41], [42, 61]]);
+  assert.deepEqual(pages.flatMap((part) => part.rows), rows);
+  assert.equal(new Set(pages.flatMap((part) => part.rows)).size, 61);
+});
+
+test("WhatsApp photo pages never exceed 25 drivers or include empty filler pages", () => {
+  for (const count of [0, 1, 2, 3, 25, 60, 65, 75, 76, 150]) {
+    const rows = Array.from({ length: count }, (_, i) => i);
+    const pages = splitScorecardPhotoPages(rows);
+    assert.equal(pages.flatMap((part) => part.rows).length, count);
+    assert.deepEqual(pages.flatMap((part) => part.rows), rows);
+    assert.equal(pages.some((part) => part.rows.length === 0), false);
+    assert.ok(pages.every((part) => part.rows.length <= 25));
+    if (count >= 3 && count <= 75) assert.equal(pages.length, 3);
+  }
+  assert.deepEqual(splitScorecardPhotoPages(Array.from({ length: 65 }, (_, i) => i))
+    .map((part) => part.rows.length), [22, 22, 21]);
+});
+
+test("Full-team HD PNG preserves scorecard metrics and phone-first preview and download", () => {
+  const view = read("components/scorecards/DriverScorecardsV22.jsx");
+  const css = read("app/scorecards-v22.css");
+  assert.ok(view.includes("drawFullScorecardPhotoPng"));
+  assert.ok(view.includes("splitScorecardPhotoPages(rankedPhotoRows)"));
+  assert.ok(view.includes("const pixelRatio = 2"));
+  assert.ok(view.includes("download full team") || view.includes("Download full team"));
+  assert.ok(view.includes("Preview / Share photo"));
+  assert.ok(view.includes("exportFullScorecardPhotosZip"));
+  assert.ok(view.includes("Full scorecard for WhatsApp"));
+  assert.ok(view.includes('kind: "full-scorecard"'));
+  assert.ok(view.includes('return canvas.toDataURL("image/png")'));
+  for (const label of ["CON", "DCR", "DSC", "LoR", "POD", "CC", "CE", "CDF", "PSB", "SCORE", "FICO", "DEL"]) {
+    assert.ok(view.includes('"' + label + '"'), "Missing image label " + label);
+  }
+  assert.ok(css.includes(".scorex3-full-photo-tools"));
+  assert.ok(css.includes("html.scorex3-printing-share .scorex3-full-photo-tools"));
 });
