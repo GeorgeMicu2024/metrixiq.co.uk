@@ -497,7 +497,7 @@ test("WhatsApp photo pages never exceed 25 drivers or include empty filler pages
     .map((part) => part.rows.length), [22, 22, 21]);
 });
 
-test("Full-team HD PNG preserves scorecard metrics and phone-first preview and download", () => {
+test("Full-team WhatsApp PNG prioritizes readable scores without changing source data", () => {
   const view = read("components/scorecards/DriverScorecardsV22.jsx");
   const css = read("app/scorecards-v22.css");
   assert.ok(view.includes("drawFullScorecardPhotoPng"));
@@ -511,9 +511,17 @@ test("Full-team HD PNG preserves scorecard metrics and phone-first preview and d
   assert.ok(view.includes("Full scorecard for WhatsApp"));
   assert.ok(view.includes('kind: "full-scorecard"'));
   assert.ok(view.includes('return canvas.toDataURL("image/png")'));
-  for (const label of ["CON", "DCR", "DSC", "LoR", "POD", "CC", "CE", "CDF", "PSB", "SCORE", "FICO", "DEL"]) {
-    assert.ok(view.includes('"' + label + '"'), "Missing image label " + label);
+  const photoDraw = view.slice(view.indexOf("function drawFullScorecardPhotoPng"), view.indexOf("// Minimal uncompressed ZIP writer"));
+  assert.ok(photoDraw.includes('rounded("#123b63", 788'));
+  assert.ok(photoDraw.includes('draw(row.score, 864'));
+  for (const label of ["CON", "DCR", "POD", "CC", "SCORE", "FICO", "DEL"]) {
+    assert.ok(photoDraw.includes('"' + label + '"'), "Missing WhatsApp label " + label);
   }
+  for (const label of ["DSC", "LoR", "CE", "CDF", "PSB"]) {
+    assert.equal(photoDraw.includes('["' + label + '",'), false, "Advanced metric should be omitted from WhatsApp view: " + label);
+  }
+  assert.ok(view.includes("Phone-friendly: bigger score"));
+  assert.ok(view.includes("Full details stay in PDF."));
   assert.ok(css.includes(".scorex3-full-photo-tools"));
   assert.ok(css.includes("html.scorex3-printing-share .scorex3-full-photo-tools"));
 });
