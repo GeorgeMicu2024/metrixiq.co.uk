@@ -141,7 +141,7 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
   ["▤","Import Reports","IADC, POD, DCR, eMentor","imports","green"],
   ["♟","Driver Scorecards","View & manage driver performance","driver-scorecards","purple"],
   ["◇","Coaching & Alerts","Issues, warnings & improvement","coaching","orange"],
-  ["▥","Performance","Trends, comparisons & insights","performance","pink"],
+  ["✉","Driver Feedback","Individual scorecard coaching messages","performance","pink"],
   ["◆","Atlas","Process tracking IDs & send to drivers","daily-dispatch","cyan"],
  ];
  return <div className="homev2">{dataWarning&&<div className="mgrv2-notice error">{dataWarning}</div>}

@@ -16,7 +16,7 @@ import DataQualityV2 from "./data-quality/DataQualityV2";
 import AuditCenter from "./governance/AuditCenter";
 import SavedViewsBulkActions from "./management/SavedViewsBulkActions";
 import { DriverScorecardsView, SiteScorecardsView } from "./scorecards/ScorecardViews";
-import PerformanceView from "./performance/PerformanceView";
+import DriverFeedbackView from "./feedback/DriverFeedbackView";
 import DriverDirectoryView from "./drivers/DriverDirectoryView";
 import DriverMasterView from "./drivers/DriverMasterView";
 import IadcView from "./operations/IadcView";
@@ -564,7 +564,7 @@ export default function DashboardClient() {
     case "driver-scorecards": view = <DriverScorecardsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "driver-master": view = <DriverMasterView organizationId={workspace?.organization?.id} sites={sites} legacyDrivers={dbDrivers} canManage={platformAdmin || ["owner","admin","manager"].includes(String(session?.role || "").toLowerCase())} onOpenDriver={openDriver} />; break;
     case "drivers": view = <DriverDirectoryView drivers={drivers} onOpen={openDriver} query="" />; break;
-    case "performance": view = <PerformanceView kpis={kpis} history={visibleFleetHistory} rows={visibleMetricHistoryRows} siteFilter={siteFilter} onOpenDriver={openDriver} />; break;
+    case "performance": view = <DriverFeedbackView organizationId={workspace?.organization?.id} siteFilter={siteFilter} allowedSites={allowedSiteScope} refreshKey={operationalRefreshKey} />; break;
     case "iadc": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} onImported={imported} siteFilter={siteFilter} metric="iadc" initialComplianceTab="iadc" refreshKey={operationalRefreshKey} />; break;
     case "pod": view = <PodQualityView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "dcr": view = <IadcView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={() => navigate("imports")} siteFilter={siteFilter} metric="dcr" refreshKey={operationalRefreshKey} />; break;
