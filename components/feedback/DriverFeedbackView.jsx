@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
-import { fetchDriverFeedbackScorecardRows } from "../../lib/data/scorecardData";
+import { fetchDriverScorecardStartupData, fetchWeeklyScorecardRows } from "../../lib/data/scorecardData";
 import { applyMetricOverrides, fetchMetricOverrides } from "../../lib/data/governanceV2";
 import {
   buildDriverScorecardConcessionMap,
@@ -44,6 +44,28 @@ async function copyToClipboard(value) {
   if (!copied) throw new Error("Copy is blocked by this browser. Select the text and copy it manually.");
 }
 
+
+function prepareFeedbackRows(rows, overrides, concessionSnapshots) {
+  const effectiveRows = applyMetricOverrides(rows || [], overrides || []);
+  const concessionMap = buildDriverScorecardConcessionMap(concessionSnapshots || []);
+  const concessionOverrides = new Map();
+  for (const override of overrides || []) {
+    if (override.status === "active" && override.metric_key === "concessions") {
+      concessionOverrides.set(String(override.driver_id) + "::" + override.week_label, Number(override.override_value));
+    }
+  }
+  return effectiveRows.map((row) => {
+    const site = scorecardActivitySite(row);
+    const id = driverId(row) + "::" + row.week_label;
+    const snapshotKey = site + "::" + row.week_label + "::" + String(row.drivers?.trid || "").trim().toUpperCase();
+    const snapshot = concessionMap.get(snapshotKey);
+    const concessions = concessionOverrides.has(id)
+      ? concessionOverrides.get(id)
+      : snapshot ? snapshot.dnr : row.concessions;
+    return { ...row, concessions };
+  });
+}
+
 export default function DriverFeedbackView({
   organizationId,
   siteFilter = "all",
@@ -64,34 +86,52 @@ export default function DriverFeedbackView({
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
     const [data, overrides, concessionSnapshots] = await Promise.all([
-      fetchDriverFeedbackScorecardRows(supabase, organizationId),
+      fetchDriverScorecardStartupData(supabase, organizationId),
       fetchMetricOverrides(supabase, organizationId, "active"),
       fetchDriverScorecardConcessionSnapshots(supabase, organizationId),
     ]);
-    const rows = applyMetricOverrides(data.rows || [], overrides);
-    const concessionMap = buildDriverScorecardConcessionMap(concessionSnapshots || []);
-    const concessionOverrides = new Map();
-    for (const override of overrides || []) {
-      if (override.status === "active" && override.metric_key === "concessions") {
-        concessionOverrides.set(String(override.driver_id) + "::" + override.week_label, Number(override.override_value));
-      }
-    }
-    return rows.map((row) => {
-      const site = scorecardActivitySite(row);
-      const id = driverId(row) + "::" + row.week_label;
-      const snapshotKey = site + "::" + row.week_label + "::" + String(row.drivers?.trid || "").trim().toUpperCase();
-      const snapshot = concessionMap.get(snapshotKey);
-      const concessions = concessionOverrides.has(id)
-        ? concessionOverrides.get(id)
-        : snapshot ? snapshot.dnr : row.concessions;
-      return { ...row, concessions };
-    });
+    return {
+      rows: prepareFeedbackRows(data.rows || [], overrides, concessionSnapshots),
+      overrides,
+      concessionSnapshots,
+    };
   }, [organizationId, refreshKey, refreshTick]);
 
+  // Render feedback for recent scorecards first; load older weeks in the
+  // background, preserving the same score/override and concession rules.
+  const [archive, setArchive] = useState({ organizationId: "", rows: null, loading: false, error: "" });
+  useEffect(() => {
+    if (load.loading || !load.data || !organizationId) return;
+    let alive = true;
+    setArchive({ organizationId, rows: null, loading: true, error: "" });
+    const timer = window.setTimeout(() => {
+      fetchWeeklyScorecardRows(getSupabaseBrowserClient(), organizationId)
+        .then((result) => {
+          if (!alive) return;
+          setArchive({
+            organizationId,
+            rows: prepareFeedbackRows(
+              result.rows || [], load.data.overrides || [], load.data.concessionSnapshots || []
+            ),
+            loading: false,
+            error: "",
+          });
+        })
+        .catch((error) => {
+          if (!alive) return;
+          setArchive({ organizationId, rows: null, loading: false,
+            error: error?.message || "Could not load older feedback weeks." });
+        });
+    }, 300);
+    return () => { alive = false; window.clearTimeout(timer); };
+  }, [organizationId, load.loading, load.data]);
+
+  const currentRows = archive.organizationId === organizationId && archive.rows
+    ? archive.rows : load.data?.rows || [];
   const allowedKey = (allowedSites || []).join("|");
   const periods = useMemo(
-    () => collectFeedbackPeriods(load.data || [], siteFilter, allowedKey ? allowedKey.split("|") : []),
-    [load.data, siteFilter, allowedKey]
+    () => collectFeedbackPeriods(currentRows, siteFilter, allowedKey ? allowedKey.split("|") : []),
+    [currentRows, siteFilter, allowedKey]
   );
   const period = periods.find((item) => item.key === periodKey) || periods[0] || null;
 
@@ -173,7 +213,7 @@ export default function DriverFeedbackView({
     setNotice("Downloaded " + filtered.length + " individual messages.");
   }
 
-  if (load.loading) return <LoadingPanel text="Preparing scorecard feedback…" />;
+  if (load.loading) return <LoadingPanel text="Preparing recent scorecard feedback…" />;
   if (load.error) return <ErrorPanel error={load.error} />;
 
   return (

@@ -123,15 +123,17 @@ test("severity distinguishes operational failures from full-points opportunities
     lor: null, pod: null, cc: null, ce_dpmo: null, cdf_dpmo: null, psb: null }), "unknown");
 });
 
-test("futuristic view keeps core messaging actions and mobile navigation", () => {
+test("Driver Feedback retains its original messaging controls and loads recent weeks first", () => {
   const view = readFileSync(new URL("../components/feedback/DriverFeedbackView.jsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../app/driver-feedback.css", import.meta.url), "utf8");
   assert.match(view, /Copy message/);
-  assert.match(view, /Share WhatsApp/);
-  assert.match(view, /Export messages/);
-  assert.match(view, /setMobilePane\("message"\)/);
-  assert.match(view, /setMobilePane\("list"\)/);
+  assert.match(view, /Share \/ WhatsApp/);
+  assert.match(view, /Export TXT/);
   assert.match(view, /Professional/);
   assert.match(view, /Detailed/);
-  assert.match(css, /\.feedback-page\.in-message/);
+  assert.match(view, /fetchDriverScorecardStartupData/);
+  assert.match(view, /fetchWeeklyScorecardRows/);
+  assert.match(view, /prepareFeedbackRows/);
+  assert.match(view, /setArchive/);
+  assert.match(css, /\.feedback-page/);
 });
