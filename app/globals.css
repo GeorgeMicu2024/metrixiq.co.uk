@@ -3915,3 +3915,23 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
 @media(max-width:1000px){.sitecmd-spotlight{grid-template-columns:minmax(0,1fr) 270px}.sitecmd-head h1{font-size:22px}}
 @media(max-width:720px){.sitecmd-head{align-items:flex-start}.sitecmd-spotlight{grid-template-columns:1fr}.sitecmd-spotlight-main{padding:17px}.sitecmd-spotlight-stats{display:grid;grid-template-columns:1fr 1fr;padding:12px 17px;gap:10px}.sitecmd-spotlight-stats>div{border:0}.sitecmd-kpis{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;overflow:visible}.sitecmd-kpis article{min-width:0!important;padding:10px;min-height:75px}.sitecmd-kpis strong{font-size:14px}.sitecmd-kpis small{font-size:8px}.sitecmd-spotlight-score strong{font-size:40px}}
 @media(max-width:480px){.sitecmd-spotlight-eyebrow{font-size:7px}.sitecmd-kpis{grid-template-columns:1fr!important}.sitecmd-kpis article{min-height:58px}.sitecmd-spotlight-score{gap:8px}.sitecmd-tier-pill{font-size:9px}}
+
+/* Mobile notification sheet: scroll the feed, not the page underneath. */
+.notifv2-head-actions{display:flex;align-items:center;gap:10px}
+.notifv2-head-actions>button{border:0;background:none;color:#397f72;font-size:12px;font-weight:800;cursor:pointer}
+.notifv2-head-actions>.notifv2-close{display:grid;place-items:center;width:30px;height:30px;border:1px solid #dce4e9;border-radius:9px;background:#f6f9fb;color:#243a50;font-size:21px;line-height:1}
+@media(max-width:700px){
+  .topbar-mockup .notification-v2 .notifications-popover.notifv2-popover{
+    position:fixed;top:66px;left:8px;right:8px;width:auto;
+    max-height:calc(100dvh - 88px - env(safe-area-inset-bottom,0px));
+    display:flex;flex-direction:column;overflow:hidden;
+    overscroll-behavior:contain;
+  }
+  .topbar-mockup .notification-v2 .notifv2-popover .notifications-head,
+  .topbar-mockup .notification-v2 .notifv2-popover .notifv2-summary{flex:0 0 auto}
+  .topbar-mockup .notification-v2 .notifv2-popover .notifications-list{
+    flex:1 1 auto;min-height:0;max-height:none;
+    overflow-y:auto;overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;touch-action:pan-y;
+  }
+}
