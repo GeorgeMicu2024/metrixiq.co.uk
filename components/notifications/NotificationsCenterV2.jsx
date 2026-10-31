@@ -111,6 +111,19 @@ export default function NotificationsCenterV2({
     return()=>{document.removeEventListener("mousedown",outside);window.removeEventListener("keydown",escape);};
   },[]);
 
+  useEffect(()=>{
+    // Keep the page behind the mobile notification sheet stationary.
+    if(!open||!window.matchMedia("(max-width:700px)").matches)return;
+    const bodyOverflow=document.body.style.overflow;
+    const htmlOverflow=document.documentElement.style.overflow;
+    document.body.style.overflow="hidden";
+    document.documentElement.style.overflow="hidden";
+    return()=>{
+      document.body.style.overflow=bodyOverflow;
+      document.documentElement.style.overflow=htmlOverflow;
+    };
+  },[open]);
+
   const visible=useMemo(()=>{
     const scoped=siteFilter==="all"?rows:rows.filter((item)=>!item.site||String(item.site).toUpperCase()===siteFilter);
     return [...scoped].filter((item)=>item.status!=="dismissed").sort((a,b)=>
@@ -167,10 +180,13 @@ export default function NotificationsCenterV2({
       {unread>0&&<b>{unread>99?"99+":unread}</b>}
     </button>
 
-    {open&&<section className="notifications-popover notifv2-popover">
+    {open&&<section className="notifications-popover notifv2-popover" role="dialog" aria-label="Notifications">
       <div className="notifications-head">
         <div><span>NOTIFICATIONS V2</span><h3>Action feed</h3></div>
-        <button type="button" onClick={()=>{setOpen(false);onOpenNotifications?.();}}>View all →</button>
+        <div className="notifv2-head-actions">
+          <button type="button" onClick={()=>{setOpen(false);onOpenNotifications?.();}}>View all →</button>
+          <button type="button" className="notifv2-close" aria-label="Close notifications" onClick={()=>setOpen(false)}>×</button>
+        </div>
       </div>
       {error&&<div className="notifications-error">{error}</div>}
       <div className="notifv2-summary">
