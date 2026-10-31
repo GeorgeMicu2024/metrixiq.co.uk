@@ -3935,3 +3935,22 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     -webkit-overflow-scrolling:touch;touch-action:pan-y;
   }
 }
+
+
+/* Account menu: mobile fixed positioning must not inherit the desktop 100% top offset. */
+.topbar-profile-wrap{z-index:40}
+.topbar-profile.topbar-profile-premium{cursor:pointer!important;touch-action:manipulation}
+.topbar-profile-premium .topbar-profile-avatar,
+.topbar-profile-premium .topbar-profile-avatar img{pointer-events:none}
+@media(max-width:700px){
+  .topbar-premium .profile-menu{
+    position:fixed!important;
+    top:calc(64px + env(safe-area-inset-top, 0px))!important;
+    right:8px!important;
+    left:auto!important;
+    width:min(330px,calc(100vw - 16px))!important;
+    max-height:calc(100dvh - 84px)!important;
+    overflow-y:auto;
+    z-index:1600!important;
+  }
+}
