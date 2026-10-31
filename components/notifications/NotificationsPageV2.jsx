@@ -51,7 +51,8 @@ export default function NotificationsPageV2({
     }catch(e){setError(e?.message||"Could not load notifications.");}
     finally{setLoading(false);}
   }
-  useEffect(()=>{load(true);},[organizationId]);
+  // The header bell synchronizes quietly; opening this page should not wait for regeneration.
+  useEffect(()=>{load(false);},[organizationId]);
 
   const categories=useMemo(()=>[...new Set(rows.map((item)=>item.category).filter(Boolean))].sort(),[rows]);
   const visible=useMemo(()=>{
