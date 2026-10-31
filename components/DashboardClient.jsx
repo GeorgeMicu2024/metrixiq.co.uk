@@ -82,6 +82,10 @@ export default function DashboardClient() {
   const [favorites, setFavorites] = useState([]);
   const [siteFilter, setSiteFilter] = useState("all");
   const [siteRegistry, setSiteRegistry] = useState([]);
+  const [siteManageOpen, setSiteManageOpen] = useState(false);
+  const [siteManageBusy, setSiteManageBusy] = useState("");
+  const [siteManageError, setSiteManageError] = useState("");
+  const [sitePendingDisable, setSitePendingDisable] = useState("");
   const [siteCreateOpen, setSiteCreateOpen] = useState(false);
   const [siteCreateBusy, setSiteCreateBusy] = useState(false);
   const [siteCreateError, setSiteCreateError] = useState("");
@@ -369,7 +373,6 @@ export default function DashboardClient() {
     .map((d) => validSiteCode(d.site))
     .filter(Boolean);
   const registeredSites = siteRegistry
-    .filter((row) => row.active !== false)
     .flatMap((row) => [row.site, row.site_code, row.code, row.station_code])
     .map(validSiteCode)
     .filter(Boolean);
@@ -385,9 +388,18 @@ export default function DashboardClient() {
   // Site scope is a membership restriction, not just a default selection.
   // Empty scope means all sites (existing owner/admin behaviour).
   const allowedSiteScope = (workspace?.siteScope || []).map(validSiteCode).filter(Boolean);
-  const sites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])]
+  const isSiteManager = !allowedSiteScope.length && (
+    platformAdmin || ["owner", "admin", "manager"].includes(String(session?.role || "").toLowerCase())
+  );
+  const managedSites = [...new Set([...legacySites, ...registeredSites, ...evidenceSites])]
     .filter(site => !allowedSiteScope.length || allowedSiteScope.includes(site))
     .sort();
+  // Explicitly inactive profiles must win over historical drivers/import evidence.
+  const inactiveSiteCodes = new Set(siteRegistry
+    .filter(row => row.active === false)
+    .map(row => validSiteCode(row.site))
+    .filter(Boolean));
+  const sites = managedSites.filter(site => !inactiveSiteCodes.has(site));
   useEffect(() => {
     if (siteFilter !== "all" && !sites.includes(siteFilter)) setSiteFilter(sites[0] || "all");
   }, [siteFilter, sites.join("|"), workspace?.organization?.id]);
@@ -415,7 +427,8 @@ export default function DashboardClient() {
       setSiteCreateError("Use a valid station code such as DLS2, DXM3 or DDN1.");
       return;
     }
-    if (sites.includes(code)) {
+    if (!isSiteManager) { setSiteCreateError("Only workspace administrators can manage sites."); return; }
+    if (managedSites.includes(code)) {
       setSiteCreateError(code + " already exists in this workspace.");
       return;
     }
@@ -441,6 +454,36 @@ export default function DashboardClient() {
       setSiteCreateBusy(false);
     }
   }
+  async function updateSiteAvailability(code, active) {
+    const organizationId = workspace?.organization?.id;
+    if (!organizationId || !isSiteManager || siteManageBusy) return;
+    const existing = siteRegistry.find(row => validSiteCode(row.site) === code);
+    setSiteManageBusy(code);
+    setSiteManageError("");
+    try {
+      const supabase = getSupabaseBrowserClient();
+      await upsertOrganizationSiteProfile(supabase, {
+        organizationId,
+        site: code,
+        displayName: existing?.display_name || code,
+        region: existing?.region || null,
+        country: existing?.country || "United Kingdom",
+        active,
+      });
+      const rows = await fetchOrganizationHierarchy(supabase, organizationId);
+      setSiteRegistry(rows || []);
+      setSitePendingDisable("");
+      if (!active && siteFilter === code) {
+        localStorage.removeItem("metrixiq.activeSite");
+        setSiteFilter("all");
+      }
+    } catch (error) {
+      setSiteManageError(error?.message || "Could not change site status.");
+    } finally {
+      setSiteManageBusy("");
+    }
+  }
+
   useEffect(() => {
     const organizationId = workspace?.organization?.id;
     if (!organizationId) return;
@@ -619,10 +662,11 @@ export default function DashboardClient() {
       <span className="site-switcher-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="17" height="17" fill="none"><path d="M4 21V7.5L12 3v18M4 21h16M8 10h1M8 14h1M8 18h1M15 9h5v12M16.5 13h1M16.5 17h1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg></span>
       <span className="site-switcher-mark">SITE</span>
       <span className="site-switcher-value">{siteFilter==="all"?"All Sites":siteFilter}</span>
-      <select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}>
+      <select aria-label="Filter workspace by site" value={siteFilter} onChange={e=>{if(e.target.value==="__add_site__"){setSiteCreateError("");setSiteCreateOpen(true);return;}if(e.target.value==="__manage_sites__"){setSiteManageError("");setSitePendingDisable("");setSiteManageOpen(true);return;}setSiteFilter(e.target.value);if(e.target.value!=="all")localStorage.setItem("metrixiq.activeSite",e.target.value);}}>
         <option value="all">All Sites</option>
         {sites.map(site=><option key={site} value={site}>{site}</option>)}
-        {!allowedSiteScope.length && <option value="__add_site__">＋ Add new site</option>}
+        {isSiteManager && <option value="__manage_sites__">⚙ Manage sites</option>}
+        {isSiteManager && <option value="__add_site__">＋ Add new site</option>}
       </select>
       <span className="site-switcher-chevron">⌄</span>
     </label>
@@ -642,7 +686,7 @@ export default function DashboardClient() {
     <ChatHeaderButton organizationId={workspace?.organization?.id} userId={session?.user?.id||session?.id} onOpen={()=>{if(active==="manager-chat"){if(!navigate(previousActive||"dashboard"))navigate("dashboard");}else{setPreviousActive(active);navigate("manager-chat");}}} />
     <NotificationsCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} refreshKey={operationalRefreshKey} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenNotifications={()=>navigate("notifications")} onOpenCoaching={()=>navigate("coaching")} onOpenImports={()=>navigate("imports")} onOpenDataQuality={()=>navigate("data-quality")} onNavigate={navigate} />
     <div className="topbar-profile-wrap">
-      <button className={profileMenuOpen?"topbar-profile topbar-profile-premium active":"topbar-profile topbar-profile-premium"} onClick={()=>setProfileMenuOpen(v=>!v)} aria-expanded={profileMenuOpen}>
+      <button type="button" aria-label="Open account menu" aria-haspopup="menu" className={profileMenuOpen?"topbar-profile topbar-profile-premium active":"topbar-profile topbar-profile-premium"} onClick={()=>setProfileMenuOpen(v=>!v)} aria-expanded={profileMenuOpen}>
         <b className="topbar-profile-avatar">{session?.avatar_url?<img src={session.avatar_url} alt="" referrerPolicy="no-referrer"/>:initials(session?.name||session?.email||"M")}</b>
         <span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}</small></span><em>⌄</em>
       </button>
@@ -650,10 +694,31 @@ export default function DashboardClient() {
         <div className="profile-menu-head"><b>{initials(session?.name||session?.email||"M")}</b><span><strong>{session?.name||"Manager"}</strong><small>{session?.role||"Manager"}{siteFilter!=="all"?` · ${siteFilter}`:""}</small></span></div>
         <div className="profile-menu-divider"/>
         <button onClick={()=>{setProfileMenuOpen(false);navigate("settings")}}><i>⚙</i><span><b>Settings</b><small>Account, password and preferences</small></span></button>
+        {isSiteManager && <button type="button" onClick={()=>{setProfileMenuOpen(false);setSiteManageError("");setSitePendingDisable("");setSiteManageOpen(true);}}><i>⌂</i><span><b>Manage sites</b><small>Deactivate or reactivate a station</small></span></button>}
         <div className="profile-menu-divider"/>
         <button className="profile-menu-logout" onClick={()=>{setProfileMenuOpen(false);logout()}}><i>↪</i><span><b>Log out</b><small>Sign out of MetrixIQ</small></span></button>
       </div>}
     </div>
   </div>
-</header><main className="app-main">{view}</main></div>{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy)setSiteCreateOpen(false);}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">Add new site</h2><p>Create a station in this workspace. Existing DLS2 drivers and historical data are not changed.</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
+</header><main className="app-main">{view}</main></div>{siteManageOpen&&isSiteManager&&<div role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!siteManageBusy){setSiteManageOpen(false);setSitePendingDisable("");}}} style={{position:"fixed",inset:0,zIndex:1600,background:"rgba(5,18,31,.66)",display:"grid",placeItems:"center",padding:14}}>
+  <section className="panel" role="dialog" aria-modal="true" aria-labelledby="manage-sites-title" style={{width:"min(620px,100%)",maxHeight:"min(88dvh,800px)",overflowY:"auto",padding:16}}>
+    <div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="manage-sites-title">Manage sites</h2><p>Deactivate a site to hide it from the station selector. All drivers, scorecards and historical records are preserved.</p></div><button type="button" className="btn ghost compact" aria-label="Close site management" disabled={Boolean(siteManageBusy)} onClick={()=>{setSiteManageOpen(false);setSitePendingDisable("");}}>×</button></div>
+    {siteManageError&&<div className="mgrv2-notice error" role="alert">{siteManageError}</div>}
+    <div style={{display:"grid",gap:10}}>
+      {managedSites.map(site=>{const profile=siteRegistry.find(row=>validSiteCode(row.site)===site);const enabled=profile?.active!==false;return <div key={site} style={{border:"1px solid #dce7ee",borderRadius:13,padding:"13px 14px",background:enabled?"#fff":"#f4f7fa"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+          <div><strong style={{display:"block",fontSize:17,color:"#163148"}}>{site}</strong><span style={{fontSize:12,color:enabled?"#19806b":"#7b8895"}}>{enabled?"● Active":"○ Inactive"}{profile?.display_name&&profile.display_name!==site?" · "+profile.display_name:""}</span></div>
+          <button type="button" className={enabled?"btn ghost compact":"btn primary compact"} disabled={Boolean(siteManageBusy)} onClick={()=>{if(enabled){setSitePendingDisable(site);setSiteManageError("");}else{updateSiteAvailability(site,true);}}}>{siteManageBusy===site?"Saving…":enabled?"Deactivate":"Reactivate"}</button>
+        </div>
+        {sitePendingDisable===site&&enabled&&<div style={{marginTop:12,padding:12,borderRadius:10,background:"#fff2e9",border:"1px solid #f6cba9"}}>
+          <p style={{margin:"0 0 10px",fontSize:13,color:"#7c401d"}}>Deactivate {site}? It will disappear from the site selector for this workspace. No information will be deleted.</p>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}><button type="button" className="btn primary compact" disabled={Boolean(siteManageBusy)} onClick={()=>updateSiteAvailability(site,false)}>Confirm deactivate</button><button type="button" className="btn ghost compact" onClick={()=>setSitePendingDisable("")}>Cancel</button></div>
+        </div>}
+      </div>})}
+      {!managedSites.length&&<p>No sites registered in this workspace.</p>}
+    </div>
+    <p style={{marginTop:15,color:"#6b7c8b",fontSize:12}}>Inactive sites can be reactivated at any time. Existing historical records remain in the database.</p>
+    <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:12}}><button type="button" className="btn ghost" disabled={Boolean(siteManageBusy)} onClick={()=>setSiteManageOpen(false)}>Done</button></div>
+  </section>
+</div>}{siteCreateOpen&&<div role="presentation" onMouseDown={(e)=>{if(e.target===e.currentTarget&&!siteCreateBusy)setSiteCreateOpen(false);}} style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(5,10,20,.68)",display:"grid",placeItems:"center",padding:20}}><section className="panel" role="dialog" aria-modal="true" aria-labelledby="create-site-title" style={{width:"min(560px,100%)",maxHeight:"90vh",overflow:"auto"}}><div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="create-site-title">Add new site</h2><p>Create a station in this workspace. Existing DLS2 drivers and historical data are not changed.</p></div><button className="btn ghost compact" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>×</button></div>{siteCreateError&&<div className="mgrv2-notice error">{siteCreateError}</div>}<div style={{display:"grid",gap:14}}><label><span>Site code</span><input autoFocus value={siteDraft.code} onChange={e=>setSiteDraft(x=>({...x,code:e.target.value.toUpperCase()}))} placeholder="DXM3" maxLength={8}/></label><label><span>Display name</span><input value={siteDraft.displayName} onChange={e=>setSiteDraft(x=>({...x,displayName:e.target.value}))} placeholder="DXM3 Operations"/></label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><label><span>Region</span><input value={siteDraft.region} onChange={e=>setSiteDraft(x=>({...x,region:e.target.value}))} placeholder="North West"/></label><label><span>Country</span><input value={siteDraft.country} onChange={e=>setSiteDraft(x=>({...x,country:e.target.value}))} placeholder="United Kingdom"/></label></div><div style={{display:"flex",justifyContent:"flex-end",gap:10}}><button className="btn ghost" disabled={siteCreateBusy} onClick={()=>setSiteCreateOpen(false)}>Cancel</button><button className="btn primary" disabled={siteCreateBusy||!siteDraft.code.trim()} onClick={createSiteFromDashboard}>{siteCreateBusy?"Creating…":"Create site"}</button></div></div></section></div>}</div>;
 }
