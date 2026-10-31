@@ -67,6 +67,43 @@ export default function NotificationsCenterV2({
   useEffect(()=>{setLoaded(false);load(false);},[organizationId,refreshKey]);
 
   useEffect(()=>{
+    if(!organizationId||!canManage)return;
+    let cancelled=false;
+    const syncInBackground=async()=>{
+      // Avoid regenerating the same feed on every route change or browser tab.
+      const syncKey="metrixiq.notificationFeedSync."+organizationId;
+      try{
+        const last=Number(window.localStorage.getItem(syncKey)||0);
+        if(Date.now()-last<5*60*1000)return;
+        window.localStorage.setItem(syncKey,String(Date.now()));
+      }catch{
+        // Private browsing can disable storage; notifications still refresh.
+      }
+      try{
+        const supabase=getSupabaseBrowserClient();
+        await refreshNotificationsV2(supabase,organizationId);
+        const latest=await fetchNotificationsV2(supabase,organizationId,80,null);
+        if(!cancelled){setRows(latest);setError("");}
+      }catch(syncError){
+        console.warn("Notification background refresh failed:",syncError?.message);
+        if(!cancelled)setError(syncError?.message||"Could not refresh notifications.");
+      }
+    };
+    // Initial rows render immediately; regeneration never blocks opening the app.
+    syncInBackground();
+    const onReturn=()=>{if(document.visibilityState==="visible")syncInBackground();};
+    window.addEventListener("focus",onReturn);
+    document.addEventListener("visibilitychange",onReturn);
+    const timer=window.setInterval(syncInBackground,5*60*1000);
+    return()=>{
+      cancelled=true;
+      window.removeEventListener("focus",onReturn);
+      document.removeEventListener("visibilitychange",onReturn);
+      window.clearInterval(timer);
+    };
+  },[organizationId,refreshKey,canManage]);
+
+  useEffect(()=>{
     function outside(event){if(rootRef.current&&!rootRef.current.contains(event.target))setOpen(false);}
     function escape(event){if(String(event.key||"").toLowerCase()==="escape")setOpen(false);}
     document.addEventListener("mousedown",outside);
