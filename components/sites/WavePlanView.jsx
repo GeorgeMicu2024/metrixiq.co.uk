@@ -44,7 +44,14 @@ async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(
 // DZM1 alternate Amazon dispatch format: three side-by-side launch-pad blocks
 // A:D, F:I, K:N. Each block carries DSP, route, loading time, staging.
 function dzm1ThreePadRows(rows){
- const pads=[{pad:"A",dsp:0,route:1,time:2,stage:3},{pad:"B",dsp:5,route:6,time:7,stage:8},{pad:"C",dsp:10,route:11,time:12,stage:13}];
+ // Amazon exports may start each five-column launch-pad block at A/F/K or B/H/N.
+ // Select the layout using actual DCSL route + time pairs, not merely route text.
+ const layouts=[
+  [{pad:"A",dsp:0,route:1,time:2,stage:3},{pad:"B",dsp:5,route:6,time:7,stage:8},{pad:"C",dsp:10,route:11,time:12,stage:13}],
+  [{pad:"A",dsp:1,route:2,time:3,stage:4},{pad:"B",dsp:7,route:8,time:9,stage:10},{pad:"C",dsp:13,route:14,time:15,stage:16}]
+ ];
+ const score=pads=>rows.reduce((count,row)=>count+pads.filter(pad=>dcslDsp(row.cells?.[pad.dsp])&&routeOf([row.cells?.[pad.route]])&&timeOf([row.cells?.[pad.time]])).length,0);
+ const pads=layouts.sort((a,b)=>score(b)-score(a))[0];
  const candidates=[];
  const allTimes=new Set();
  for(const row of rows){
