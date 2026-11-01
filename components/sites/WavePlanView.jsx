@@ -1010,6 +1010,16 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
     .daily-dispatch .dcsl-sheet.ddd2-sheet>footer {height:auto!important;min-height:82px!important;display:grid!important;grid-template-columns:1fr 1.1fr .9fr!important;align-items:center!important;overflow:visible!important;box-sizing:border-box!important;padding:14px 22px 18px!important}
     .daily-dispatch .dcsl-sheet.ddd2-sheet>footer>div {height:auto!important;min-height:45px!important;overflow:visible!important}
     .daily-dispatch .dcsl-sheet.ddd2-sheet>footer span,.daily-dispatch .dcsl-sheet.ddd2-sheet>footer b,.daily-dispatch .dcsl-sheet.ddd2-sheet>footer strong {line-height:1.4!important;white-space:normal!important}
+    /* DDD2 wave-coloured column headings and visible driver separators. */
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:first-of-type {background:#d7e9fb!important;border-top:1px solid #98c4ee!important;border-bottom:3px solid #80b4e5!important;min-height:38px!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave:nth-of-type(2)>div:first-of-type {background:#d5f2e2!important;border-top:1px solid #9bdbb8!important;border-bottom:3px solid #78c99c!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:first-of-type>* {color:#163b5c!important;font-size:13px!important;font-weight:950!important;letter-spacing:.045em!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave:nth-of-type(2)>div:first-of-type>* {color:#145b40!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:not(:first-of-type) {border-bottom:2px solid #c1d8ec!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave:nth-of-type(2)>div:not(:first-of-type) {border-bottom:2px solid #a5dbc0!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:not(:first-of-type):nth-of-type(odd) {background:#f4f8fc!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave:nth-of-type(2)>div:not(:first-of-type):nth-of-type(odd) {background:#f3fbf6!important}
+
 
 
 
