@@ -1019,11 +1019,34 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
     .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave:nth-of-type(2)>div:not(:first-of-type) {border-bottom:2px solid #a5dbc0!important}
     .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:not(:first-of-type):nth-of-type(odd) {background:#f4f8fc!important}
     .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave:nth-of-type(2)>div:not(:first-of-type):nth-of-type(odd) {background:#f3fbf6!important}
+    /* DDD2-only mobile driver-name editor; does not affect other sites. */
+    @media (max-width:760px) {
+      .wave-name-editor-backdrop.ddd2-editor-backdrop {position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;z-index:9999!important;justify-content:stretch!important;overflow:hidden!important;backdrop-filter:none!important}
+      .ddd2-editor-backdrop .wave-name-editor {width:100%!important;max-width:100%!important;height:100dvh!important;min-height:0!important;border:0!important;border-radius:0!important;transform:none!important;animation:none!important;box-sizing:border-box!important}
+      .ddd2-editor-backdrop .wave-name-editor>header {flex:0 0 auto!important;padding:14px 16px 12px!important;gap:12px!important}
+      .ddd2-editor-backdrop .wave-name-editor>header h2 {font-size:20px!important}
+      .ddd2-editor-backdrop .wave-name-editor>header p {font-size:12px!important;line-height:1.35!important}
+      .ddd2-editor-backdrop .wave-name-editor-info {margin:10px 12px 0!important;padding:10px!important;font-size:12px!important}
+      .ddd2-editor-backdrop .wave-name-editor-table {margin:10px 12px 0!important;overflow-y:auto!important;overflow-x:hidden!important;min-height:0!important;flex:1 1 auto!important;border-radius:10px!important;-webkit-overflow-scrolling:touch}
+      .ddd2-editor-backdrop .wave-name-editor-table .head {display:none!important}
+      .ddd2-editor-backdrop .wave-name-editor-table .row {display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:4px!important;padding:12px!important;min-height:0!important;background:#fff!important;border-bottom:2px solid #dce9f2!important}
+      .ddd2-editor-backdrop .wave-name-editor-table .row:nth-child(odd) {background:#f7fafc!important}
+      .ddd2-editor-backdrop .wave-name-editor-table .row>* {min-width:0!important;padding:0!important;margin:0!important;max-width:100%!important}
+      .ddd2-editor-backdrop .wave-name-editor-table .row>b {font-size:13px!important;font-weight:900!important;color:#1b5e99!important}
+      .ddd2-editor-backdrop .wave-name-editor-table .row>b::before {content:"ROUTE  ";font-size:10px!important;letter-spacing:.06em!important;color:#71889b!important}
+      .ddd2-editor-backdrop .wave-name-editor-table .row>span {font-size:13px!important;color:#334d63!important;line-height:1.4!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+      .ddd2-editor-backdrop .wave-name-editor-table .row>span::before {content:"CURRENT NAME";display:block;font-size:10px!important;letter-spacing:.06em!important;font-weight:900!important;color:#71889b!important;margin-bottom:3px}
+      .ddd2-editor-backdrop .wave-name-editor-table input {display:block!important;box-sizing:border-box!important;width:100%!important;height:44px!important;font-size:16px!important;border:1px solid #b7ccdd!important;padding:0 12px!important}
+      .ddd2-editor-backdrop .wave-name-editor-tip {margin:8px 12px!important;padding:9px!important;font-size:11px!important;flex:0 0 auto!important}
+      .ddd2-editor-backdrop .wave-name-editor>footer {position:relative!important;flex:0 0 auto!important;display:grid!important;grid-template-columns:1fr 1.5fr!important;gap:8px!important;padding:10px 12px calc(12px + env(safe-area-inset-bottom))!important;box-shadow:0 -4px 12px rgba(18,45,68,.06)!important}
+      .ddd2-editor-backdrop .wave-name-editor>footer .btn {min-width:0!important;width:100%!important;padding:12px 8px!important;font-size:13px!important;white-space:nowrap!important}
+    }
+
 
 
 
 
   `}</style>
-  {editNamesOpen&&<div className="wave-name-editor-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setEditNamesOpen(false)}}><aside className="wave-name-editor" role="dialog" aria-modal="true" aria-label="Edit Driver Names"><header><div><span className="page-kicker">DRIVER CLEANUP</span><h2>👥 Edit Driver Names</h2><p>Review and correct names before generating or sending the final wave plan.</p></div><button type="button" aria-label="Close name editor" onClick={()=>setEditNamesOpen(false)}>×</button></header><div className="wave-name-editor-info">ⓘ Driver names are automatically deduplicated. You can override any route manually when needed.</div><div className="wave-name-editor-table"><div className="head"><span>Route</span><span>Current name</span><span>Corrected name</span></div>{editableRoutes.map(row=>{const key=norm(row.route);return <div className="row" key={key}><b>{row.route}</b><span title={row.current}>{row.current}</span><input value={editDraft[key]??row.corrected} onChange={e=>setEditDraft(d=>({...d,[key]:e.target.value}))} aria-label={"Corrected name for "+row.route}/></div>})}</div><div className="wave-name-editor-tip">💡 Changes apply immediately to the preview after you select <b>Apply Changes</b>.</div><footer><button type="button" className="btn ghost" onClick={()=>setEditNamesOpen(false)}>Cancel</button><button type="button" className="btn primary" onClick={applyNameEdits}>✓ Apply Changes</button></footer></aside></div>}
+  {editNamesOpen&&<div className={"wave-name-editor-backdrop"+(norm(site)==="DDD2"?" ddd2-editor-backdrop":"")} onMouseDown={e=>{if(e.target===e.currentTarget)setEditNamesOpen(false)}}><aside className="wave-name-editor" role="dialog" aria-modal="true" aria-label="Edit Driver Names"><header><div><span className="page-kicker">DRIVER CLEANUP</span><h2>👥 Edit Driver Names</h2><p>Review and correct names before generating or sending the final wave plan.</p></div><button type="button" aria-label="Close name editor" onClick={()=>setEditNamesOpen(false)}>×</button></header><div className="wave-name-editor-info">ⓘ Driver names are automatically deduplicated. You can override any route manually when needed.</div><div className="wave-name-editor-table"><div className="head"><span>Route</span><span>Current name</span><span>Corrected name</span></div>{editableRoutes.map(row=>{const key=norm(row.route);return <div className="row" key={key}><b>{row.route}</b><span title={row.current}>{row.current}</span><input value={editDraft[key]??row.corrected} onChange={e=>setEditDraft(d=>({...d,[key]:e.target.value}))} aria-label={"Corrected name for "+row.route}/></div>})}</div><div className="wave-name-editor-tip">💡 Changes apply immediately to the preview after you select <b>Apply Changes</b>.</div><footer><button type="button" className="btn ghost" onClick={()=>setEditNamesOpen(false)}>Cancel</button><button type="button" className="btn primary" onClick={applyNameEdits}>✓ Apply Changes</button></footer></aside></div>}
  </div>
 }
