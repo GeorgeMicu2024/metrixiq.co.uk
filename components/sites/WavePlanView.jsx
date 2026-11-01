@@ -881,8 +881,8 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
      const {toPng}=await import("html-to-image");
      const node=sheetRef.current;
      const exportWidth=920;
-     const exportHeight=node.scrollHeight;
-     const dataUrl=await toPng(node,{pixelRatio:3,cacheBust:true,backgroundColor:"#05070a",width:exportWidth,height:exportHeight,style:{width:exportWidth+"px",maxWidth:"none",minWidth:exportWidth+"px",margin:"0",transform:"none",overflow:"visible"}});
+     const exportHeight=node.scrollHeight+(norm(site)==="DDD2"?36:0);
+     const dataUrl=await toPng(node,{pixelRatio:3,cacheBust:true,backgroundColor:norm(site)==="DDD2"?"#ffffff":"#05070a",width:exportWidth,height:exportHeight,style:{width:exportWidth+"px",maxWidth:"none",minWidth:exportWidth+"px",margin:"0",transform:"none",overflow:"visible"}});
      const blob=await (await fetch(dataUrl)).blob();
      const file=new File([blob],`DCSL-Wave-Plan-${new Date().toISOString().slice(0,10)}.png`,{type:"image/png"});
      if(share&&navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({files:[file],title:"DCSL Wave Plan",text:`${site} Wave Plan`});return}
@@ -998,6 +998,19 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
     .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div>b:nth-child(4) {display:inline-flex!important;align-items:center!important;justify-content:center!important;justify-self:start!important;min-width:97px!important;margin:4px 0!important;padding:7px 10px!important;border-radius:7px!important;background:#e0f5e9!important;border:1px solid #bfe7d0!important;color:#12694b!important;font-size:13px!important;font-weight:950!important}
     .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:first-of-type>b:nth-child(3),
     .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:first-of-type>b:nth-child(4) {background:transparent!important;border:0!important;padding:7px 11px!important;margin:0!important;min-width:0!important;color:#506b82!important;font-size:11px!important}
+    /* DDD2: strong black typography, tighter column placement and uncropped footer. */
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div {grid-template-columns:44px minmax(0,1fr) 160px 176px!important;min-height:43px!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div>* {color:#101820!important;font-weight:900!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div>strong {font-family:Arial,Helvetica,sans-serif!important;font-size:15px!important;color:#0b1520!important;font-weight:900!important;letter-spacing:0!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div>b:nth-child(3) {color:#101820!important;font-size:14px!important;font-weight:950!important;background:#dceaff!important;border:1px solid #aacdf0!important;min-width:114px!important;justify-self:start!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div>b:nth-child(4) {color:#101820!important;font-size:14px!important;font-weight:950!important;background:#d5f0df!important;border:1px solid #9ed9b7!important;min-width:118px!important;justify-self:start!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:first-of-type>* {color:#263b4e!important;font-size:12px!important;font-weight:950!important;letter-spacing:.035em!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:first-of-type>b:nth-child(3),
+    .daily-dispatch .dcsl-sheet.ddd2-sheet section.ddd2-wave>div:first-of-type>b:nth-child(4) {background:transparent!important;border:0!important;color:#263b4e!important;min-width:0!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet>footer {height:auto!important;min-height:82px!important;display:grid!important;grid-template-columns:1fr 1.1fr .9fr!important;align-items:center!important;overflow:visible!important;box-sizing:border-box!important;padding:14px 22px 18px!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet>footer>div {height:auto!important;min-height:45px!important;overflow:visible!important}
+    .daily-dispatch .dcsl-sheet.ddd2-sheet>footer span,.daily-dispatch .dcsl-sheet.ddd2-sheet>footer b,.daily-dispatch .dcsl-sheet.ddd2-sheet>footer strong {line-height:1.4!important;white-space:normal!important}
+
 
 
   `}</style>
