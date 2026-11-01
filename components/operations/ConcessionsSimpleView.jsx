@@ -219,7 +219,25 @@ export default function ConcessionsSimpleView({
       snapshotMatrix.map((row) => [String(row.driver_trid || "").toUpperCase(), row])
     );
 
-    return rosterDrivers
+    // DZM1: keep every imported concession row, even when the latest
+    // driver_metrics roster has no matching TRID. Include roster-only drivers
+    // with zero concessions as before.
+    const mergedDrivers = site === "DZM1"
+      ? [
+          ...rosterDrivers,
+          ...snapshotMatrix
+            .filter((row) => !rosterDrivers.some(
+              (driver) => String(driver?.id || "").trim().toUpperCase() === row.driver_trid
+            ))
+            .map((row) => ({
+              id: row.driver_trid,
+              dbId: row.driver_id || null,
+              name: row.driver_name,
+            })),
+        ]
+      : rosterDrivers;
+
+    return mergedDrivers
       .map((driver) => {
         const trid = String(driver?.id || "").trim().toUpperCase();
         if (!trid) return null;
