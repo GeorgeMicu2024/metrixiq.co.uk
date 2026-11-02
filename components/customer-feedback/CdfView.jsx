@@ -92,42 +92,44 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const pages = Math.max(1,Math.ceil(feedbackRows.length/20));
   const currentPage = Math.min(feedbackPage,pages-1);
 
-  async function getFeedbackFiles() {
+
+  async function renderFeedbackPage(pageIndex) {
     const { toBlob } = await import("html-to-image");
-    const nodes = [...exportContainerRef.current.querySelectorAll("[data-cdf-page]")];
-    const files = [];
-    for (let index=0; index<nodes.length; index++) {
-      const blob = await toBlob(nodes[index], {pixelRatio:2,backgroundColor:"#fff"});
-      if (!blob) throw new Error(`Failed rendering image ${index+1}`);
-      files.push(new File([blob],`DZM1-CDF-${week}-page-${index+1}.png`,{type:"image/png"}));
-    }
-    return files;
+    const node=exportContainerRef.current?.querySelectorAll("[data-cdf-page]")[pageIndex];
+    if (!node) throw new Error("Feedback page not found.");
+    const blob=await toBlob(node,{pixelRatio:2,backgroundColor:"#fff"});
+    if (!blob) throw new Error("Could not render feedback image.");
+    return new File([blob],`DZM1-CDF-${week}-page-${pageIndex+1}.png`,{type:"image/png"});
   }
-  function downloadPhotos(files) {
-    for (const file of files) {
-      const url = URL.createObjectURL(file);
-      const link = document.createElement("a");
-      link.href=url; link.download=file.name;
-      document.body.appendChild(link); link.click(); link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
-    }
+  function downloadPage(file) {
+    const url=URL.createObjectURL(file);
+    const link=document.createElement("a");
+    link.href=url;
+    link.download=file.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
-  async function saveFeedback(mode="download") {
+  async function exportFeedbackPage(pageIndex,share=false) {
     if (!exportContainerRef.current || exporting || !feedbackRows.length) return;
     setExporting(true);
     try {
-      const files=await getFeedbackFiles();
-      if (mode==="share" && typeof navigator.share==="function" && navigator.canShare?.({files})) {
+      const file=await renderFeedbackPage(pageIndex);
+      if (share && navigator.canShare?.({files:[file]}) && typeof navigator.share==="function") {
         try {
-          await navigator.share({files,title:`DZM1 CDF Feedback ${week}`});
+          await navigator.share({files:[file],title:`DZM1 CDF Feedback ${week} — Page ${pageIndex+1}`});
           return;
-        } catch (error) {
+        } catch(error) {
           if (error?.name==="AbortError") return;
           if (error?.name!=="NotAllowedError") throw error;
         }
       }
-      downloadPhotos(files);
-      if (files.length>1) window.alert(`Requested ${files.length} PNG downloads. If only one appears, allow multiple downloads for metrixiq.co.uk in your browser.`);
+      downloadPage(file);
+      if (share) {
+        window.alert("The image has been downloaded. Attach it in WhatsApp; this browser cannot attach the file automatically.");
+        window.open("https://web.whatsapp.com/","_blank","noopener,noreferrer");
+      }
     } catch(error) { window.alert(error?.message || "CDF export failed"); }
     finally { setExporting(false); }
   }
@@ -141,10 +143,13 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   if(load.error)return <ErrorPanel error={load.error}/>;
 
   return <>
-    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>saveFeedback("download")}>{exporting?"Preparing photos…":"Save All Photos"}</button>}{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>saveFeedback("share")}>Share Photos</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
+    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage)}>{exporting?"Preparing photo…":`Save Page ${currentPage+1}`}</button>}{dzm1 && <button className="btn" style={{background:"#25D366",color:"#fff"}} disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage,true)}>WhatsApp</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
 
     {dzm1 && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · separate PNG photos</div></div>
+      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · save each page using its own button</div></div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+        {Array.from({length:pages},(_,i)=><button key={i} className="btn" disabled={exporting} onClick={()=>exportFeedbackPage(i)}>Save Page {i+1}</button>)}
+      </div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <button className="btn" disabled={currentPage===0} onClick={()=>setFeedbackPage(p=>Math.max(0,p-1))}>Previous</button>
         <b>Page {currentPage+1}/{pages}</b>
