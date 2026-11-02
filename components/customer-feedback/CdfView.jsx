@@ -34,6 +34,42 @@ function groupCdf(events) {
 }
 
 
+
+function createCdfZip(files) {
+  const encoder=new TextEncoder();
+  const chunks=[],central=[];
+  let offset=0;
+  const crc32=(data)=>{
+    let crc=0xffffffff;
+    for(const byte of data){
+      crc^=byte;
+      for(let i=0;i<8;i++) crc=(crc>>>1)^(0xedb88320&-(crc&1));
+    }
+    return (crc^0xffffffff)>>>0;
+  };
+  for(const file of files){
+    const name=encoder.encode(file.name),data=file.bytes,crc=crc32(data);
+    const local=new Uint8Array(30+name.length),a=new DataView(local.buffer);
+    a.setUint32(0,0x04034b50,true);a.setUint16(4,20,true);a.setUint16(6,0x0800,true);
+    a.setUint32(14,crc,true);a.setUint32(18,data.length,true);a.setUint32(22,data.length,true);
+    a.setUint16(26,name.length,true);local.set(name,30);
+    chunks.push(local,data);
+    const item=new Uint8Array(46+name.length),b=new DataView(item.buffer);
+    b.setUint32(0,0x02014b50,true);b.setUint16(4,20,true);b.setUint16(6,20,true);
+    b.setUint16(8,0x0800,true);b.setUint32(16,crc,true);
+    b.setUint32(20,data.length,true);b.setUint32(24,data.length,true);
+    b.setUint16(28,name.length,true);b.setUint32(42,offset,true);
+    item.set(name,46);central.push(item);
+    offset+=local.length+data.length;
+  }
+  const total=central.reduce((sum,x)=>sum+x.length,0);
+  const end=new Uint8Array(22),v=new DataView(end.buffer);
+  v.setUint32(0,0x06054b50,true);
+  v.setUint16(8,files.length,true);v.setUint16(10,files.length,true);
+  v.setUint32(12,total,true);v.setUint32(16,offset,true);
+  return new Blob([...chunks,...central,end],{type:"application/zip"});
+}
+
 function useLoad(loader, deps = []) {
   const [state, setState] = useState({ loading: true, error: "", data: null });
 
@@ -133,6 +169,25 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
     } catch(error) { window.alert(error?.message || "CDF export failed"); }
     finally { setExporting(false); }
   }
+
+  async function downloadAllFeedback() {
+    if (!exportContainerRef.current || exporting || !feedbackRows.length) return;
+    setExporting(true);
+    try {
+      const files=[];
+      for(let index=0;index<pages;index++){
+        const file=await renderFeedbackPage(index);
+        files.push({name:file.name,bytes:new Uint8Array(await file.arrayBuffer())});
+      }
+      const archive=createCdfZip(files);
+      const url=URL.createObjectURL(archive);
+      const link=document.createElement("a");
+      link.href=url;link.download=`DZM1-CDF-${week}-all-${files.length}-pages.zip`;
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    } catch(error) { window.alert(error?.message || "Could not download all CDF pages"); }
+    finally { setExporting(false); }
+  }
   const matchingCards = (load.data?.cards || []).filter((card) =>
     card.week_label === week &&
     (siteFilter === "all" || String(card.site || "").trim().toUpperCase() === siteFilter)
@@ -147,6 +202,9 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
 
     {dzm1 && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
       <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · save each page using its own button</div></div>
+      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+        <button className="btn primary" disabled={!feedbackRows.length || exporting} onClick={downloadAllFeedback}>{exporting?"Preparing…":"Download All (ZIP)"}</button>
+      </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         {Array.from({length:pages},(_,i)=><button key={i} className="btn" disabled={exporting} onClick={()=>exportFeedbackPage(i)}>Save Page {i+1}</button>)}
       </div>
