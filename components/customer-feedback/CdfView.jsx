@@ -7,6 +7,7 @@ import { displayDriverName } from "../../lib/identity";
 import { ErrorBox as ErrorPanel, Loading as LoadingPanel } from "../operations/OperationalShared";
 
 
+const CDF_EXPORT_PAGE_SIZE = 14;
 const CDF_TIPS = {
   "Never Received Delivery": "Check address and GPS pin; take a clear POD photo.",
   "Delivered To Wrong Address": "Verify house number, street and delivery pin.",
@@ -90,8 +91,46 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const over25 = selected.filter((e)=>e.scanned_over_25m).length;
   const dzm1 = String(siteFilter).trim().toUpperCase() === "DZM1";
   const feedbackRows = useMemo(()=>groupCdf(selected),[events,week]);
-  const pages = Math.max(1,Math.ceil(feedbackRows.length/20));
+  const pages = Math.max(1,Math.ceil(feedbackRows.length/CDF_EXPORT_PAGE_SIZE));
   const currentPage = Math.min(feedbackPage,pages-1);
+  const [preparedPhotos,setPreparedPhotos]=useState([]);
+  const [preparingPhotos,setPreparingPhotos]=useState(false);
+  useEffect(()=>{
+    if (!dzm1 || !feedbackRows.length) {setPreparedPhotos([]);return;}
+    let cancelled=false;
+    const task=async()=>{
+      setPreparingPhotos(true);
+      setPreparedPhotos([]);
+      try {
+        const { toBlob }=await import("html-to-image");
+        const nodes=[...exportContainerRef.current?.querySelectorAll("[data-cdf-page]")||[]];
+        const result=[];
+        for(let index=0;index<nodes.length;index++){
+          const blob=await toBlob(nodes[index],{pixelRatio:1.5,backgroundColor:"#fff"});
+          if(!blob)throw new Error("Image generation failed.");
+          result.push(new File([blob],`DZM1-CDF-${week}-page-${index+1}.png`,{type:"image/png"}));
+          if(cancelled)return;
+        }
+        if(!cancelled)setPreparedPhotos(result);
+      } catch {if(!cancelled)setPreparedPhotos([]);}
+      finally {if(!cancelled)setPreparingPhotos(false);}
+    };
+    task();
+    return ()=>{cancelled=true;};
+  },[dzm1,week,feedbackRows.length,pages]);
+  async function saveAllPhotos() {
+    if (!preparedPhotos.length || exporting) return;
+    if (navigator.canShare?.({files:preparedPhotos}) && typeof navigator.share==="function") {
+      try {
+        await navigator.share({files:preparedPhotos,title:`DZM1 CDF Feedback ${week} — ${preparedPhotos.length} photos`});
+        return;
+      } catch(error) {
+        if(error?.name==="AbortError")return;
+      }
+    }
+    window.alert("This browser cannot save several separate images in one action. On iPhone Safari, use Share and choose Save Images. You can also save each page with the individual buttons.");
+  }
+
 
 
   async function renderFeedbackPage(pageIndex) {
@@ -174,9 +213,10 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
     <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage)}>{exporting?"Preparing photo…":`Save Page ${currentPage+1}`}</button>}{dzm1 && <button className="btn" style={{background:"#25D366",color:"#fff"}} disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage,true)}>WhatsApp</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
 
     {dzm1 && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · save each page using its own button</div></div>
+      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · Up to 14 drivers per image · separate PNG photos · header and footer on every page</div></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-        <button className="btn primary" disabled={!feedbackRows.length || exporting} onClick={downloadAllFeedback}>{exporting?"Preparing…":"Download All as One Image"}</button>
+        <button className="btn primary" disabled={!preparedPhotos.length || preparingPhotos || exporting} onClick={saveAllPhotos}>{preparingPhotos?"Preparing photos…":`Save All Photos (${preparedPhotos.length || pages})`}</button>
+        <button className="btn" disabled={!feedbackRows.length || exporting} onClick={downloadAllFeedback}>One Long PNG</button>
       </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         {Array.from({length:pages},(_,i)=><button key={i} className="btn" disabled={exporting} onClick={()=>exportFeedbackPage(i)}>Save Page {i+1}</button>)}
@@ -187,22 +227,25 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
         <button className="btn" disabled={currentPage===pages-1} onClick={()=>setFeedbackPage(p=>Math.min(pages-1,p+1))}>Next</button>
       </div>
     </section>}
-    {dzm1 && <div ref={exportContainerRef} style={{position:"absolute",left:"-100000px",top:0,width:1550,pointerEvents:"none"}}>
+    {dzm1 && <div ref={exportContainerRef} style={{position:"absolute",left:"-100000px",top:0,width:1620,pointerEvents:"none"}}>
       {Array.from({length:pages},(_,pageIndex)=><div key={pageIndex} data-cdf-page="" style={{width:1550,background:"#fff",color:"#122a42",fontFamily:"Arial,sans-serif",padding:28}}>
         <div style={{padding:20,background:"#e6f5f4",borderLeft:"8px solid #009c94",display:"flex",justifyContent:"space-between"}}>
           <div><b style={{color:"#00867d",letterSpacing:2}}>METRIXIQ · DZM1</b><div style={{fontSize:40,fontWeight:900,marginTop:6}}>CDF Driver Feedback</div><div style={{fontSize:21,marginTop:6}}>{week} · {selected.length} reports · {feedbackRows.length} drivers</div></div>
           <b>Page {pageIndex+1} / {pages}</b>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"55px 330px 90px 475px 1fr",gap:12,padding:14,background:"#10364c",color:"#fff",fontSize:23,fontWeight:800,marginTop:15}}>
+        <div style={{display:"grid",gridTemplateColumns:"55px 345px 90px 485px 1fr",gap:12,padding:14,background:"#10364c",color:"#fff",fontSize:23,fontWeight:800,marginTop:15}}>
           <span>#</span><span>Driver name</span><span>Cases</span><span>Reported issue</span><span>Improvement guidance</span>
         </div>
-        {feedbackRows.slice(pageIndex*20,(pageIndex+1)*20).map((driver,i)=><div key={driver.trid||i} style={{display:"grid",gridTemplateColumns:"55px 330px 90px 475px 1fr",gap:12,padding:"16px 14px",background:i%2?"#f1f7f9":"#fff",borderBottom:"2px solid #d9e4eb",fontSize:22,lineHeight:1.45}}>
-          <b>{pageIndex*20+i+1}</b><div><b style={{fontSize:24}}>{driver.name}</b><div style={{color:"#657589",fontSize:16}}>{driver.trid}</div></div>
+        {feedbackRows.slice(pageIndex*CDF_EXPORT_PAGE_SIZE,(pageIndex+1)*CDF_EXPORT_PAGE_SIZE).map((driver,i)=><div key={driver.trid||i} style={{display:"grid",gridTemplateColumns:"55px 345px 90px 485px 1fr",gap:12,padding:"16px 14px",background:i%2?"#f1f7f9":"#fff",borderBottom:"2px solid #d9e4eb",fontSize:22,lineHeight:1.45}}>
+          <b>{pageIndex*CDF_EXPORT_PAGE_SIZE+i+1}</b><div><b style={{fontSize:24}}>{driver.name}</b><div style={{color:"#657589",fontSize:16}}>{driver.trid}</div></div>
           <b style={{fontSize:28,color:"#b64642"}}>{driver.events.length}</b>
           <div>{driver.reasons.map(([type,count])=><div key={type} style={{marginBottom:4}}><b>{count}×</b> {type}</div>)}</div>
           <div>{driver.tips.map((tip,j)=><div key={j} style={{marginBottom:4}}>• {tip}</div>)}</div>
         </div>)}
-        <div style={{fontSize:15,color:"#67788b",marginTop:16}}>Customer feedback is not automatically a confirmed driver fault. Review the evidence before assigning responsibility.</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:20,padding:"16px 18px",background:"#e6f5f4",borderTop:"3px solid #009c94",fontSize:16,color:"#173d4b"}}>
+          <div><b>METRIXIQ · DZM1 · CDF Feedback · {week}</b><div style={{fontSize:13,color:"#63788b",marginTop:4}}>Customer feedback is not automatically a confirmed driver fault. Review the evidence before assigning responsibility.</div></div>
+          <b>Page {pageIndex+1} / {pages}</b>
+        </div>
       </div>)}
     </div>}
     <section className="ops-kpi-strip"><div><span>Negative feedback</span><strong>{selected.length}</strong><small>{week||"No week"}</small></div><div><span>Drivers affected</span><strong>{affected}</strong><small>Unique drivers</small></div><div><span>DNR concessions</span><strong>{dnr}</strong><small>Flagged in CDF</small></div><div><span>CDF DPMO</span><strong>{siteMetric?.value ?? "—"}</strong><small>{siteMetric?.standing || "From weekly scorecard"}</small></div></section>
