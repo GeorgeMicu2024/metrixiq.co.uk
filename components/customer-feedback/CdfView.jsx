@@ -33,6 +33,44 @@ function groupCdf(events) {
   }).sort((a,b)=>b.events.length-a.events.length || a.name.localeCompare(b.name));
 }
 
+
+function zipImages(files) {
+  const encoder = new TextEncoder();
+  const parts = [], directory = [];
+  let offset = 0;
+  const crc32 = (bytes) => {
+    let crc = 0xffffffff;
+    for (const value of bytes) {
+      crc ^= value;
+      for (let bit=0;bit<8;bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const header = (length) => new Uint8Array(length);
+  const write16 = (view, pos, value) => view.setUint16(pos, value, true);
+  const write32 = (view, pos, value) => view.setUint32(pos, value, true);
+  for (const file of files) {
+    const name = encoder.encode(file.name), data = file.bytes, crc = crc32(data);
+    const local = header(30 + name.length), l = new DataView(local.buffer);
+    write32(l,0,0x04034b50); write16(l,4,20); write16(l,6,0x0800); write16(l,8,0);
+    write32(l,14,crc); write32(l,18,data.length); write32(l,22,data.length);
+    write16(l,26,name.length); local.set(name,30);
+    parts.push(local,data);
+    const central = header(46 + name.length), c = new DataView(central.buffer);
+    write32(c,0,0x02014b50); write16(c,4,20); write16(c,6,20);
+    write16(c,8,0x0800); write16(c,10,0);
+    write32(c,16,crc); write32(c,20,data.length); write32(c,24,data.length);
+    write16(c,28,name.length); write32(c,42,offset); central.set(name,46);
+    directory.push(central);
+    offset += local.length + data.length;
+  }
+  const directorySize = directory.reduce((sum,item)=>sum+item.length,0);
+  const end = header(22), e = new DataView(end.buffer);
+  write32(e,0,0x06054b50); write16(e,8,files.length); write16(e,10,files.length);
+  write32(e,12,directorySize); write32(e,16,offset);
+  return new Blob([...parts,...directory,end],{type:"application/zip"});
+}
+
 function useLoad(loader, deps = []) {
   const [state, setState] = useState({ loading: true, error: "", data: null });
 
@@ -77,7 +115,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const [query,setQuery]=useState("");
   const [feedbackPage,setFeedbackPage]=useState(0);
   const [exporting,setExporting]=useState(false);
-  const imageRef=useRef(null);
+  const exportContainerRef=useRef(null);
   useEffect(()=>{if(weeks.length&&!weeks.includes(week))setWeek(weeks[0]);},[weeks,week]);
 
   const selected = events.filter((e)=>e.week_label===week);
@@ -90,19 +128,26 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const feedbackRows = useMemo(()=>groupCdf(selected),[events,week]);
   const pages = Math.max(1,Math.ceil(feedbackRows.length/20));
   const currentPage = Math.min(feedbackPage,pages-1);
-  const imageRows = feedbackRows.slice(currentPage*20,(currentPage+1)*20);
   async function saveFeedback() {
-    if (!imageRef.current || exporting || !imageRows.length) return;
+    if (!exportContainerRef.current || exporting || !feedbackRows.length) return;
     setExporting(true);
     try {
-      const { toPng } = await import("html-to-image");
-      const src = await toPng(imageRef.current,{pixelRatio:2,backgroundColor:"#fff"});
-      const link = document.createElement("a");
-      link.href=src;
-      link.download=`DZM1-CDF-${week}-page-${currentPage+1}.png`;
+      const { toBlob } = await import("html-to-image");
+      const nodes = [...exportContainerRef.current.querySelectorAll("[data-cdf-page]")];
+      const files = [];
+      for (let index=0; index<nodes.length; index++) {
+        const blob = await toBlob(nodes[index], {pixelRatio:2,backgroundColor:"#fff"});
+        if (!blob) throw new Error(`Could not render page ${index+1}`);
+        files.push({name:`DZM1-CDF-${week}-page-${index+1}.png`,bytes:new Uint8Array(await blob.arrayBuffer())});
+      }
+      const url=URL.createObjectURL(zipImages(files));
+      const link=document.createElement("a");
+      link.href=url;
+      link.download=`DZM1-CDF-${week}-all-${files.length}-pages.zip`;
       document.body.appendChild(link);
       link.click();
       link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),30000);
     } catch(error) { window.alert(error?.message || "CDF export failed"); }
     finally { setExporting(false); }
   }
@@ -116,33 +161,33 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   if(load.error)return <ErrorPanel error={load.error}/>;
 
   return <>
-    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={saveFeedback}>{exporting?"Saving…":"Save Feedback Image"}</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
+    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={saveFeedback}>{exporting?"Saving…":"Save All Feedback Images"}</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
 
     {dzm1 && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · selected week</div></div>
+      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · all pages in one ZIP</div></div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <button className="btn" disabled={currentPage===0} onClick={()=>setFeedbackPage(p=>Math.max(0,p-1))}>Previous</button>
         <b>Page {currentPage+1}/{pages}</b>
         <button className="btn" disabled={currentPage===pages-1} onClick={()=>setFeedbackPage(p=>Math.min(pages-1,p+1))}>Next</button>
       </div>
     </section>}
-    {dzm1 && <div style={{position:"absolute",left:"-100000px",top:0,width:1200,pointerEvents:"none"}}>
-      <div ref={imageRef} style={{width:1200,background:"#fff",color:"#122a42",fontFamily:"Arial,sans-serif",padding:28}}>
+    {dzm1 && <div ref={exportContainerRef} style={{position:"absolute",left:"-100000px",top:0,width:1450,pointerEvents:"none"}}>
+      {Array.from({length:pages},(_,pageIndex)=><div key={pageIndex} data-cdf-page="" style={{width:1450,background:"#fff",color:"#122a42",fontFamily:"Arial,sans-serif",padding:28}}>
         <div style={{padding:20,background:"#e6f5f4",borderLeft:"8px solid #009c94",display:"flex",justifyContent:"space-between"}}>
-          <div><b style={{color:"#00867d",letterSpacing:2}}>METRIXIQ · DZM1</b><div style={{fontSize:32,fontWeight:900,marginTop:6}}>CDF Driver Feedback</div><div style={{fontSize:16,marginTop:6}}>{week} · {selected.length} reports · {feedbackRows.length} drivers</div></div>
-          <b>Page {currentPage+1} / {pages}</b>
+          <div><b style={{color:"#00867d",letterSpacing:2}}>METRIXIQ · DZM1</b><div style={{fontSize:40,fontWeight:900,marginTop:6}}>CDF Driver Feedback</div><div style={{fontSize:21,marginTop:6}}>{week} · {selected.length} reports · {feedbackRows.length} drivers</div></div>
+          <b>Page {pageIndex+1} / {pages}</b>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"45px 250px 70px 365px 1fr",gap:12,padding:14,background:"#10364c",color:"#fff",fontSize:16,fontWeight:800,marginTop:15}}>
+        <div style={{display:"grid",gridTemplateColumns:"52px 295px 85px 440px 1fr",gap:12,padding:14,background:"#10364c",color:"#fff",fontSize:21,fontWeight:800,marginTop:15}}>
           <span>#</span><span>Driver name</span><span>Cases</span><span>Reported issue</span><span>Improvement guidance</span>
         </div>
-        {imageRows.map((driver,i)=><div key={driver.trid||i} style={{display:"grid",gridTemplateColumns:"45px 250px 70px 365px 1fr",gap:12,padding:"16px 14px",background:i%2?"#f1f7f9":"#fff",borderBottom:"2px solid #d9e4eb",fontSize:15,lineHeight:1.4}}>
-          <b>{currentPage*20+i+1}</b><div><b style={{fontSize:17}}>{driver.name}</b><div style={{color:"#657589",fontSize:12}}>{driver.trid}</div></div>
-          <b style={{fontSize:22,color:"#b64642"}}>{driver.events.length}</b>
+        {feedbackRows.slice(pageIndex*20,(pageIndex+1)*20).map((driver,i)=><div key={driver.trid||i} style={{display:"grid",gridTemplateColumns:"52px 295px 85px 440px 1fr",gap:12,padding:"16px 14px",background:i%2?"#f1f7f9":"#fff",borderBottom:"2px solid #d9e4eb",fontSize:20,lineHeight:1.45}}>
+          <b>{pageIndex*20+i+1}</b><div><b style={{fontSize:22}}>{driver.name}</b><div style={{color:"#657589",fontSize:16}}>{driver.trid}</div></div>
+          <b style={{fontSize:28,color:"#b64642"}}>{driver.events.length}</b>
           <div>{driver.reasons.map(([type,count])=><div key={type} style={{marginBottom:4}}><b>{count}×</b> {type}</div>)}</div>
           <div>{driver.tips.map((tip,j)=><div key={j} style={{marginBottom:4}}>• {tip}</div>)}</div>
         </div>)}
-        <div style={{fontSize:12,color:"#67788b",marginTop:16}}>Customer feedback is not automatically a confirmed driver fault. Review the evidence before assigning responsibility.</div>
-      </div>
+        <div style={{fontSize:15,color:"#67788b",marginTop:16}}>Customer feedback is not automatically a confirmed driver fault. Review the evidence before assigning responsibility.</div>
+      </div>)}
     </div>}
     <section className="ops-kpi-strip"><div><span>Negative feedback</span><strong>{selected.length}</strong><small>{week||"No week"}</small></div><div><span>Drivers affected</span><strong>{affected}</strong><small>Unique drivers</small></div><div><span>DNR concessions</span><strong>{dnr}</strong><small>Flagged in CDF</small></div><div><span>CDF DPMO</span><strong>{siteMetric?.value ?? "—"}</strong><small>{siteMetric?.standing || "From weekly scorecard"}</small></div></section>
     <section className="cdf-category-grid">{categories.slice(0,6).map((cat)=><button key={cat} className={category===cat?"active":""} onClick={()=>setCategory(category===cat?"all":cat)}><span>{cat}</span><strong>{selected.filter((e)=>e.feedback_l1===cat).length}</strong></button>)}</section>
