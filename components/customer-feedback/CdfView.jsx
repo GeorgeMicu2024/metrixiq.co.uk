@@ -35,41 +35,6 @@ function groupCdf(events) {
 
 
 
-function createCdfZip(files) {
-  const encoder=new TextEncoder();
-  const chunks=[],central=[];
-  let offset=0;
-  const crc32=(data)=>{
-    let crc=0xffffffff;
-    for(const byte of data){
-      crc^=byte;
-      for(let i=0;i<8;i++) crc=(crc>>>1)^(0xedb88320&-(crc&1));
-    }
-    return (crc^0xffffffff)>>>0;
-  };
-  for(const file of files){
-    const name=encoder.encode(file.name),data=file.bytes,crc=crc32(data);
-    const local=new Uint8Array(30+name.length),a=new DataView(local.buffer);
-    a.setUint32(0,0x04034b50,true);a.setUint16(4,20,true);a.setUint16(6,0x0800,true);
-    a.setUint32(14,crc,true);a.setUint32(18,data.length,true);a.setUint32(22,data.length,true);
-    a.setUint16(26,name.length,true);local.set(name,30);
-    chunks.push(local,data);
-    const item=new Uint8Array(46+name.length),b=new DataView(item.buffer);
-    b.setUint32(0,0x02014b50,true);b.setUint16(4,20,true);b.setUint16(6,20,true);
-    b.setUint16(8,0x0800,true);b.setUint32(16,crc,true);
-    b.setUint32(20,data.length,true);b.setUint32(24,data.length,true);
-    b.setUint16(28,name.length,true);b.setUint32(42,offset,true);
-    item.set(name,46);central.push(item);
-    offset+=local.length+data.length;
-  }
-  const total=central.reduce((sum,x)=>sum+x.length,0);
-  const end=new Uint8Array(22),v=new DataView(end.buffer);
-  v.setUint32(0,0x06054b50,true);
-  v.setUint16(8,files.length,true);v.setUint16(10,files.length,true);
-  v.setUint32(12,total,true);v.setUint32(16,offset,true);
-  return new Blob([...chunks,...central,end],{type:"application/zip"});
-}
-
 function useLoad(loader, deps = []) {
   const [state, setState] = useState({ loading: true, error: "", data: null });
 
@@ -174,19 +139,27 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
     if (!exportContainerRef.current || exporting || !feedbackRows.length) return;
     setExporting(true);
     try {
-      const files=[];
-      for(let index=0;index<pages;index++){
-        const file=await renderFeedbackPage(index);
-        files.push({name:file.name,bytes:new Uint8Array(await file.arrayBuffer())});
+      const { toCanvas } = await import("html-to-image");
+      const nodes=[...exportContainerRef.current.querySelectorAll("[data-cdf-page]")];
+      const images=[];
+      for (const node of nodes) {
+        images.push(await toCanvas(node,{pixelRatio:1.35,backgroundColor:"#fff"}));
       }
-      const archive=createCdfZip(files);
-      const url=URL.createObjectURL(archive);
-      const link=document.createElement("a");
-      link.href=url;link.download=`DZM1-CDF-${week}-all-${files.length}-pages.zip`;
-      document.body.appendChild(link);link.click();link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
-    } catch(error) { window.alert(error?.message || "Could not download all CDF pages"); }
-    finally { setExporting(false); }
+      const width=Math.max(...images.map(image=>image.width));
+      const height=images.reduce((total,image)=>total+image.height,0);
+      const combined=document.createElement("canvas");
+      combined.width=width;
+      combined.height=height;
+      const ctx=combined.getContext("2d");
+      if (!ctx) throw new Error("Image export unavailable.");
+      ctx.fillStyle="#fff";
+      ctx.fillRect(0,0,width,height);
+      let y=0;
+      for(const image of images){ctx.drawImage(image,0,y);y+=image.height;}
+      const blob=await new Promise((resolve,reject)=>combined.toBlob(value=>value?resolve(value):reject(new Error("Image export failed")),"image/png"));
+      downloadPage(new File([blob],`DZM1-CDF-${week}-all-pages.png`,{type:"image/png"}));
+    } catch(error) {window.alert(error?.message || "Could not download complete CDF image");}
+    finally {setExporting(false);}
   }
   const matchingCards = (load.data?.cards || []).filter((card) =>
     card.week_label === week &&
@@ -203,7 +176,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
     {dzm1 && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
       <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · save each page using its own button</div></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-        <button className="btn primary" disabled={!feedbackRows.length || exporting} onClick={downloadAllFeedback}>{exporting?"Preparing…":"Download All (ZIP)"}</button>
+        <button className="btn primary" disabled={!feedbackRows.length || exporting} onClick={downloadAllFeedback}>{exporting?"Preparing…":"Download All as One Image"}</button>
       </div>
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
         {Array.from({length:pages},(_,i)=><button key={i} className="btn" disabled={exporting} onClick={()=>exportFeedbackPage(i)}>Save Page {i+1}</button>)}
@@ -214,17 +187,17 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
         <button className="btn" disabled={currentPage===pages-1} onClick={()=>setFeedbackPage(p=>Math.min(pages-1,p+1))}>Next</button>
       </div>
     </section>}
-    {dzm1 && <div ref={exportContainerRef} style={{position:"absolute",left:"-100000px",top:0,width:1450,pointerEvents:"none"}}>
-      {Array.from({length:pages},(_,pageIndex)=><div key={pageIndex} data-cdf-page="" style={{width:1450,background:"#fff",color:"#122a42",fontFamily:"Arial,sans-serif",padding:28}}>
+    {dzm1 && <div ref={exportContainerRef} style={{position:"absolute",left:"-100000px",top:0,width:1550,pointerEvents:"none"}}>
+      {Array.from({length:pages},(_,pageIndex)=><div key={pageIndex} data-cdf-page="" style={{width:1550,background:"#fff",color:"#122a42",fontFamily:"Arial,sans-serif",padding:28}}>
         <div style={{padding:20,background:"#e6f5f4",borderLeft:"8px solid #009c94",display:"flex",justifyContent:"space-between"}}>
           <div><b style={{color:"#00867d",letterSpacing:2}}>METRIXIQ · DZM1</b><div style={{fontSize:40,fontWeight:900,marginTop:6}}>CDF Driver Feedback</div><div style={{fontSize:21,marginTop:6}}>{week} · {selected.length} reports · {feedbackRows.length} drivers</div></div>
           <b>Page {pageIndex+1} / {pages}</b>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"52px 295px 85px 440px 1fr",gap:12,padding:14,background:"#10364c",color:"#fff",fontSize:21,fontWeight:800,marginTop:15}}>
+        <div style={{display:"grid",gridTemplateColumns:"55px 330px 90px 475px 1fr",gap:12,padding:14,background:"#10364c",color:"#fff",fontSize:23,fontWeight:800,marginTop:15}}>
           <span>#</span><span>Driver name</span><span>Cases</span><span>Reported issue</span><span>Improvement guidance</span>
         </div>
-        {feedbackRows.slice(pageIndex*20,(pageIndex+1)*20).map((driver,i)=><div key={driver.trid||i} style={{display:"grid",gridTemplateColumns:"52px 295px 85px 440px 1fr",gap:12,padding:"16px 14px",background:i%2?"#f1f7f9":"#fff",borderBottom:"2px solid #d9e4eb",fontSize:20,lineHeight:1.45}}>
-          <b>{pageIndex*20+i+1}</b><div><b style={{fontSize:22}}>{driver.name}</b><div style={{color:"#657589",fontSize:16}}>{driver.trid}</div></div>
+        {feedbackRows.slice(pageIndex*20,(pageIndex+1)*20).map((driver,i)=><div key={driver.trid||i} style={{display:"grid",gridTemplateColumns:"55px 330px 90px 475px 1fr",gap:12,padding:"16px 14px",background:i%2?"#f1f7f9":"#fff",borderBottom:"2px solid #d9e4eb",fontSize:22,lineHeight:1.45}}>
+          <b>{pageIndex*20+i+1}</b><div><b style={{fontSize:24}}>{driver.name}</b><div style={{color:"#657589",fontSize:16}}>{driver.trid}</div></div>
           <b style={{fontSize:28,color:"#b64642"}}>{driver.events.length}</b>
           <div>{driver.reasons.map(([type,count])=><div key={type} style={{marginBottom:4}}><b>{count}×</b> {type}</div>)}</div>
           <div>{driver.tips.map((tip,j)=><div key={j} style={{marginBottom:4}}>• {tip}</div>)}</div>
