@@ -34,43 +34,6 @@ function groupCdf(events) {
 }
 
 
-function zipImages(files) {
-  const encoder = new TextEncoder();
-  const parts = [], directory = [];
-  let offset = 0;
-  const crc32 = (bytes) => {
-    let crc = 0xffffffff;
-    for (const value of bytes) {
-      crc ^= value;
-      for (let bit=0;bit<8;bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    }
-    return (crc ^ 0xffffffff) >>> 0;
-  };
-  const header = (length) => new Uint8Array(length);
-  const write16 = (view, pos, value) => view.setUint16(pos, value, true);
-  const write32 = (view, pos, value) => view.setUint32(pos, value, true);
-  for (const file of files) {
-    const name = encoder.encode(file.name), data = file.bytes, crc = crc32(data);
-    const local = header(30 + name.length), l = new DataView(local.buffer);
-    write32(l,0,0x04034b50); write16(l,4,20); write16(l,6,0x0800); write16(l,8,0);
-    write32(l,14,crc); write32(l,18,data.length); write32(l,22,data.length);
-    write16(l,26,name.length); local.set(name,30);
-    parts.push(local,data);
-    const central = header(46 + name.length), c = new DataView(central.buffer);
-    write32(c,0,0x02014b50); write16(c,4,20); write16(c,6,20);
-    write16(c,8,0x0800); write16(c,10,0);
-    write32(c,16,crc); write32(c,20,data.length); write32(c,24,data.length);
-    write16(c,28,name.length); write32(c,42,offset); central.set(name,46);
-    directory.push(central);
-    offset += local.length + data.length;
-  }
-  const directorySize = directory.reduce((sum,item)=>sum+item.length,0);
-  const end = header(22), e = new DataView(end.buffer);
-  write32(e,0,0x06054b50); write16(e,8,files.length); write16(e,10,files.length);
-  write32(e,12,directorySize); write32(e,16,offset);
-  return new Blob([...parts,...directory,end],{type:"application/zip"});
-}
-
 function useLoad(loader, deps = []) {
   const [state, setState] = useState({ loading: true, error: "", data: null });
 
@@ -128,26 +91,43 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const feedbackRows = useMemo(()=>groupCdf(selected),[events,week]);
   const pages = Math.max(1,Math.ceil(feedbackRows.length/20));
   const currentPage = Math.min(feedbackPage,pages-1);
-  async function saveFeedback() {
+
+  async function getFeedbackFiles() {
+    const { toBlob } = await import("html-to-image");
+    const nodes = [...exportContainerRef.current.querySelectorAll("[data-cdf-page]")];
+    const files = [];
+    for (let index=0; index<nodes.length; index++) {
+      const blob = await toBlob(nodes[index], {pixelRatio:2,backgroundColor:"#fff"});
+      if (!blob) throw new Error(`Failed rendering image ${index+1}`);
+      files.push(new File([blob],`DZM1-CDF-${week}-page-${index+1}.png`,{type:"image/png"}));
+    }
+    return files;
+  }
+  function downloadPhotos(files) {
+    for (const file of files) {
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href=url; link.download=file.name;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }
+  }
+  async function saveFeedback(mode="download") {
     if (!exportContainerRef.current || exporting || !feedbackRows.length) return;
     setExporting(true);
     try {
-      const { toBlob } = await import("html-to-image");
-      const nodes = [...exportContainerRef.current.querySelectorAll("[data-cdf-page]")];
-      const files = [];
-      for (let index=0; index<nodes.length; index++) {
-        const blob = await toBlob(nodes[index], {pixelRatio:2,backgroundColor:"#fff"});
-        if (!blob) throw new Error(`Could not render page ${index+1}`);
-        files.push({name:`DZM1-CDF-${week}-page-${index+1}.png`,bytes:new Uint8Array(await blob.arrayBuffer())});
+      const files=await getFeedbackFiles();
+      if (mode==="share" && typeof navigator.share==="function" && navigator.canShare?.({files})) {
+        try {
+          await navigator.share({files,title:`DZM1 CDF Feedback ${week}`});
+          return;
+        } catch (error) {
+          if (error?.name==="AbortError") return;
+          if (error?.name!=="NotAllowedError") throw error;
+        }
       }
-      const url=URL.createObjectURL(zipImages(files));
-      const link=document.createElement("a");
-      link.href=url;
-      link.download=`DZM1-CDF-${week}-all-${files.length}-pages.zip`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),30000);
+      downloadPhotos(files);
+      if (files.length>1) window.alert(`Requested ${files.length} PNG downloads. If only one appears, allow multiple downloads for metrixiq.co.uk in your browser.`);
     } catch(error) { window.alert(error?.message || "CDF export failed"); }
     finally { setExporting(false); }
   }
@@ -161,10 +141,10 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   if(load.error)return <ErrorPanel error={load.error}/>;
 
   return <>
-    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={saveFeedback}>{exporting?"Saving…":"Save All Feedback Images"}</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
+    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>saveFeedback("download")}>{exporting?"Preparing photos…":"Save All Photos"}</button>}{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>saveFeedback("share")}>Share Photos</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
 
     {dzm1 && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · all pages in one ZIP</div></div>
+      <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · 20 drivers per image · separate PNG photos</div></div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <button className="btn" disabled={currentPage===0} onClick={()=>setFeedbackPage(p=>Math.max(0,p-1))}>Previous</button>
         <b>Page {currentPage+1}/{pages}</b>
