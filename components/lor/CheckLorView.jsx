@@ -11,7 +11,15 @@ const dateOnly = value => clean(value).slice(0, 10);
 const readWorkbook = async file => {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
-  return workbook.SheetNames.flatMap(name => XLSX.utils.sheet_to_json(workbook.Sheets[name], { defval: "", raw: false }));
+  return workbook.SheetNames.flatMap(name => {
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "", raw: false });
+    const headerIndex = rows.findIndex(row => row.some(cell => ["TRACKINGID", "SCANNABLEID", "TRACKINGNUMBER"].includes(norm(cell).replace(/[^A-Z0-9]/g, ""))));
+    if (headerIndex < 0) return [];
+    const headers = rows[headerIndex].map(clean);
+    return rows.slice(headerIndex + 1).filter(row => row.some(clean)).map(row =>
+      Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""]))
+    );
+  });
 };
 function pick(row, aliases) {
   const columns = Object.keys(row);
@@ -131,9 +139,10 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
 
   async function saveDecision() {
     if (!current || !organizationId || !canManage) return;
+    if (!current.site && siteFilter === "all") { setError("Select a specific site before saving this investigation."); return; }
     setLoading(true); setError(""); setMessage("");
     const record = {
-      organization_id: organizationId, site: current.site || null,
+      organization_id: organizationId, site: current.site || (siteFilter !== "all" ? siteFilter : null),
       tracking_id: current.tracking_id, transporter_id: current.transporter_id || null,
       driver_name: current.driver_name, route_code: current.route_code || null,
       risk_scan_at: current.last_scan || null, amazon_status: current.amazon_status,
