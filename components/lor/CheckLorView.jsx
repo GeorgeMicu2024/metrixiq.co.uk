@@ -41,6 +41,16 @@ const badge = verdict => verdict === "confirmed-return" ? "green" : verdict === 
 const verdictLabel = { "confirmed-return": "Station scan confirmed", "confirmed-loss": "Confirmed loss", "investigation": "Investigation", "station-check": "Needs station check" };
 const statusIsRts = status => /RETURNED TO STATION|RETURN TO STATION/.test(norm(status));
 const dateSort = item => Date.parse(item.scan) || 0;
+const showDate = input => {
+  const raw = clean(input);
+  const match = raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  return match ? match[3] + "/" + match[2] + "/" + match[1] : (raw || "—");
+};
+const showDateTime = input => {
+  const raw = clean(input);
+  const time = raw.match(/(\\d{2}:\\d{2})/);
+  return showDate(raw) + (time ? " " + time[1] : "");
+};
 
 export default function CheckLorView({ organizationId, siteFilter = "all", drivers = [], canManage = false }) {
   const [riskFile, setRiskFile] = useState(null);
@@ -77,6 +87,24 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     (filter === "all" || r.verdict === filter) &&
     [r.driver_name, r.tracking_id, r.reason, r.transporter_id].join(" ").toLowerCase().includes(query.toLowerCase())
   );
+  const driverSummary = useMemo(() => {
+    const cases = new Map(saved.map(item => [item.tracking_id, item]));
+    for (const item of results) cases.set(item.tracking_id, item);
+    const grouped = new Map();
+    for (const item of cases.values()) {
+      if (siteFilter !== "all" && norm(item.site) !== norm(siteFilter)) continue;
+      const key = norm(item.transporter_id) || "NAME:" + norm(item.driver_name);
+      if (!grouped.has(key)) grouped.set(key, { key, name: item.driver_name || "Unmatched driver", total: 0, returned: 0, lost: 0, open: 0, lastDate: "" });
+      const entry = grouped.get(key);
+      entry.total += 1;
+      if (item.verdict === "confirmed-return") entry.returned += 1;
+      else if (item.verdict === "confirmed-loss") entry.lost += 1;
+      else entry.open += 1;
+      const date = item.last_scan || item.risk_scan_at || "";
+      if (date > entry.lastDate) entry.lastDate = date;
+    }
+    return [...grouped.values()].sort((a,b) => b.total-a.total || a.name.localeCompare(b.name));
+  }, [saved, results, siteFilter]);
   const counts = {
     risk: results.length,
     rts: results.filter(r => r.route_status === "Returned to station").length,
@@ -186,13 +214,14 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     </section>
     <div className="lor-columns">
       <section className="lor-card lor-results"><div className="lor-section-title"><h2>LOR Investigation Results ({results.length})</h2><input aria-label="Search investigation" placeholder="Search driver, tracking ID or reason…" value={query} onChange={e=>setQuery(e.target.value)}/><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All statuses</option><option value="station-check">Needs station check</option><option value="investigation">Investigation</option><option value="confirmed-return">Confirmed return</option><option value="confirmed-loss">Confirmed loss</option></select></div>
-        <div className="lor-table-scroll"><table><thead><tr><th>Driver</th><th>Tracking ID</th><th>Last attempt</th><th>Route CSV status</th><th>Station scan</th><th>Verdict</th><th>Actions</th></tr></thead><tbody>
-          {filtered.map(r => <tr key={r.tracking_id} className={selected===r.tracking_id?"selected":""}><td><b>{r.driver_name}</b></td><td className="lor-tracking">{r.tracking_id}</td><td>{r.reason || "—"}</td><td><span className={"lor-pill "+(r.route_status==="Returned to station"?"green":"red")}>{r.route_status}</span></td><td>{r.verdict==="confirmed-return"?"Manager confirmed":r.rts_at?"Not confirmed":"Not found"}</td><td><span className={"lor-pill "+badge(r.verdict)}>{verdictLabel[r.verdict]}</span></td><td><button className="lor-small" onClick={()=>setSelected(r.tracking_id)}>View</button></td></tr>)}
-          {!filtered.length && <tr><td colSpan="7" className="lor-empty">{reviewReady?"No matching parcels":"Upload reports and run LOR Check to see results."}</td></tr>}
+        <div className="lor-table-scroll"><table><thead><tr><th>Driver</th><th>Tracking ID</th><th>Last attempt</th><th>Attempt date</th><th>Route CSV status</th><th>Station scan</th><th>Verdict</th><th>Actions</th></tr></thead><tbody>
+          {filtered.map(r => <tr key={r.tracking_id} className={selected===r.tracking_id?"selected":""}><td><b>{r.driver_name}</b></td><td className="lor-tracking">{r.tracking_id}</td><td>{r.reason || "—"}</td><td className="lor-date">{showDateTime(r.last_scan)}</td><td><span className={"lor-pill "+(r.route_status==="Returned to station"?"green":"red")}>{r.route_status}</span></td><td>{r.verdict==="confirmed-return"?"Manager confirmed":r.rts_at?"Not confirmed":"Not found"}</td><td><span className={"lor-pill "+badge(r.verdict)}>{verdictLabel[r.verdict]}</span></td><td><button className="lor-small" onClick={()=>setSelected(r.tracking_id)}>View</button></td></tr>)}
+          {!filtered.length && <tr><td colSpan="8" className="lor-empty">{reviewReady?"No matching parcels":"Upload reports and run LOR Check to see results."}</td></tr>}
         </tbody></table></div></section>
-      <aside className="lor-card lor-history"><h2>◴ Driver LOR History</h2>
+      <div className="lor-side-stack"><aside className="lor-card lor-history"><h2>◴ Driver LOR History</h2>
         {current ? <><div className="lor-driver-name">{current.driver_name}<small>{current.transporter_id || "Unmatched ID"}</small></div>
         <div className="lor-history-summary">{currentHistory.length} saved investigations • {currentHistory.filter(r=>r.verdict==="confirmed-loss").length} confirmed losses</div>
+        <div className="lor-attempt-date"><b>Last delivery attempt:</b> {showDateTime(current.last_scan)}<small>This is the last driver scan date, not proof of a successful delivery.</small></div>
         <h4>Parcel timeline</h4><div className="lor-timeline">
           <div><b>Amazon status: {current.amazon_status}</b><small>{current.last_scan || "Date unavailable"}</small></div>
           {current.evidence.map((ev,i)=><div key={i}><b>{ev.status || "Unknown scan"} — {ev.reason || "No reason"}</b><small>{ev.scan || "Date unavailable"}</small></div>)}
@@ -202,6 +231,15 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
         <button className="lor-primary" disabled={!canManage || loading} onClick={saveDecision}>▣ Save investigation result</button>
         {!canManage && <small>Manager permission required to save.</small>}</> : <p>Choose a parcel to view its evidence and driver history.</p>}
       </aside>
+      <section className="lor-card lor-driver-overview">
+        <div className="lor-overview-heading"><h2>All Drivers • LOR History</h2><span>{driverSummary.length} drivers</span></div>
+        <p>Saved investigations + current report, deduplicated by Tracking ID.</p>
+        <div className="lor-driver-table-wrap"><table><thead><tr><th>Driver</th><th>Cases</th><th>RTS ✓</th><th>Lost</th><th>Open</th><th>Latest</th></tr></thead><tbody>
+          {driverSummary.map(d => <tr key={d.key} onClick={()=>setQuery(d.name)} title="Filter the current report by this driver"><td><b>{d.name}</b></td><td>{d.total}</td><td className="lor-green-text">{d.returned}</td><td className="lor-red-text">{d.lost}</td><td>{d.open}</td><td>{showDate(d.lastDate)}</td></tr>)}
+          {!driverSummary.length && <tr><td colSpan="6" className="lor-empty">No investigations yet.</td></tr>}
+        </tbody></table></div>
+        <small>RTS ✓ counts manager-confirmed station returns only. Clicking a driver filters current results.</small>
+      </section></div>
     </div>
     <section className="lor-legend"><b>Status legend</b><div><span className="lor-pill green">RTS in export</span> Route status only, not proof of physical return.</div><div><span className="lor-pill green">Confirmed station scan</span> Manager-verified station evidence.</div><div><span className="lor-pill amber">Needs station check</span> Station receipt not confirmed.</div></section>
     <p className="lor-footnote">ⓘ Source files are never uploaded to the server. Clear uploaded files after review. Only investigation records are retained.</p>
