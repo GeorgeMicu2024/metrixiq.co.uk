@@ -43,12 +43,12 @@ const statusIsRts = status => /RETURNED TO STATION|RETURN TO STATION/.test(norm(
 const dateSort = item => Date.parse(item.scan) || 0;
 const showDate = input => {
   const raw = clean(input);
-  const match = raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
   return match ? match[3] + "/" + match[2] + "/" + match[1] : (raw || "—");
 };
 const showDateTime = input => {
   const raw = clean(input);
-  const time = raw.match(/(\\d{2}:\\d{2})/);
+  const time = raw.match(/(\d{2}:\d{2})/);
   return showDate(raw) + (time ? " " + time[1] : "");
 };
 
