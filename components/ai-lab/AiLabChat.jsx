@@ -11,6 +11,7 @@ const STARTERS = [
   "Explică-mi cum verific un Wave Plan nou.",
   "Cum pot reduce CDF negativ la DZM1?",
   "Ce trebuie să verific la IADC și POD?",
+  "Compară Wave Plan-ul nou cu formatele aprobate.",
 ];
 function safeStoredChat(userId) {
   try {
@@ -219,8 +220,11 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
       }
       if (!response.body) throw new Error("AI did not return a stream.");
       if (includeMemory) {
-        const count = Number(response.headers.get("X-MetrixIQ-Memory-Count") || "0");
-        setMemoryStatus(count > 0 ? `Used ${count} relevant, approved private note(s).` : "No relevant approved notes found; AI used general guidance.");
+        const notes = Number(response.headers.get("X-MetrixIQ-Memory-Count") || "0");
+        const layouts = Number(response.headers.get("X-MetrixIQ-Format-Count") || "0");
+        setMemoryStatus(notes + layouts > 0
+          ? `Used ${notes} approved note(s) and ${layouts} approved format layout(s) for this answer.`
+          : "No relevant approved notes or layouts found; AI used general guidance.");
       }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -383,15 +387,15 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
         </label>
         <label className={styles.check}>
           <input type="checkbox" checked={includeMemory} disabled={working || !cloudUserId} onChange={event => {setIncludeMemory(event.target.checked);setMemoryStatus("");}}/>
-          Include my relevant approved learning notes in AI replies (private memory)
+          Include relevant approved learning notes & Wave Plan formats in AI replies (private memory)
         </label>
         <label className={styles.check}>Voice <select className={styles.langSelect} value={speechLang} onChange={event => setSpeechLang(event.target.value)}><option value="ro-RO">Română</option><option value="en-GB">English</option></select></label>
         <button type="button" className={styles.clear} disabled={working || !messages.length} onClick={clearChat}>Clear chat</button>
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
-      <p className={styles.small}>{memoryStatus || "Approved notes stay private unless you tick the learning-memory checkbox."}</p>
+      <p className={styles.small}>{memoryStatus || "Approved notes and format structures stay private unless you tick the learning-memory checkbox."}</p>
       <p className={styles.small}>{syncState}. Only your verified Super Admin account can access the private history. Verify operational decisions.</p>
     </div>
-    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Private chat history and approved layouts sync to your Supabase account; report source files are not stored. Browser dictation can use its own speech service. Do not share personal data unnecessarily. Report summaries and relevant approved learning notes are each sent to the AI only after their separate explicit opt-ins.</div>
+    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Private chat history and approved layouts sync to your Supabase account; report source files are not stored. Browser dictation can use its own speech service. Do not share personal data unnecessarily. Report summaries and relevant approved learning notes/format structures are sent to the AI only after their separate explicit opt-ins.</div>
   </section>;
 }
