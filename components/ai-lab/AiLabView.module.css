@@ -54,3 +54,4 @@
 .full{grid-column:1/-1}
 @media(max-width:960px){.layout{grid-template-columns:1fr}.hero{align-items:flex-start}}
 @media(max-width:600px){.shell{gap:12px}.hero h1{font-size:26px}.cardHead,.cardBody{padding:15px}.drop{padding:18px;min-height:175px}.mapping{grid-template-columns:1fr}.smallStats{gap:5px}.stat{padding:9px}.stat strong{font-size:16px}.row .button{flex:1}.table{min-width:690px}}
+.shell,.layout,.full,.card{min-width:0;max-width:100%;box-sizing:border-box}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { summarizeMetricMatrix } from "../../lib/ai-lab/metric-summary.mjs";
 import styles from "./AiLabChat.module.css";
 
 const CHAT_KEY = "metrixiq.aiLab.chatHistory.v1";
@@ -34,6 +35,14 @@ function readDelta(eventBlock) {
 }
 
 export default function AiLabChat({ reportContext = "" }) {
+  const [metricBook, setMetricBook] = useState(null);
+  const [metricSheet, setMetricSheet] = useState("");
+  const [metricHeader, setMetricHeader] = useState(1);
+  const [metricSummary, setMetricSummary] = useState("");
+  const [reportSite, setReportSite] = useState("");
+  const [reportPeriod, setReportPeriod] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const activeContext = metricSummary ? JSON.stringify({ ...JSON.parse(metricSummary), station: reportSite || "not provided", period: reportPeriod || "not provided", scopeSource: "Station and period are user-entered, not verified from the file" }) : reportContext;
   const [messages, setMessages] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
@@ -46,6 +55,8 @@ export default function AiLabChat({ reportContext = "" }) {
   const [speechLang, setSpeechLang] = useState("ro-RO");
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => { setIncludeReport(false); }, [reportContext]);
 
   useEffect(() => {
     setMessages(safeStoredChat());
@@ -60,9 +71,28 @@ export default function AiLabChat({ reportContext = "" }) {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
 
+  async function loadMetrics(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setMetricBook(null); setMetricSummary(""); setIncludeReport(false); setError(""); setReportBusy(true);
+    try {
+      if (file.size > 5 * 1024 * 1024) throw new Error("Maximum metric report size is 5 MB.");
+      const XLSX = await import("xlsx");
+      const book = XLSX.read(await file.arrayBuffer(), { type: "array", dense: true, sheetRows: 5002 });
+      const sheets = Object.fromEntries(book.SheetNames.slice(0, 20).map(name => [name, XLSX.utils.sheet_to_json(book.Sheets[name], { header: 1, raw: false, defval: "", blankrows: false })]));
+      setMetricBook(sheets); setMetricSheet(book.SheetNames[0]); setMetricHeader(1);
+    } catch (cause) { setError(cause.message || "Could not read spreadsheet."); }
+    finally { setReportBusy(false); event.target.value = ""; }
+  }
+  function prepareMetrics() {
+    setMetricSummary(""); setIncludeReport(false); setError("");
+    try { setMetricSummary(JSON.stringify(summarizeMetricMatrix(metricBook?.[metricSheet], Number(metricHeader) - 1))); }
+    catch (cause) { setError(cause.message); }
+  }
+
   async function sendMessage() {
     const question = input.trim().slice(0, 2000);
-    if (!question || working) return;
+    if (!question || working || reportBusy) return;
     const user = { id: makeId(), role: "user", content: question };
     const assistantId = makeId();
     const draft = { id: assistantId, role: "assistant", content: "" };
@@ -85,8 +115,8 @@ export default function AiLabChat({ reportContext = "" }) {
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
         body: JSON.stringify({
           messages: [...history, { role: "user", content: question }],
-          includeReport: Boolean(includeReport && reportContext),
-          reportContext: includeReport ? reportContext : "",
+          includeReport: Boolean(includeReport && activeContext),
+          reportContext: includeReport ? activeContext : "",
         }),
       });
       if (!response.ok) {
@@ -185,7 +215,7 @@ export default function AiLabChat({ reportContext = "" }) {
         <strong>Salut, George! Cu ce te pot ajuta?</strong>
         <p>Pot explica rapoarte, Wave Plans și probleme de performanță. Nu modific datele platformei sau codul.</p>
         <div className={styles.examples}>{STARTERS.map(starter => <button className={styles.chip} key={starter} type="button" onClick={() => { setInput(starter); inputRef.current?.focus(); }}>{starter}</button>)}
-          {reportContext && <button className={styles.chip} type="button" onClick={() => { setIncludeReport(true); setInput("Analizează formatele aprobate și raportul curent. Ce probleme, lipsuri sau riscuri observi?"); inputRef.current?.focus(); }}>✦ Analyze my report</button>}</div>
+          {activeContext && <button className={styles.chip} type="button" onClick={() => { setIncludeReport(true); setInput("Analizează formatele aprobate și raportul curent. Ce probleme, lipsuri sau riscuri observi?"); inputRef.current?.focus(); }}>✦ Analyze my report</button>}</div>
       </div>}
       {messages.map(message => <div key={message.id} className={styles.message + " " + (message.role === "user" ? styles.user : styles.assistant)}>
         <span className={styles.role}>{message.role === "user" ? "YOU" : "METRIXIQ AI"}</span>
@@ -194,6 +224,24 @@ export default function AiLabChat({ reportContext = "" }) {
       </div>)}
     </div>
     <div className={styles.composer}>
+      <details className={styles.reportTools}>
+        <summary>Analyse a performance report · Excel / CSV</summary>
+        <p>Processed in this browser. Choose a sheet and header row, then review the numeric summary. Remove total/subtotal rows first. Only the summary is shared when you tick the checkbox.</p>
+        <input type="file" accept=".xlsx,.xls,.csv" aria-label="Upload performance report" disabled={working || reportBusy} onChange={loadMetrics}/>
+        {reportBusy && <p>Reading spreadsheet…</p>}
+        {metricBook && <>
+          <label>Sheet <select value={metricSheet} disabled={working} onChange={e => { setMetricSheet(e.target.value); setMetricSummary(""); setIncludeReport(false); }}>{Object.keys(metricBook).map(name => <option key={name}>{name}</option>)}</select></label>
+          <label>Header row (non-empty rows) <input type="number" min="1" max="50" value={metricHeader} disabled={working} onChange={e => { setMetricHeader(e.target.value); setMetricSummary(""); setIncludeReport(false); }}/></label>
+          <button type="button" className={styles.chip} disabled={working} onClick={prepareMetrics}>Prepare summary</button>
+        </>}
+        {metricSummary && <>
+          <label>Station <input placeholder="DLS2" maxLength={4} value={reportSite} disabled={working} onChange={e => setReportSite(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}/></label>
+          <label>Period <input placeholder="2026-W44" maxLength={24} value={reportPeriod} disabled={working} onChange={e => setReportPeriod(e.target.value.replace(/[^0-9Ww /:.–-]/g, ""))}/></label>
+          <pre className={styles.reportPreview}>{metricSummary}</pre>
+          <button type="button" className={styles.chip} disabled={working} onClick={() => { setMetricSummary(""); setMetricBook(null); setIncludeReport(false); }}>Remove performance report</button>
+        </>}
+      </details>
+      <p className={styles.small}>{includeReport && activeContext ? "Evidence: selected report summary only · no live database access" : "General guidance · no report shared with AI"}</p>
       <form className={styles.form} onSubmit={event => { event.preventDefault(); sendMessage(); }}>
         <textarea ref={inputRef} className={styles.input} rows={2} maxLength={2000} value={input} onChange={event => setInput(event.target.value)}
           placeholder="Ask MetrixIQ anything about your operations…"
@@ -202,12 +250,12 @@ export default function AiLabChat({ reportContext = "" }) {
         <button type="button" className={styles.mic} disabled={working} aria-label={listening ? "Stop microphone" : "Dictate message"} onClick={toggleMicrophone}>{listening ? "■" : "🎤"}</button>
         {working
           ? <button type="button" className={styles.send + " " + styles.stop} onClick={() => abortRef.current?.abort()}>Stop</button>
-          : <button type="submit" disabled={!input.trim()} className={styles.send}>Send ↗</button>}
+          : <button type="submit" disabled={!input.trim() || reportBusy} className={styles.send}>Send ↗</button>}
       </form>
       <div className={styles.meta}>
         <label className={styles.check}>
-          <input type="checkbox" checked={includeReport} disabled={!reportContext || working} onChange={event => setIncludeReport(event.target.checked)}/>
-          Include report preview & learned layouts {reportContext ? "(no names/TRIDs)" : "(upload or approve a report first)"}
+          <input type="checkbox" checked={includeReport} disabled={!activeContext || working} onChange={event => setIncludeReport(event.target.checked)}/>
+          Share selected report summary with AI {activeContext ? "(no names/TRIDs)" : "(prepare a report first)"}
         </label>
         <label className={styles.check}>Voice <select className={styles.langSelect} value={speechLang} onChange={event => setSpeechLang(event.target.value)}><option value="ro-RO">Română</option><option value="en-GB">English</option></select></label>
         <button type="button" className={styles.clear} disabled={working || !messages.length} onClick={clearChat}>Clear chat</button>

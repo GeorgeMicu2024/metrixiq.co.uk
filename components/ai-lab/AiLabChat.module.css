@@ -37,3 +37,12 @@
 .speak:hover{text-decoration:underline}
 
 .langSelect{background:#fff;color:#24546a;border:1px solid #cee0e5;border-radius:7px;font:inherit;font-size:11px;padding:5px 6px;max-width:110px}
+.panel,.title,.title>div,.form,.input{min-width:0;max-width:100%}
+.orb{flex-shrink:0}
+.input{flex:1;width:0}
+.reportTools{font-size:12px;color:#36586c;margin-bottom:12px;overflow-wrap:anywhere}
+.reportTools summary{cursor:pointer;font-weight:750;padding:10px 0}
+.reportTools label{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;align-items:center}
+.reportTools input,.reportTools select{max-width:100%;box-sizing:border-box;padding:8px;border:1px solid #cfdee6;border-radius:8px;background:white;color:#17374f}
+.reportPreview{max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f7f9;padding:10px;border-radius:8px;font-size:11px}
+@media(max-width:600px){.input{font-size:16px}.title{align-items:flex-start}.message{box-sizing:border-box;max-width:100%}.check{min-width:0}.check input{flex-shrink:0}.reportTools input,.reportTools select{font-size:16px}}
