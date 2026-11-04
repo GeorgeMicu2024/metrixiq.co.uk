@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { buildCopilotDraft, buildProactiveDigest, exportFormatSpec, investigateBrain, proposeFormatSandbox, searchApprovedLessons } from "../../lib/ai-lab/ai-v2.mjs";
+import { buildCopilotDraft, buildProactiveDigest, exportFormatSpec, generateReviewedAdapter, investigateBrain, proposeFormatSandbox, searchApprovedLessons } from "../../lib/ai-lab/ai-v2.mjs";
+import { readAiLabFile } from "../../lib/ai-lab/read-file.mjs";
+import { classifyAmazonReport } from "../../lib/ai-lab/smart-import.mjs";
 import styles from "./AiV2Workspace.module.css";
 
 const ACTIONS = [
@@ -19,7 +21,7 @@ function copy(value) {
 }
 
 function download(name, content) {
-  const blob = new Blob([content], { type: "application/json;charset=utf-8" });
+  const blob = new Blob([content], { type: name.endsWith(".mjs") ? "text/javascript;charset=utf-8" : "application/json;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   try {
     const link = document.createElement("a");link.href = url;link.download = name;document.body.appendChild(link);link.click();link.remove();
@@ -34,6 +36,8 @@ export default function AiV2Workspace({ analysis = null, lessons = [], documents
   const [draftMode, setDraftMode] = useState("tips");
   const [language, setLanguage] = useState("en");
   const [message, setMessage] = useState("");
+  const [imported, setImported] = useState([]);
+  const [readerBusy, setReaderBusy] = useState(false);
   useEffect(() => { setInvestigation(null);setMessage(""); }, [analysis]);
   const digest = useMemo(() => buildProactiveDigest(analysis), [analysis]);
   const knowledge = useMemo(() => searchApprovedLessons(lessons, knowledgeQuery, analysis?.site || ""), [lessons, knowledgeQuery, analysis?.site]);
@@ -60,6 +64,38 @@ export default function AiV2Workspace({ analysis = null, lessons = [], documents
     catch (error) { setMessage(error.message || "Could not copy text."); }
   }
 
+  async function inspectFiles(input) {
+    const files = Array.from(input || []).slice(0, 4);
+    if (!files.length || readerBusy) return;
+    setReaderBusy(true);setMessage("");
+    const summaries = [];
+    try {
+      for (const file of files) {
+        try {
+          const result = await readAiLabFile(file);
+          const classification = classifyAmazonReport(result.matrix, file.name);
+          summaries.push({ id: file.name + ":" + file.size + ":" + summaries.length, filename: file.name.slice(0, 100),
+            kind: classification.kind, confidence: classification.confidence, explanation: classification.message,
+            reasons: classification.reasons, rows: result.matrix.length, sheets: result.availableSheets?.length || 0,
+            mode: result.mode, truncated: Boolean(result.truncated), status: "review" });
+        } catch (cause) {
+          summaries.push({ id: file.name + ":error:" + summaries.length, filename: file.name.slice(0, 100), status: "error", explanation: String(cause.message || "Could not read file.").slice(0, 200) });
+        }
+      }
+      setImported(summaries);
+    } finally { setReaderBusy(false); }
+  }
+
+  function explainImports() {
+    if (!imported.length) return;
+    const context = JSON.stringify({ source: "Browser-only AI Lab format inspection", files: imported.map(item => ({
+      kind: item.kind, confidence: item.confidence, rows: item.rows, sheets: item.sheets, mode: item.mode,
+      reasons: item.reasons, truncated: item.truncated, status: item.status,
+    })), limitations: "Formats are unapproved guesses. Filenames, file content, names, TRIDs and raw rows were not shared." });
+    onContextChange(context);
+    onAskAI("Explică tipurile de rapoarte Amazon detectate, riscurile de recunoaștere și ce coloane ar trebui verificate manual. Nu modifica date și nu presupune că un format este aprobat.");
+  }
+
   return <section className={styles.panel} aria-label="AI Lab advanced intelligence workspace">
     <header className={styles.header}><div><span className={styles.kicker}>METRIXIQ · ISOLATED TOOLS</span><h2>AI Intelligence Workspace <span>✦</span></h2>
       <p>Six controlled extensions. Existing station modules are untouched; every report check is read-only.</p></div><span className={styles.badge}>SUPER ADMIN</span></header>
@@ -79,6 +115,15 @@ export default function AiV2Workspace({ analysis = null, lessons = [], documents
         {!!knowledgeQuery && <div className={styles.stack}>{knowledge.length ? knowledge.map(row => <div className={styles.result} key={row.id}><strong>{row.site}</strong><p>{row.lesson}</p><small>Matching terms: {row.relevance} relevance points · approved private note</small></div>) : <p className={styles.hint}>No matching approved notes. This does not mean the rule does not exist outside your memory.</p>}</div>}
       </>}
       {task === "reader" && <><h3>Universal Format Reader · review mode</h3><p className={styles.hint}>Reads the two files already uploaded in AI Lab. It never replaces Daily Dispatch parsers or applies an unapproved mapping.</p>
+        <div className={styles.result}><h4>Inspect additional Amazon files</h4><p>Check up to four reports together (Excel, CSV, PDF or image). Parsing and OCR stay in this browser. Nothing is uploaded to the server or imported into a station.</p>
+          <input type="file" multiple accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.webp,.bmp" disabled={readerBusy} aria-label="Inspect multiple Amazon reports" onChange={event => {inspectFiles(event.target.files);event.target.value = "";}}/>
+          {readerBusy && <p role="status">Reading reports locally…</p>}
+          {imported.length > 0 && <div className={styles.stack}>{imported.map(row => <div key={row.id} className={styles.result}>
+            <strong>{row.filename} · {row.kind || "Unreadable"}</strong><p>{row.explanation}</p>
+            {row.status !== "error" && <small>{row.confidence}% classification confidence · {row.rows} visible rows · {row.mode}{row.truncated ? " · TRUNCATED" : ""}<br/>{(row.reasons || []).join(", ")}</small>}
+          </div>)}</div>}
+          {imported.length > 0 && <div className={styles.row}><button type="button" className={styles.button} onClick={explainImports}>✦ Discuss classifications in AI chat</button><button type="button" className={styles.button} onClick={() => {setImported([]);onContextChange("");}}>Clear local results</button></div>}
+        </div>
         <div className={styles.twoCols}>{sandbox.slots.map(slot => <div key={slot.kind} className={styles.result}><h4>{slot.kind === "route" ? "Route Plan" : "Wave Plan"}</h4>
           {slot.missing ? <p>Not uploaded in AI Lab yet.</p> : <><p>{slot.fileType || "Source format"} · {slot.columns.length} visible columns</p><small>{Object.entries(slot.fields).map(([field, source]) => `${field} ← ${source.sourceHeader}`).join(" · ") || "No fields approved yet"}</small></>}
         </div>)}</div><p className={styles.warning}>{sandbox.warnings.length ? sandbox.warnings.join(" · ") : "Both sources have been inspected. Validate mappings before operational use."}</p>
@@ -98,7 +143,9 @@ export default function AiV2Workspace({ analysis = null, lessons = [], documents
       {task === "sandbox" && <><h3>Format Sandbox · non-executable proposal</h3><p className={styles.hint}>Creates a declarative format adapter from your approved source mappings, runs safe structural checks, and lets you export the proposal. It never runs generated JavaScript or writes a GitHub PR.</p>
         <div className={styles.stack}>{sandbox.tests.map(test => <p className={test.pass ? styles.pass : styles.warning} key={test.name}>{test.pass ? "✓" : "⚠"} {test.name}</p>)}</div>
         <pre className={styles.code}>{exportFormatSpec(sandbox)}</pre>
-        <button type="button" className={styles.button} onClick={() => download("metrixiq-ai-format-proposal.json",exportFormatSpec(sandbox))}>Download isolated adapter proposal</button>
+        <div className={styles.row}><button type="button" className={styles.button} onClick={() => download("metrixiq-ai-format-proposal.json",exportFormatSpec(sandbox))}>Download JSON adapter proposal</button>
+          <button type="button" className={styles.button} disabled={sandbox.slots.some(slot => slot.missing)} onClick={() => download("metrixiq-ai-format-adapter-review.mjs",generateReviewedAdapter(sandbox))}>Download review-only JavaScript adapter</button></div>
+        <details><summary>Preview generated JS (not executed)</summary><pre className={styles.code}>{generateReviewedAdapter(sandbox)}</pre></details>
         <small>{sandbox.disclaimer}</small>
       </>}
       {message && <p role="status" className={styles.status}>{message}</p>}

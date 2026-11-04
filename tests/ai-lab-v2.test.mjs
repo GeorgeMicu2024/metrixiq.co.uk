@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { investigateBrain, searchApprovedLessons, buildProactiveDigest, buildCopilotDraft, proposeFormatSandbox, exportFormatSpec } from "../lib/ai-lab/ai-v2.mjs";
+import { investigateBrain, searchApprovedLessons, buildProactiveDigest, buildCopilotDraft, proposeFormatSandbox, exportFormatSpec, generateReviewedAdapter } from "../lib/ai-lab/ai-v2.mjs";
 
 const snapshot = {
   site: "DZM1", periods: ["W43", "W44"], truncated: false, driverSignalsTotal: 2,
@@ -62,4 +62,18 @@ test("format sandbox proposes mappings, performs structural checks without execu
   assert(!JSON.stringify(json).includes("CA_A119"));
   assert(!JSON.stringify(json).includes("Example"));
   assert.equal(proposeFormatSandbox({ route: row("route") }).tests[0].pass, false);
+});
+
+test("review-only generator produces a bounded module with mapped fields", async () => {
+  const sandbox = proposeFormatSandbox({
+    route: { headerRow: 0, matrix: [["Route", "Driver"], ["CA_A111", "Driver Name"]], mapping: { route: 0, driver: 1 } },
+    wave: { headerRow: 0, matrix: [["Route", "Loading"], ["CA_A111", "11:25"]], mapping: { route: 0, loading: 1 } },
+  });
+  const code = generateReviewedAdapter(sandbox);
+  assert(!code.includes("Driver Name"));
+  assert(!code.includes("CA_A111"));
+  assert(!code.includes("eval("));
+  const adapter = await import("data:text/javascript;charset=utf-8," + encodeURIComponent(code));
+  assert.deepEqual(adapter.adaptRows("wave", [["CA_A111", "11:25"]]), [{ route: "CA_A111", loading: "11:25" }]);
+  assert.throws(() => adapter.adaptRows("unknown", []));
 });
