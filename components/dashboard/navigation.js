@@ -4,7 +4,7 @@ export const NAV_GROUPS = [
   { label: "QUALITY & COMPLIANCE", items: [["iadc", "IADC"], ["pod", "POD"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"]] },
   { label: "OPERATIONS & MESSAGES", items: [["command-center", "Command Center"], ["manager-chat", "Manager Chat"], ["notifications", "Notifications"]] },
   { label: "PEOPLE & FEEDBACK", items: [["driver-master", "Driver Master"], ["drivers", "Drivers"], ["performance", "Driver Feedback"], ["team", "Team & Access"]] },
-  { label: "AI & REPORTS", items: [["simulator", "What-if Simulator"], ["management-views", "Management Views"], ["reports", "Report Builder"]] },
+  { label: "AI & REPORTS", items: [["ai-lab", "AI Lab"], ["simulator", "What-if Simulator"], ["management-views", "Management Views"], ["reports", "Report Builder"]] },
   { label: "DATA & TOOLS", items: [["imports", "Import Center"], ["data-quality", "Data Quality"], ["audit", "Audit Center"], ["integrations", "Integration Hub"], ["reliability", "Reliability Center"], ["developer-platform", "Integration & API"]] },
   { label: "ADMINISTRATION", items: [["portfolio", "Enterprise Portfolio"], ["enterprise-settings", "Enterprise Settings"], ["billing", "Plans & Billing"], ["settings", "Settings"], ["admin", "Super Admin"]] },
 ];
@@ -16,7 +16,7 @@ export const NAV_ICONS = Object.freeze({
   dashboard:"⌂","command-center":"▦","manager-control":"◉",automation:"⌁","mobile-manager":"▥","site-operations":"▣",
   "daily-dispatch":"＋","driver-master":"♙","site-scorecards":"▤","driver-scorecards":"◫",drivers:"◎",performance:"✉",iadc:"✓",dwc:"◇",pod:"◫",dcr:"↗",cc:"◎",cdf:"◈",
   mentor:"◇",concessions:"◆","check-lor":"⌕",evidence:"⌕",coaching:"✓","manager-chat":"✉",notifications:"♢",intelligence:"✦",
-  simulator:"≈",imports:"⇧","data-quality":"⌁","management-views":"☷",audit:"◴",integrations:"⇄",
+  "ai-lab":"✧",simulator:"≈",imports:"⇧","data-quality":"⌁","management-views":"☷",audit:"◴",integrations:"⇄",
   reliability:"◌","developer-platform":"⌘",portfolio:"▦","enterprise-settings":"⚙",reports:"▤",
   billing:"£",settings:"⚙",team:"◉",admin:"♛",
 });
