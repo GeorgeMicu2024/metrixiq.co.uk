@@ -43,6 +43,18 @@ export async function POST(request) {
     const gatewayToken = process.env.VERCEL_OIDC_TOKEN || request.headers.get("x-vercel-oidc-token");
     if (!gatewayToken) return jsonError("AI Gateway authentication is not available on this deployment.", 503);
 
+    // Fail closed if Vercel changes the selected model's free price.
+    const catalog = await fetch("https://ai-gateway.vercel.sh/v1/models", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!catalog.ok) return jsonError("Could not verify zero-cost model pricing. Chat is paused for safety.", 503);
+    const models = await catalog.json();
+    const model = Array.isArray(models?.data) ? models.data.find(item => item.id === FREE_MODEL_ID) : null;
+    if (!model || Number(model.pricing?.input) !== 0 || Number(model.pricing?.output) !== 0) {
+      return jsonError("The selected AI model is not confirmed free. No request was sent.", 503);
+    }
+
     const promptMessages = [{ role: "system", content: METRIXIQ_SYSTEM_PROMPT }];
     if (reportContext) promptMessages.push({
       role: "user",
