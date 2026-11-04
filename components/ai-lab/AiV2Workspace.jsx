@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildCopilotDraft, buildProactiveDigest, exportFormatSpec, generateReviewedAdapter, investigateBrain, proposeFormatSandbox, searchApprovedLessons } from "../../lib/ai-lab/ai-v2.mjs";
 import { readAiLabFile } from "../../lib/ai-lab/read-file.mjs";
 import { classifyAmazonReport } from "../../lib/ai-lab/smart-import.mjs";
+import { parseDriverQuestion } from "../../lib/ai-lab/driver-investigator.mjs";
+import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import styles from "./AiV2Workspace.module.css";
 
 const ACTIONS = [
@@ -28,17 +30,20 @@ function download(name, content) {
   } finally { window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
 
-export default function AiV2Workspace({ analysis = null, lessons = [], documents = {}, onContextChange = () => {}, onAskAI = () => {} }) {
+export default function AiV2Workspace({ analysis = null, scope = null, lessons = [], documents = {}, onContextChange = () => {}, onAskAI = () => {} }) {
   const [task, setTask] = useState("investigator");
   const [question, setQuestion] = useState("");
   const [investigation, setInvestigation] = useState(null);
+  const [driverResult, setDriverResult] = useState(null);
+  const [investigatorBusy, setInvestigatorBusy] = useState(false);
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
   const [draftMode, setDraftMode] = useState("tips");
   const [language, setLanguage] = useState("en");
   const [message, setMessage] = useState("");
+  const investigationVersion = useRef(0);
   const [imported, setImported] = useState([]);
   const [readerBusy, setReaderBusy] = useState(false);
-  useEffect(() => { setInvestigation(null);setMessage(""); }, [analysis]);
+  useEffect(() => { investigationVersion.current += 1;setInvestigation(null);setDriverResult(null);setMessage(""); }, [analysis, scope]);
   const digest = useMemo(() => buildProactiveDigest(analysis), [analysis]);
   const knowledge = useMemo(() => searchApprovedLessons(lessons, knowledgeQuery, analysis?.site || ""), [lessons, knowledgeQuery, analysis?.site]);
   const sandbox = useMemo(() => proposeFormatSandbox(documents), [documents]);
@@ -47,15 +52,32 @@ export default function AiV2Workspace({ analysis = null, lessons = [], documents
     catch { return "Load an AI Brain analysis first to prepare an evidence-aware draft."; }
   }, [analysis, draftMode, language]);
 
-  function runQuestion() {
-    setMessage("");setInvestigation(null);onContextChange("");
-    try { setInvestigation(investigateBrain(analysis, question)); }
-    catch (error) { setMessage(error.message || "Could not investigate the selected reports."); }
+  async function runQuestion() {
+    if (investigatorBusy) return;
+    const version = ++investigationVersion.current;
+    setMessage("");setInvestigation(null);setDriverResult(null);onContextChange("");
+    try {
+      setInvestigation(investigateBrain(analysis, question));
+      const parsed = parseDriverQuestion(question);
+      if (!parsed || !scope?.organizationId || scope.site !== analysis?.site) return;
+      setInvestigatorBusy(true);
+      const client = getSupabaseBrowserClient();
+      const { data: { session } } = await client.auth.getSession();
+      if (!session?.access_token) throw new Error("Super Admin session expired.");
+      const response = await fetch("/api/ai-lab/investigate", { method: "POST", cache: "no-store",
+        headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
+        body: JSON.stringify({ organization: scope.organizationId, site: scope.site, periods: analysis.periods, question }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.result) throw new Error(body.error || "Authorised driver query failed.");
+      if (version === investigationVersion.current) setDriverResult(body.result);
+    } catch (error) { setMessage(error.message || "Could not investigate the selected reports."); }
+    finally { setInvestigatorBusy(false); }
   }
 
   function askWithEvidence() {
     if (!investigation?.context) return;
-    onContextChange(investigation.context);
+    const context = driverResult?.context ? JSON.stringify({ metrics: JSON.parse(investigation.context), drivers: JSON.parse(driverResult.context) }) : investigation.context;
+    onContextChange(context.slice(0, 5800));
     onAskAI(`Explică analiza de date pentru ${analysis?.site || "stația selectată"}. Arată dovezile și limitările, apoi pașii practici. Nu inventa cauze și nu atribui vină șoferilor.`);
   }
 
@@ -104,10 +126,14 @@ export default function AiV2Workspace({ analysis = null, lessons = [], documents
     <div className={styles.content}>
       {task === "investigator" && <><h3>AI Investigator · verified sources</h3>
         <p className={styles.hint}>Start with an AI Brain analysis above. The investigator handles Romanian and English metric questions using only the data already authorised and loaded.</p>
-        <form className={styles.row} onSubmit={event => {event.preventDefault();runQuestion();}}><input value={question} maxLength={500} onChange={event => setQuestion(event.target.value)} placeholder="De ce a scăzut DCR la DZM1?" aria-label="Investigation question"/><button type="submit" className={styles.button} disabled={!analysis || question.trim().length < 5}>Investigate ↗</button></form>
+        <form className={styles.row} onSubmit={event => {event.preventDefault();runQuestion();}}><input value={question} maxLength={500} onChange={event => setQuestion(event.target.value)} placeholder="Cine are IADC sub 80% la DZM1?" aria-label="Investigation question"/><button type="submit" className={styles.button} disabled={!analysis || investigatorBusy || question.trim().length < 5}>{investigatorBusy ? "Checking authorised drivers…" : "Investigate ↗"}</button></form>
         {investigation && <div className={styles.result}><h4>{investigation.title}</h4><p>{investigation.answer}</p>
           {!!investigation.evidence.length && <div className={styles.tableWrap}><table><thead><tr><th>Source</th><th>Period</th><th>Metric</th><th>Mean</th><th>Numeric records</th></tr></thead><tbody>{investigation.evidence.map((row, index) => <tr key={index}><td>{row.source}</td><td>{row.period}</td><td>{row.metric}</td><td>{row.mean}{row.unit}</td><td>{row.numericRows}</td></tr>)}</tbody></table></div>}
           <small>{investigation.limitations}</small><button type="button" className={styles.button} disabled={!investigation.context} onClick={askWithEvidence}>✦ Explain in AI chat</button></div>}
+        {driverResult && <div className={styles.result}><h4>Verified driver query · {driverResult.totalMatches} matches among {driverResult.analysedDrivers} comparable drivers</h4>
+          <p>{driverResult.criterion.metric.toUpperCase()} {driverResult.criterion.comparison} {driverResult.criterion.threshold}{driverResult.criterion.unit} · periods {driverResult.periods.join(", ")}</p>
+          {!!driverResult.matches.length && <div className={styles.tableWrap}><table><thead><tr><th>Driver (private)</th><th>Last period</th><th>Mean</th><th>Previous</th><th>Source rows</th></tr></thead><tbody>{driverResult.matches.map(row => <tr key={row.driverId}><td>{row.driverName}</td><td>{row.period}</td><td>{row.mean}{driverResult.criterion.unit}</td><td>{row.previous ?? "—"}</td><td>{row.numericRows}</td></tr>)}</tbody></table></div>}
+          <small>{driverResult.limitations}{driverResult.truncated ? " SOURCE CAP REACHED." : ""} Driver names are never passed to the AI model as evidence.</small></div>}
       </>}
       {task === "knowledge" && <><h3>Approved knowledge search</h3><p className={styles.hint}>Search your own RLS-protected learning notes. This version matches keywords and related operational terms; vector-based semantic embeddings are a separate upgrade.</p>
         <input className={styles.fullInput} value={knowledgeQuery} onChange={event => setKnowledgeQuery(event.target.value)} placeholder="Search staging, concessions, NOA, DCR…" maxLength={160}/>
