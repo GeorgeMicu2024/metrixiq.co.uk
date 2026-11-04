@@ -77,15 +77,24 @@ export default function AiLabView() {
   const validMappings = Object.values(mapping).filter(Number.isInteger);
   const noDuplicateColumns = new Set(validMappings).size === validMappings.length;
   const safeReportContext = useMemo(() => {
-    if (!doc) return "";
-    const columns = Object.fromEntries(WAVE_FIELDS.filter(field => Number.isInteger(mapping[field.id]))
-      .map(field => [field.id, String(headers[mapping[field.id]] || "Column " + (mapping[field.id] + 1)).slice(0, 70)]));
-    const sample = rows.slice(0, 15).map(row => ({
-      route: row.route, wave: row.wave, staging: row.staging, parking: row.parking, holding: row.holding, loading: row.loading,
+    if (!doc && !templates.length) return "";
+    const approvedLayouts = templates.slice(0, 8).map(item => ({
+      headers: String(item.signature || "").split("|").slice(0, 20),
+      fieldPositions: item.columns,
     }));
-    return JSON.stringify({ reportType: doc.mode, detectedRows: rows.length, columns, sample, approvedFormatCount: templates.length }).slice(0, 5800);
+    const summary = { approvedLayouts };
+    if (doc) {
+      const columns = Object.fromEntries(WAVE_FIELDS.filter(field => Number.isInteger(mapping[field.id]))
+        .map(field => [field.id, String(headers[mapping[field.id]] || "Column " + (mapping[field.id] + 1)).slice(0, 70)]));
+      summary.currentReport = {
+        reportType: doc.mode, detectedRows: rows.length, columns,
+        sample: rows.slice(0, 12).map(row => ({
+          route: row.route, wave: row.wave, staging: row.staging, parking: row.parking, holding: row.holding, loading: row.loading,
+        })),
+      };
+    }
+    return JSON.stringify(summary).slice(0, 5800);
   }, [doc, mapping, headerRow, rows, templates]);
-
 
   async function processFile(file) {
     if (!file || busy) return;
