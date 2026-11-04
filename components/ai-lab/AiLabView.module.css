@@ -83,3 +83,9 @@
 .qualityText p{font-size:12px;line-height:1.5;color:#607d8f;margin:4px 0}
 .qualityText small{font-size:11px;color:#577a91;overflow-wrap:anywhere}
 @media(max-width:600px){.qualityStats{gap:5px}.qualityIssue{gap:8px;padding:9px}.qualityIssue>span{font-size:9px}}
+
+/* Smart Import classification hints are contained entirely in AI Lab. */
+.smartHint{display:grid;gap:5px;padding:11px;border:1px solid #d8ebe8;border-radius:11px;background:#f1fbf9;margin-top:9px}
+.smartHint strong{font-size:11px;color:#14796f}
+.smartHint small{font-size:11px;line-height:1.5;color:#627e87}
+.smartHint button{justify-self:start;font-size:11px;padding:7px 10px}
