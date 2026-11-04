@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { WAVE_FIELDS, detectWavePlan, normalizedWaveRows, signatureFor } from "../../lib/ai-lab/wave-plan.mjs";
 import styles from "./AiLabView.module.css";
 import AiLabChat from "./AiLabChat";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { AI_LAB_STATE_TABLE, normalizeApprovedFormats } from "../../lib/ai-lab/user-state.mjs";
 import { mergeRouteAndWavePlans } from "../../lib/ai-lab/merge-plans.mjs";
+import { evaluateWavePlanQuality, QUALITY_PROFILES } from "../../lib/ai-lab/quality-check.mjs";
 
 const MEMORY_KEY = "metrixiq.aiLab.approvedWaveFormats.v1";
 const ACCEPTED = ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.webp,.bmp";
@@ -65,6 +66,9 @@ export default function AiLabView() {
   const [cloudState, setCloudState] = useState("Connecting private memory…");
   const [documents, setDocuments] = useState({ route: null, wave: null });
   const [activeSource, setActiveSource] = useState("wave");
+  const [qualityProfile, setQualityProfile] = useState("standard");
+  const [suggestedPrompt, setSuggestedPrompt] = useState(null);
+  const chatAnchor = useRef(null);
   const doc = documents[activeSource];
   const mapping = doc?.mapping || {};
   const headerRow = doc?.headerRow ?? -1;
@@ -127,11 +131,16 @@ export default function AiLabView() {
 
   const detected = useMemo(() => doc ? detectWavePlan(doc.matrix, templates) : null, [doc, templates]);
   const rows = useMemo(() => doc ? normalizedWaveRows(doc.matrix, mapping, headerRow) : [], [doc, mapping, headerRow]);
+  const routeRows = useMemo(() => documents.route
+    ? normalizedWaveRows(documents.route.matrix, documents.route.mapping, documents.route.headerRow) : [], [documents.route]);
+  const waveRows = useMemo(() => documents.wave
+    ? normalizedWaveRows(documents.wave.matrix, documents.wave.mapping, documents.wave.headerRow) : [], [documents.wave]);
   const joined = useMemo(() => documents.route && documents.wave
-    ? mergeRouteAndWavePlans(
-        normalizedWaveRows(documents.route.matrix, documents.route.mapping, documents.route.headerRow),
-        normalizedWaveRows(documents.wave.matrix, documents.wave.mapping, documents.wave.headerRow))
-    : null, [documents]);
+    ? mergeRouteAndWavePlans(routeRows, waveRows) : null, [documents.route, documents.wave, routeRows, waveRows]);
+  const quality = useMemo(() => joined ? evaluateWavePlanQuality({
+    routeRows, waveRows, joined, profile: qualityProfile,
+    routeMapping: documents.route.mapping, waveMapping: documents.wave.mapping,
+  }) : null, [routeRows, waveRows, joined, documents.route, documents.wave, qualityProfile]);
   const previewRows = joined ? joined.rows : rows;
   const headers = headerRow >= 0 ? doc?.matrix?.[headerRow] || [] : [];
   const colCount = doc ? Math.min(40, Math.max(0, ...doc.matrix.slice(0, 20).map(row => row.length))) : 0;
@@ -144,7 +153,7 @@ export default function AiLabView() {
       headers: String(item.signature || "").split("|").slice(0, 20),
       fieldPositions: item.columns,
     }));
-    const summary = { approvedLayouts };
+    const summary = quality ? { qualityCheck: quality.aiSummary, approvedLayouts } : { approvedLayouts };
     if (doc) {
       const columns = Object.fromEntries(WAVE_FIELDS.filter(field => Number.isInteger(mapping[field.id]))
         .map(field => [field.id, String(headers[mapping[field.id]] || "Column " + (mapping[field.id] + 1)).slice(0, 70)]));
@@ -173,8 +182,8 @@ export default function AiLabView() {
         })),
       };
     }
-    return JSON.stringify(summary).slice(0, 5800);
-  }, [doc, documents, mapping, headerRow, previewRows, joined, templates]);
+    return JSON.stringify(summary).slice(0, 5900);
+  }, [doc, documents, mapping, headerRow, previewRows, joined, quality, templates]);
 
   async function processFile(file, source) {
     if (!file || busy || !["route", "wave"].includes(source)) return;
@@ -192,6 +201,7 @@ export default function AiLabView() {
         [source]: { name: file.name, size: file.size, ...result, headerRow: proposed.headerRow, mapping: proposed.columns },
       }));
       setActiveSource(source);
+      setQualityProfile("standard"); // Require explicit station rules for each newly uploaded pair.
       setNotice(proposed.matchedTemplate
         ? "Recognised an approved " + source + " format: " + proposed.matchedTemplate + ". Check the columns before using the preview."
         : "New " + source + " format detected. Review the proposed columns; approve them to remember this layout.");
@@ -223,6 +233,7 @@ export default function AiLabView() {
 
   function clearFile(source) {
     setDocuments(current => ({ ...current, [source]: null }));
+    setQualityProfile("standard");
     if (source === activeSource) setActiveSource(source === "route" ? "wave" : "route");
     setError("");
     setNotice("");
@@ -273,6 +284,21 @@ export default function AiLabView() {
     downloadText(name + "-ai-lab-preview.csv", "\uFEFF" + csv, "text/csv;charset=utf-8");
   }
 
+  function exportQualityFindings() {
+    if (!quality) return;
+    const fields = ["Severity", "Check", "Count", "What to review", "Route examples"];
+    const lines = [fields.map(csvValue).join(","), ...quality.findings.map(item =>
+      [item.severity, item.title, item.count, item.description, item.examples.join(" / ")].map(csvValue).join(","))];
+    downloadText("metrixiq-ai-lab-quality-check.csv", "\uFEFF" + lines.join("\r\n"), "text/csv;charset=utf-8");
+  }
+
+  function askQualityAi(plan = false) {
+    setSuggestedPrompt({ id: String(Date.now()) + Math.random().toString(36), text: plan
+      ? "Pe baza verificării AI Quality Check, creează un plan de acțiune prioritar pentru dispecerat. Separă erorile confirmate de verificările manuale necesare; nu inventa date și nu modifica rute."
+      : "Explică verificarea AI Quality Check pentru Route Plan și Wave Plan. Care sunt cele mai grave riscuri, ce date lipsesc și ce să verific concret înainte de dispatch? Răspunde în română." });
+    chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function exportMemory() {
     if (!templates.length) return;
     downloadText("metrixiq-ai-lab-approved-formats.json", JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), templates }, null, 2), "application/json");
@@ -288,7 +314,7 @@ export default function AiLabView() {
       <div className={styles.pills}><span className={styles.pill}>SUPER ADMIN ONLY</span><span className={styles.pill + " " + styles.warn}>ISOLATED TEST MODE</span></div>
     </header>
     <div className={styles.layout}>
-      <div className={styles.full}><AiLabChat reportContext={safeReportContext}/></div>
+      <div className={styles.full} ref={chatAnchor}><AiLabChat reportContext={safeReportContext} suggestedPrompt={suggestedPrompt}/></div>
       <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>1. Upload both plans</h2><p>Route Plan + Wave Plan · Excel, CSV, PDF or image</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
         <div className={styles.cardBody}>
@@ -378,7 +404,7 @@ export default function AiLabView() {
           {!noDuplicateColumns && <p className={styles.note + " " + styles.warning}>Two fields currently use the same column. Correct the mapping before saving.</p>}
           <div className={styles.row} style={{ marginTop: 18 }}>
             <button type="button" className={styles.button} disabled={!cloudUserId || mappedCount < 2 || !noDuplicateColumns} onClick={approve}>✓ Approve & learn format</button>
-            <button type="button" className={styles.button + " " + styles.secondary} disabled={!rows.length} onClick={downloadCsv}>↓ Download preview CSV</button>
+            <button type="button" className={styles.button + " " + styles.secondary} disabled={!previewRows.length} onClick={downloadCsv}>↓ Download preview CSV</button>
             <button type="button" className={styles.button + " " + styles.secondary} onClick={() => clearFile(activeSource)}>Remove selected file</button>
           </div>
         </div>
@@ -396,6 +422,45 @@ export default function AiLabView() {
           {doc.text && <details style={{ marginTop: 14 }}><summary className={styles.muted} style={{ cursor: "pointer" }}>Show extracted OCR/PDF text</summary><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 240, overflowY: "auto", fontSize: 11, color: "#5c7286" }}>{doc.text.slice(0, 10000)}</pre></details>}
         </div>
         <footer className={styles.footnote}>This preview is informational. Verify all unmatched and conflicting rows before operational use; the current Wave Plan generator remains unchanged.</footer>
+      </section>}
+      {quality && <section className={styles.card + " " + styles.full} aria-label="AI Lab quality check">
+        <div className={styles.cardHead}>
+          <div><h2>4. AI Quality Check</h2><p>Local, read-only checks · optional AI explanations · not an official dispatch score</p></div>
+          <span className={styles.pill + (quality.counts.high ? " " + styles.warn : "")}>{quality.risk}</span>
+        </div>
+        <div className={styles.cardBody}>
+          <label className={styles.label} style={{ maxWidth: 400 }}>
+            Station timing rules
+            <select className={styles.select} value={qualityProfile} onChange={event => setQualityProfile(event.target.value)}>
+              {QUALITY_PROFILES.map(profile => <option key={profile.id} value={profile.id}>{profile.label}</option>)}
+            </select>
+          </label>
+          <p className={styles.muted}>Select DZM1 only for DZM1 files. The station and report date cannot yet be independently verified from these uploads.</p>
+          <div className={styles.qualityStats}>
+            <div className={styles.stat}><strong>{quality.counts.matched}</strong><span>Safely matched</span></div>
+            <div className={styles.stat}><strong>{quality.counts.high}</strong><span>High-priority checks</span></div>
+            <div className={styles.stat}><strong>{quality.counts.medium}</strong><span>Other checks</span></div>
+          </div>
+          <div className={styles.qualityList}>
+            {quality.findings.length ? quality.findings.slice().sort((a, b) =>
+              ({ high: 0, medium: 1, info: 2 })[a.severity] - ({ high: 0, medium: 1, info: 2 })[b.severity]
+            ).slice(0, 16).map(item => <div className={styles.qualityIssue} key={item.code}>
+              <span className={item.severity === "high" ? styles.qualityHigh : item.severity === "medium" ? styles.qualityMedium : styles.qualityInfo}>{item.severity.toUpperCase()}</span>
+              <div className={styles.qualityText}>
+                <strong>{item.title} · {item.count}</strong>
+                <p>{item.description}</p>
+                {item.examples.length > 0 && <small>Route examples: {item.examples.join(", ")}</small>}
+              </div>
+            </div>) : <p className={styles.note}>No anomalies were flagged by the selected checks. This does not replace source verification.</p>}
+            {quality.findings.length > 16 && <p className={styles.muted}>{quality.findings.length - 16} additional checks are included in the CSV export.</p>}
+          </div>
+          <div className={styles.row} style={{ marginTop: 16 }}>
+            <button type="button" className={styles.button} onClick={() => askQualityAi(false)}>✦ Explain risks with AI</button>
+            <button type="button" className={styles.button + " " + styles.secondary} onClick={() => askQualityAi(true)}>✦ Suggest action plan</button>
+            <button type="button" className={styles.button + " " + styles.secondary} onClick={exportQualityFindings}>↓ Export quality findings</button>
+          </div>
+          <p className={styles.muted}>AI buttons prepare a question in the chat. To share the private aggregate findings with the model, you must explicitly tick “Share selected report summary with AI”. No operational data is edited.</p>
+        </div>
       </section>}
       <section className={styles.card + " " + styles.full}>
         <div className={styles.cardHead}><div><h2>Approved format memory</h2><p>{templates.length} approved templates · {cloudState}</p></div><button type="button" className={styles.button + " " + styles.secondary} disabled={!templates.length} onClick={exportMemory}>↓ Export memory</button></div>
