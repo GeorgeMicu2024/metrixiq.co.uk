@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeRouteAndWavePlans } from "./merge-plans.mjs";
+import { mergeRouteAndWavePlans } from "../lib/ai-lab/merge-plans.mjs";
 
 test("matches two independent reports by route and combines complementary fields", () => {
   const input = [{ route: " ca_a101 ", driver: "Driver A", trid: "T111" }];
