@@ -2352,3 +2352,11 @@ body.scorex3-resizing-columns *{
     color:#111!important;
   }
 }
+
+
+/* DZM1 desktop: hide the tiny score-delta annotation beside Total Score only. */
+@media (min-width:1024px) {
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-score-cell button>em{
+    display:none!important;
+  }
+}
