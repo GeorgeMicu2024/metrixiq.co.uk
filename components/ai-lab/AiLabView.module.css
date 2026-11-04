@@ -55,3 +55,17 @@
 @media(max-width:960px){.layout{grid-template-columns:1fr}.hero{align-items:flex-start}}
 @media(max-width:600px){.shell{gap:12px}.hero h1{font-size:26px}.cardHead,.cardBody{padding:15px}.drop{padding:18px;min-height:175px}.mapping{grid-template-columns:1fr}.smallStats{gap:5px}.stat{padding:9px}.stat strong{font-size:16px}.row .button{flex:1}.table{min-width:690px}}
 .shell,.layout,.full,.card{min-width:0;max-width:100%;box-sizing:border-box}
+
+/* AI Lab-only two-file pairing. Operational Wave Plan styles are unchanged. */
+.uploadPair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.uploadSlot{min-width:0}
+.uploadPair .drop{min-height:176px;padding:17px;gap:6px}
+.uploadPair .drop strong{font-size:15px}
+.uploadPair .drop small{max-width:100%;overflow-wrap:anywhere;line-height:1.4}
+.slotInfo{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 3px;font-size:11px;color:#427369}
+.slotInfo span{min-width:0;overflow-wrap:anywhere}
+.slotInfo button{padding:6px 9px;flex-shrink:0}
+.pairStats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:14px}
+.matchGood{color:#087b61;font-weight:800}
+.matchWarn{color:#96500e;font-weight:800}
+@media(max-width:600px){.uploadPair{grid-template-columns:1fr}.pairStats{grid-template-columns:repeat(2,minmax(0,1fr))}.uploadPair .drop{min-height:150px}}
