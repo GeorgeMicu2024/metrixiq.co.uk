@@ -5,6 +5,7 @@ import { WAVE_FIELDS, detectWavePlan, normalizedWaveRows, signatureFor } from ".
 import styles from "./AiLabView.module.css";
 import AiLabChat from "./AiLabChat";
 import AiCommandCenter from "./AiCommandCenter";
+import AiBrainPanel from "./AiBrainPanel";
 import { classifyAmazonReport } from "../../lib/ai-lab/smart-import.mjs";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { AI_LAB_STATE_TABLE, normalizeApprovedFormats } from "../../lib/ai-lab/user-state.mjs";
@@ -71,6 +72,7 @@ export default function AiLabView() {
   const [qualityProfile, setQualityProfile] = useState("standard");
   const [suggestedPrompt, setSuggestedPrompt] = useState(null);
   const [commandContext, setCommandContext] = useState("");
+  const [brainContext, setBrainContext] = useState("");
   const chatAnchor = useRef(null);
   const doc = documents[activeSource];
   const mapping = doc?.mapping || {};
@@ -343,6 +345,11 @@ export default function AiLabView() {
     chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function askBrainAi(text) {
+    setSuggestedPrompt({ id: String(Date.now()) + Math.random().toString(36), text, source: "brain" });
+    chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function exportMemory() {
     if (!templates.length) return;
     downloadText("metrixiq-ai-lab-approved-formats.json", JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), templates }, null, 2), "application/json");
@@ -358,8 +365,9 @@ export default function AiLabView() {
       <div className={styles.pills}><span className={styles.pill}>SUPER ADMIN ONLY</span><span className={styles.pill + " " + styles.warn}>ISOLATED TEST MODE</span></div>
     </header>
     <div className={styles.layout}>
-      <div className={styles.full} ref={chatAnchor}><AiLabChat reportContext={safeReportContext} commandContext={commandContext} suggestedPrompt={suggestedPrompt}/></div>
+      <div className={styles.full} ref={chatAnchor}><AiLabChat reportContext={safeReportContext} commandContext={commandContext} brainContext={brainContext} suggestedPrompt={suggestedPrompt}/></div>
       <div className={styles.full}><AiCommandCenter onContextChange={setCommandContext} onAskAI={askCommandAi}/></div>
+      <div className={styles.full}><AiBrainPanel onContextChange={setBrainContext} onAskAI={askBrainAi}/></div>
       <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>1. Upload both plans</h2><p>Route Plan + Wave Plan · Excel, CSV, PDF or image</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
         <div className={styles.cardBody}>
