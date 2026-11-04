@@ -1670,6 +1670,27 @@
 }
 
 
+/* Readable desktop navigation: keep the compact rail and tablet/mobile layout unchanged. */
+@media(min-width:1101px){
+  .app-shell{--mock-sidebar:clamp(286px,17vw,324px)}
+  .sidebar:not(.compact){width:var(--mock-sidebar)}
+  .sidebar:not(.compact)+.app-body{margin-left:var(--mock-sidebar)}
+  .sidebar:not(.compact) .sidebar-brand{padding:0 18px}
+  .sidebar:not(.compact) .sidebar-brand .brand{transform:none}
+  .sidebar:not(.compact) .sidebar-brand .brand-mark{width:36px;height:36px;flex-basis:36px}
+  .sidebar:not(.compact) .sidebar-brand .brand-word{font-size:20px}
+  .sidebar:not(.compact) .app-nav{padding:12px 12px 22px}
+  .sidebar:not(.compact) .app-nav .nav-section{font-size:10px;color:#8ca4b9;letter-spacing:.1em;margin:14px 12px 8px}
+  .sidebar:not(.compact) .app-nav .nav-group-toggle{min-height:39px!important;padding:8px 12px!important;color:#8ca4b9!important}
+  .sidebar:not(.compact) .app-nav .nav-group-toggle b{font-size:10px!important;letter-spacing:.11em}
+  .sidebar:not(.compact) .app-nav .nav-group-toggle span{font-size:13px}
+  .sidebar:not(.compact) .app-nav .nav-group>div>button,
+  .sidebar:not(.compact) .app-nav>div>button{height:42px;min-height:42px;padding:0 12px;font-size:13px;font-weight:700;gap:11px}
+  .sidebar:not(.compact) .app-nav button>span{width:22px;font-size:16px}
+  .sidebar:not(.compact) .app-nav button em{font-size:9px;padding:4px 7px}
+}
+
+
 /* Approved Home mockup — central dashboard proportions */
 @media(min-width:1101px){
  .homev2{gap:12px;padding:0 18px 22px;margin:-28px -24px -68px;min-height:calc(100vh - 72px);background:#071a2b}
