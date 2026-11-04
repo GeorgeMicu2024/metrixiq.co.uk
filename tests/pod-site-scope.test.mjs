@@ -201,3 +201,16 @@ test("operational site resolver accepts Amazon station codes such as DLS2", () =
   assert.ok(shared.includes('/^[A-Z]{2,5}\\d{1,3}$/'));
   assert.equal(shared.includes('/^[A-Z]{2,5}\\\\d{1,3}$/'), false);
 });
+
+test("POD desktop scorecards use larger text without changing mobile cards or image export", () => {
+  const view = read("components/operations/PodQualityView.jsx");
+
+  assert.ok(view.includes("/* Desktop POD legibility; keep mobile cards and image-export sizing unchanged. */"));
+  assert.ok(view.includes("@media(min-width:1200px){"));
+  assert.ok(view.includes(".podv3-table th,.podv3-table td{padding:11px 9px;font-size:11px}"));
+  assert.ok(view.includes(".podv3-table td b{font-size:12px}"));
+  assert.ok(view.includes(".podv3-table .table-wrap{max-height:min(74vh,880px)}"));
+  assert.ok(view.includes(".podv3-workspace{grid-template-columns:minmax(0,1fr) 310px;gap:16px}"));
+  assert.ok(view.includes('className="podv3-mobile-cards"'));
+  assert.ok(view.includes("createPodPageImage("));
+});
