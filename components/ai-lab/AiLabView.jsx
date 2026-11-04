@@ -86,8 +86,20 @@ export default function AiLabView() {
     if (doc) {
       const columns = Object.fromEntries(WAVE_FIELDS.filter(field => Number.isInteger(mapping[field.id]))
         .map(field => [field.id, String(headers[mapping[field.id]] || "Column " + (mapping[field.id] + 1)).slice(0, 70)]));
+      const waveCounts = new Map();
+      const routeCounts = new Map();
+      for (const row of rows) {
+        if (row.wave) waveCounts.set(row.wave, (waveCounts.get(row.wave) || 0) + 1);
+        if (row.route) routeCounts.set(row.route, (routeCounts.get(row.route) || 0) + 1);
+      }
+      const checks = {};
+      for (const field of ["route", "wave", "staging", "loading"]) {
+        if (Number.isInteger(mapping[field])) checks["missing_" + field] = rows.filter(row => !row[field]).length;
+      }
+      checks.repeatedRoutesForReview = [...routeCounts].filter(([, count]) => count > 1).slice(0, 15).map(([route, count]) => ({ route, count }));
       summary.currentReport = {
-        reportType: doc.mode, detectedRows: rows.length, columns,
+        reportType: doc.mode, detectedRows: rows.length, columns, checks,
+        waveDistribution: [...waveCounts].slice(0, 20).map(([wave, count]) => ({ wave, count })),
         sample: rows.slice(0, 12).map(row => ({
           route: row.route, wave: row.wave, staging: row.staging, parking: row.parking, holding: row.holding, loading: row.loading,
         })),
