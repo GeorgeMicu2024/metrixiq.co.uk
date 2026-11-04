@@ -67,7 +67,7 @@ export async function GET(request) {
       return errorResponse("Select a valid authorised site and Amazon week label, such as W44.", 400);
     }
     const { data: siteRow, error: siteError } = await client.from("organization_site_profiles")
-      .select("site").eq("organization_id", organizationId).eq("site", site).maybeSingle();
+      .select("site").eq("organization_id", organizationId).eq("site", site).eq("active", true).maybeSingle();
     if (siteError || !siteRow) return errorResponse("Site access denied.", 403);
 
     // Existing row-level policies constrain every source by this user's organisation/site access.
