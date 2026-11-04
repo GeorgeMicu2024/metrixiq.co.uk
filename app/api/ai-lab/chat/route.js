@@ -74,6 +74,7 @@ export async function POST(request) {
         messages: promptMessages,
         stream: true,
         max_tokens: 1400,
+        reasoning: { effort: "none" },
         temperature: 0.5,
       }),
       cache: "no-store",
