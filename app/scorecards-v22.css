@@ -2140,3 +2140,79 @@ body.scorex3-resizing-columns *{
     height:30px!important;font-size:10px!important
   }
 }
+
+
+/* DZM1 desktop contrast pass: spreadsheet-like fills, never change metric classification. */
+@media (min-width:1024px) {
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table{
+    border:1px solid #29423a!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table th{
+    background:#26d960!important;
+    color:#082718!important;
+    border-right:1px solid #29423a!important;
+    border-bottom:2px solid #173a2b!important;
+    font-weight:950!important;
+    letter-spacing:.025em;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table thead th:nth-child(n){
+    background:#26d960!important;
+    color:#082718!important;
+    border-right:1px solid #29423a!important;
+    border-bottom:2px solid #173a2b!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td{
+    border-right:1px solid #36483f!important;
+    border-bottom:1px solid #36483f!important;
+    font-weight:900!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-metric.good{
+    background:#3be85c!important;color:#092a12!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-metric.warn{
+    background:#ffe34b!important;color:#352700!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-metric.bad{
+    background:#ff4b52!important;color:#2c0306!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-metric.neutral{
+    background:#e3e9ed!important;color:#354552!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-delivered-cell{
+    background:#eef7f2!important;color:#143e28!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-score-cell.fantastic-plus{
+    background:#65aeef!important;color:#071f40!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-score-cell.fantastic{
+    background:#99dfff!important;color:#07344d!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-score-cell.great{
+    background:#67dc79!important;color:#12331b!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-score-cell.fair{
+    background:#ffc34e!important;color:#432900!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row td.scorex3-score-cell.poor{
+    background:#ff6565!important;color:#3b0a0a!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-value-pill,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-fico-cell>span{
+    background:transparent!important;color:inherit!important;box-shadow:none!important;
+    border:0!important;font-weight:950!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-name-cell{
+    background:#fff!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row:nth-child(even) .scorex3-name-cell{
+    background:#eaf7ed!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-name-cell button,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-rank-cell b{
+    color:#092b21!important;font-weight:950!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-concession-badge{
+    background:rgba(255,255,255,.42)!important;color:inherit!important;
+    border-color:#314a3a!important;font-weight:950!important;
+  }
+}
