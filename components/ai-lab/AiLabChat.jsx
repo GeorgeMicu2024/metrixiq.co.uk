@@ -32,7 +32,7 @@ function readDelta(eventBlock) {
   return "";
 }
 
-export default function AiLabChat({ reportContext = "", suggestedPrompt = null }) {
+export default function AiLabChat({ reportContext = "", commandContext = "", suggestedPrompt = null }) {
   const [metricBook, setMetricBook] = useState(null);
   const [metricSheet, setMetricSheet] = useState("");
   const [metricHeader, setMetricHeader] = useState(1);
@@ -47,7 +47,7 @@ export default function AiLabChat({ reportContext = "", suggestedPrompt = null }
   const [liveReport, setLiveReport] = useState("");
   const [activeSource, setActiveSource] = useState("wave");
   const uploadedContext = metricSummary ? JSON.stringify({ ...JSON.parse(metricSummary), station: reportSite || "not provided", period: reportPeriod || "not provided", scopeSource: "Station and period are user-entered, not verified from the file" }) : "";
-  const activeContext = activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : reportContext;
+  const activeContext = activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : activeSource === "command" ? commandContext : reportContext;
   const [messages, setMessages] = useState([]);
   const [cloudUserId, setCloudUserId] = useState("");
   const [syncState, setSyncState] = useState("Connecting private history…");
@@ -62,15 +62,18 @@ export default function AiLabChat({ reportContext = "", suggestedPrompt = null }
   const [speechLang, setSpeechLang] = useState("ro-RO");
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
+  const handledPromptId = useRef("");
 
   useEffect(() => { setIncludeReport(false); setActiveSource("wave"); }, [reportContext]);
+  useEffect(() => { setIncludeReport(false); }, [commandContext]);
   useEffect(() => {
-    if (!suggestedPrompt?.id || !suggestedPrompt.text) return;
+    if (!suggestedPrompt?.id || !suggestedPrompt.text || handledPromptId.current === suggestedPrompt.id) return;
+    handledPromptId.current = suggestedPrompt.id;
     setInput(suggestedPrompt.text);
-    setActiveSource("wave");
+    setActiveSource(suggestedPrompt.source === "command" && commandContext ? "command" : "wave");
     setIncludeReport(false);
     inputRef.current?.focus();
-  }, [suggestedPrompt]);
+  }, [suggestedPrompt, commandContext]);
 
   useEffect(() => {
     let active = true;
@@ -347,9 +350,10 @@ export default function AiLabChat({ reportContext = "", suggestedPrompt = null }
         </>}
       </details>
       <p className={styles.small}>{includeReport && activeContext
-        ? "AI evidence: " + (activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : "selected Wave Plan preview")
+        ? "AI evidence: " + (activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : activeSource === "command" ? "authorised multi-report Command Center analysis" : "selected Wave Plan preview")
         : "General guidance · no report shared with AI"}
-        {reportContext && activeSource !== "wave" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("wave"); setIncludeReport(false); }}>Use Wave Plan context</button>}</p>
+        {reportContext && activeSource !== "wave" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("wave"); setIncludeReport(false); }}>Use Wave Plan context</button>}
+        {commandContext && activeSource !== "command" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("command"); setIncludeReport(false); }}>Use AI Command Center context</button>}</p>
       <form className={styles.form} onSubmit={event => { event.preventDefault(); sendMessage(); }}>
         <textarea ref={inputRef} className={styles.input} rows={2} maxLength={2000} value={input} onChange={event => setInput(event.target.value)}
           placeholder="Ask MetrixIQ anything about your operations…"

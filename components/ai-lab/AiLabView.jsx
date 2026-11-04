@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { WAVE_FIELDS, detectWavePlan, normalizedWaveRows, signatureFor } from "../../lib/ai-lab/wave-plan.mjs";
 import styles from "./AiLabView.module.css";
 import AiLabChat from "./AiLabChat";
+import AiCommandCenter from "./AiCommandCenter";
+import { classifyAmazonReport } from "../../lib/ai-lab/smart-import.mjs";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { AI_LAB_STATE_TABLE, normalizeApprovedFormats } from "../../lib/ai-lab/user-state.mjs";
 import { mergeRouteAndWavePlans } from "../../lib/ai-lab/merge-plans.mjs";
@@ -68,6 +70,7 @@ export default function AiLabView() {
   const [activeSource, setActiveSource] = useState("wave");
   const [qualityProfile, setQualityProfile] = useState("standard");
   const [suggestedPrompt, setSuggestedPrompt] = useState(null);
+  const [commandContext, setCommandContext] = useState("");
   const chatAnchor = useRef(null);
   const doc = documents[activeSource];
   const mapping = doc?.mapping || {};
@@ -196,9 +199,11 @@ export default function AiLabView() {
       const result = await readAiLabFile(file, setProgress);
       if (!result.matrix.length) throw new Error("No readable rows found. Try a clearer image or a spreadsheet.");
       const proposed = detectWavePlan(result.matrix, templates);
+      const classification = classifyAmazonReport(result.matrix, file.name);
       setDocuments(current => ({
         ...current,
-        [source]: { name: file.name, size: file.size, ...result, headerRow: proposed.headerRow, mapping: proposed.columns },
+        [source]: { name: file.name, size: file.size, sourceFile: file, ...result,
+          classification, headerRow: proposed.headerRow, mapping: proposed.columns },
       }));
       setActiveSource(source);
       setQualityProfile("standard"); // Require explicit station rules for each newly uploaded pair.
@@ -210,6 +215,40 @@ export default function AiLabView() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function switchSheet(source, sheetName) {
+    const original = documents[source];
+    if (busy || !original?.sourceFile || !sheetName) return;
+    setBusy(true);
+    setProgress(0);
+    setError("");
+    setNotice("");
+    try {
+      const { readAiLabFile } = await import("../../lib/ai-lab/read-file.mjs");
+      const result = await readAiLabFile(original.sourceFile, setProgress, { sheetName });
+      if (!result.matrix.length) throw new Error("The selected sheet has no readable rows.");
+      const proposed = detectWavePlan(result.matrix, templates);
+      const classification = classifyAmazonReport(result.matrix, original.name);
+      setDocuments(current => ({ ...current, [source]: { ...current[source], ...result,
+        classification, headerRow: proposed.headerRow, mapping: proposed.columns } }));
+      setActiveSource(source);
+      setQualityProfile("standard");
+      setNotice("Selected sheet changed. Review the suggested mappings before approving or exporting.");
+    } catch (cause) {
+      setError(cause.message || "Could not read the selected sheet.");
+    } finally { setBusy(false); }
+  }
+
+  function moveSuggestedFile(source) {
+    const target = documents[source]?.classification?.suggestedSlot;
+    if (!target || target === source) return;
+    if (documents[target]) { setError("Remove the existing " + target + " file before moving this report."); return; }
+    setDocuments(current => ({ ...current, [target]: current[source], [source]: null }));
+    setActiveSource(target);
+    setQualityProfile("standard");
+    setError("");
+    setNotice("Moved to the suggested slot. Review its column mappings before approving.");
   }
 
   function updateMapping(field, column) {
@@ -299,6 +338,11 @@ export default function AiLabView() {
     chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function askCommandAi(text) {
+    setSuggestedPrompt({ id: String(Date.now()) + Math.random().toString(36), text, source: "command" });
+    chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   function exportMemory() {
     if (!templates.length) return;
     downloadText("metrixiq-ai-lab-approved-formats.json", JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), templates }, null, 2), "application/json");
@@ -314,7 +358,8 @@ export default function AiLabView() {
       <div className={styles.pills}><span className={styles.pill}>SUPER ADMIN ONLY</span><span className={styles.pill + " " + styles.warn}>ISOLATED TEST MODE</span></div>
     </header>
     <div className={styles.layout}>
-      <div className={styles.full} ref={chatAnchor}><AiLabChat reportContext={safeReportContext} suggestedPrompt={suggestedPrompt}/></div>
+      <div className={styles.full} ref={chatAnchor}><AiLabChat reportContext={safeReportContext} commandContext={commandContext} suggestedPrompt={suggestedPrompt}/></div>
+      <div className={styles.full}><AiCommandCenter onContextChange={setCommandContext} onAskAI={askCommandAi}/></div>
       <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>1. Upload both plans</h2><p>Route Plan + Wave Plan · Excel, CSV, PDF or image</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
         <div className={styles.cardBody}>
@@ -337,6 +382,21 @@ export default function AiLabView() {
                 <button type="button" className={styles.button + " " + styles.secondary}
                   disabled={busy} onClick={() => clearFile(slot.key)}>Remove</button>
               </div>}
+              {documents[slot.key]?.classification && <div className={styles.smartHint}>
+                <strong>✦ Smart Import: {documents[slot.key].classification.kind === "unknown" ? "Uncertain format" : "Likely " + documents[slot.key].classification.kind + " report"}{documents[slot.key].classification.confidence ? " · " + documents[slot.key].classification.confidence + "% hint" : ""}</strong>
+                <small>{documents[slot.key].classification.message}</small>
+                {documents[slot.key].classification.suggestedSlot && documents[slot.key].classification.suggestedSlot !== slot.key &&
+                  <button type="button" className={styles.button + " " + styles.secondary}
+                    disabled={busy || Boolean(documents[documents[slot.key].classification.suggestedSlot])}
+                    onClick={() => moveSuggestedFile(slot.key)}>Move to {documents[slot.key].classification.suggestedSlot === "route" ? "Route Plan" : "Wave Plan"}</button>}
+              </div>}
+              {documents[slot.key]?.availableSheets?.length > 1 && <label className={styles.label} style={{ marginTop: 8 }}>
+                Excel sheet
+                <select className={styles.select} value={documents[slot.key].selectedSheet || ""}
+                  disabled={busy} onChange={event => switchSheet(slot.key, event.target.value)}>
+                  {documents[slot.key].availableSheets.map(sheet => <option key={sheet} value={sheet}>{sheet}</option>)}
+                </select>
+              </label>}
             </div>)}
           </div>
           <p className={styles.muted}>Upload either file first, then the other. Use reports for the same site and day. 15 MB maximum per file. Reports stay in this browser; only approved layout signatures can be saved.</p>
@@ -372,7 +432,7 @@ export default function AiLabView() {
         </div>
       </section>
       <section className={styles.card}>
-        <div className={styles.cardHead}><div><h2>How learning works</h2><p>Approved formats, not autonomous code changes</p></div><span aria-hidden="true">🧠</span></div>
+        <div className={styles.cardHead}><div><h2>Smart Import learning</h2><p>Recognises likely report types and reusable approved layouts</p></div><span aria-hidden="true">🧠</span></div>
         <div className={styles.cardBody}>
           <ol className={styles.tipList}>
             <li>Read the report locally, including OCR for images and scanned PDF pages.</li>
