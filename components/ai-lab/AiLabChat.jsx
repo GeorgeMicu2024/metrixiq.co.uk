@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { summarizeMetricMatrix } from "../../lib/ai-lab/metric-summary.mjs";
+import { AI_LAB_STATE_TABLE, normalizeChatHistory } from "../../lib/ai-lab/user-state.mjs";
 import styles from "./AiLabChat.module.css";
 
 const CHAT_KEY = "metrixiq.aiLab.chatHistory.v1";
@@ -11,12 +12,9 @@ const STARTERS = [
   "Cum pot reduce CDF negativ la DZM1?",
   "Ce trebuie să verific la IADC și POD?",
 ];
-function safeStoredChat() {
+function safeStoredChat(userId) {
   try {
-    const value = JSON.parse(window.localStorage.getItem(CHAT_KEY) || "[]");
-    if (!Array.isArray(value)) return [];
-    return value.filter(item => item && ["user", "assistant"].includes(item.role) && typeof item.content === "string" && item.content.trim())
-      .slice(-30).map(item => ({ id: String(item.id || Date.now()), role: item.role, content: item.content.slice(0, 6000) }));
+    return normalizeChatHistory(JSON.parse(window.localStorage.getItem(CHAT_KEY + "." + userId) || "[]"));
   } catch { return []; }
 }
 function makeId() {
@@ -42,8 +40,17 @@ export default function AiLabChat({ reportContext = "" }) {
   const [reportSite, setReportSite] = useState("");
   const [reportPeriod, setReportPeriod] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
-  const activeContext = metricSummary ? JSON.stringify({ ...JSON.parse(metricSummary), station: reportSite || "not provided", period: reportPeriod || "not provided", scopeSource: "Station and period are user-entered, not verified from the file" }) : reportContext;
+  const [liveSites, setLiveSites] = useState([]);
+  const [liveSiteKey, setLiveSiteKey] = useState("");
+  const [livePeriod, setLivePeriod] = useState("W44");
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveReport, setLiveReport] = useState("");
+  const [activeSource, setActiveSource] = useState("wave");
+  const uploadedContext = metricSummary ? JSON.stringify({ ...JSON.parse(metricSummary), station: reportSite || "not provided", period: reportPeriod || "not provided", scopeSource: "Station and period are user-entered, not verified from the file" }) : "";
+  const activeContext = activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : reportContext;
   const [messages, setMessages] = useState([]);
+  const [cloudUserId, setCloudUserId] = useState("");
+  const [syncState, setSyncState] = useState("Connecting private history…");
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [includeReport, setIncludeReport] = useState(false);
@@ -56,17 +63,46 @@ export default function AiLabChat({ reportContext = "" }) {
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
-  useEffect(() => { setIncludeReport(false); }, [reportContext]);
+  useEffect(() => { setIncludeReport(false); setActiveSource("wave"); }, [reportContext]);
 
   useEffect(() => {
-    setMessages(safeStoredChat());
-    setLoaded(true);
-    return () => { abortRef.current?.abort(); recognitionRef.current?.stop(); window.speechSynthesis?.cancel(); };
+    let active = true;
+    async function loadHistory() {
+      try {
+        const client = getSupabaseBrowserClient();
+        const { data: { user }, error: authError } = await client.auth.getUser();
+        if (authError || !user?.id || !active) return;
+        const local = safeStoredChat(user.id);
+        const { data: cloud, error: fetchError } = await client.from(AI_LAB_STATE_TABLE)
+          .select("chat_history").eq("user_id", user.id).maybeSingle();
+        if (!active) return;
+        const saved = !fetchError && cloud ? normalizeChatHistory(cloud.chat_history) : local;
+        setMessages(saved);
+        setCloudUserId(user.id);
+        setSyncState(fetchError ? "Private history · local fallback" : "Private history · synced across devices");
+      } catch {
+        if (active) setSyncState("History unavailable · chat still works");
+      } finally {
+        if (active) setLoaded(true);
+      }
+    }
+    loadHistory();
+    return () => { active = false; abortRef.current?.abort(); recognitionRef.current?.stop(); window.speechSynthesis?.cancel(); };
   }, []);
   useEffect(() => {
-    if (!loaded || working) return;
-    try { window.localStorage.setItem(CHAT_KEY, JSON.stringify(messages.slice(-30))); } catch {}
-  }, [loaded, working, messages]);
+    if (!loaded || working || !cloudUserId) return;
+    const safe = normalizeChatHistory(messages);
+    try { window.localStorage.setItem(CHAT_KEY + "." + cloudUserId, JSON.stringify(safe)); } catch {}
+    const timeout = window.setTimeout(async () => {
+      try {
+        const { error } = await getSupabaseBrowserClient().from(AI_LAB_STATE_TABLE).upsert({
+          user_id: cloudUserId, chat_history: safe, updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id" });
+        setSyncState(error ? "Private history · local fallback" : "Private history · synced across devices");
+      } catch { setSyncState("Private history · local fallback"); }
+    }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [loaded, working, cloudUserId, messages]);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages]);
@@ -74,7 +110,7 @@ export default function AiLabChat({ reportContext = "" }) {
   async function loadMetrics(event) {
     const file = event.target.files?.[0];
     if (!file) return;
-    setMetricBook(null); setMetricSummary(""); setIncludeReport(false); setError(""); setReportBusy(true);
+    setMetricBook(null); setMetricSummary(""); setIncludeReport(false); setActiveSource("upload"); setError(""); setReportBusy(true);
     try {
       if (file.size > 5 * 1024 * 1024) throw new Error("Maximum metric report size is 5 MB.");
       const XLSX = await import("xlsx");
@@ -86,13 +122,55 @@ export default function AiLabChat({ reportContext = "" }) {
   }
   function prepareMetrics() {
     setMetricSummary(""); setIncludeReport(false); setError("");
-    try { setMetricSummary(JSON.stringify(summarizeMetricMatrix(metricBook?.[metricSheet], Number(metricHeader) - 1))); }
+    try { setMetricSummary(JSON.stringify(summarizeMetricMatrix(metricBook?.[metricSheet], Number(metricHeader) - 1))); setActiveSource("upload"); }
     catch (cause) { setError(cause.message); }
+  }
+
+  async function privateToken() {
+    const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+    if (!session?.access_token) throw new Error("Your session expired. Please sign in again.");
+    return session.access_token;
+  }
+
+  async function connectSites() {
+    if (working || liveBusy) return;
+    setLiveBusy(true); setError("");
+    try {
+      const response = await fetch("/api/ai-lab/live-report?list=sites", {
+        headers: { Authorization: "Bearer " + await privateToken() }, cache: "no-store",
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Authorised sites are unavailable.");
+      const sites = Array.isArray(body.sites) ? body.sites : [];
+      setLiveSites(sites);
+      if (sites.length) setLiveSiteKey(sites[0].organizationId + "|" + sites[0].site);
+      else setError("No authorised site profiles found.");
+    } catch (cause) { setError(cause.message || "Could not connect to reports."); }
+    finally { setLiveBusy(false); }
+  }
+
+  async function loadLiveSummary() {
+    if (!liveSiteKey || working || liveBusy) return;
+    const [organizationId, site] = liveSiteKey.split("|");
+    setLiveBusy(true); setError(""); setIncludeReport(false); setLiveReport("");
+    try {
+      const params = new URLSearchParams({ organization: organizationId, site, period: livePeriod.trim() });
+      const response = await fetch("/api/ai-lab/live-report?" + params, {
+        headers: { Authorization: "Bearer " + await privateToken() }, cache: "no-store",
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.report) throw new Error(body.error || "No authorised report was returned.");
+      setLiveReport(JSON.stringify(body.report));
+      setActiveSource("live");
+      setInput("Analizează raportul " + site + " " + livePeriod.trim() + ". Separă observațiile confirmate, datele lipsă și recomandările practice.");
+      inputRef.current?.focus();
+    } catch (cause) { setError(cause.message || "Could not load report summary."); }
+    finally { setLiveBusy(false); }
   }
 
   async function sendMessage() {
     const question = input.trim().slice(0, 2000);
-    if (!question || working || reportBusy) return;
+    if (!question || working || reportBusy || liveBusy || !loaded) return;
     const user = { id: makeId(), role: "user", content: question };
     const assistantId = makeId();
     const draft = { id: assistantId, role: "assistant", content: "" };
@@ -107,12 +185,11 @@ export default function AiLabChat({ reportContext = "" }) {
     abortRef.current = controller;
     let full = "";
     try {
-      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
-      if (!session?.access_token) throw new Error("Your session expired. Please sign in again.");
+      const token = await privateToken();
       const response = await fetch("/api/ai-lab/chat", {
         method: "POST",
         signal: controller.signal,
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
         body: JSON.stringify({
           messages: [...history, { role: "user", content: question }],
           includeReport: Boolean(includeReport && activeContext),
@@ -197,7 +274,7 @@ export default function AiLabChat({ reportContext = "" }) {
   }
 
   function clearChat() {
-    if (!window.confirm("Clear your AI Lab chat history from this browser?")) return;
+    if (!window.confirm("Clear your private AI Lab chat history on all synced devices?")) return;
     setMessages([]);
     setError("");
   }
@@ -225,6 +302,26 @@ export default function AiLabChat({ reportContext = "" }) {
     </div>
     <div className={styles.composer}>
       <details className={styles.reportTools}>
+        <summary>Live report analysis · DCR / POD / IADC / CDF / Concessions</summary>
+        <p>Authorised read-only summaries only. Choose a station and an exact Amazon week label. No raw driver/customer records are shared with the AI.</p>
+        <button type="button" className={styles.chip} disabled={working || liveBusy} onClick={connectSites}>{liveSites.length ? "Refresh authorised sites" : "Connect authorised sites"}</button>
+        {liveSites.length > 0 && <>
+          <label>Station <select value={liveSiteKey} disabled={working || liveBusy} onChange={e => { setLiveSiteKey(e.target.value); setLiveReport(""); setIncludeReport(false); }}>
+            {liveSites.map(site => <option key={site.organizationId + "|" + site.site} value={site.organizationId + "|" + site.site}>{site.site} · {site.label}</option>)}
+          </select></label>
+          <label>Amazon period <input value={livePeriod} maxLength={20} placeholder="W44 or W44:2026-10-30" disabled={working || liveBusy}
+            onChange={e => { setLivePeriod(e.target.value.toUpperCase().replace(/[^A-Z0-9:-]/g, "")); setLiveReport(""); setIncludeReport(false); }}/></label>
+          <button type="button" className={styles.chip} disabled={working || liveBusy || !liveSiteKey || !livePeriod.trim()} onClick={loadLiveSummary}>Load private summary</button>
+        </>}
+        {liveBusy && <p>Loading authorised report context…</p>}
+        {liveReport && <>
+          <p className={styles.small}>Summary loaded. Review below and tick the share checkbox before asking the AI.</p>
+          <pre className={styles.reportPreview}>{liveReport}</pre>
+          <button type="button" className={styles.chip} onClick={() => { setActiveSource("live"); setIncludeReport(false); }}>Use this live summary</button>
+          <button type="button" className={styles.chip} onClick={() => { setLiveReport(""); setIncludeReport(false); setActiveSource("wave"); }}>Remove private summary</button>
+        </>}
+      </details>
+      <details className={styles.reportTools}>
         <summary>Analyse a performance report · Excel / CSV</summary>
         <p>Processed in this browser. Choose a sheet and header row, then review the numeric summary. Remove total/subtotal rows first. Only the summary is shared when you tick the checkbox.</p>
         <input type="file" accept=".xlsx,.xls,.csv" aria-label="Upload performance report" disabled={working || reportBusy} onChange={loadMetrics}/>
@@ -238,10 +335,14 @@ export default function AiLabChat({ reportContext = "" }) {
           <label>Station <input placeholder="DLS2" maxLength={4} value={reportSite} disabled={working} onChange={e => setReportSite(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}/></label>
           <label>Period <input placeholder="2026-W44" maxLength={24} value={reportPeriod} disabled={working} onChange={e => setReportPeriod(e.target.value.replace(/[^0-9Ww /:.–-]/g, ""))}/></label>
           <pre className={styles.reportPreview}>{metricSummary}</pre>
+          <button type="button" className={styles.chip} onClick={() => { setActiveSource("upload"); setIncludeReport(false); }}>Use uploaded summary</button>
           <button type="button" className={styles.chip} disabled={working} onClick={() => { setMetricSummary(""); setMetricBook(null); setIncludeReport(false); }}>Remove performance report</button>
         </>}
       </details>
-      <p className={styles.small}>{includeReport && activeContext ? "Evidence: selected report summary only · no live database access" : "General guidance · no report shared with AI"}</p>
+      <p className={styles.small}>{includeReport && activeContext
+        ? "AI evidence: " + (activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : "selected Wave Plan preview")
+        : "General guidance · no report shared with AI"}
+        {reportContext && activeSource !== "wave" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("wave"); setIncludeReport(false); }}>Use Wave Plan context</button>}</p>
       <form className={styles.form} onSubmit={event => { event.preventDefault(); sendMessage(); }}>
         <textarea ref={inputRef} className={styles.input} rows={2} maxLength={2000} value={input} onChange={event => setInput(event.target.value)}
           placeholder="Ask MetrixIQ anything about your operations…"
@@ -250,7 +351,7 @@ export default function AiLabChat({ reportContext = "" }) {
         <button type="button" className={styles.mic} disabled={working} aria-label={listening ? "Stop microphone" : "Dictate message"} onClick={toggleMicrophone}>{listening ? "■" : "🎤"}</button>
         {working
           ? <button type="button" className={styles.send + " " + styles.stop} onClick={() => abortRef.current?.abort()}>Stop</button>
-          : <button type="submit" disabled={!input.trim() || reportBusy} className={styles.send}>Send ↗</button>}
+          : <button type="submit" disabled={!input.trim() || reportBusy || liveBusy || !loaded} className={styles.send}>Send ↗</button>}
       </form>
       <div className={styles.meta}>
         <label className={styles.check}>
@@ -261,8 +362,8 @@ export default function AiLabChat({ reportContext = "" }) {
         <button type="button" className={styles.clear} disabled={working || !messages.length} onClick={clearChat}>Clear chat</button>
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
-      <p className={styles.small}>Chat history is saved only in this browser. This assistant can make mistakes; verify operational decisions.</p>
+      <p className={styles.small}>{syncState}. Only your verified Super Admin account can access the private history. Verify operational decisions.</p>
     </div>
-    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Browser speech recognition may use its own speech service. Avoid personal or confidential data. Report details are shared only if you enable the checkbox.</div>
+    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Private chat history and approved layouts sync to your Supabase account; report source files are not stored. Browser dictation can use its own speech service. Do not share personal data unnecessarily. Report summaries are sent to the AI only after explicit opt-in.</div>
   </section>;
 }
