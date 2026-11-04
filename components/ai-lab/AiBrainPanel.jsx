@@ -20,7 +20,7 @@ async function getJson(path, bearer) {
   return data;
 }
 
-export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () => {}, onAnalysisChange = () => {}, onLessonsChange = () => {} }) {
+export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () => {}, onAnalysisChange = () => {}, onLessonsChange = () => {}, onScopeChange = () => {} }) {
   const [sites, setSites] = useState([]);
   const [selection, setSelection] = useState("");
   const [periodText, setPeriodText] = useState("");
@@ -76,14 +76,14 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
       setSites(allowed);
       if (!allowed.length) throw new Error("No authorised stations available.");
       const key = allowed[0].organizationId + "|" + allowed[0].site;
-      setSelection(key);
+      setSelection(key); onScopeChange({ organizationId: allowed[0].organizationId, site: allowed[0].site });
       await loadWeeks(key, bearer);
     } catch (cause) { setError(cause.message || "Connection failed."); }
     finally { setBusy(false); }
   }
 
   async function changeStation(key) {
-    setSelection(key); setPeriodText(""); setAvailable([]); invalidate();
+    setSelection(key); const [organizationId, site] = key.split("|"); onScopeChange({ organizationId, site }); setPeriodText(""); setAvailable([]); invalidate();
     setBusy(true);
     try { await loadWeeks(key, await accessToken()); }
     catch (cause) { setError(cause.message || "Could not discover periods."); }

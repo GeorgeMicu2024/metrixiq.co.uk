@@ -75,6 +75,7 @@ export default function AiLabView() {
   const [commandContext, setCommandContext] = useState("");
   const [brainContext, setBrainContext] = useState("");
   const [brainSnapshot, setBrainSnapshot] = useState(null);
+  const [brainScope, setBrainScope] = useState(null);
   const [brainLessons, setBrainLessons] = useState([]);
   const chatAnchor = useRef(null);
   const doc = documents[activeSource];
@@ -370,8 +371,8 @@ export default function AiLabView() {
     <div className={styles.layout}>
       <div className={styles.full} ref={chatAnchor}><AiLabChat reportContext={safeReportContext} commandContext={commandContext} brainContext={brainContext} suggestedPrompt={suggestedPrompt}/></div>
       <div className={styles.full}><AiCommandCenter onContextChange={setCommandContext} onAskAI={askCommandAi}/></div>
-      <div className={styles.full}><AiBrainPanel onContextChange={setBrainContext} onAskAI={askBrainAi} onAnalysisChange={setBrainSnapshot} onLessonsChange={setBrainLessons}/></div>
-      <div className={styles.full}><AiV2Workspace analysis={brainSnapshot} lessons={brainLessons} documents={documents} onContextChange={setBrainContext} onAskAI={askBrainAi}/></div>
+      <div className={styles.full}><AiBrainPanel onContextChange={setBrainContext} onAskAI={askBrainAi} onAnalysisChange={setBrainSnapshot} onLessonsChange={setBrainLessons} onScopeChange={setBrainScope}/></div>
+      <div className={styles.full}><AiV2Workspace analysis={brainSnapshot} scope={brainScope} lessons={brainLessons} documents={documents} onContextChange={setBrainContext} onAskAI={askBrainAi}/></div>
       <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>1. Upload both plans</h2><p>Route Plan + Wave Plan · Excel, CSV, PDF or image</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
         <div className={styles.cardBody}>
