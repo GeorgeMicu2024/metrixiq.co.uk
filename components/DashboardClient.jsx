@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Brand from "./Brand";
 import { BillingProView } from "./billing/BillingProView";
 import TeamAccessHub from "./team/TeamAccessHub";
@@ -59,6 +60,8 @@ import AccountSettingsView from "./account/AccountSettingsView";
 import IntegrationDeliveryCenter from "./integrations/IntegrationDeliveryCenter";
 import { fetchOrganizationHierarchy, upsertOrganizationSiteProfile } from "../lib/data/enterpriseV7";
 import { activateWorkspaceMode, createBillingCheckout } from "../lib/data/billing";
+
+const AiLabView = dynamic(() => import("./ai-lab/AiLabView"), { loading: () => <div className="panel" style={{ padding: 24 }}>Opening AI Lab…</div> });
 
 const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dcr","cc","cdf","mentor","check-lor"]);
 
@@ -622,6 +625,7 @@ export default function DashboardClient() {
     case "automation": view = <AutomationCenter organizationId={workspace?.organization?.id} sites={sites} drivers={drivers} canManage={platformAdmin || permissions?.manage_automations} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "coaching": view = <CoachingV3 organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} onOpenDriver={openDriver} canManage={platformAdmin || permissions?.manage_coaching} />; break;
     case "notifications": view = <NotificationsPageV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_coaching} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} onOpenImports={() => navigate("imports")} onOpenDataQuality={() => navigate("data-quality")} onNavigate={navigate} />; break;
+    case "ai-lab": view = platformAdmin ? <AiLabView /> : <div className="panel" style={{ padding: 24 }}>AI Lab is restricted to Super Admin.</div>; break;
     case "intelligence": view = <ExecutiveAnalystV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "simulator": view = <WhatIfSimulator organizationId={workspace?.organization?.id} siteFilter={siteFilter} initialDriverId={selectedDriver?.dbId || ""} onOpenDriver={openDriver} />; break;
     case "imports": view = <ImportCenterV2 organizationId={workspace?.organization?.id} sites={sites} allowedSiteScope={allowedSiteScope} siteFilter={siteFilter} onImported={imported} analysis={analysis} canManage={platformAdmin || permissions?.manage_imports} initialMentorMode={importIntent?.mentorMode} initialMentorDate={importIntent?.mentorDate} initialMentorWeek={importIntent?.mentorWeek} />; break;
