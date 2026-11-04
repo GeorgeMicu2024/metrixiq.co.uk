@@ -32,7 +32,7 @@ function readDelta(eventBlock) {
   return "";
 }
 
-export default function AiLabChat({ reportContext = "" }) {
+export default function AiLabChat({ reportContext = "", suggestedPrompt = null }) {
   const [metricBook, setMetricBook] = useState(null);
   const [metricSheet, setMetricSheet] = useState("");
   const [metricHeader, setMetricHeader] = useState(1);
@@ -64,6 +64,13 @@ export default function AiLabChat({ reportContext = "" }) {
   const inputRef = useRef(null);
 
   useEffect(() => { setIncludeReport(false); setActiveSource("wave"); }, [reportContext]);
+  useEffect(() => {
+    if (!suggestedPrompt?.id || !suggestedPrompt.text) return;
+    setInput(suggestedPrompt.text);
+    setActiveSource("wave");
+    setIncludeReport(false);
+    inputRef.current?.focus();
+  }, [suggestedPrompt]);
 
   useEffect(() => {
     let active = true;
