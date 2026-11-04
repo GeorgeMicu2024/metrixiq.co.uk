@@ -3975,3 +3975,32 @@ button.driver-stat-card:hover{transform:translateY(-1px);border-color:rgba(148,1
     z-index:1600!important;
   }
 }
+
+
+/* Home command center: weekly site performance is the primary dashboard view.
+   Only HomeView uses .homev2-weekly, leaving all other tabs untouched. */
+.homev2{gap:14px;background:#071a2b}
+.homev2-hero{height:155px}
+.homev2-weekly{min-width:0}
+.homev2-weekly .scoretrend-panel{padding:14px 16px 17px;background:linear-gradient(135deg,#071d30,#092b43 55%,#071b2e);border:1px solid #16a8c4;border-radius:15px;box-shadow:0 0 0 1px rgba(23,207,226,.08),0 10px 35px rgba(0,0,0,.25)}
+.homev2-weekly .scoretrend-title{padding:4px 5px 15px}
+.homev2-weekly .scoretrend-title h2{font-size:23px;letter-spacing:.015em;color:#effbff;text-transform:uppercase}
+.homev2-weekly .scoretrend-title>div>small{font-size:12px;color:#9ac9d7;margin-top:5px}
+.homev2-weekly .scoretrend-title>button{background:#0d3449;border-color:#217f94;color:#dbfbff;font-size:11px;padding:9px 13px}
+.homev2-weekly .scoretrend-scroll{padding:0 0 2px}
+.homev2-weekly .scoretrend-grid{grid-template-columns:repeat(4,minmax(0,1fr));min-width:0;gap:13px}
+.homev2-weekly .scoretrend-card{min-width:0;min-height:262px;padding:18px 15px 15px;border-radius:12px;background:linear-gradient(155deg,#092b42,#071d30);border:1px solid #2b657e;color:#eaffff}
+.homev2-weekly .scoretrend-card:first-child{border-color:#25d8e8;box-shadow:0 0 18px rgba(18,218,238,.19)}
+.homev2-weekly .scoretrend-card-head>b{font-size:23px;color:#f6fdff;letter-spacing:.01em}
+.homev2-weekly .scoretrend-card-head>span{margin-top:10px}
+.homev2-weekly .scoretrend-card-head>span strong{font-size:29px;color:#fff}
+.homev2-weekly .scoretrend-card-head em{font-size:11px;padding:5px 10px}
+.homev2-weekly .scoretrend-card-head>small{font-size:13px;margin-top:-26px}
+.homev2-weekly .scoretrend-card-head>small u{font-size:9px;color:#a9c4cf}
+.homev2-weekly .scoretrend-chart{height:133px;margin-top:31px;border-bottom-color:#416478;gap:6px}
+.homev2-weekly .scoretrend-point>span{background:linear-gradient(to top,rgba(17,214,234,.02),rgba(17,214,234,.18))}
+.homev2-weekly .scoretrend-point>span b{font-size:10px;color:#e6fbff;top:-20px}
+.homev2-weekly .scoretrend-point>small{font-size:10px;color:#b6d1dd;margin-top:7px}
+.homev2-weekly .homev2-trend-empty{color:#b4d4df}
+@media(max-width:1350px){.homev2-weekly .scoretrend-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.homev2-hero{height:145px}.homev2-weekly .scoretrend-panel{padding:12px}.homev2-weekly .scoretrend-title h2{font-size:17px}.homev2-weekly .scoretrend-grid{display:flex;gap:10px}.homev2-weekly .scoretrend-card{min-width:285px;min-height:245px}.homev2-weekly .scoretrend-scroll{overflow-x:auto;scroll-snap-type:x mandatory}.homev2-weekly .scoretrend-card-head>b{font-size:20px}}
