@@ -41,13 +41,15 @@ export default function AiLabChat({ reportContext = "" }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const [listening, setListening] = useState(false);
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
     setMessages(safeStoredChat());
     setLoaded(true);
-    return () => abortRef.current?.abort();
+    return () => { abortRef.current?.abort(); recognitionRef.current?.stop(); window.speechSynthesis?.cancel(); };
   }, []);
   useEffect(() => {
     if (!loaded || working) return;
@@ -130,6 +132,39 @@ export default function AiLabChat({ reportContext = "" }) {
     }
   }
 
+  function toggleMicrophone() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { setError("Voice dictation is not supported in this browser. You can still type your message."); return; }
+    if (listening) { recognitionRef.current?.stop(); return; }
+    const recognizer = new SpeechRecognition();
+    recognizer.lang = /[ăâîșț]/i.test(input) || navigator.language.toLowerCase().startsWith("ro") ? "ro-RO" : "en-GB";
+    recognizer.interimResults = false;
+    recognizer.maxAlternatives = 1;
+    recognizer.onresult = event => {
+      const transcript = event.results?.[0]?.[0]?.transcript || "";
+      if (transcript) setInput(previous => (previous ? previous.trimEnd() + " " : "") + transcript);
+    };
+    recognizer.onerror = () => { setListening(false); setError("Microphone recognition ended. Check browser permission if it did not capture speech."); };
+    recognizer.onend = () => setListening(false);
+    try { recognizer.start(); recognitionRef.current = recognizer; setListening(true); setError(""); }
+    catch { setError("Could not start voice dictation. Check microphone permission."); }
+  }
+
+  function readAloud(content) {
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { setError("Text-to-speech is not supported in this browser."); return; }
+    window.speechSynthesis.cancel();
+    const speech = new SpeechSynthesisUtterance(content.slice(0, 3500));
+    speech.lang = /[ăâîșț]/i.test(content) ? "ro-RO" : "en-GB";
+    speech.rate = 1;
+    window.speechSynthesis.speak(speech);
+  }
+
+  function renderText(content) {
+    return content.split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
+      part.startsWith("**") && part.endsWith("**") ? <strong key={index}>{part.slice(2, -2)}</strong> : part
+    );
+  }
+
   function clearChat() {
     if (!window.confirm("Clear your AI Lab chat history from this browser?")) return;
     setMessages([]);
@@ -152,7 +187,8 @@ export default function AiLabChat({ reportContext = "" }) {
       </div>}
       {messages.map(message => <div key={message.id} className={styles.message + " " + (message.role === "user" ? styles.user : styles.assistant)}>
         <span className={styles.role}>{message.role === "user" ? "YOU" : "METRIXIQ AI"}</span>
-        {message.content || <span>Thinking…</span>}
+        {message.content ? renderText(message.content) : <span>Thinking…</span>}
+        {message.role === "assistant" && message.content && <button type="button" className={styles.speak} onClick={() => readAloud(message.content)} aria-label="Read AI response aloud">🔊 Listen</button>}
       </div>)}
     </div>
     <div className={styles.composer}>
@@ -161,6 +197,7 @@ export default function AiLabChat({ reportContext = "" }) {
           placeholder="Ask MetrixIQ anything about your operations…"
           aria-label="Message to MetrixIQ AI"
           onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); sendMessage(); } }}/>
+        <button type="button" className={styles.mic} disabled={working} aria-label={listening ? "Stop microphone" : "Dictate message"} onClick={toggleMicrophone}>{listening ? "■" : "🎤"}</button>
         {working
           ? <button type="button" className={styles.send + " " + styles.stop} onClick={() => abortRef.current?.abort()}>Stop</button>
           : <button type="submit" disabled={!input.trim()} className={styles.send}>Send ↗</button>}
@@ -175,6 +212,6 @@ export default function AiLabChat({ reportContext = "" }) {
       {error && <p className={styles.error} role="alert">{error}</p>}
       <p className={styles.small}>Chat history is saved only in this browser. This assistant can make mistakes; verify operational decisions.</p>
     </div>
-    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Avoid personal or confidential data. Report details are shared only if you enable the checkbox.</div>
+    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Browser speech recognition may use its own speech service. Avoid personal or confidential data. Report details are shared only if you enable the checkbox.</div>
   </section>;
 }
