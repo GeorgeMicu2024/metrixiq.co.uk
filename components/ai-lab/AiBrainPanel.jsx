@@ -20,7 +20,7 @@ async function getJson(path, bearer) {
   return data;
 }
 
-export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () => {} }) {
+export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () => {}, onAnalysisChange = () => {}, onLessonsChange = () => {} }) {
   const [sites, setSites] = useState([]);
   const [selection, setSelection] = useState("");
   const [periodText, setPeriodText] = useState("");
@@ -48,14 +48,14 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
           .eq("user_id", user.id).order("created_at", { ascending: false }).limit(30);
         if (!active) return;
         setUserId(user.id);
-        setLessons(data || []);
+        setLessons(data || []); onLessonsChange(data || []);
         setLearningStatus(readError ? "Memory not configured yet · read-only analysis works" : "Private approved learning · synced across devices");
       } catch { if (active) setLearningStatus("Learning memory unavailable · analysis still works"); }
     })();
     return () => { active = false; };
   }, []);
 
-  function invalidate() { setResult(null); setError(""); onContextChange(""); }
+  function invalidate() { setResult(null); setError(""); onContextChange(""); onAnalysisChange(null); }
 
   async function loadWeeks(stationKey, bearer) {
     const [organization, site] = stationKey.split("|");
@@ -100,7 +100,7 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
       const [organization, site] = selection.split("|");
       const query = new URLSearchParams({ organization, site, periods: periods.join(",") });
       const data = await getJson("/api/ai-lab/brain?" + query, await accessToken());
-      setResult(data.analysis); setError("");
+      setResult(data.analysis); onAnalysisChange(data.analysis); setError("");
       setLastScan(new Date().toLocaleString());
       // User must actively opt in to AI chat context; these are local, anonymous analysis outputs.
       onContextChange("");
@@ -127,7 +127,7 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
       const { data, error: insertError } = await getSupabaseBrowserClient().from(MEMORY_TABLE)
         .insert({ user_id: userId, site, lesson: approved }).select("id,site,lesson,created_at").single();
       if (insertError) throw insertError;
-      setLessons(current => [data, ...current].slice(0, 30)); setLesson("");
+      const next = [data, ...lessons].slice(0, 30); setLessons(next); onLessonsChange(next); setLesson("");
       setLearningStatus("Approved lesson saved privately across devices.");
     } catch { setLearningStatus("Could not save approved lesson. Check private memory permissions."); }
     finally { setSaving(false); }
@@ -139,7 +139,7 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
     try {
       const { error: deleteError } = await getSupabaseBrowserClient().from(MEMORY_TABLE).delete().eq("user_id", userId).eq("id", id);
       if (deleteError) throw deleteError;
-      setLessons(current => current.filter(item => item.id !== id)); setLearningStatus("Approved lesson removed.");
+      const next = lessons.filter(item => item.id !== id); setLessons(next); onLessonsChange(next); setLearningStatus("Approved lesson removed.");
     } catch { setLearningStatus("Could not remove lesson."); }
     finally { setSaving(false); }
   }
