@@ -54,6 +54,8 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [includeReport, setIncludeReport] = useState(false);
+  const [includeMemory, setIncludeMemory] = useState(false);
+  const [memoryStatus, setMemoryStatus] = useState("");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef(null);
@@ -189,6 +191,7 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
       .map(item => ({ role: item.role, content: item.content.slice(0, 1300) }));
     setInput("");
     setError("");
+    setMemoryStatus("");
     setWorking(true);
     setMessages(current => [...current, user, draft].slice(-32));
 
@@ -205,6 +208,9 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
           messages: [...history, { role: "user", content: question }],
           includeReport: Boolean(includeReport && activeContext),
           reportContext: includeReport ? activeContext : "",
+          includeMemory: Boolean(includeMemory),
+          memorySite: includeReport && activeSource === "live" ? liveSiteKey.split("|")[1]
+            : includeReport && activeSource === "upload" ? reportSite : "",
         }),
       });
       if (!response.ok) {
@@ -212,6 +218,10 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
         throw new Error(body.error || "The free AI model is unavailable.");
       }
       if (!response.body) throw new Error("AI did not return a stream.");
+      if (includeMemory) {
+        const count = Number(response.headers.get("X-MetrixIQ-Memory-Count") || "0");
+        setMemoryStatus(count > 0 ? `Used ${count} relevant, approved private note(s).` : "No relevant approved notes found; AI used general guidance.");
+      }
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -371,12 +381,17 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
           <input type="checkbox" checked={includeReport} disabled={!activeContext || working} onChange={event => setIncludeReport(event.target.checked)}/>
           Share selected report summary with AI {activeContext ? "(no names/TRIDs)" : "(prepare a report first)"}
         </label>
+        <label className={styles.check}>
+          <input type="checkbox" checked={includeMemory} disabled={working || !cloudUserId} onChange={event => {setIncludeMemory(event.target.checked);setMemoryStatus("");}}/>
+          Include my relevant approved learning notes in AI replies (private memory)
+        </label>
         <label className={styles.check}>Voice <select className={styles.langSelect} value={speechLang} onChange={event => setSpeechLang(event.target.value)}><option value="ro-RO">Română</option><option value="en-GB">English</option></select></label>
         <button type="button" className={styles.clear} disabled={working || !messages.length} onClick={clearChat}>Clear chat</button>
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
+      <p className={styles.small}>{memoryStatus || "Approved notes stay private unless you tick the learning-memory checkbox."}</p>
       <p className={styles.small}>{syncState}. Only your verified Super Admin account can access the private history. Verify operational decisions.</p>
     </div>
-    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Private chat history and approved layouts sync to your Supabase account; report source files are not stored. Browser dictation can use its own speech service. Do not share personal data unnecessarily. Report summaries are sent to the AI only after explicit opt-in.</div>
+    <div className={styles.privacy}>Privacy: messages are sent to NVIDIA's free AI model through Vercel. The provider may retain prompts for model improvement. Private chat history and approved layouts sync to your Supabase account; report source files are not stored. Browser dictation can use its own speech service. Do not share personal data unnecessarily. Report summaries and relevant approved learning notes are each sent to the AI only after their separate explicit opt-ins.</div>
   </section>;
 }
