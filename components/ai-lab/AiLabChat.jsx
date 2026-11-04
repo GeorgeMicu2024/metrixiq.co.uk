@@ -43,6 +43,7 @@ export default function AiLabChat({ reportContext = "" }) {
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
   const [listening, setListening] = useState(false);
+  const [speechLang, setSpeechLang] = useState("ro-RO");
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -137,7 +138,7 @@ export default function AiLabChat({ reportContext = "" }) {
     if (!SpeechRecognition) { setError("Voice dictation is not supported in this browser. You can still type your message."); return; }
     if (listening) { recognitionRef.current?.stop(); return; }
     const recognizer = new SpeechRecognition();
-    recognizer.lang = /[ăâîșț]/i.test(input) || navigator.language.toLowerCase().startsWith("ro") ? "ro-RO" : "en-GB";
+    recognizer.lang = speechLang;
     recognizer.interimResults = false;
     recognizer.maxAlternatives = 1;
     recognizer.onresult = event => {
@@ -205,8 +206,9 @@ export default function AiLabChat({ reportContext = "" }) {
       <div className={styles.meta}>
         <label className={styles.check}>
           <input type="checkbox" checked={includeReport} disabled={!reportContext || working} onChange={event => setIncludeReport(event.target.checked)}/>
-          Include current report preview {reportContext ? "(without driver names/TRIDs)" : "(upload a report first)"}
+          Include report preview & learned layouts {reportContext ? "(no names/TRIDs)" : "(upload or approve a report first)"}
         </label>
+        <label className={styles.check}>Voice <select className={styles.langSelect} value={speechLang} onChange={event => setSpeechLang(event.target.value)}><option value="ro-RO">Română</option><option value="en-GB">English</option></select></label>
         <button type="button" className={styles.clear} disabled={working || !messages.length} onClick={clearChat}>Clear chat</button>
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
