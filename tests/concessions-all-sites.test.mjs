@@ -87,3 +87,17 @@ test("Concessions uses simplified title and severity colours", () => {
   assert.ok(view.includes(".cx5-export-cell.two{background:#ffc58f;color:#a43b00}"));
   assert.ok(view.includes(".cx5-export-cell.high{background:#ffb3b3;color:#a31313}"));
 });
+
+test("Concessions uses full desktop width and has an imported single-week selector", () => {
+  const view = read("components/operations/ConcessionsSimpleView.jsx");
+
+  assert.ok(view.includes("width:100%;max-width:none;min-width:0"));
+  assert.ok(view.includes("1-week view"));
+  assert.ok(view.includes('aria-label="Select concessions week"'));
+  assert.ok(view.includes("setSelectedWeek(event.target.value)"));
+  assert.ok(view.includes("selectConcessionWeeks(eightWeeks, range, singleWeek)"));
+  assert.ok(view.includes("tableColumnCount"));
+  assert.ok(view.includes('className={range === 1 ? "cx5-one-week-table" : ""}'));
+  assert.ok(view.includes("range !== 1 && <th>Trend</th>"));
+  assert.ok(view.includes("weeks.map((week)"));
+});

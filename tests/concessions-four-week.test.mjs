@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildFourWeekConcessionMatrix,
   latestFourConcessionWeeks,
+  selectConcessionWeeks,
 } from "../lib/data/concessions.js";
 import { concessionSnapshotFromDriver } from "../lib/persistence/concessions.js";
 
@@ -55,4 +56,28 @@ test("canonical Associates CSV becomes an isolated concessions snapshot", () => 
     },
   });
   assert.equal(rejected, null);
+});
+
+test("one-week concessions view filters only the selected imported week", () => {
+  const available = ["W41", "W42", "W43", "W44"];
+  const rows = [
+    { site: "DZM1", week_label: "W43", driver_trid: "A1", dnr: 8 },
+    { site: "DZM1", week_label: "W44", driver_trid: "A1", dnr: 1 },
+    { site: "DZM1", week_label: "W44", driver_trid: "A2", dnr: 2 },
+    { site: "DLS2", week_label: "W44", driver_trid: "A1", dnr: 99 },
+  ];
+
+  assert.deepEqual(selectConcessionWeeks(available, 1), ["W44"]);
+  assert.deepEqual(selectConcessionWeeks(available, 1, "W43"), ["W43"]);
+  assert.deepEqual(selectConcessionWeeks(available, 1, "W10"), ["W44"]);
+  assert.deepEqual(selectConcessionWeeks([], 1), []);
+  assert.deepEqual(selectConcessionWeeks(available, 4), available);
+  assert.deepEqual(selectConcessionWeeks(available, 8), available);
+
+  const matrix = buildFourWeekConcessionMatrix(rows, "DZM1", selectConcessionWeeks(available, 1, "W44"));
+  assert.equal(matrix.length, 2);
+  assert.equal(matrix[0].total, 2);
+  assert.equal(matrix[1].total, 1);
+  assert.equal(matrix.reduce((sum, row) => sum + row.total, 0), 3);
+  assert.ok(matrix.every((row) => row.affectedWeeks === 1));
 });
