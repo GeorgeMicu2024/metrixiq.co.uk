@@ -2136,6 +2136,7 @@ body.scorex3-resizing-columns *{
   .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large .scorex3-score-cell b{font-size:14px!important}
   .scorex3-root.scorex3-dzm1-readability .scorex3-concession-badge{font-size:11px;min-height:23px}
   .scorex3-root.scorex3-dzm1-readability .scorex3-concession-edit{font-size:10px}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-score-cell b{color:#080e16!important;font-weight:950!important}
   .scorex3-root.scorex3-dzm1-readability .scorex3-table .scorex3-tier-row td{
     height:30px!important;font-size:10px!important
   }
@@ -2219,5 +2220,74 @@ body.scorex3-resizing-columns *{
   }
   .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-concession-badge.high{
     background:#ffe0e3!important;color:#9a2635!important;border-color:#f6abb1!important;
+  }
+}
+
+
+/* DZM1 desktop legibility: readable black typography even on high-resolution laptops. */
+@media (min-width:1024px) {
+  .scorex3-root.scorex3-dzm1-readability .scorex3-title h1{font-size:28px!important;color:#0b1724!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-title p{font-size:13px!important;color:#26394c!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-kpi-cards article>span{font-size:11px!important;color:#223348!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-kpi-cards article>strong{font-size:28px!important;color:#0d2237!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-kpi-cards article>small{font-size:11px!important;color:#33475c!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-register-head h2{font-size:19px!important;color:#0d2438!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-history-scroll button>span,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-history-scroll button>b{font-size:13px!important;color:#111d2d!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-toolbar select,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-toolbar input{font-size:14px!important;color:#091a29!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table{
+    min-width:2100px!important;
+    color:#111!important;
+    font-weight:900!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table th,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table td{
+    padding-left:10px!important;
+    padding-right:10px!important;
+    letter-spacing:0!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small{--score-header-height:46px}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium{--score-header-height:50px}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large{--score-header-height:54px}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small th{height:46px!important;font-size:12px!important;color:#111!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium th{height:50px!important;font-size:13px!important;color:#111!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large th{height:54px!important;font-size:14px!important;color:#111!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small td{height:49px!important;font-size:12.5px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium td{height:55px!important;font-size:14.5px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large td{height:61px!important;font-size:16px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small .scorex3-name-cell button,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small .scorex3-rank-cell>b,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small .scorex3-metric,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small .scorex3-delivered-cell,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small .scorex3-fico-cell>span{font-size:12.5px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium .scorex3-name-cell button,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium .scorex3-rank-cell>b,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium .scorex3-metric,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium .scorex3-delivered-cell,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium .scorex3-fico-cell>span{font-size:14.5px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large .scorex3-name-cell button,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large .scorex3-rank-cell>b,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large .scorex3-metric,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large .scorex3-delivered-cell,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large .scorex3-fico-cell>span{font-size:16px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-small .scorex3-score-cell b{font-size:14px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-medium .scorex3-score-cell b{font-size:16px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table.font-large .scorex3-score-cell b{font-size:18px!important}
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-value-pill,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-fico-cell>span{
+    font-weight:950!important;
+    color:#111!important;
+    min-height:29px;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-name-cell button,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-rank-cell b{
+    color:#080e16!important;
+    font-weight:950!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table .scorex3-tier-row td{
+    height:36px!important;
+    font-size:12px!important;
+    font-weight:950!important;
   }
 }
