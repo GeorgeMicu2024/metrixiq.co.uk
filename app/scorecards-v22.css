@@ -2360,3 +2360,17 @@ body.scorex3-resizing-columns *{
     display:none!important;
   }
 }
+
+
+/* DZM1: show complete official tier labels in Recent Weeks. */
+@media (min-width:1024px) {
+  .scorex3-root.scorex3-dzm1-readability .scorex3-history-scroll button{
+    min-width:145px;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-history-scroll button>small{
+    font-size:10px!important;
+    white-space:nowrap;
+    overflow:visible;
+    color:#263c51;
+  }
+}

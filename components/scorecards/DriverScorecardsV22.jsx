@@ -1895,9 +1895,18 @@ export default function DriverScorecardsV22({
           const average = itemRows.length
             ? itemRows.reduce((a, b) => a + b, 0) / itemRows.length
             : null;
-          const score = average;
-          const standing = score != null ? sourceTier(score).label : "Stored";
-          const cls = sourceTier(score, standing).cls;
+          // DZM1 Recent Weeks must reflect Amazon's official site scorecard,
+          // not the mean of individually calculated driver scores.
+          const officialScore = item.site === "DZM1" ? num(item.card?.overall_score) : null;
+          const score = officialScore ?? average;
+          const officialTier = item.site === "DZM1" && item.card?.standing
+            ? sourceTier(null, item.card.standing) : null;
+          const hasOfficialTier = officialTier != null && officialTier.cls !== "unrated";
+          const fallbackTier = score != null ? sourceTier(score) : null;
+          const standing = hasOfficialTier ? officialTier.label
+            : fallbackTier ? `${fallbackTier.label}${item.site === "DZM1" ? " (est.)" : ""}`
+            : "Stored";
+          const cls = hasOfficialTier ? officialTier.cls : (fallbackTier?.cls || "unrated");
 
           return <button
             type="button"
