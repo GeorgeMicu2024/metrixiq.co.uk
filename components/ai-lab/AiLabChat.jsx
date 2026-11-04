@@ -32,7 +32,7 @@ function readDelta(eventBlock) {
   return "";
 }
 
-export default function AiLabChat({ reportContext = "", commandContext = "", suggestedPrompt = null }) {
+export default function AiLabChat({ reportContext = "", commandContext = "", brainContext = "", suggestedPrompt = null }) {
   const [metricBook, setMetricBook] = useState(null);
   const [metricSheet, setMetricSheet] = useState("");
   const [metricHeader, setMetricHeader] = useState(1);
@@ -47,7 +47,7 @@ export default function AiLabChat({ reportContext = "", commandContext = "", sug
   const [liveReport, setLiveReport] = useState("");
   const [activeSource, setActiveSource] = useState("wave");
   const uploadedContext = metricSummary ? JSON.stringify({ ...JSON.parse(metricSummary), station: reportSite || "not provided", period: reportPeriod || "not provided", scopeSource: "Station and period are user-entered, not verified from the file" }) : "";
-  const activeContext = activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : activeSource === "command" ? commandContext : reportContext;
+  const activeContext = activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : activeSource === "command" ? commandContext : activeSource === "brain" ? brainContext : reportContext;
   const [messages, setMessages] = useState([]);
   const [cloudUserId, setCloudUserId] = useState("");
   const [syncState, setSyncState] = useState("Connecting private history…");
@@ -66,14 +66,15 @@ export default function AiLabChat({ reportContext = "", commandContext = "", sug
 
   useEffect(() => { setIncludeReport(false); setActiveSource("wave"); }, [reportContext]);
   useEffect(() => { setIncludeReport(false); }, [commandContext]);
+  useEffect(() => { setIncludeReport(false); }, [brainContext]);
   useEffect(() => {
     if (!suggestedPrompt?.id || !suggestedPrompt.text || handledPromptId.current === suggestedPrompt.id) return;
     handledPromptId.current = suggestedPrompt.id;
     setInput(suggestedPrompt.text);
-    setActiveSource(suggestedPrompt.source === "command" && commandContext ? "command" : "wave");
+    setActiveSource(suggestedPrompt.source === "brain" && brainContext ? "brain" : suggestedPrompt.source === "command" && commandContext ? "command" : "wave");
     setIncludeReport(false);
     inputRef.current?.focus();
-  }, [suggestedPrompt, commandContext]);
+  }, [suggestedPrompt, commandContext, brainContext]);
 
   useEffect(() => {
     let active = true;
@@ -350,10 +351,11 @@ export default function AiLabChat({ reportContext = "", commandContext = "", sug
         </>}
       </details>
       <p className={styles.small}>{includeReport && activeContext
-        ? "AI evidence: " + (activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : activeSource === "command" ? "authorised multi-report Command Center analysis" : "selected Wave Plan preview")
+        ? "AI evidence: " + (activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : activeSource === "command" ? "authorised multi-report Command Center analysis" : activeSource === "brain" ? "authorised historical AI Brain aggregates" : "selected Wave Plan preview")
         : "General guidance · no report shared with AI"}
         {reportContext && activeSource !== "wave" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("wave"); setIncludeReport(false); }}>Use Wave Plan context</button>}
-        {commandContext && activeSource !== "command" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("command"); setIncludeReport(false); }}>Use AI Command Center context</button>}</p>
+        {commandContext && activeSource !== "command" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("command"); setIncludeReport(false); }}>Use AI Command Center context</button>}
+        {brainContext && activeSource !== "brain" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("brain"); setIncludeReport(false); }}>Use AI Brain context</button>}</p>
       <form className={styles.form} onSubmit={event => { event.preventDefault(); sendMessage(); }}>
         <textarea ref={inputRef} className={styles.input} rows={2} maxLength={2000} value={input} onChange={event => setInput(event.target.value)}
           placeholder="Ask MetrixIQ anything about your operations…"
