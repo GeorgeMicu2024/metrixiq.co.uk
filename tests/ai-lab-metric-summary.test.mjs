@@ -22,3 +22,14 @@ test('Header selection, empty columns and size limits are explicit', () => {
  assert.equal(result.metrics[0].numericRows,0);
  assert.equal(result.metrics[0].unweightedMean,undefined);
 });
+
+test('Recognises real-world Amazon metric header variants without leaking identities', () => {
+  const report = summarizeMetricMatrix([
+    ['Driver Name', 'Delivery Completion Rate (%)', 'Photo on Delivery', 'In-App Delivery Compliance', 'Customer Delivery Feedback DPMO', 'Concession Count'],
+    ['Private Name', '99%', '97%', '81%', '123', '2'],
+    ['Another Private', '100%', '98%', '79%', '234', '0'],
+  ]);
+  assert.deepEqual(report.metrics.map(item => item.metric), ['DCR', 'POD', 'IADC', 'CDF DPMO', 'Concessions']);
+  assert.equal(report.metrics[0].unweightedMean, 99.5);
+  assert.doesNotMatch(JSON.stringify(report), /Private/);
+});

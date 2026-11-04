@@ -4,21 +4,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { WAVE_FIELDS, detectWavePlan, normalizedWaveRows, signatureFor } from "../../lib/ai-lab/wave-plan.mjs";
 import styles from "./AiLabView.module.css";
 import AiLabChat from "./AiLabChat";
+import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { AI_LAB_STATE_TABLE, normalizeApprovedFormats } from "../../lib/ai-lab/user-state.mjs";
 
 const MEMORY_KEY = "metrixiq.aiLab.approvedWaveFormats.v1";
 const ACCEPTED = ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.webp,.bmp";
 
-function readApprovedFormats() {
+function readApprovedFormats(userId = "") {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(MEMORY_KEY) || "[]");
-    return Array.isArray(parsed) ? parsed.filter(item => item && typeof item.signature === "string" && item.columns && typeof item.columns === "object").slice(0, 50) : [];
+    const key = userId ? MEMORY_KEY + "." + userId : MEMORY_KEY;
+    return normalizeApprovedFormats(JSON.parse(window.localStorage.getItem(key) || "[]"));
   } catch {
     return [];
   }
 }
 
-function saveApprovedFormats(formats) {
-  window.localStorage.setItem(MEMORY_KEY, JSON.stringify(formats.slice(0, 50)));
+function saveApprovedFormats(formats, userId) {
+  if (!userId) throw new Error("Sign in before saving formats.");
+  window.localStorage.setItem(MEMORY_KEY + "." + userId, JSON.stringify(normalizeApprovedFormats(formats)));
 }
 
 function downloadText(name, content, type) {
@@ -57,6 +60,8 @@ function columnName(index) {
 export default function AiLabView() {
   const fileInput = useRef(null);
   const [templates, setTemplates] = useState([]);
+  const [cloudUserId, setCloudUserId] = useState("");
+  const [cloudState, setCloudState] = useState("Connecting private memory…");
   const [doc, setDoc] = useState(null);
   const [mapping, setMapping] = useState({});
   const [headerRow, setHeaderRow] = useState(-1);
@@ -66,8 +71,56 @@ export default function AiLabView() {
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    setTemplates(readApprovedFormats());
+    let active = true;
+    async function loadMemory() {
+      try {
+        const client = getSupabaseBrowserClient();
+        const { data: { user }, error: authError } = await client.auth.getUser();
+        if (authError || !user?.id || !active) return;
+        const currentLocal = readApprovedFormats(user.id);
+        const { data: cloud, error: fetchError } = await client.from(AI_LAB_STATE_TABLE)
+          .select("approved_formats").eq("user_id", user.id).maybeSingle();
+        if (!active) return;
+        setCloudUserId(user.id);
+        const cloudFormats = normalizeApprovedFormats(cloud?.approved_formats);
+        const selected = !fetchError && cloud ? cloudFormats : currentLocal.length ? currentLocal : readApprovedFormats();
+        setTemplates(selected);
+        saveApprovedFormats(selected, user.id);
+        if (fetchError) {
+          setCloudState("Cloud memory unavailable · local fallback");
+        } else if (!cloud && selected.length) {
+          const { error } = await client.from(AI_LAB_STATE_TABLE).upsert({
+            user_id: user.id, approved_formats: selected, updated_at: new Date().toISOString(),
+          }, { onConflict: "user_id" });
+          if (active) setCloudState(error ? "Local memory only" : "Formats synced across devices");
+        } else {
+          setCloudState("Private memory synced across devices");
+        }
+      } catch {
+        if (active) setCloudState("Cloud memory unavailable · local fallback");
+      }
+    }
+    loadMemory();
+    return () => { active = false; };
   }, []);
+
+  async function persistFormats(next) {
+    try {
+      saveApprovedFormats(next, cloudUserId);
+      if (!cloudUserId) return false;
+      const { error } = await getSupabaseBrowserClient().from(AI_LAB_STATE_TABLE).upsert({
+        user_id: cloudUserId,
+        approved_formats: normalizeApprovedFormats(next),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      if (error) throw error;
+      setCloudState("Private memory synced across devices");
+      return true;
+    } catch {
+      setCloudState("Cloud memory unavailable · local fallback");
+      return false;
+    }
+  }
 
   const detected = useMemo(() => doc ? detectWavePlan(doc.matrix, templates) : null, [doc, templates]);
   const rows = useMemo(() => doc ? normalizedWaveRows(doc.matrix, mapping, headerRow) : [], [doc, mapping, headerRow]);
@@ -144,7 +197,7 @@ export default function AiLabView() {
     setNotice("");
   }
 
-  function approve() {
+  async function approve() {
     if (!doc || !Number.isInteger(headerRow) || headerRow < 0) {
       setError("Choose a header row containing column names before saving a reusable format.");
       return;
@@ -166,26 +219,18 @@ export default function AiLabView() {
       columns: { ...mapping },
       approvedAt: new Date().toISOString(),
     }, ...templates.filter(item => item.signature !== signature)].slice(0, 50);
-    try {
-      saveApprovedFormats(next);
-      setTemplates(next);
-      setError("");
-      setNotice("Format approved and saved in this browser. Similar reports will reuse the mapping.");
-    } catch {
-      setError("Browser storage is unavailable. Download the mapped CSV, or enable local storage.");
-    }
+    setTemplates(next);
+    const synced = await persistFormats(next);
+    setError("");
+    setNotice(synced ? "Format approved and synced across your devices." : "Format approved locally. Cloud sync unavailable; export a backup.");
   }
 
-  function removeFormat(id) {
+  async function removeFormat(id) {
     if (!window.confirm("Remove this approved format from this browser?")) return;
     const next = templates.filter(template => template.id !== id);
-    try {
-      saveApprovedFormats(next);
-      setTemplates(next);
-      setNotice("Approved format removed. Uploaded report data was not stored.");
-    } catch {
-      setError("Could not update browser storage.");
-    }
+    setTemplates(next);
+    const synced = await persistFormats(next);
+    setNotice(synced ? "Approved format removed from private cloud memory." : "Removed locally. Cloud sync unavailable.");
   }
 
   function downloadCsv() {
@@ -267,7 +312,7 @@ export default function AiLabView() {
           </div>
           {!noDuplicateColumns && <p className={styles.note + " " + styles.warning}>Two fields currently use the same column. Correct the mapping before saving.</p>}
           <div className={styles.row} style={{ marginTop: 18 }}>
-            <button type="button" className={styles.button} disabled={mappedCount < 2 || !noDuplicateColumns} onClick={approve}>✓ Approve & learn format</button>
+            <button type="button" className={styles.button} disabled={!cloudUserId || mappedCount < 2 || !noDuplicateColumns} onClick={approve}>✓ Approve & learn format</button>
             <button type="button" className={styles.button + " " + styles.secondary} disabled={!rows.length} onClick={downloadCsv}>↓ Download preview CSV</button>
             <button type="button" className={styles.button + " " + styles.secondary} onClick={() => { setDoc(null); setError(""); setNotice(""); setMapping({}); }}>Discard report</button>
           </div>
@@ -288,14 +333,14 @@ export default function AiLabView() {
         <footer className={styles.footnote}>This preview is informational. Verify every route and time before operational use; the current Wave Plan generator remains unchanged.</footer>
       </section>}
       <section className={styles.card + " " + styles.full}>
-        <div className={styles.cardHead}><div><h2>Approved format memory</h2><p>{templates.length} learned templates stored only on this device/browser</p></div><button type="button" className={styles.button + " " + styles.secondary} disabled={!templates.length} onClick={exportMemory}>↓ Export memory</button></div>
+        <div className={styles.cardHead}><div><h2>Approved format memory</h2><p>{templates.length} approved templates · {cloudState}</p></div><button type="button" className={styles.button + " " + styles.secondary} disabled={!templates.length} onClick={exportMemory}>↓ Export memory</button></div>
         <div className={styles.cardBody}>
           {templates.length ? <div className={styles.learned}>{templates.map(template => <div className={styles.template} key={template.id}>
             <div><strong>{template.name}</strong><small>Approved {todayLabel(template.approvedAt)} · {Object.keys(template.columns || {}).length} fields · layout signature only</small></div>
             <button type="button" className={styles.button + " " + styles.danger} onClick={() => removeFormat(template.id)} aria-label={"Remove " + template.name}>Remove</button>
           </div>)}</div> : <p className={styles.muted}>No approved formats yet. Upload a Wave Plan and confirm its columns to train recognition for this browser.</p>}
         </div>
-        <footer className={styles.footnote}>Privacy: the memory contains column labels and mapping positions, not uploaded reports, parcel IDs, driver details or site data.</footer>
+        <footer className={styles.footnote}>Privacy: approved column layouts are saved privately for this Super Admin account. Uploaded reports, parcel IDs, driver details and site data are not stored in memory.</footer>
       </section>
     </div>
   </div>;
