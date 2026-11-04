@@ -6,6 +6,7 @@ import { readAiLabFile } from "../../lib/ai-lab/read-file.mjs";
 import { classifyAmazonReport } from "../../lib/ai-lab/smart-import.mjs";
 import { parseDriverQuestion } from "../../lib/ai-lab/driver-investigator.mjs";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { detectFormatDrift, driftAdapterDraft } from "../../lib/ai-lab/format-drift.mjs";
 import { mergeApprovedKnowledge } from "../../lib/ai-lab/semantic-memory.mjs";
 import styles from "./AiV2Workspace.module.css";
 
@@ -31,7 +32,7 @@ function download(name, content) {
   } finally { window.setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
 
-export default function AiV2Workspace({ analysis = null, scope = null, lessons = [], documents = {}, onContextChange = () => {}, onAskAI = () => {} }) {
+export default function AiV2Workspace({ analysis = null, scope = null, lessons = [], documents = {}, approvedFormats = [], onContextChange = () => {}, onAskAI = () => {} }) {
   const [task, setTask] = useState("investigator");
   const [question, setQuestion] = useState("");
   const [investigation, setInvestigation] = useState(null);
@@ -55,6 +56,8 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
   const foundKnowledge = useMemo(() => mergeApprovedKnowledge(lessons, knowledge, semanticMatches, knowledgeSite), [lessons, knowledge, semanticMatches, knowledgeSite]);
   useEffect(() => { semanticVersion.current += 1;setSemanticMatches([]);setSemanticMessage(""); }, [knowledgeQuery, knowledgeSite, lessons]);
   const sandbox = useMemo(() => proposeFormatSandbox(documents), [documents]);
+  const drift = useMemo(() => detectFormatDrift(documents, approvedFormats), [documents, approvedFormats]);
+  const driftAdapter = useMemo(() => driftAdapterDraft(drift), [drift]);
   const draft = useMemo(() => {
     try { return buildCopilotDraft(analysis, draftMode, language); }
     catch { return "Load an AI Brain analysis first to prepare an evidence-aware draft."; }
@@ -135,6 +138,14 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
     } finally { setReaderBusy(false); }
   }
 
+  function discussDrift() {
+    const context = JSON.stringify({ source: "AI Lab local structural comparison", mutation: "none",
+      approvedLayoutsAvailable: drift.approvedCount, comparisons: drift.results,
+      limitations: "Only header positions and approved schema were compared. No source rows or station validity were verified. Review all mappings manually." });
+    onContextChange(context.slice(0, 4900));
+    onAskAI("Explică diferențele dintre formatul Wave Plan/Route Plan actual și structurile aprobate. Menționează coloanele mutate, lipsă sau ambigue și verificările manuale necesare. Nu spune că ai schimbat vreun parser și nu propune publicare automată.");
+  }
+
   function explainImports() {
     if (!imported.length) return;
     const context = JSON.stringify({ source: "Browser-only AI Lab format inspection", files: imported.map(item => ({
@@ -204,6 +215,24 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
         <textarea className={styles.draft} rows={7} value={draft} readOnly aria-label="Operations draft"/><button type="button" className={styles.button} disabled={!analysis} onClick={() => copyText(draft)}>Copy reviewed draft</button>
       </>}
       {task === "sandbox" && <><h3>Format Sandbox · non-executable proposal</h3><p className={styles.hint}>Creates a declarative format adapter from your approved source mappings, runs safe structural checks, and lets you export the proposal. It never runs generated JavaScript or writes a GitHub PR.</p>
+        <div className={styles.result}><h4>✦ AI Format Drift Detector · approved structure comparison</h4>
+          <p>Compares the two locally uploaded plans against {drift.approvedCount} privately approved layout(s). No report rows, driver identifiers or raw headers are sent anywhere. Suggestions are review-only.</p>
+          <div className={styles.twoCols}>{drift.results.map(item => <div key={item.kind} className={styles.result}>
+            <h4>{item.kind === "route" ? "Route Plan" : "Wave Plan"} · {item.state.toUpperCase()}</h4>
+            {Number.isFinite(item.confidence) && <small>Closest approved header overlap: {item.confidence}% · not proof of correctness</small>}
+            {!!item.changes?.length && <ul>{item.changes.map((change, index) => <li key={index}>{change.field}: {change.type} · column {change.fromColumn} → {change.toColumn}</li>)}</ul>}
+            {!!item.issues?.length && <ul>{item.issues.map((warning, index) => <li key={index}>{warning}</li>)}</ul>}
+            {item.state === "unchanged" && <p className={styles.pass}>✓ Approved headers match. Still verify station and row contents.</p>}
+          </div>)}</div>
+          <div className={styles.row}><button type="button" className={styles.button}
+              onClick={() => download("metrixiq-ai-drift-review.json", JSON.stringify(drift, null, 2))}>Download drift review JSON</button>
+            <button type="button" className={styles.button} disabled={!driftAdapter}
+              onClick={() => download("metrixiq-ai-drift-adapter-review.mjs", generateReviewedAdapter(driftAdapter))}>Download suggested JS adapter (review only)</button>
+            <button type="button" className={styles.button} disabled={!drift.approvedCount || drift.results.every(item => item.state === "missing")}
+              onClick={discussDrift}>✦ Explain drift in AI chat</button></div>
+          {!driftAdapter && <p className={styles.warning}>No complete safe adapter can be proposed yet. Upload both plans, map and approve an original format, then resolve missing or ambiguous fields.</p>}
+          <small>Suggestions never update approved formats, site data or existing Daily Dispatch parsers. Manual review is always required.</small>
+        </div>
         <div className={styles.stack}>{sandbox.tests.map(test => <p className={test.pass ? styles.pass : styles.warning} key={test.name}>{test.pass ? "✓" : "⚠"} {test.name}</p>)}</div>
         <pre className={styles.code}>{exportFormatSpec(sandbox)}</pre>
         <div className={styles.row}><button type="button" className={styles.button} onClick={() => download("metrixiq-ai-format-proposal.json",exportFormatSpec(sandbox))}>Download JSON adapter proposal</button>
