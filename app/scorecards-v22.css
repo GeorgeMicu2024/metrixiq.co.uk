@@ -2317,3 +2317,38 @@ body.scorex3-resizing-columns *{
     border:1px solid #b7d7e3!important;
   }
 }
+
+
+/* DZM1 desktop: Concessions counts as legible as FICO and delivery metrics. */
+@media (min-width:1024px) {
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-concession-badge{
+    min-width:48px!important;
+    min-height:32px!important;
+    padding:4px 11px!important;
+    font-size:15px!important;
+    font-weight:950!important;
+    line-height:1.1!important;
+    color:#111!important;
+    border:1px solid #bdcedb!important;
+    background:#eaf2f7!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-concession-badge.zero{
+    background:#e2f4e8!important;
+    border-color:#b7ddc4!important;
+    color:#111!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-concession-badge.active{
+    background:#fff0b8!important;
+    border-color:#e9c66a!important;
+    color:#111!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-concession-badge.high{
+    background:#ffdce0!important;
+    border-color:#f0a4b0!important;
+    color:#111!important;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table tbody tr.scorex3-driver-row .scorex3-concession-badge small{
+    font-size:10px!important;
+    color:#111!important;
+  }
+}
