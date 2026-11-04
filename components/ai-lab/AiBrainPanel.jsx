@@ -128,9 +128,37 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
         .insert({ user_id: userId, site, lesson: approved }).select("id,site,lesson,created_at").single();
       if (insertError) throw insertError;
       const next = [data, ...lessons].slice(0, 30); setLessons(next); onLessonsChange(next); setLesson("");
-      setLearningStatus("Approved lesson saved privately across devices.");
+      try {
+        const { data: indexed, error: indexError } = await getSupabaseBrowserClient().functions.invoke("ai-lab-semantic-memory", {
+          body: { action: "index", lessonId: data.id },
+        });
+        setLearningStatus(!indexError && indexed?.indexed
+          ? "Approved lesson saved across devices and indexed for meaning search."
+          : "Lesson saved privately across devices. Semantic indexing is temporarily unavailable.");
+      } catch {
+        setLearningStatus("Lesson saved privately across devices. Semantic indexing is temporarily unavailable.");
+      }
     } catch { setLearningStatus("Could not save approved lesson. Check private memory permissions."); }
     finally { setSaving(false); }
+  }
+
+  async function rebuildSemanticIndex() {
+    if (!userId || saving || !lessons.length) return;
+    setSaving(true);
+    setLearningStatus("Indexing approved notes only · existing reports remain untouched…");
+    let indexed = 0;
+    try {
+      const client = getSupabaseBrowserClient();
+      for (const item of lessons.slice(0, 30)) {
+        const { data, error } = await client.functions.invoke("ai-lab-semantic-memory", {
+          body: { action: "index", lessonId: item.id },
+        });
+        if (!error && data?.indexed) indexed++;
+      }
+      setLearningStatus(`Semantic memory indexed ${indexed}/${Math.min(lessons.length, 30)} approved notes. Keyword fallback remains active.`);
+    } catch {
+      setLearningStatus(`Indexed ${indexed} notes before the service became unavailable. Your approved notes are safe.`);
+    } finally { setSaving(false); }
   }
 
   async function removeLesson(id) {
@@ -204,6 +232,7 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
       <p className={styles.hint}>{learningStatus}</p><div className={styles.memoryForm}><textarea rows={2} maxLength={350} value={lesson} onChange={event => setLesson(event.target.value)} placeholder="Example: At DZM1, staging codes are not wave numbers; validate against the Wave Plan before matching."/>
         <button type="button" disabled={!userId || saving || lesson.trim().length < 10} className={styles.primary} onClick={saveLesson}>✓ Approve & remember</button></div>
       <small>No driver names, TRIDs, UK tracking numbers, phone numbers or customer details in learning notes.</small>
+      {!!lessons.length && <button type="button" disabled={saving} className={styles.primary} onClick={rebuildSemanticIndex}>↻ Rebuild semantic index for approved notes</button>}
       {!!lessons.length && <ul className={styles.lessons}>{lessons.slice(0, 12).map(item => <li key={item.id}><span><b>{item.site || "General"}</b> · {item.lesson}</span><button type="button" disabled={saving} onClick={() => removeLesson(item.id)}>Remove</button></li>)}</ul>}
     </div>
   </section>;

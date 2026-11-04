@@ -6,6 +6,7 @@ import { readAiLabFile } from "../../lib/ai-lab/read-file.mjs";
 import { classifyAmazonReport } from "../../lib/ai-lab/smart-import.mjs";
 import { parseDriverQuestion } from "../../lib/ai-lab/driver-investigator.mjs";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { mergeApprovedKnowledge } from "../../lib/ai-lab/semantic-memory.mjs";
 import styles from "./AiV2Workspace.module.css";
 
 const ACTIONS = [
@@ -37,6 +38,10 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
   const [driverResult, setDriverResult] = useState(null);
   const [investigatorBusy, setInvestigatorBusy] = useState(false);
   const [knowledgeQuery, setKnowledgeQuery] = useState("");
+  const [semanticMatches, setSemanticMatches] = useState([]);
+  const [semanticBusy, setSemanticBusy] = useState(false);
+  const [semanticMessage, setSemanticMessage] = useState("");
+  const semanticVersion = useRef(0);
   const [draftMode, setDraftMode] = useState("tips");
   const [language, setLanguage] = useState("en");
   const [message, setMessage] = useState("");
@@ -45,12 +50,34 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
   const [readerBusy, setReaderBusy] = useState(false);
   useEffect(() => { investigationVersion.current += 1;setInvestigation(null);setDriverResult(null);setMessage(""); }, [analysis, scope]);
   const digest = useMemo(() => buildProactiveDigest(analysis), [analysis]);
-  const knowledge = useMemo(() => searchApprovedLessons(lessons, knowledgeQuery, analysis?.site || ""), [lessons, knowledgeQuery, analysis?.site]);
+  const knowledgeSite = scope?.site || analysis?.site || "";
+  const knowledge = useMemo(() => searchApprovedLessons(lessons, knowledgeQuery, knowledgeSite), [lessons, knowledgeQuery, knowledgeSite]);
+  const foundKnowledge = useMemo(() => mergeApprovedKnowledge(lessons, knowledge, semanticMatches, knowledgeSite), [lessons, knowledge, semanticMatches, knowledgeSite]);
+  useEffect(() => { semanticVersion.current += 1;setSemanticMatches([]);setSemanticMessage(""); }, [knowledgeQuery, knowledgeSite, lessons]);
   const sandbox = useMemo(() => proposeFormatSandbox(documents), [documents]);
   const draft = useMemo(() => {
     try { return buildCopilotDraft(analysis, draftMode, language); }
     catch { return "Load an AI Brain analysis first to prepare an evidence-aware draft."; }
   }, [analysis, draftMode, language]);
+
+  async function searchByMeaning() {
+    if (semanticBusy || knowledgeQuery.trim().length < 3 || !lessons.length) return;
+    const version = ++semanticVersion.current;
+    setSemanticBusy(true);setSemanticMessage("");
+    try {
+      const { data, error } = await getSupabaseBrowserClient().functions.invoke("ai-lab-semantic-memory", {
+        body: { action: "search", query: knowledgeQuery.trim(), site: knowledgeSite || null },
+      });
+      if (error || !Array.isArray(data?.matches)) throw new Error("Semantic search unavailable");
+      if (semanticVersion.current !== version) return;
+      setSemanticMatches(data.matches);
+      setSemanticMessage(data.matches.length
+        ? "Meaning-based matches combined with your keyword results."
+        : "No close semantic matches. Keyword results remain available.");
+    } catch {
+      if (semanticVersion.current === version) setSemanticMessage("Semantic search unavailable · keyword search still works.");
+    } finally { setSemanticBusy(false); }
+  }
 
   async function runQuestion() {
     if (investigatorBusy) return;
@@ -135,10 +162,20 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
           {!!driverResult.matches.length && <div className={styles.tableWrap}><table><thead><tr><th>Driver (private)</th><th>Last period</th><th>Mean</th><th>Previous</th><th>Source rows</th></tr></thead><tbody>{driverResult.matches.map(row => <tr key={row.driverId}><td>{row.driverName}</td><td>{row.period}</td><td>{row.mean}{driverResult.criterion.unit}</td><td>{row.previous ?? "—"}</td><td>{row.numericRows}</td></tr>)}</tbody></table></div>}
           <small>{driverResult.limitations}{driverResult.truncated ? " SOURCE CAP REACHED." : ""} Driver names are never passed to the AI model as evidence.</small></div>}
       </>}
-      {task === "knowledge" && <><h3>Approved knowledge search</h3><p className={styles.hint}>Search your own RLS-protected learning notes. This version matches keywords and related operational terms; vector-based semantic embeddings are a separate upgrade.</p>
-        <input className={styles.fullInput} value={knowledgeQuery} onChange={event => setKnowledgeQuery(event.target.value)} placeholder="Search staging, concessions, NOA, DCR…" maxLength={160}/>
+      {task === "knowledge" && <><h3>Approved knowledge search</h3>
+        <p className={styles.hint}>Private Super Admin lessons. Search by meaning (English gte-small embeddings) alongside Romanian/English operational keyword matches. The built-in model does not reliably understand all Romanian phrasing.</p>
+        <form className={styles.row} onSubmit={event => {event.preventDefault();searchByMeaning();}}>
+          <input className={styles.fullInput} value={knowledgeQuery} onChange={event => setKnowledgeQuery(event.target.value)}
+            placeholder="Caută staging, concesii, NOA, DCR…" maxLength={160} aria-label="Approved learning note query"/>
+          <button type="submit" className={styles.button} disabled={semanticBusy || !lessons.length || knowledgeQuery.trim().length < 3}>
+            {semanticBusy ? "Searching…" : "✦ Search by meaning"}</button>
+        </form>
         {!lessons.length && <p className={styles.hint}>Approve your first learning note in AI Brain above to build the knowledge base.</p>}
-        {!!knowledgeQuery && <div className={styles.stack}>{knowledge.length ? knowledge.map(row => <div className={styles.result} key={row.id}><strong>{row.site}</strong><p>{row.lesson}</p><small>Matching terms: {row.relevance} relevance points · approved private note</small></div>) : <p className={styles.hint}>No matching approved notes. This does not mean the rule does not exist outside your memory.</p>}</div>}
+        {semanticMessage && <p role="status" className={styles.hint}>{semanticMessage}</p>}
+        {!!knowledgeQuery && <div className={styles.stack}>{foundKnowledge.length ? foundKnowledge.map(row => <div className={styles.result} key={row.id}>
+          <strong>{row.site}</strong><p>{row.lesson}</p>
+          <small>{row.method === "semantic" ? `Meaning match · ${row.relevance}% cosine similarity` : `Keyword match · ${row.relevance} relevance points`} · approved private note</small>
+        </div>) : <p className={styles.hint}>No approved note matched. A missing result is not proof the rule does not exist.</p>}</div>}
       </>}
       {task === "reader" && <><h3>Universal Format Reader · review mode</h3><p className={styles.hint}>Reads the two files already uploaded in AI Lab. It never replaces Daily Dispatch parsers or applies an unapproved mapping.</p>
         <div className={styles.result}><h4>Inspect additional Amazon files</h4><p>Check up to four reports together (Excel, CSV, PDF or image). Parsing and OCR stay in this browser. Nothing is uploaded to the server or imported into a station.</p>
