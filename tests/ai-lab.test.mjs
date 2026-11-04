@@ -60,3 +60,37 @@ test("matrix sanitation bounds untrusted documents", () => {
   assert.equal(result[0].length, 50);
   assert.equal(result[0][0].length, 250);
 });
+
+test("reordered Amazon columns follow their headings rather than stale saved positions", () => {
+  const initial = [["Route", "Wave", "Load Time", "Staging Lane"], ["CA_A292", "12", "11:35", "A07"]];
+  const approved = detectWavePlan(initial);
+  const learned = { name: "Existing Amazon format", signature: approved.signature, columns: approved.columns };
+  const reordered = [["Wave", "Staging Lane", "Route", "Load Time"], ["13", "B02", "CA_A105", "12:00"]];
+  const result = detectWavePlan(reordered, [learned]);
+  assert.equal(result.matchedTemplate, learned.name);
+  assert.deepEqual(result.columns, { route: 2, wave: 0, staging: 1, loading: 3 });
+  const [row] = normalizedWaveRows(result.matrix, result.columns, result.headerRow);
+  assert.equal(row.route, "CA_A105");
+  assert.equal(row.wave, "13");
+  assert.equal(row.staging, "B02");
+  assert.equal(row.loading, "12:00");
+});
+
+test("learned custom headings work even with no standard Amazon aliases", () => {
+  const first = [["Run identifier", "Sort order", "Planned clock"], ["CA_A292", "12", "11:35"]];
+  const learned = { name: "Custom template", signature: "run identifier|sort order|planned clock", columns: { route: 0, wave: 1, loading: 2 } };
+  const reordered = [["Planned clock", "Run identifier", "Sort order"], ["12:00", "SA_A02", "13"]];
+  const result = detectWavePlan(reordered, [learned]);
+  assert.equal(result.headerRow, 0);
+  assert.equal(result.matchedTemplate, "Custom template");
+  const [row] = normalizedWaveRows(result.matrix, result.columns, result.headerRow);
+  assert.deepEqual([row.route, row.wave, row.loading], ["SA_A02", "13", "12:00"]);
+});
+
+test("ambiguous duplicated headings never inherit unsafe saved column positions", () => {
+  const learned = { name: "Ambiguous", signature: "route|wave|loading|lane", columns: { route: 0, wave: 1, loading: 2 } };
+  const changed = [["Wave", "Route", "Route", "Loading"], ["12", "CA_A100", "CA_A200", "11:30"]];
+  const result = detectWavePlan(changed, [learned]);
+  assert.equal(result.matchedTemplate, null);
+  assert.equal(result.columns.route, 1);
+});
