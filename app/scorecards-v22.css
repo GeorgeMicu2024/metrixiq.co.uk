@@ -2291,3 +2291,29 @@ body.scorex3-resizing-columns *{
     font-weight:950!important;
   }
 }
+
+
+/* DZM1 desktop: inline Concessions edit behaves like FICO edit (hover/focus only).
+   Keep the button in the DOM for keyboard use; no editing logic is changed. */
+@media (min-width:1024px) and (hover:hover) and (pointer:fine) {
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table .scorex3-concession-edit{
+    opacity:0!important;
+    width:0!important;
+    min-width:0!important;
+    max-width:0!important;
+    padding:0!important;
+    margin:0!important;
+    border:0!important;
+    overflow:hidden!important;
+    white-space:nowrap;
+    transition:opacity .14s ease,width .14s ease,padding .14s ease;
+  }
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table td:hover .scorex3-concession-edit,
+  .scorex3-root.scorex3-dzm1-readability .scorex3-table .scorex3-concession-edit:focus-visible{
+    opacity:1!important;
+    width:auto!important;
+    max-width:none!important;
+    padding:5px 8px!important;
+    border:1px solid #b7d7e3!important;
+  }
+}
