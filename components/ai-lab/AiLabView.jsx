@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { WAVE_FIELDS, detectWavePlan, normalizedWaveRows, signatureFor } from "../../lib/ai-lab/wave-plan.mjs";
 import styles from "./AiLabView.module.css";
+import AiLabChat from "./AiLabChat";
 
 const MEMORY_KEY = "metrixiq.aiLab.approvedWaveFormats.v1";
 const ACCEPTED = ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.webp,.bmp";
@@ -75,6 +76,16 @@ export default function AiLabView() {
   const mappedCount = Object.values(mapping).filter(Number.isInteger).length;
   const validMappings = Object.values(mapping).filter(Number.isInteger);
   const noDuplicateColumns = new Set(validMappings).size === validMappings.length;
+  const safeReportContext = useMemo(() => {
+    if (!doc) return "";
+    const columns = Object.fromEntries(WAVE_FIELDS.filter(field => Number.isInteger(mapping[field.id]))
+      .map(field => [field.id, String(headers[mapping[field.id]] || "Column " + (mapping[field.id] + 1)).slice(0, 70)]));
+    const sample = rows.slice(0, 15).map(row => ({
+      route: row.route, wave: row.wave, staging: row.staging, parking: row.parking, holding: row.holding, loading: row.loading,
+    }));
+    return JSON.stringify({ reportType: doc.mode, detectedRows: rows.length, columns, sample, approvedFormatCount: templates.length }).slice(0, 5800);
+  }, [doc, mapping, headerRow, rows, templates]);
+
 
   async function processFile(file) {
     if (!file || busy) return;
@@ -179,6 +190,7 @@ export default function AiLabView() {
       <div className={styles.pills}><span className={styles.pill}>SUPER ADMIN ONLY</span><span className={styles.pill + " " + styles.warn}>ISOLATED TEST MODE</span></div>
     </header>
     <div className={styles.layout}>
+      <div className={styles.full}><AiLabChat reportContext={safeReportContext}/></div>
       <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>1. Smart document upload</h2><p>Excel · CSV · PDF · screenshots · photos</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
         <div className={styles.cardBody}>
