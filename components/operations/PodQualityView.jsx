@@ -1098,6 +1098,47 @@ export default function PodQualityView({
             .podv3-reject-list b{font-size:8px;color:#173047;text-align:right}
             .podv3-reject-list small{font-size:8px;color:#7b8997;text-align:right}
 
+            /* Desktop POD legibility; keep mobile cards and image-export sizing unchanged. */
+            @media(min-width:1200px){
+              .podv2{gap:16px;padding:22px 26px 32px}
+              .podv2-head h1{font-size:32px}
+              .podv2-head p{font-size:13px}
+              .podv2-actions .btn{height:44px;font-size:12px}
+              .podv2-week-picker{height:44px;padding:5px 12px}
+              .podv2-week-picker>span{font-size:9px}
+              .podv2-week-picker select{font-size:12px}
+              .podv3-export-size{height:44px}
+              .podv3-export-size span{font-size:10px}
+              .podv3-export-size select{font-size:12px}
+              .podv2-kpis{gap:12px}
+              .podv2-kpis article{min-height:88px;padding:14px 16px}
+              .podv2-kpis i{width:42px;height:42px}
+              .podv2-kpis strong{font-size:27px}
+              .podv2-kpis span{font-size:12px}
+              .podv2-kpis small{font-size:11px}
+              .podv3-workspace{grid-template-columns:minmax(0,1fr) 310px;gap:16px}
+              .podv2-chips button{padding:9px 13px;font-size:11px}
+              .podv2-filter-row .btn.compact{height:38px;font-size:11px}
+              .podv3-filters{grid-template-columns:minmax(210px,1fr) auto 170px 160px;gap:9px}
+              .podv3-search input,.podv3-filters select,.podv3-column-toggle{height:40px;font-size:11px}
+              .podv3-scorecard-heading{padding:18px 17px 12px}
+              .podv3-scorecard-heading h2{font-size:20px}
+              .podv3-scorecard-heading p{font-size:12px}
+              .podv3-scorecard-heading>span{font-size:11px}
+              .podv3-table .table-wrap{max-height:min(74vh,880px)}
+              .podv3-table table{min-width:1120px}
+              .podv3-table table.transporter-hidden{min-width:990px}
+              .podv3-table th,.podv3-table td{padding:11px 9px;font-size:11px}
+              .podv3-table td b{font-size:12px}
+              .podv3-table code{font-size:10px}
+              .podv3-table td button{padding:8px 11px;font-size:10px}
+              .podv3-pod-score{min-width:70px;padding:6px 8px}
+              .podv3-reason-cell{min-width:220px;max-width:360px}
+              .podv2-band{font-size:11px}
+              .podv3-pagination-controls strong{font-size:11px}
+              .podv3-image-note{font-size:11px}
+            }
+
             @media(max-width:1180px){
               .podv3-workspace{grid-template-columns:1fr}
               .podv3-rail{position:static;grid-template-columns:1fr 1fr}
