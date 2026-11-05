@@ -1786,7 +1786,7 @@ export default function DriverScorecardsV22({
     </>;
   }
 
-  return <div className={`scorex3-root ${String(period?.site || "").trim().toUpperCase() === "DZM1" ? "scorex3-dzm1-readability" : ""} ${tableFocus ? "scorex3-focus-mode" : ""}`}>
+  return <div className={`scorex3-root scorex3-dzm1-readability ${tableFocus ? "scorex3-focus-mode" : ""}`}>
     <section className="scorex3-header">
       <div className="scorex3-title">
         <span className="page-kicker">DRIVER SCORECARDS</span>
