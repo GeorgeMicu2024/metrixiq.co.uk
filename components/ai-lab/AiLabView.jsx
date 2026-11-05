@@ -355,7 +355,8 @@ export default function AiLabView() {
 
   function showAssistant() {
     setView("assistant");
-    window.setTimeout(() => chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+    window.setTimeout(() => (chatAnchor.current?.querySelector('[aria-label="MetrixIQ AI chat"]') || chatAnchor.current)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
   function askCommandAi(text) {

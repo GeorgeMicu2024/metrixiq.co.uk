@@ -432,6 +432,8 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
           : <button type="submit" disabled={!input.trim() || reportBusy || liveBusy || !loaded} className={styles.send}>Send ↗</button>}
       </form>
       <div className={styles.meta}>
+        {suggestedPrompt?.source === "connected" && activeSource === "connected" && !includeReport &&
+          <p className={styles.small} role="status">IQ Action Center context is ready. Tick “Share selected report summary with AI” to include the evidence; otherwise IQ can only give general advice.</p>}
         <label className={styles.check}>
           <input type="checkbox" checked={includeReport} disabled={!activeContext || working} onChange={event => setIncludeReport(event.target.checked)}/>
           Share selected report summary with AI {activeContext ? "(no names/TRIDs)" : "(prepare a report first)"}

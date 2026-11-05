@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { buildConnectedBriefing } from "../../lib/ai-lab/connected-briefing.mjs";
+import { buildIqActionCenter } from "../../lib/ai-lab/action-center.mjs";
 import styles from "./AiConnectedBriefing.module.css";
 
 async function bearer() {
@@ -42,6 +43,7 @@ export default function AiConnectedBriefing({ onContextChange = () => {}, onAskA
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [loadedAt, setLoadedAt] = useState("");
+  const [queueFilter, setQueueFilter] = useState("all");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,9 +106,11 @@ export default function AiConnectedBriefing({ onContextChange = () => {}, onAskA
         ]);
         if (!active) return;
         const result = buildConnectedBriefing(current.report, previous?.report || null, { partialDiscovery });
-        setBriefing(result);
+        const actionCenter = buildIqActionCenter(result);
+        setBriefing({ ...result, actionCenter });
+        setQueueFilter("all");
         setLoadedAt(new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }));
-        onContextChange(result.context);
+        onContextChange(actionCenter.context);
       } catch (cause) { if (active && cause.name !== "AbortError") setError(cause.message || "Could not load the private briefing."); }
       finally { if (active) setLoading(false); }
     })();
@@ -115,7 +119,12 @@ export default function AiConnectedBriefing({ onContextChange = () => {}, onAskA
 
   function askIQ() {
     if (!briefing) return;
-    onAskAI(`IQ, review the authorised ${briefing.site} ${briefing.period} briefing${briefing.previousPeriod ? " compared with " + briefing.previousPeriod : ""}. Tell me my three most important evidence-backed priorities, what remains uncertain and what I should do next. Do not invent an official scorecard tier.`);
+    onAskAI(`IQ, review the authorised ${briefing.site} ${briefing.period} Action Center${briefing.previousPeriod ? " compared with " + briefing.previousPeriod : ""}. Tell me the three highest evidence-backed priorities, what remains uncertain and what I should check next. Do not invent an official scorecard tier.`);
+  }
+
+  function askAbout(task) {
+    if (!briefing || !task) return;
+    onAskAI(`IQ, help me investigate the ${task.title.toLowerCase()} finding for ${briefing.site} ${briefing.period}. Explain what the aggregate evidence supports, what it cannot prove, and a practical step-by-step verification plan. Do not attribute blame or invent an official score.`);
   }
 
   return <section className={styles.panel} aria-label="IQ Connected Intelligence Daily Briefing">
@@ -152,11 +161,40 @@ export default function AiConnectedBriefing({ onContextChange = () => {}, onAskA
         <span>{metric.label}</span><strong>{formatMetric(metric)}</strong>
         <small className={metric.worsening ? styles.down : styles.neutral}>{formatDelta(metric)} · {metric.records} rows</small>
       </div>)}</div>
-      <div className={styles.priorities}><h3>IQ's priority checks</h3><div className={styles.grid}>
-        {briefing.focus.map((item, index) => <div className={styles.priority} key={index}>
-          <span className={styles.number}>{index + 1}</span><div><strong>{item.title}</strong><p>{item.detail}</p><small>{item.action}</small></div>
-        </div>)}
-      </div></div>
+      <section className={styles.actionCenter} aria-label="IQ Action Center">
+        <div className={styles.actionHeading}>
+          <div><span className={styles.kicker}>PROACTIVE INTELLIGENCE</span><h3>IQ Action Center</h3>
+            <p>Evidence-led checks, ordered by urgency · no actions are executed</p></div>
+          <div className={styles.actionCounts} aria-label="Action counts">
+            <span className={styles.highCount}>{briefing.actionCenter.counts.high} priority</span>
+            <span>{briefing.actionCenter.counts.watch} watch</span>
+            <span>{briefing.actionCenter.counts.verify} verify</span>
+          </div>
+        </div>
+        <div className={styles.queueFilters} role="group" aria-label="Filter IQ actions">
+          {[["all", "All checks"], ["priority", "Priority & trends"], ["data", "Data quality"]].map(([key, label]) =>
+            <button type="button" key={key} aria-pressed={queueFilter === key}
+              className={queueFilter === key ? styles.filterActive : styles.filterButton} onClick={() => setQueueFilter(key)}>{label}</button>)}
+        </div>
+        <div className={styles.actionList}>
+          {briefing.actionCenter.tasks.filter(task => queueFilter === "all" ||
+            (queueFilter === "priority" ? task.category === "performance" : task.category === "data")).map(task =>
+            <article className={styles.actionItem} key={task.id}>
+              <div className={styles.actionTop}>
+                <span className={task.severity === "high" ? styles.severityHigh : task.severity === "watch" ? styles.severityWatch : styles.severityVerify}>
+                  {task.severity === "high" ? "Priority" : task.severity === "watch" ? "Watch" : "Verify"}</span>
+                <strong>{task.title}</strong>
+              </div>
+              <p>{task.evidence}</p><p className={styles.nextAction}><b>Next check:</b> {task.nextStep}</p>
+              <div className={styles.actionFoot}><small>{task.basis} · {task.confidence}</small>
+                <button type="button" onClick={() => askAbout(task)}>Ask IQ ↗</button></div>
+            </article>)}
+          {!briefing.actionCenter.tasks.some(task => queueFilter === "all" ||
+            (queueFilter === "priority" ? task.category === "performance" : task.category === "data")) &&
+            <p className={styles.emptyFilter}>No checks in this category for the selected reporting week. This does not confirm that the station has no issues.</p>}
+        </div>
+        <p className={styles.actionDisclaimer}>{briefing.actionCenter.notice}</p>
+      </section>
       <div className={styles.bottom}><button type="button" className={styles.ask} onClick={askIQ}>✦ Discuss this briefing with IQ</button>
         <span>Review the context and explicitly enable sharing in chat before sending it to the AI model.</span></div>
       <details className={styles.caveats}><summary>Source coverage & limitations ({briefing.warnings.length})</summary>
