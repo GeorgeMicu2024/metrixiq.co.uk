@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { normalizeBrainPeriods, sanitizeLearningNote } from "../../lib/ai-lab/brain-insights.mjs";
+import AiPredictivePanel from "./AiPredictivePanel";
 import styles from "./AiBrainPanel.module.css";
 
 const MEMORY_TABLE = "ai_lab_learning_notes";
@@ -184,6 +185,11 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
     onAskAI(`Analyse the historical data for ${result.site} (${result.periods.join(", ")}). Identify evidence-backed risks, gaps and three practical improvements. Reply in English without inventing results or assigning blame to drivers.`);
   }
 
+  function askPrediction(context, question) {
+    onContextChange(context);
+    onAskAI(question);
+  }
+
   return <section className={styles.panel} aria-label="MetrixIQ AI Brain">
     <div className={styles.header}><div><span className={styles.kicker}>METRIXIQ · PRIVATE INTELLIGENCE</span><h2>AI Brain <span>✦</span></h2>
       <p>Historical Intelligence · Driver Signals · Predictive Alerts · Approved Learning</p></div>
@@ -202,6 +208,7 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
     {!result && <p className={styles.hint}>AI Brain reads existing reports without editing them. Driver names appear only here; the AI model receives aggregate evidence after you explicitly allow it.</p>}
     {result && <div className={styles.content}>
       <div className={styles.statusRow}><strong>{result.site} · {result.periods.length} periods</strong><span>Last scanned: {lastScan}</span><label className={styles.checkbox}><input type="checkbox" checked={autoScan} onChange={event => setAutoScan(event.target.checked)}/> Re-scan every 5 min while open</label></div>
+      <AiPredictivePanel analysis={result} onAskAI={askPrediction}/>
       <div className={styles.miniGrid}>{result.series.map(item => <div className={styles.week} key={item.period}>
         <strong>{item.period}</strong><span>{item.coverage.metricRecords} metric rows</span>
         <small>DCR {item.metrics.dcr.mean ?? "–"}% · IADC {item.metrics.iadc.mean ?? "–"}%</small>
