@@ -94,3 +94,34 @@ test("ambiguous duplicated headings never inherit unsafe saved column positions"
   assert.equal(result.matchedTemplate, null);
   assert.equal(result.columns.route, 1);
 });
+
+test("approved examples suggest mappings after a minor header typo", () => {
+  const approved = { name: "DZM1 approved", signature: "run identifier|sort order|planned clock",
+    columns: { route: 0, wave: 1, loading: 2 } };
+  const changed = [["Planned clok", "Run identifier", "Sort order"], ["12:00", "CA_A212", "11"]];
+  const result = detectWavePlan(changed, [approved]);
+  assert.equal(result.matchedTemplate, "DZM1 approved");
+  assert.equal(result.templateMatch, "adapted");
+  assert.equal(result.confidence, 83);
+  assert.deepEqual(result.columns, { route: 1, wave: 2, loading: 0 });
+  assert.equal(result.learnedChanges[0].field, "loading");
+});
+
+test("learning rejects two renamed columns and conflicting approved examples", () => {
+  const approved = { name: "Original", signature: "run identifier|sort order|planned clock",
+    columns: { route: 0, wave: 1, loading: 2 } };
+  const twoTypos = [["Run identifer", "Sort ordr", "Planned clock"], ["CA_A212", "12", "11:30"]];
+  assert.equal(detectWavePlan(twoTypos, [approved]).matchedTemplate, null);
+  const alternate = { name: "Conflicting", signature: approved.signature,
+    columns: { route: 1, wave: 0, loading: 2 } };
+  const reordered = [["Sort order", "Run identifier", "Planned clock"], ["12", "CA_A212", "11:30"]];
+  assert.equal(detectWavePlan(reordered, [approved, alternate]).matchedTemplate, null);
+});
+
+test("approved learning stays within the correct source type", () => {
+  const template = { name: "Route-specific", sourceType: "route", signature: "run identifier|sort order|planned clock",
+    columns: { route: 0, wave: 1, loading: 2 } };
+  const matrix = [["Run identifier", "Sort order", "Planned clock"], ["CA_A212", "12", "11:30"]];
+  assert.equal(detectWavePlan(matrix, [template], "route").matchedTemplate, "Route-specific");
+  assert.equal(detectWavePlan(matrix, [template], "wave").matchedTemplate, null);
+});

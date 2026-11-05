@@ -12,10 +12,14 @@
 .role{display:block;font-size:10px;font-weight:850;letter-spacing:.05em;margin-bottom:5px;opacity:.65}
 .empty{display:grid;gap:12px;place-items:center;text-align:center;align-content:center;min-height:210px;color:#6c8494}
 .empty strong{font-size:17px;color:#24465a}
+.empty strong{line-height:1.4}
 .empty p{font-size:12px;max-width:440px;line-height:1.5;margin:0}
 .examples{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
 .chip{border:1px solid #cbdfe5;background:#fff;color:#285a66;padding:9px 12px;border-radius:999px;font-size:11px;font-weight:650;cursor:pointer}
 .chip:hover{background:#eaf9f4}
+.nextSteps{display:grid;justify-items:center;gap:8px;padding:10px 6px 4px;margin-top:auto}
+.nextSteps small{color:#72909d;font-size:11px;font-weight:750}
+.nextSteps .chip{background:#f1faf8;border-color:#cae9e2}
 .composer{padding:15px 18px;border-top:1px solid #e1ebef}
 .form{display:flex;gap:10px;align-items:flex-end}
 .input{width:100%;resize:vertical;min-height:60px;max-height:180px;box-sizing:border-box;border:1px solid #cbdde4;background:#fff;border-radius:12px;outline-color:#07a28c;padding:11px 12px;font:inherit;font-size:13px;line-height:1.5;color:#1f4055}
@@ -27,6 +31,18 @@
 .check input{accent-color:#0e9e8a;width:15px;height:15px}
 .small{font-size:11px;color:#7c92a0}
 .clear{border:0;background:transparent;color:#687f90;font-size:11px;text-decoration:underline;cursor:pointer}
+.learningArea{margin-top:12px;border-top:1px solid #e7eef1;padding-top:10px}
+.learnToggle{display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:7px 0;color:#14796f;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.learnToggle:disabled{opacity:.45;cursor:not-allowed}
+.learningForm{display:grid;gap:9px;padding:12px;background:#f5faf9;border:1px solid #d9e9e6;border-radius:12px;margin-top:5px}
+.learningForm p{font-size:12px;color:#557485;line-height:1.45;margin:0}
+.learningForm textarea{box-sizing:border-box;width:100%;min-height:65px;resize:vertical;background:#fff;color:#17374f;font:inherit;font-size:13px;padding:10px;border:1px solid #c6dce0;border-radius:9px}
+.learningForm small{font-size:10px;color:#748f9a;line-height:1.5}
+.learningActions{display:flex;align-items:end;justify-content:space-between;gap:9px;flex-wrap:wrap}
+.learningActions label{display:grid;gap:4px;color:#547485;font-size:11px}
+.learningActions input{width:110px;box-sizing:border-box;padding:9px;border:1px solid #c6dce0;border-radius:8px;background:white;color:#17374f;font:inherit;font-size:13px}
+.learningActions .send{padding:10px 13px;min-height:38px;font-size:12px}
+.learningStatus{font-size:11px;line-height:1.5;color:#1c756c;background:#effaf6;padding:8px 10px;border-radius:9px}
 .error{margin:10px 0 0;padding:10px 12px;background:#fff1ef;border:1px solid #f3cbc6;border-radius:9px;font-size:12px;color:#a53b34}
 .privacy{padding:11px 18px;background:#fff9ed;border-top:1px solid #f4e9d5;font-size:11px;line-height:1.45;color:#816229}
 @media(max-width:600px){.head,.composer{padding:13px}.messages{padding:12px;max-height:410px}.message{max-width:96%;font-size:12px}.form{gap:6px}.send{padding:11px}.meta{align-items:flex-start}.privacy{padding:10px 13px}}

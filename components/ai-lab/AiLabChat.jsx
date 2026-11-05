@@ -4,15 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { summarizeMetricMatrix } from "../../lib/ai-lab/metric-summary.mjs";
 import { AI_LAB_STATE_TABLE, normalizeChatHistory } from "../../lib/ai-lab/user-state.mjs";
+import { sanitizeLearningNote } from "../../lib/ai-lab/brain-insights.mjs";
+import { ASSISTANT_STARTERS, assistantFollowUps } from "../../lib/ai-lab/assistant-experience.mjs";
 import styles from "./AiLabChat.module.css";
 
 const CHAT_KEY = "metrixiq.aiLab.chatHistory.v1";
-const STARTERS = [
-  "Explică-mi cum verific un Wave Plan nou.",
-  "Cum pot reduce CDF negativ la DZM1?",
-  "Ce trebuie să verific la IADC și POD?",
-  "Compară Wave Plan-ul nou cu formatele aprobate.",
-];
 function safeStoredChat(userId) {
   try {
     return normalizeChatHistory(JSON.parse(window.localStorage.getItem(CHAT_KEY + "." + userId) || "[]"));
@@ -33,7 +29,7 @@ function readDelta(eventBlock) {
   return "";
 }
 
-export default function AiLabChat({ reportContext = "", commandContext = "", brainContext = "", suggestedPrompt = null }) {
+export default function AiLabChat({ reportContext = "", connectedContext = "", commandContext = "", brainContext = "", suggestedPrompt = null }) {
   const [metricBook, setMetricBook] = useState(null);
   const [metricSheet, setMetricSheet] = useState("");
   const [metricHeader, setMetricHeader] = useState(1);
@@ -48,36 +44,44 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
   const [liveReport, setLiveReport] = useState("");
   const [activeSource, setActiveSource] = useState("wave");
   const uploadedContext = metricSummary ? JSON.stringify({ ...JSON.parse(metricSummary), station: reportSite || "not provided", period: reportPeriod || "not provided", scopeSource: "Station and period are user-entered, not verified from the file" }) : "";
-  const activeContext = activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : activeSource === "command" ? commandContext : activeSource === "brain" ? brainContext : reportContext;
+  const activeContext = activeSource === "connected" ? connectedContext : activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : activeSource === "command" ? commandContext : activeSource === "brain" ? brainContext : reportContext;
   const [messages, setMessages] = useState([]);
   const [cloudUserId, setCloudUserId] = useState("");
+  const [firstName, setFirstName] = useState("");
   const [syncState, setSyncState] = useState("Connecting private history…");
   const [loaded, setLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [includeReport, setIncludeReport] = useState(false);
   const [includeMemory, setIncludeMemory] = useState(false);
   const [memoryStatus, setMemoryStatus] = useState("");
+  const [learningOpen, setLearningOpen] = useState(false);
+  const [learningText, setLearningText] = useState("");
+  const [learningSite, setLearningSite] = useState("");
+  const [learningBusy, setLearningBusy] = useState(false);
+  const [learningMessage, setLearningMessage] = useState("");
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const abortRef = useRef(null);
   const recognitionRef = useRef(null);
   const [listening, setListening] = useState(false);
-  const [speechLang, setSpeechLang] = useState("ro-RO");
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const handledPromptId = useRef("");
 
   useEffect(() => { setIncludeReport(false); setActiveSource("wave"); }, [reportContext]);
+  useEffect(() => { setIncludeReport(false); }, [connectedContext]);
   useEffect(() => { setIncludeReport(false); }, [commandContext]);
   useEffect(() => { setIncludeReport(false); }, [brainContext]);
   useEffect(() => {
     if (!suggestedPrompt?.id || !suggestedPrompt.text || handledPromptId.current === suggestedPrompt.id) return;
     handledPromptId.current = suggestedPrompt.id;
     setInput(suggestedPrompt.text);
-    setActiveSource(suggestedPrompt.source === "brain" && brainContext ? "brain" : suggestedPrompt.source === "command" && commandContext ? "command" : "wave");
+    setActiveSource(suggestedPrompt.source === "connected" && connectedContext ? "connected"
+      : suggestedPrompt.source === "brain" && brainContext ? "brain"
+      : suggestedPrompt.source === "command" && commandContext ? "command" : "wave");
     setIncludeReport(false);
     inputRef.current?.focus();
-  }, [suggestedPrompt, commandContext, brainContext]);
+  }, [suggestedPrompt, commandContext, brainContext, connectedContext]);
 
   useEffect(() => {
     let active = true;
@@ -93,6 +97,8 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
         const saved = !fetchError && cloud ? normalizeChatHistory(cloud.chat_history) : local;
         setMessages(saved);
         setCloudUserId(user.id);
+        const displayName = String(user.user_metadata?.full_name || user.user_metadata?.name || "").trim().split(/\s+/)[0];
+        setFirstName(/^[\p{L}'-]{2,30}$/u.test(displayName) ? displayName : "");
         setSyncState(fetchError ? "Private history · local fallback" : "Private history · synced across devices");
       } catch {
         if (active) setSyncState("History unavailable · chat still works");
@@ -176,7 +182,7 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
       if (!response.ok || !body.report) throw new Error(body.error || "No authorised report was returned.");
       setLiveReport(JSON.stringify(body.report));
       setActiveSource("live");
-      setInput("Analizează raportul " + site + " " + livePeriod.trim() + ". Separă observațiile confirmate, datele lipsă și recomandările practice.");
+      setInput("Analyse the " + site + " " + livePeriod.trim() + " report. Separate confirmed findings, missing evidence and practical recommendations.");
       inputRef.current?.focus();
     } catch (cause) { setError(cause.message || "Could not load report summary."); }
     finally { setLiveBusy(false); }
@@ -211,7 +217,8 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
           reportContext: includeReport ? activeContext : "",
           includeMemory: Boolean(includeMemory),
           memorySite: includeReport && activeSource === "live" ? liveSiteKey.split("|")[1]
-            : includeReport && activeSource === "upload" ? reportSite : "",
+            : includeReport && activeSource === "upload" ? reportSite
+            : includeReport && activeSource === "connected" ? (() => { try { return JSON.parse(connectedContext).site || ""; } catch { return ""; } })() : "",
         }),
       });
       if (!response.ok) {
@@ -270,7 +277,7 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
     if (!SpeechRecognition) { setError("Voice dictation is not supported in this browser. You can still type your message."); return; }
     if (listening) { recognitionRef.current?.stop(); return; }
     const recognizer = new SpeechRecognition();
-    recognizer.lang = speechLang;
+    recognizer.lang = "en-GB";
     recognizer.interimResults = false;
     recognizer.maxAlternatives = 1;
     recognizer.onresult = event => {
@@ -287,7 +294,7 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
     if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) { setError("Text-to-speech is not supported in this browser."); return; }
     window.speechSynthesis.cancel();
     const speech = new SpeechSynthesisUtterance(content.slice(0, 3500));
-    speech.lang = /[ăâîșț]/i.test(content) ? "ro-RO" : "en-GB";
+    speech.lang = "en-GB";
     speech.rate = 1;
     window.speechSynthesis.speak(speech);
   }
@@ -304,26 +311,69 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
     setError("");
   }
 
+  function prepareQuestion(question) {
+    setInput(question);
+    inputRef.current?.focus();
+  }
+
+  async function rememberCorrection() {
+    if (!cloudUserId || learningBusy) return;
+    setLearningMessage("");
+    let lesson;
+    try {
+      lesson = sanitizeLearningNote(learningText);
+      if (learningSite && !/^[A-Z0-9]{3,6}$/.test(learningSite)) throw new Error("Enter a valid station code or leave it blank for a general rule.");
+    } catch (cause) { setLearningMessage(cause.message); return; }
+    setLearningBusy(true);
+    try {
+      const client = getSupabaseBrowserClient();
+      const { data, error: insertError } = await client.from("ai_lab_learning_notes")
+        .insert({ user_id: cloudUserId, site: learningSite || null, lesson })
+        .select("id").single();
+      if (insertError || !data?.id) throw insertError || new Error("Could not save this rule.");
+      setLearningOpen(false);
+      setLearningText("");
+      setLearningSite("");
+      let indexed = false;
+      try {
+        const { data: result, error: indexError } = await client.functions.invoke("ai-lab-semantic-memory", {
+          body: { action: "index", lessonId: data.id },
+        });
+        indexed = !indexError && result?.indexed === true;
+      } catch { /* Approved note is saved even when optional indexing fails. */ }
+      setLearningMessage(indexed
+        ? "Approved correction saved and indexed. Enable approved knowledge below to use it in AI replies."
+        : "Approved correction saved. Semantic indexing is unavailable; keyword memory still works when enabled.");
+    } catch { setLearningMessage("Could not save the correction to private memory. Please try again."); }
+    finally { setLearningBusy(false); }
+  }
+
+  const followUps = assistantFollowUps(messages);
+
   return <section className={styles.panel} aria-label="MetrixIQ AI chat">
     <header className={styles.head}>
       <div className={styles.title}>
         <span className={styles.orb} aria-hidden="true">✦</span>
-        <div><h2>Talk to MetrixIQ AI</h2><p>Ask questions in Romanian or English · follow-up conversations supported</p></div>
+        <div><h2>Meet IQ, your operations co-pilot</h2><p>Practical answers, honest analysis and a plan for what comes next · English only</p></div>
       </div>
-      <span className={styles.tag}>NEMOTRON · FREE MODEL</span>
+      <span className={styles.tag}>HERE TO HELP · READ-ONLY</span>
     </header>
     <div className={styles.messages} ref={scrollRef} aria-live="polite" aria-relevant="additions text">
       {!messages.length && <div className={styles.empty}>
-        <strong>Salut, George! Cu ce te pot ajuta?</strong>
-        <p>Pot explica rapoarte, Wave Plans și probleme de performanță. Nu modific datele platformei sau codul.</p>
-        <div className={styles.examples}>{STARTERS.map(starter => <button className={styles.chip} key={starter} type="button" onClick={() => { setInput(starter); inputRef.current?.focus(); }}>{starter}</button>)}
-          {activeContext && <button className={styles.chip} type="button" onClick={() => { setIncludeReport(true); setInput("Analizează formatele aprobate și raportul curent. Ce probleme, lipsuri sau riscuri observi?"); inputRef.current?.focus(); }}>✦ Analyze my report</button>}</div>
+        <strong>{firstName ? `Hi ${firstName}!` : "Hi there!"} I'm IQ. What can I take off your plate?</strong>
+        <p>Pick something to work on, or tell me what's happening at your station. I'll help you decide what matters first.</p>
+        <div className={styles.examples}>{ASSISTANT_STARTERS.map(starter => <button className={styles.chip} key={starter.label} type="button" onClick={() => prepareQuestion(starter.prompt)}>{starter.label}</button>)}
+          {activeContext && <button className={styles.chip} type="button" onClick={() => { setIncludeReport(true); prepareQuestion("Analyse the current report and approved formats. What gaps or risks should I check?"); }}>✦ Analyse my report</button>}</div>
       </div>}
       {messages.map(message => <div key={message.id} className={styles.message + " " + (message.role === "user" ? styles.user : styles.assistant)}>
         <span className={styles.role}>{message.role === "user" ? "YOU" : "METRIXIQ AI"}</span>
         {message.content ? renderText(message.content) : <span>Thinking…</span>}
         {message.role === "assistant" && message.content && <button type="button" className={styles.speak} onClick={() => readAloud(message.content)} aria-label="Read AI response aloud">🔊 Listen</button>}
       </div>)}
+      {!working && followUps.length > 0 && <div className={styles.nextSteps} aria-label="Suggested next steps">
+        <small>Keep going with IQ</small>
+        <div className={styles.examples}>{followUps.map(item => <button key={item.label} className={styles.chip} type="button" onClick={() => prepareQuestion(item.prompt)}>{item.label} ↗</button>)}</div>
+      </div>}
     </div>
     <div className={styles.composer}>
       <details className={styles.reportTools}>
@@ -365,8 +415,9 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
         </>}
       </details>
       <p className={styles.small}>{includeReport && activeContext
-        ? "AI evidence: " + (activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : activeSource === "command" ? "authorised multi-report Command Center analysis" : activeSource === "brain" ? "authorised historical AI Brain aggregates" : "selected Wave Plan preview")
+        ? "AI evidence: " + (activeSource === "connected" ? "selected Connected Intelligence weekly briefing" : activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : activeSource === "command" ? "authorised multi-report Command Center analysis" : activeSource === "brain" ? "authorised historical AI Brain aggregates" : "selected Wave Plan preview")
         : "General guidance · no report shared with AI"}
+        {connectedContext && activeSource !== "connected" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("connected"); setIncludeReport(false); }}>Use Connected Briefing</button>}
         {reportContext && activeSource !== "wave" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("wave"); setIncludeReport(false); }}>Use Wave Plan context</button>}
         {commandContext && activeSource !== "command" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("command"); setIncludeReport(false); }}>Use AI Command Center context</button>}
         {brainContext && activeSource !== "brain" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("brain"); setIncludeReport(false); }}>Use AI Brain context</button>}</p>
@@ -387,10 +438,30 @@ export default function AiLabChat({ reportContext = "", commandContext = "", bra
         </label>
         <label className={styles.check}>
           <input type="checkbox" checked={includeMemory} disabled={working || !cloudUserId} onChange={event => {setIncludeMemory(event.target.checked);setMemoryStatus("");}}/>
-          Include relevant approved learning notes & Wave Plan formats in AI replies (private memory)
+          Use my approved knowledge in AI replies (private memory)
         </label>
-        <label className={styles.check}>Voice <select className={styles.langSelect} value={speechLang} onChange={event => setSpeechLang(event.target.value)}><option value="ro-RO">Română</option><option value="en-GB">English</option></select></label>
+        <span className={styles.small}>Voice: English (UK)</span>
         <button type="button" className={styles.clear} disabled={working || !messages.length} onClick={clearChat}>Clear chat</button>
+      </div>
+      <div className={styles.learningArea}>
+        <button type="button" className={styles.learnToggle} disabled={!cloudUserId || learningBusy}
+          aria-expanded={learningOpen} onClick={() => { setLearningOpen(current => !current); setLearningMessage(""); }}>
+          <span aria-hidden="true">✦</span> Teach IQ a correction <span aria-hidden="true">{learningOpen ? "−" : "+"}</span>
+        </button>
+        {learningOpen && <div className={styles.learningForm}>
+          <p>Save a general rule you've verified. IQ can recall it in future chats when you enable approved knowledge. Never include personal data.</p>
+          <textarea rows={2} maxLength={350} value={learningText} disabled={learningBusy}
+            onChange={event => setLearningText(event.target.value)}
+            placeholder="Example: At DZM1, staging lanes must be checked separately from wave numbers." aria-label="Approved correction"/>
+          <div className={styles.learningActions}>
+            <label>Station (optional) <input maxLength={6} placeholder="DZM1" value={learningSite} disabled={learningBusy}
+              onChange={event => setLearningSite(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}/></label>
+            <button type="button" className={styles.send} disabled={learningBusy || !cloudUserId || learningText.trim().length < 10}
+              onClick={rememberCorrection}>{learningBusy ? "Saving…" : "Approve & remember"}</button>
+          </div>
+          <small>Only approved text is saved. Reports, driver details, UK tracking numbers and contact details must not be added.</small>
+        </div>}
+        {learningMessage && <p className={styles.learningStatus} role="status">{learningMessage}</p>}
       </div>
       {error && <p className={styles.error} role="alert">{error}</p>}
       <p className={styles.small}>{memoryStatus || "Approved notes and format structures stay private unless you tick the learning-memory checkbox."}</p>

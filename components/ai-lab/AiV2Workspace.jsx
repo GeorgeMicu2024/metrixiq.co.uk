@@ -44,7 +44,6 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
   const [semanticMessage, setSemanticMessage] = useState("");
   const semanticVersion = useRef(0);
   const [draftMode, setDraftMode] = useState("tips");
-  const [language, setLanguage] = useState("en");
   const [message, setMessage] = useState("");
   const investigationVersion = useRef(0);
   const [imported, setImported] = useState([]);
@@ -59,9 +58,9 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
   const drift = useMemo(() => detectFormatDrift(documents, approvedFormats), [documents, approvedFormats]);
   const driftAdapter = useMemo(() => driftAdapterDraft(drift), [drift]);
   const draft = useMemo(() => {
-    try { return buildCopilotDraft(analysis, draftMode, language); }
+    try { return buildCopilotDraft(analysis, draftMode, "en"); }
     catch { return "Load an AI Brain analysis first to prepare an evidence-aware draft."; }
-  }, [analysis, draftMode, language]);
+  }, [analysis, draftMode]);
 
   async function searchByMeaning() {
     if (semanticBusy || knowledgeQuery.trim().length < 3 || !lessons.length) return;
@@ -108,7 +107,7 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
     if (!investigation?.context) return;
     const context = driverResult?.context ? JSON.stringify({ metrics: JSON.parse(investigation.context), drivers: JSON.parse(driverResult.context) }) : investigation.context;
     onContextChange(context.slice(0, 5800));
-    onAskAI(`Explică analiza de date pentru ${analysis?.site || "stația selectată"}. Arată dovezile și limitările, apoi pașii practici. Nu inventa cauze și nu atribui vină șoferilor.`);
+    onAskAI(`Explain the analysis for ${analysis?.site || "the selected station"}. Show the evidence, limitations and practical next steps. Do not invent causes or assign blame to drivers.`);
   }
 
   async function copyText(value) {
@@ -143,7 +142,7 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
       approvedLayoutsAvailable: drift.approvedCount, comparisons: drift.results,
       limitations: "Only header positions and approved schema were compared. No source rows or station validity were verified. Review all mappings manually." });
     onContextChange(context.slice(0, 4900));
-    onAskAI("Explică diferențele dintre formatul Wave Plan/Route Plan actual și structurile aprobate. Menționează coloanele mutate, lipsă sau ambigue și verificările manuale necesare. Nu spune că ai schimbat vreun parser și nu propune publicare automată.");
+    onAskAI("Explain differences between the current Wave Plan / Route Plan and approved formats. Identify moved, missing or ambiguous columns and manual checks required. Do not claim any parser was changed or suggest automatic publishing.");
   }
 
   function explainImports() {
@@ -153,7 +152,7 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
       reasons: item.reasons, truncated: item.truncated, status: item.status,
     })), limitations: "Formats are unapproved guesses. Filenames, file content, names, TRIDs and raw rows were not shared." });
     onContextChange(context);
-    onAskAI("Explică tipurile de rapoarte Amazon detectate, riscurile de recunoaștere și ce coloane ar trebui verificate manual. Nu modifica date și nu presupune că un format este aprobat.");
+    onAskAI("Explain the detected Amazon report types, recognition risks and columns requiring manual verification. Do not modify data or assume a format is approved.");
   }
 
   return <section className={styles.panel} aria-label="AI Lab advanced intelligence workspace">
@@ -163,8 +162,8 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
       <strong>{title}</strong><small>{subtitle}</small></button>)}</div>
     <div className={styles.content}>
       {task === "investigator" && <><h3>AI Investigator · verified sources</h3>
-        <p className={styles.hint}>Start with an AI Brain analysis above. The investigator handles Romanian and English metric questions using only the data already authorised and loaded.</p>
-        <form className={styles.row} onSubmit={event => {event.preventDefault();runQuestion();}}><input value={question} maxLength={500} onChange={event => setQuestion(event.target.value)} placeholder="Cine are IADC sub 80% la DZM1?" aria-label="Investigation question"/><button type="submit" className={styles.button} disabled={!analysis || investigatorBusy || question.trim().length < 5}>{investigatorBusy ? "Checking authorised drivers…" : "Investigate ↗"}</button></form>
+        <p className={styles.hint}>Start with an AI Brain analysis in Performance. Questions use only authorised, already-loaded data.</p>
+        <form className={styles.row} onSubmit={event => {event.preventDefault();runQuestion();}}><input value={question} maxLength={500} onChange={event => setQuestion(event.target.value)} placeholder="Which DZM1 drivers have IADC below 80%?" aria-label="Investigation question"/><button type="submit" className={styles.button} disabled={!analysis || investigatorBusy || question.trim().length < 5}>{investigatorBusy ? "Checking authorised drivers…" : "Investigate ↗"}</button></form>
         {investigation && <div className={styles.result}><h4>{investigation.title}</h4><p>{investigation.answer}</p>
           {!!investigation.evidence.length && <div className={styles.tableWrap}><table><thead><tr><th>Source</th><th>Period</th><th>Metric</th><th>Mean</th><th>Numeric records</th></tr></thead><tbody>{investigation.evidence.map((row, index) => <tr key={index}><td>{row.source}</td><td>{row.period}</td><td>{row.metric}</td><td>{row.mean}{row.unit}</td><td>{row.numericRows}</td></tr>)}</tbody></table></div>}
           <small>{investigation.limitations}</small><button type="button" className={styles.button} disabled={!investigation.context} onClick={askWithEvidence}>✦ Explain in AI chat</button></div>}
@@ -174,10 +173,10 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
           <small>{driverResult.limitations}{driverResult.truncated ? " SOURCE CAP REACHED." : ""} Driver names are never passed to the AI model as evidence.</small></div>}
       </>}
       {task === "knowledge" && <><h3>Approved knowledge search</h3>
-        <p className={styles.hint}>Private Super Admin lessons. Search by meaning (English gte-small embeddings) alongside Romanian/English operational keyword matches. The built-in model does not reliably understand all Romanian phrasing.</p>
+        <p className={styles.hint}>Search approved private lessons by meaning and keywords. Semantic matching uses an English embedding model; only approved notes are indexed.</p>
         <form className={styles.row} onSubmit={event => {event.preventDefault();searchByMeaning();}}>
           <input className={styles.fullInput} value={knowledgeQuery} onChange={event => setKnowledgeQuery(event.target.value)}
-            placeholder="Caută staging, concesii, NOA, DCR…" maxLength={160} aria-label="Approved learning note query"/>
+            placeholder="Search staging, concessions, NOA, DCR…" maxLength={160} aria-label="Approved learning note query"/>
           <button type="submit" className={styles.button} disabled={semanticBusy || !lessons.length || knowledgeQuery.trim().length < 3}>
             {semanticBusy ? "Searching…" : "✦ Search by meaning"}</button>
         </form>
@@ -210,8 +209,7 @@ export default function AiV2Workspace({ analysis = null, scope = null, lessons =
         <p className={styles.hint}>Automatic scanning currently operates while AI Lab is open. An unattended scheduled job needs a separately authorised background identity and delivery channel.</p>
       </div>}</>}
       {task === "copilot" && <><h3>Operations Copilot · drafts only</h3><p className={styles.hint}>Uses the authorised summary to prepare a message. No message is sent to drivers or Amazon.</p>
-        <div className={styles.row}><label>Task<select value={draftMode} onChange={event => setDraftMode(event.target.value)}><option value="tips">Driver tip</option><option value="briefing">Management briefing</option><option value="checklist">Dispatch checklist</option></select></label>
-          <label>Language<select value={language} onChange={event => setLanguage(event.target.value)}><option value="en">English</option><option value="ro">Română</option></select></label></div>
+        <div className={styles.row}><label>Task<select value={draftMode} onChange={event => setDraftMode(event.target.value)}><option value="tips">Driver tip</option><option value="briefing">Management briefing</option><option value="checklist">Dispatch checklist</option></select></label></div>
         <textarea className={styles.draft} rows={7} value={draft} readOnly aria-label="Operations draft"/><button type="button" className={styles.button} disabled={!analysis} onClick={() => copyText(draft)}>Copy reviewed draft</button>
       </>}
       {task === "sandbox" && <><h3>Format Sandbox · non-executable proposal</h3><p className={styles.hint}>Creates a declarative format adapter from your approved source mappings, runs safe structural checks, and lets you export the proposal. It never runs generated JavaScript or writes a GitHub PR.</p>

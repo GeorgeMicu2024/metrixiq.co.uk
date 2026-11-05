@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { WAVE_FIELDS, detectWavePlan, normalizedWaveRows, signatureFor } from "../../lib/ai-lab/wave-plan.mjs";
 import styles from "./AiLabView.module.css";
 import AiLabChat from "./AiLabChat";
+import AiConnectedBriefing from "./AiConnectedBriefing";
 import AiCommandCenter from "./AiCommandCenter";
 import AiBrainPanel from "./AiBrainPanel";
 import AiV2Workspace from "./AiV2Workspace";
@@ -65,6 +66,8 @@ function columnName(index) {
 
 export default function AiLabView() {
 
+  const [view, setView] = useState("assistant");
+  const [performanceView, setPerformanceView] = useState("weekly");
   const [templates, setTemplates] = useState([]);
   const [cloudUserId, setCloudUserId] = useState("");
   const [cloudState, setCloudState] = useState("Connecting private memory…");
@@ -73,6 +76,7 @@ export default function AiLabView() {
   const [qualityProfile, setQualityProfile] = useState("standard");
   const [suggestedPrompt, setSuggestedPrompt] = useState(null);
   const [commandContext, setCommandContext] = useState("");
+  const [connectedContext, setConnectedContext] = useState("");
   const [brainContext, setBrainContext] = useState("");
   const [brainSnapshot, setBrainSnapshot] = useState(null);
   const [brainScope, setBrainScope] = useState(null);
@@ -138,7 +142,7 @@ export default function AiLabView() {
     }
   }
 
-  const detected = useMemo(() => doc ? detectWavePlan(doc.matrix, templates) : null, [doc, templates]);
+  const detected = useMemo(() => doc ? detectWavePlan(doc.matrix, templates, activeSource) : null, [doc, templates, activeSource]);
   const rows = useMemo(() => doc ? normalizedWaveRows(doc.matrix, mapping, headerRow) : [], [doc, mapping, headerRow]);
   const routeRows = useMemo(() => documents.route
     ? normalizedWaveRows(documents.route.matrix, documents.route.mapping, documents.route.headerRow) : [], [documents.route]);
@@ -204,7 +208,7 @@ export default function AiLabView() {
       const { readAiLabFile } = await import("../../lib/ai-lab/read-file.mjs");
       const result = await readAiLabFile(file, setProgress);
       if (!result.matrix.length) throw new Error("No readable rows found. Try a clearer image or a spreadsheet.");
-      const proposed = detectWavePlan(result.matrix, templates);
+      const proposed = detectWavePlan(result.matrix, templates, source);
       const classification = classifyAmazonReport(result.matrix, file.name);
       setDocuments(current => ({
         ...current,
@@ -214,7 +218,9 @@ export default function AiLabView() {
       setActiveSource(source);
       setQualityProfile("standard"); // Require explicit station rules for each newly uploaded pair.
       setNotice(proposed.matchedTemplate
-        ? "Recognised an approved " + source + " format: " + proposed.matchedTemplate + ". Check the columns before using the preview."
+        ? (proposed.templateMatch === "exact"
+          ? "Recognised approved format: " + proposed.matchedTemplate + ". Verify the report content."
+          : "Suggested mapping from " + proposed.matchedTemplate + ". The layout has changed; verify every column before approval or export.")
         : "New " + source + " format detected. Review the proposed columns; approve them to remember this layout.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The file could not be read.");
@@ -234,13 +240,15 @@ export default function AiLabView() {
       const { readAiLabFile } = await import("../../lib/ai-lab/read-file.mjs");
       const result = await readAiLabFile(original.sourceFile, setProgress, { sheetName });
       if (!result.matrix.length) throw new Error("The selected sheet has no readable rows.");
-      const proposed = detectWavePlan(result.matrix, templates);
+      const proposed = detectWavePlan(result.matrix, templates, source);
       const classification = classifyAmazonReport(result.matrix, original.name);
       setDocuments(current => ({ ...current, [source]: { ...current[source], ...result,
         classification, headerRow: proposed.headerRow, mapping: proposed.columns } }));
       setActiveSource(source);
       setQualityProfile("standard");
-      setNotice("Selected sheet changed. Review the suggested mappings before approving or exporting.");
+      setNotice(proposed.matchedTemplate && proposed.templateMatch !== "exact"
+        ? "An approved layout helped recognise this changed sheet. Verify the suggested columns before use."
+        : "Selected sheet changed. Review the suggested mappings before approving or exporting.");
     } catch (cause) {
       setError(cause.message || "Could not read the selected sheet.");
     } finally { setBusy(false); }
@@ -298,14 +306,15 @@ export default function AiLabView() {
       setError("The selected header row is empty.");
       return;
     }
-    const existing = templates.find(item => item.signature === signature);
+    const existing = templates.find(item => item.signature === signature && (!item.sourceType || item.sourceType === activeSource));
     const next = [{
       id: existing?.id || String(Date.now()),
-      name: doc.name.replace(/\.[^.]+$/, ""),
+      name: (activeSource === "route" ? "Route Plan" : "Wave Plan") + " · " + todayLabel(Date.now()),
       signature,
       columns: { ...mapping },
+      sourceType: activeSource,
       approvedAt: new Date().toISOString(),
-    }, ...templates.filter(item => item.signature !== signature)].slice(0, 50);
+    }, ...templates.filter(item => item.id !== existing?.id && (item.signature !== signature || item.sourceType !== activeSource))].slice(0, 50);
     setTemplates(next);
     const synced = await persistFormats(next);
     setError("");
@@ -339,19 +348,29 @@ export default function AiLabView() {
 
   function askQualityAi(plan = false) {
     setSuggestedPrompt({ id: String(Date.now()) + Math.random().toString(36), text: plan
-      ? "Pe baza verificării AI Quality Check, creează un plan de acțiune prioritar pentru dispecerat. Separă erorile confirmate de verificările manuale necesare; nu inventa date și nu modifica rute."
-      : "Explică verificarea AI Quality Check pentru Route Plan și Wave Plan. Care sunt cele mai grave riscuri, ce date lipsesc și ce să verific concret înainte de dispatch? Răspunde în română." });
-    chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      ? "Create a prioritised dispatch action plan based on the AI Quality Check. Separate confirmed issues from manual checks. Do not invent data or change routes."
+      : "Explain the Route Plan and Wave Plan quality check. What are the biggest risks, missing fields and concrete checks before dispatch? Reply in English." });
+    showAssistant();
+  }
+
+  function showAssistant() {
+    setView("assistant");
+    window.setTimeout(() => chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
   function askCommandAi(text) {
     setSuggestedPrompt({ id: String(Date.now()) + Math.random().toString(36), text, source: "command" });
-    chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    showAssistant();
+  }
+
+  function askConnectedAi(text) {
+    setSuggestedPrompt({ id: String(Date.now()) + Math.random().toString(36), text, source: "connected" });
+    showAssistant();
   }
 
   function askBrainAi(text) {
     setSuggestedPrompt({ id: String(Date.now()) + Math.random().toString(36), text, source: "brain" });
-    chatAnchor.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    showAssistant();
   }
 
   function exportMemory() {
@@ -362,19 +381,42 @@ export default function AiLabView() {
   return <div className={styles.shell}>
     <header className={styles.hero}>
       <div>
-        <span className={styles.kicker}>METRIXIQ INTELLIGENCE · EXPERIMENTAL</span>
+        <span className={styles.kicker}>METRIXIQ · PRIVATE INTELLIGENCE</span>
         <h1>AI Lab <span aria-hidden="true">✦</span></h1>
-        <p>Upload Route Plan and Wave Plan together, check route matches, and teach MetrixIQ their approved formats without changing Daily Dispatch.</p>
+        <p>Ask questions, explore performance and teach the assistant from formats you approve.</p>
       </div>
-      <div className={styles.pills}><span className={styles.pill}>SUPER ADMIN ONLY</span><span className={styles.pill + " " + styles.warn}>ISOLATED TEST MODE</span></div>
+      <div className={styles.pills}><span className={styles.pill}>SUPER ADMIN</span><span className={styles.pill + " " + styles.warn}>READ-ONLY LAB</span></div>
     </header>
+    <nav className={styles.mainNav} aria-label="AI Lab sections">
+      {[
+        ["assistant", "✦", "Assistant", "Ask MetrixIQ"],
+        ["performance", "◫", "Performance", "Weekly & history"],
+        ["files", "⇧", "Wave Plans", "Upload & learn"],
+        ["advanced", "⚙", "Advanced", "Specialist tools"],
+      ].map(([id, symbol, label, caption]) => <button type="button" key={id}
+        className={styles.navButton + (view === id ? " " + styles.navActive : "")}
+        aria-current={view === id ? "page" : undefined} onClick={() => setView(id)}>
+        <span className={styles.navSymbol} aria-hidden="true">{symbol}</span>
+        <span><strong>{label}</strong><small>{caption}</small></span>
+      </button>)}
+    </nav>
     <div className={styles.layout}>
-      <div className={styles.full} ref={chatAnchor}><AiLabChat reportContext={safeReportContext} commandContext={commandContext} brainContext={brainContext} suggestedPrompt={suggestedPrompt}/></div>
-      <div className={styles.full}><AiCommandCenter onContextChange={setCommandContext} onAskAI={askCommandAi}/></div>
-      <div className={styles.full}><AiBrainPanel onContextChange={setBrainContext} onAskAI={askBrainAi} onAnalysisChange={setBrainSnapshot} onLessonsChange={setBrainLessons} onScopeChange={setBrainScope}/></div>
-      <div className={styles.full}><AiV2Workspace analysis={brainSnapshot} scope={brainScope} lessons={brainLessons} documents={documents} approvedFormats={templates} onContextChange={setBrainContext} onAskAI={askBrainAi}/></div>
+      <div className={styles.workspace} hidden={view !== "assistant"} ref={chatAnchor}>
+        <AiConnectedBriefing onContextChange={setConnectedContext} onAskAI={askConnectedAi}/>
+        <AiLabChat reportContext={safeReportContext} connectedContext={connectedContext} commandContext={commandContext} brainContext={brainContext} suggestedPrompt={suggestedPrompt}/>
+      </div>
+      <div className={styles.workspace} hidden={view !== "performance"}>
+        <div className={styles.subNav} role="group" aria-label="Performance analysis">
+          <button type="button" className={performanceView === "weekly" ? styles.subActive : ""} aria-pressed={performanceView === "weekly"} onClick={() => setPerformanceView("weekly")}>Weekly insights</button>
+          <button type="button" className={performanceView === "history" ? styles.subActive : ""} aria-pressed={performanceView === "history"} onClick={() => setPerformanceView("history")}>History & learning</button>
+        </div>
+        <div hidden={performanceView !== "weekly"}><AiCommandCenter onContextChange={setCommandContext} onAskAI={askCommandAi}/></div>
+        <div hidden={performanceView !== "history"}><AiBrainPanel onContextChange={setBrainContext} onAskAI={askBrainAi} onAnalysisChange={setBrainSnapshot} onLessonsChange={setBrainLessons} onScopeChange={setBrainScope}/></div>
+      </div>
+      <div className={styles.workspace} hidden={view !== "advanced"}><AiV2Workspace analysis={brainSnapshot} scope={brainScope} lessons={brainLessons} documents={documents} approvedFormats={templates} onContextChange={setBrainContext} onAskAI={askBrainAi}/></div>
+      <div className={styles.filesWorkspace} hidden={view !== "files"}>
       <section className={styles.card}>
-        <div className={styles.cardHead}><div><h2>1. Upload both plans</h2><p>Route Plan + Wave Plan · Excel, CSV, PDF or image</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
+        <div className={styles.cardHead}><div><h2>Upload your plans</h2><p>Excel, CSV, PDF or image · safe browser-only analysis</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
         <div className={styles.cardBody}>
           <div className={styles.uploadPair}>
             {[
@@ -426,9 +468,12 @@ export default function AiLabView() {
             <div className={styles.smallStats}>
               <div className={styles.stat}><strong>{doc.matrix.length}</strong><span>Rows in selected file</span></div>
               <div className={styles.stat}><strong>{mappedCount}/8</strong><span>Mapped fields</span></div>
-              <div className={styles.stat}><strong>{detected?.confidence || 0}%</strong><span>Format confidence</span></div>
+              <div className={styles.stat}><strong>{detected?.confidence || 0}%</strong><span>Recognition estimate</span></div>
             </div>
             <p className={styles.muted}>Reviewing: <strong>{doc.name}</strong> · {doc.mode}{doc.truncated ? " · Preview limited to first pages/rows" : ""}</p>
+            {detected?.templateMatch && detected.templateMatch !== "exact" && <p className={styles.note + " " + styles.warning}>
+              Learning suggestion: similar to <strong>{detected.matchedTemplate}</strong> ({detected.templateMatch}). Review every proposed mapping; similarity is not proof the data is correct.
+            </p>}
             {(doc.mode.includes("OCR") || (detected?.confidence || 0) < 70) && <p className={styles.note + " " + styles.warning}>Recognition may be incomplete. Check column mappings, routes and times against the source.</p>}
           </>}
           {joined && <>
@@ -444,21 +489,8 @@ export default function AiLabView() {
           </>}
         </div>
       </section>
-      <section className={styles.card}>
-        <div className={styles.cardHead}><div><h2>Smart Import learning</h2><p>Recognises likely report types and reusable approved layouts</p></div><span aria-hidden="true">🧠</span></div>
-        <div className={styles.cardBody}>
-          <ol className={styles.tipList}>
-            <li>Read the report locally, including OCR for images and scanned PDF pages.</li>
-            <li>Suggest columns such as Route, TRID, Wave, Staging and Loading.</li>
-            <li>You verify the mapping; only an approved format is remembered.</li>
-            <li>Upload both plans; combine only uniquely matching Route IDs or TRIDs and flag mismatches.</li>
-            <li>Similar future files use saved mappings automatically across your signed-in devices.</li>
-          </ol>
-          <p className={styles.note} style={{ marginTop: 16 }}>No automatic edits to Daily Dispatch, drivers, scorecards, site records or production code. Only approved column layouts sync to private memory.</p>
-        </div>
-      </section>
       {doc && <section className={styles.card + " " + styles.full}>
-        <div className={styles.cardHead}><div><h2>2. Verify {activeSource === "route" ? "Route Plan" : "Wave Plan"} columns</h2><p>Select the header row and correct mappings for each uploaded file separately.</p></div><span className={styles.pill}>REVIEW REQUIRED</span></div>
+        <div className={styles.cardHead}><div><h2>Review {activeSource === "route" ? "Route Plan" : "Wave Plan"} columns</h2><p>Correct the suggestions, then approve the layout to help MetrixIQ recognise similar files.</p></div><span className={styles.pill}>REVIEW REQUIRED</span></div>
         <div className={styles.cardBody}>
           <label className={styles.label} style={{ maxWidth: 340 }}>Header row
             <select className={styles.select} value={headerRow} onChange={event => updateHeaderRow(event.target.value)}>
@@ -483,7 +515,7 @@ export default function AiLabView() {
         </div>
       </section>}
       {doc && <section className={styles.card + " " + styles.full}>
-        <div className={styles.cardHead}><div><h2>3. {joined ? "Combined Route + Wave Plan preview" : "Single-file preview"}</h2><p>Read-only output · {previewRows.length} candidate rows · showing first 25</p></div><span className={styles.pill + " " + styles.warn}>NOT SENT TO DAILY DISPATCH</span></div>
+        <div className={styles.cardHead}><div><h2>{joined ? "Combined Route + Wave Plan preview" : "File preview"}</h2><p>Read-only output · {previewRows.length} candidate rows · showing first 25</p></div><span className={styles.pill + " " + styles.warn}>NOT SENT TO DAILY DISPATCH</span></div>
         <div className={styles.cardBody}>
           <div className={styles.tableWrap}>
             <table className={styles.table}>
@@ -498,7 +530,7 @@ export default function AiLabView() {
       </section>}
       {quality && <section className={styles.card + " " + styles.full} aria-label="AI Lab quality check">
         <div className={styles.cardHead}>
-          <div><h2>4. AI Quality Check</h2><p>Local, read-only checks · optional AI explanations · not an official dispatch score</p></div>
+          <div><h2>Quality check</h2><p>Local, read-only checks · optional AI explanations · not an official dispatch score</p></div>
           <span className={styles.pill + (quality.counts.high ? " " + styles.warn : "")}>{quality.risk}</span>
         </div>
         <div className={styles.cardBody}>
@@ -545,6 +577,7 @@ export default function AiLabView() {
         </div>
         <footer className={styles.footnote}>Privacy: approved column layouts are saved privately for this Super Admin account. Uploaded reports, parcel IDs, driver details and site data are not stored in memory.</footer>
       </section>
+      </div>
     </div>
   </div>;
 }
