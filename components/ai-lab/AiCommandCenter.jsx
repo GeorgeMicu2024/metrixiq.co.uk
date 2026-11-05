@@ -165,14 +165,14 @@ export default function AiCommandCenter({ onContextChange = () => {}, onAskAI = 
             </div>)}</div>
             <div><h4>Recommended next checks</h4><ol className={styles.actions}>{briefing.nextActions.map(item => <li key={item}>{item}</li>)}</ol></div>
           </div>
-          <button type="button" className={styles.button} onClick={() => ask(`Pregătește un briefing operațional pentru ${briefing.site} ${briefing.period}, cu 3 priorități, datele care lipsesc și pași practici. Nu prezenta mediile descriptive ca scoruri oficiale.`)}>✦ Explain briefing with AI</button>
+          <button type="button" className={styles.button} onClick={() => ask(`Prepare an operational briefing for ${briefing.site} ${briefing.period}, with three priorities, missing evidence and practical actions. Do not present descriptive means as official scores.`)}>✦ Explain briefing with AI</button>
         </>}
         {tab === "detective" && <>
           <div className={styles.contentHead}><h3>Performance Detective</h3><p>{detective.caveat}</p></div>
           {detective.signals.map(signal => <div className={styles.signal} key={signal.code}>
             <strong>{signal.title}</strong><p>{signal.evidence}</p><p><b>What to check:</b> {signal.investigate}</p><small>{signal.caveat}</small>
           </div>)}
-          <button type="button" className={styles.button} onClick={() => ask(`Analizează ipotezele Performance Detective pentru ${detective.site} ${detective.period}. Ce dovezi suplimentare sunt necesare? Separă corelația de cauzalitate și prioritizează verificările.`)}>✦ Investigate with AI</button>
+          <button type="button" className={styles.button} onClick={() => ask(`Review the Performance Detective hypotheses for ${detective.site} ${detective.period}. What additional evidence is needed? Distinguish correlation from causation and prioritise the checks.`)}>✦ Investigate with AI</button>
         </>}
         {tab === "trends" && <>
           <div className={styles.contentHead}><h3>Trend Analysis</h3><p>Comparison uses unweighted record means, not official station score changes.</p></div>
@@ -182,16 +182,16 @@ export default function AiCommandCenter({ onContextChange = () => {}, onAskAI = 
                 <td>{item.label}</td><td>{item.previous ?? "—"}</td><td>{item.current ?? "—"}</td><td>{deltaLabel(item)}</td><td>{item.previousRecords} / {item.currentRecords}</td>
               </tr>)}</tbody></table></div>
             <div className={styles.warningBox}>{trend.warnings.map(item => <p key={item}>⚠ {item}</p>)}</div>
-            <button type="button" className={styles.button} onClick={() => ask(`Compară ${trend.site} ${trend.previousPeriod} cu ${trend.currentPeriod}. Explică schimbările DCR, POD, IADC, CDF și concesii, diferențele de acoperire și 3 acțiuni prioritare; nu inventa scoruri oficiale.`)}>✦ Explain trends with AI</button>
+            <button type="button" className={styles.button} onClick={() => ask(`Compare ${trend.site} ${trend.previousPeriod} with ${trend.currentPeriod}. Explain changes in DCR, POD, IADC, CDF and concessions, differences in data coverage, and three priority actions. Do not invent official scores.`)}>✦ Explain trends with AI</button>
           </>}
         </>}
         {tab === "copilot" && <>
-          <div className={styles.contentHead}><h3>Operations Copilot</h3><p>Choose a task to prepare a contextual Romanian question in the existing private AI chat.</p></div>
+          <div className={styles.contentHead}><h3>Operations Copilot</h3><p>Choose a task to prepare an English question in your private AI chat.</p></div>
           <div className={styles.copilotGrid}>
-            <button type="button" onClick={() => ask(`Sunt responsabil de ${briefing.site}. Pentru ${briefing.period}, care sunt cele mai importante trei probleme confirmate, ce nu putem determina și care este planul de acțiune de astăzi?`)}>✦ Top 3 priorities</button>
-            <button type="button" onClick={() => ask(`Analizează DCR, POD, IADC, CDF și concesiile la ${briefing.site} ${briefing.period}. Ce relații posibile există și ce dovezi ar trebui verificate?`)}>✦ Connect the metrics</button>
-            <button type="button" onClick={() => ask(`Scrie un mesaj scurt în engleză pentru șoferi, cu un singur sfat de îmbunătățire bazat exclusiv pe problemele confirmate în ${briefing.site} ${briefing.period}.`)}>✦ Driver coaching message</button>
-            <button type="button" onClick={() => ask(`Creează un plan de verificare pentru dispecerat la ${briefing.site} ${briefing.period}, cu pași, dovezi necesare și priorități. Nu modifica date sau rute.`)}>✦ Dispatch checklist</button>
+            <button type="button" onClick={() => ask(`I manage ${briefing.site}. For ${briefing.period}, what are the three most important confirmed issues, what is still unknown, and what should today's action plan be?`)}>✦ Top 3 priorities</button>
+            <button type="button" onClick={() => ask(`Review DCR, POD, IADC, CDF and concessions for ${briefing.site} ${briefing.period}. What relationships are possible, and what evidence must be checked?`)}>✦ Connect the metrics</button>
+            <button type="button" onClick={() => ask(`Write a short English driver message with one improvement tip based only on confirmed issues for ${briefing.site} ${briefing.period}.`)}>✦ Driver coaching message</button>
+            <button type="button" onClick={() => ask(`Create a prioritised dispatch checklist for ${briefing.site} ${briefing.period} with practical steps and required evidence. Do not change data or routes.`)}>✦ Dispatch checklist</button>
           </div>
         </>}
       </div>

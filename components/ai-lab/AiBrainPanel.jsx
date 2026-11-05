@@ -181,7 +181,7 @@ export default function AiBrainPanel({ onContextChange = () => {}, onAskAI = () 
     }
     const context = result.context + (extra ? "\n" + extra : "");
     onContextChange(context.slice(0, 5800));
-    onAskAI(`Analizează datele istorice pentru ${result.site} (${result.periods.join(", ")}). Identifică riscurile susținute de date, lacunele și 3 măsuri practice. Explică în română, fără să inventezi rezultate și fără să atribui vină șoferilor.`);
+    onAskAI(`Analyse the historical data for ${result.site} (${result.periods.join(", ")}). Identify evidence-backed risks, gaps and three practical improvements. Reply in English without inventing results or assigning blame to drivers.`);
   }
 
   return <section className={styles.panel} aria-label="MetrixIQ AI Brain">

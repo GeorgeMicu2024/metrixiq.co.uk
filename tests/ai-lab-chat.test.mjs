@@ -32,5 +32,6 @@ test("Report context has bounded length and strips control bytes", () => {
 test("System instructions forbid autonomous production changes", () => {
   assert.match(METRIXIQ_SYSTEM_PROMPT, /NO direct access/);
   assert.match(METRIXIQ_SYSTEM_PROMPT, /read-only/);
-  assert.match(METRIXIQ_SYSTEM_PROMPT, /Romanian or English/);
+  assert.match(METRIXIQ_SYSTEM_PROMPT, /Always reply in clear British English/);
+  assert.match(METRIXIQ_SYSTEM_PROMPT, /when the user writes in another language/);
 });
