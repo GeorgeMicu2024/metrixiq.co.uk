@@ -46,8 +46,12 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
    .catch(()=>{if(active)setSiteScorecards([]);});
   return ()=>{active=false};
  },[organizationId]);
+ const visibleSiteScorecards=useMemo(()=>{
+  const activeSites=new Set(sites.map(site=>String(site||"").trim().toUpperCase()));
+  return siteScorecards.filter(card=>activeSites.has(String(card?.site||"").trim().toUpperCase()));
+ },[siteScorecards,sites]);
  const latestSitePerformance=useMemo(()=>{
-  const scoped=siteFilter==="all"?siteScorecards:siteScorecards.filter(card=>String(card?.site||"").trim().toUpperCase()===String(siteFilter).trim().toUpperCase());
+  const scoped=siteFilter==="all"?visibleSiteScorecards:visibleSiteScorecards.filter(card=>String(card?.site||"").trim().toUpperCase()===String(siteFilter).trim().toUpperCase());
   const dated=scoped.filter(card=>Number.isFinite(Number(card?.year))&&Number.isFinite(Number(card?.week)));
   if(!dated.length)return {label:"Last week with data",rows:[]};
   const latest=dated.reduce((best,card)=>{
@@ -57,7 +61,7 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
   const rows=dated.filter(card=>Number(card.year)===latest.year&&Number(card.week)===latest.week)
    .sort((a,b)=>String(a.site||"").localeCompare(String(b.site||"")));
   return {label:`Last week with data – Week ${latest.week}, ${latest.year}`,rows};
- },[siteScorecards,siteFilter]);
+ },[visibleSiteScorecards,siteFilter]);
  const siteTier=(standing)=>{
   const value=String(standing||"").trim().toLowerCase();
   if(value.includes("fantastic plus"))return {label:"Fantastic Plus",cls:"fantastic"};
@@ -119,7 +123,7 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
  const sitePalette=["blue","green","orange","purple","pink","cyan"];
  const siteColor=(site)=>sitePalette[Math.abs(String(site||"").split("").reduce((n,ch)=>n+ch.charCodeAt(0),0))%sitePalette.length];
  const scorecardTrend=useMemo(()=>{
-  const scoped=siteFilter==="all"?siteScorecards:siteScorecards.filter(card=>normalizeSite(card?.site)===normalizeSite(siteFilter));
+  const scoped=siteFilter==="all"?visibleSiteScorecards:visibleSiteScorecards.filter(card=>normalizeSite(card?.site)===normalizeSite(siteFilter));
   const grouped={};
   for(const card of scoped){
    const score=safe(card?.overall_score);
@@ -132,7 +136,7 @@ export default function HomeView({organizationId,session,drivers=[],kpis={},hist
    const current=sorted.at(-1),previous=sorted.at(-2);
    return {site,points:sorted,current,delta:current&&previous?current.score-previous.score:null,tier:siteTier(current?.standing),color:siteColor(site)};
   }).sort((a,b)=>a.site.localeCompare(b.site));
- },[siteScorecards,siteFilter]);
+ },[visibleSiteScorecards,siteFilter]);
  const mentorTrend=history.slice(-7).map((period)=>({label:period.weekLabel||period.key||"",value:safe(period.mentor)})).filter(x=>x.value!=null);
  const mentorTrendMin=mentorTrend.length?Math.min(...mentorTrend.map(x=>x.value)):null;
  const mentorTrendMax=mentorTrend.length?Math.max(...mentorTrend.map(x=>x.value)):null;
