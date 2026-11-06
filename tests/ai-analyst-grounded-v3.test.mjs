@@ -129,7 +129,12 @@ test("Analyst redesign keeps readable typography and is isolated from Report Bui
   assert.ok(css.includes(".analystx-workspace"));
   assert.ok(css.includes("font-size:15px"));
   assert.ok(!css.includes(".reportv5-"));
-  assert.ok(component.includes("WEEKLY DIAGNOSTIC"));
+  assert.ok(component.includes("READY FOR YOUR QUESTION"));
+  assert.ok(component.includes("QUESTION ANALYSED ✓"));
+  assert.ok(component.includes("YOU ASKED"));
+  assert.ok(component.includes("setAnalysing(true)"));
+  assert.ok(component.includes("setAnalysisError("));
+  assert.ok(!component.includes("initialAnswer"), "do not show an identical answer before the first click");
   assert.ok(component.includes("OFFICIAL SITE SCORE"));
   assert.ok(component.includes("What this does not prove"));
   assert.ok(component.includes("AI_ANALYSIS_FOCUS[result?.intent]"));
