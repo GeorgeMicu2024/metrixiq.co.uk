@@ -46,6 +46,15 @@ export async function GET(request) {
       .select("site").eq("organization_id", organization).eq("site", site).eq("active", true).maybeSingle();
     if (siteError || !profile) return errorResponse("Site access denied.", 403);
 
+    if (params.get("list") === "daily") {
+      const { data, error } = await client.from("ai_lab_daily_briefings")
+        .select("briefing_date,scorecard_year,scorecard_week,generated_at,official_score,official_tier,priorities")
+        .eq("organization_id", organization).eq("site", site)
+        .order("briefing_date", { ascending: false }).limit(1).maybeSingle();
+      if (error) return errorResponse("Scheduled briefing cache unavailable.", 503);
+      return Response.json({ daily: data || null }, { headers: HEADERS });
+    }
+
     if (params.get("list") === "weeks") {
       const { data, error } = await client.from("site_scorecards")
         .select("year,week,week_label").eq("organization_id", organization).eq("site", site)

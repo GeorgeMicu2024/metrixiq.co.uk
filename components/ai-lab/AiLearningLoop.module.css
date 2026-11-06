@@ -11,4 +11,5 @@
 .feedback label{display:grid;gap:3px;flex:1;font-size:10px;color:#5c7588;min-width:130px}.feedback select{width:100%;border:1px solid #cedee6;border-radius:6px;background:#fff;color:#28475a;padding:6px;font-size:10px}
 .item .helpful{background:#def6ed;color:#137960;border-color:#c9e9db}
 .footnote{color:#8295a3;font-size:10px;line-height:1.5;padding:2px 15px 12px;margin:0}.error{color:#a23636;font-size:11px;padding:0 15px}
+.import{margin:5px 13px 11px;border:1px solid #cce8df;border-radius:8px;padding:9px 11px;background:#eaf8f3;color:#117665;font-size:11px;font-weight:800;cursor:pointer}
 @media(max-width:700px){.list{grid-template-columns:minmax(0,1fr)}}

@@ -14,6 +14,7 @@ import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { AI_LAB_STATE_TABLE, normalizeApprovedFormats } from "../../lib/ai-lab/user-state.mjs";
 import { mergeRouteAndWavePlans } from "../../lib/ai-lab/merge-plans.mjs";
 import { evaluateWavePlanQuality, QUALITY_PROFILES } from "../../lib/ai-lab/quality-check.mjs";
+import { captureWaveLearning } from "../../lib/ai-lab/wave-learning.mjs";
 
 const MEMORY_KEY = "metrixiq.aiLab.approvedWaveFormats.v1";
 const ACCEPTED = ".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.webp,.bmp";
@@ -68,7 +69,7 @@ function columnName(index) {
 export default function AiLabView() {
 
   const [view, setView] = useState("assistant");
-  const [performanceView, setPerformanceView] = useState("weekly");
+  const [performanceView, setPerformanceView] = useState("overview");
   const [templates, setTemplates] = useState([]);
   const [cloudUserId, setCloudUserId] = useState("");
   const [cloudState, setCloudState] = useState("Connecting private memory…");
@@ -216,7 +217,8 @@ export default function AiLabView() {
       setDocuments(current => ({
         ...current,
         [source]: { name: file.name, size: file.size, sourceFile: file, ...result,
-          classification, headerRow: proposed.headerRow, mapping: proposed.columns },
+          classification, headerRow: proposed.headerRow, mapping: proposed.columns,
+          suggestedMapping: { ...proposed.columns } },
       }));
       setActiveSource(source);
       setQualityProfile("standard"); // Require explicit station rules for each newly uploaded pair.
@@ -246,7 +248,8 @@ export default function AiLabView() {
       const proposed = detectWavePlan(result.matrix, templates, source);
       const classification = classifyAmazonReport(result.matrix, original.name);
       setDocuments(current => ({ ...current, [source]: { ...current[source], ...result,
-        classification, headerRow: proposed.headerRow, mapping: proposed.columns } }));
+        classification, headerRow: proposed.headerRow, mapping: proposed.columns,
+        suggestedMapping: { ...proposed.columns } } }));
       setActiveSource(source);
       setQualityProfile("standard");
       setNotice(proposed.matchedTemplate && proposed.templateMatch !== "exact"
@@ -315,13 +318,16 @@ export default function AiLabView() {
       name: (activeSource === "route" ? "Route Plan" : "Wave Plan") + " · " + todayLabel(Date.now()),
       signature,
       columns: { ...mapping },
+      learning: captureWaveLearning(doc.suggestedMapping, mapping),
       sourceType: activeSource,
       approvedAt: new Date().toISOString(),
     }, ...templates.filter(item => item.id !== existing?.id && (item.signature !== signature || item.sourceType !== activeSource))].slice(0, 50);
     setTemplates(next);
     const synced = await persistFormats(next);
     setError("");
-    setNotice(synced ? "Format approved and synced across your devices." : "Format approved locally. Cloud sync unavailable; export a backup.");
+    const corrected = captureWaveLearning(doc.suggestedMapping, mapping).correctedFields;
+    setNotice((synced ? "Format approved and synced across devices." : "Format approved locally; cloud sync unavailable.") +
+      ` IQ learned ${corrected} manually reviewed column ${corrected === 1 ? "correction" : "corrections"}.`);
   }
 
   async function removeFormat(id) {
@@ -385,18 +391,17 @@ export default function AiLabView() {
   return <div className={styles.shell}>
     <header className={styles.hero}>
       <div>
-        <span className={styles.kicker}>METRIXIQ · PRIVATE INTELLIGENCE</span>
+        <span className={styles.kicker}>METRIXIQ INTELLIGENCE</span>
         <h1>AI Lab <span aria-hidden="true">✦</span></h1>
-        <p>Ask questions, explore performance and teach the assistant from formats you approve.</p>
+        <p>One assistant for operations, insights and smarter report handling.</p>
       </div>
       <div className={styles.pills}><span className={styles.pill}>SUPER ADMIN</span><span className={styles.pill + " " + styles.warn}>READ-ONLY LAB</span></div>
     </header>
     <nav className={styles.mainNav} aria-label="AI Lab sections">
       {[
-        ["assistant", "✦", "Assistant", "Ask MetrixIQ"],
-        ["performance", "◫", "Performance", "Weekly & history"],
+        ["assistant", "✦", "Ask IQ", "Your AI partner"],
+        ["intelligence", "◫", "Intelligence", "Briefing & insights"],
         ["files", "⇧", "Wave Plans", "Upload & learn"],
-        ["advanced", "⚙", "Advanced", "Specialist tools"],
       ].map(([id, symbol, label, caption]) => <button type="button" key={id}
         className={styles.navButton + (view === id ? " " + styles.navActive : "")}
         aria-current={view === id ? "page" : undefined} onClick={() => setView(id)}>
@@ -406,21 +411,26 @@ export default function AiLabView() {
     </nav>
     <div className={styles.layout}>
       <div className={styles.workspace} hidden={view !== "assistant"} ref={chatAnchor}>
-        <Ai360Panel onContextChange={setIq360Context} onAskAI={askConnectedAi}/>
-        <div className={styles.subNav}><button type="button" aria-expanded={showLegacyBriefing}
-          onClick={() => setShowLegacyBriefing(current => !current)}>{showLegacyBriefing ? "− Hide" : "+ Open"} detailed weekly metric briefing</button></div>
-        {showLegacyBriefing && <AiConnectedBriefing onContextChange={setConnectedContext} onAskAI={askConnectedAi}/>}
+        <div className={styles.assistantIntro}><span>Ask IQ anything about your DSP operations. Attach report evidence when you want an analysis.</span>
+          <button type="button" onClick={() => setView("intelligence")}>Open daily briefing ↗</button></div>
         <AiLabChat reportContext={safeReportContext} connectedContext={showLegacyBriefing ? connectedContext : iq360Context} commandContext={commandContext} brainContext={brainContext} suggestedPrompt={suggestedPrompt}/>
       </div>
-      <div className={styles.workspace} hidden={view !== "performance"}>
+      <div className={styles.workspace} hidden={view !== "intelligence"}>
         <div className={styles.subNav} role="group" aria-label="Performance analysis">
+          <button type="button" className={performanceView === "overview" ? styles.subActive : ""} aria-pressed={performanceView === "overview"} onClick={() => setPerformanceView("overview")}>Daily briefing</button>
           <button type="button" className={performanceView === "weekly" ? styles.subActive : ""} aria-pressed={performanceView === "weekly"} onClick={() => setPerformanceView("weekly")}>Weekly insights</button>
-          <button type="button" className={performanceView === "history" ? styles.subActive : ""} aria-pressed={performanceView === "history"} onClick={() => setPerformanceView("history")}>History & learning</button>
+          <button type="button" className={performanceView === "history" ? styles.subActive : ""} aria-pressed={performanceView === "history"} onClick={() => setPerformanceView("history")}>History</button>
+          <button type="button" className={performanceView === "tools" ? styles.subActive : ""} aria-pressed={performanceView === "tools"} onClick={() => setPerformanceView("tools")}>More tools</button>
+        </div>
+        <div hidden={performanceView !== "overview"}><Ai360Panel onContextChange={setIq360Context} onAskAI={askConnectedAi}/>
+          <div className={styles.optionalTool}><button type="button" aria-expanded={showLegacyBriefing}
+            onClick={() => setShowLegacyBriefing(current => !current)}>{showLegacyBriefing ? "Hide" : "Open"} detailed weekly metric analysis</button></div>
+          {showLegacyBriefing && <AiConnectedBriefing onContextChange={setConnectedContext} onAskAI={askConnectedAi}/>}
         </div>
         <div hidden={performanceView !== "weekly"}><AiCommandCenter onContextChange={setCommandContext} onAskAI={askCommandAi}/></div>
         <div hidden={performanceView !== "history"}><AiBrainPanel onContextChange={setBrainContext} onAskAI={askBrainAi} onAnalysisChange={setBrainSnapshot} onLessonsChange={setBrainLessons} onScopeChange={setBrainScope}/></div>
+        <div hidden={performanceView !== "tools"}><AiV2Workspace analysis={brainSnapshot} scope={brainScope} lessons={brainLessons} documents={documents} approvedFormats={templates} onContextChange={setBrainContext} onAskAI={askBrainAi}/></div>
       </div>
-      <div className={styles.workspace} hidden={view !== "advanced"}><AiV2Workspace analysis={brainSnapshot} scope={brainScope} lessons={brainLessons} documents={documents} approvedFormats={templates} onContextChange={setBrainContext} onAskAI={askBrainAi}/></div>
       <div className={styles.filesWorkspace} hidden={view !== "files"}>
       <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>Upload your plans</h2><p>Excel, CSV, PDF or image · safe browser-only analysis</p></div><span className={styles.pill}>LOCAL PROCESSING</span></div>
@@ -574,16 +584,18 @@ export default function AiLabView() {
           <p className={styles.muted}>AI buttons prepare a question in the chat. To share the private aggregate findings with the model, you must explicitly tick “Share selected report summary with AI”. No operational data is edited.</p>
         </div>
       </section>}
-      <section className={styles.card + " " + styles.full}>
+      <details className={styles.extras + " " + styles.full}><summary>Approved format memory <span>{templates.length} saved · {cloudState}</span></summary>
+      <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>Approved format memory</h2><p>{templates.length} approved templates · {cloudState}</p></div><button type="button" className={styles.button + " " + styles.secondary} disabled={!templates.length} onClick={exportMemory}>↓ Export memory</button></div>
         <div className={styles.cardBody}>
           {templates.length ? <div className={styles.learned}>{templates.map(template => <div className={styles.template} key={template.id}>
-            <div><strong>{template.name}</strong><small>Approved {todayLabel(template.approvedAt)} · {Object.keys(template.columns || {}).length} fields · layout signature only</small></div>
+            <div><strong>{template.name}</strong><small>Approved {todayLabel(template.approvedAt)} · {Object.keys(template.columns || {}).length} fields · {template.learning?.correctedFields || 0} reviewed corrections · no report rows</small></div>
             <button type="button" className={styles.button + " " + styles.danger} onClick={() => removeFormat(template.id)} aria-label={"Remove " + template.name}>Remove</button>
           </div>)}</div> : <p className={styles.muted}>No approved formats yet. Upload a Route Plan or Wave Plan and confirm its columns to teach this account its layout.</p>}
         </div>
         <footer className={styles.footnote}>Privacy: approved column layouts are saved privately for this Super Admin account. Uploaded reports, parcel IDs, driver details and site data are not stored in memory.</footer>
       </section>
+      </details>
       </div>
     </div>
   </div>;
