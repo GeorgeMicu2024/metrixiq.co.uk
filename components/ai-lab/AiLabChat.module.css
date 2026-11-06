@@ -62,3 +62,17 @@
 .reportTools input,.reportTools select{max-width:100%;box-sizing:border-box;padding:8px;border:1px solid #cfdee6;border-radius:8px;background:white;color:#17374f}
 .reportPreview{max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f7f9;padding:10px;border-radius:8px;font-size:11px}
 @media(max-width:600px){.input{font-size:16px}.title{align-items:flex-start}.message{box-sizing:border-box;max-width:100%}.check{min-width:0}.check input{flex-shrink:0}.reportTools input,.reportTools select{font-size:16px}}
+
+/* Compact, readable conversation on phones; desktop presentation is unchanged. */
+@media(max-width:600px){
+  .panel{border-radius:14px}
+  .head{padding:10px 12px;gap:6px;flex-wrap:nowrap}
+  .title{align-items:center;gap:9px;min-width:0}
+  .orb{width:30px;height:30px;border-radius:10px;font-size:19px}
+  .head h2{font-size:14px;line-height:1.25}
+  .head p,.tag{display:none}
+  .messages{gap:10px;min-height:190px;max-height:min(48dvh,410px);padding:12px}
+  .message{line-height:1.55;padding:10px 11px}
+  .composer{padding:11px 12px}
+  .privacy{padding:9px 12px;font-size:10px}
+}
