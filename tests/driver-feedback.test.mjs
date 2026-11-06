@@ -123,11 +123,30 @@ test("severity distinguishes operational failures from full-points opportunities
     lor: null, pod: null, cc: null, ce_dpmo: null, cdf_dpmo: null, psb: null }), "unknown");
 });
 
+test("PSB advice separates locker pickups and customer returns without assuming fault", () => {
+  const row = { ...base, fico: 780, dcr: 98.6, dsc_dpmo: 1300, pod: 98, cc: 90, psb: 33 };
+  const short = buildDriverFeedback(row, { detail: "short" }).message;
+  const detailed = buildDriverFeedback(row, { detail: "detailed" }).message;
+
+  assert.match(short, /PSB \(Pickup Success Behaviours\) 33/);
+  assert.match(short, /locker pickups: scan only parcels physically collected/i);
+  assert.match(short, /Customer returns: check the required yellow sticker/i);
+  assert.match(short, /eMentor is below the 815 minimum/);
+  assert.match(detailed, /if a door is jammed or empty, record the parcel ID/i);
+  assert.match(detailed, /A PSB flag can be an exception, not necessarily driver fault/);
+  assert.doesNotMatch(short, /you failed to collect|you caused/i);
+});
+
+test("PSB is not added to clean driver feedback", () => {
+  const message = buildDriverFeedback(base).message;
+  assert.doesNotMatch(message, /yellow sticker|locker pickups/i);
+});
+
 test("Driver Feedback retains its original messaging controls and loads recent weeks first", () => {
   const view = readFileSync(new URL("../components/feedback/DriverFeedbackView.jsx", import.meta.url), "utf8");
   const css = readFileSync(new URL("../app/driver-feedback.css", import.meta.url), "utf8");
   assert.match(view, /Copy message/);
-  assert.match(view, /Share \/ WhatsApp/);
+  assert.match(view, /Open WhatsApp App/);
   assert.match(view, /Export TXT/);
   assert.match(view, /Professional/);
   assert.match(view, /Detailed/);
