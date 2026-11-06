@@ -184,20 +184,6 @@ export default function DriverFeedbackView({
     return buildDriverFeedback(row, { site: period.site, weekLabel: period.weekLabel, tone, detail }).message;
   }
 
-  async function shareSelected() {
-    if (!selectedRow) return;
-    if (typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title: "Driver scorecard feedback", text: draft });
-        setNotice("Message sent to the share sheet. You choose the recipient.");
-        return;
-      } catch (error) {
-        if (error?.name === "AbortError") return;
-      }
-    }
-    await copyMessage(draft, driverName(selectedRow));
-  }
-
   function downloadMessages() {
     if (!filtered.length || !period) return;
     const contents = filtered.map((row) =>
@@ -324,9 +310,10 @@ export default function DriverFeedbackView({
                   </p>
                   <div className="feedback-actions">
                     <button type="button" className="feedback-copy-main" onClick={() => copyMessage(draft, driverName(selectedRow))}>⧉ Copy message</button>
-                    <button type="button" className="feedback-share-main" onClick={shareSelected}>↗ Share / WhatsApp</button>
+                    <a className="feedback-share-main" href={`https://wa.me/?text=${encodeURIComponent(draft)}`} target="_blank" rel="noopener noreferrer">↗ Open WhatsApp</a>
                     <button type="button" onClick={() => { setEditedFor(""); setEditedMessage(""); }}>Reset text</button>
                   </div>
+                  <p className="feedback-whatsapp-hint">Opens WhatsApp with this message ready. Choose the driver and press Send; nothing is sent automatically.</p>
                   {notice && <p className="feedback-notice" role="status">{notice}</p>}
                 </>
               ) : <p className="feedback-no-results">Choose a driver to prepare a message.</p>}
