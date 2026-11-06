@@ -61,6 +61,7 @@
 .feedback-actions .feedback-share-main{background:#128c58;border-color:#128c58;color:white}
 .feedback-actions button:hover,.feedback-actions a:hover{filter:brightness(.96)}
 .feedback-whatsapp-hint{font-size:10px;color:#8193a2;line-height:1.5;margin:10px 0 0}
+.feedback-whatsapp-hint a{color:#177f62;font-weight:800;text-underline-offset:2px}
 .feedback-notice{margin:14px 0 0;font-size:12px;font-weight:750;border-radius:9px;padding:11px 12px;background:#e3f4ef;color:#177461}
 .feedback-no-results{color:#7d8fa0;padding:22px;margin:0;font-size:13px;line-height:1.55}
 @media(max-width:1180px){.feedback-workspace{grid-template-columns:minmax(270px,.8fr) minmax(340px,1.2fr)}.feedback-driver-score{flex-basis:78px}.feedback-driver-rank{flex-basis:26px}}
