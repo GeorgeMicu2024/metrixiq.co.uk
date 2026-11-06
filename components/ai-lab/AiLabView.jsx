@@ -5,6 +5,7 @@ import { WAVE_FIELDS, detectWavePlan, normalizedWaveRows, signatureFor } from ".
 import styles from "./AiLabView.module.css";
 import AiLabChat from "./AiLabChat";
 import AiConnectedBriefing from "./AiConnectedBriefing";
+import Ai360Panel from "./Ai360Panel";
 import AiCommandCenter from "./AiCommandCenter";
 import AiBrainPanel from "./AiBrainPanel";
 import AiV2Workspace from "./AiV2Workspace";
@@ -77,6 +78,8 @@ export default function AiLabView() {
   const [suggestedPrompt, setSuggestedPrompt] = useState(null);
   const [commandContext, setCommandContext] = useState("");
   const [connectedContext, setConnectedContext] = useState("");
+  const [iq360Context, setIq360Context] = useState("");
+  const [showLegacyBriefing, setShowLegacyBriefing] = useState(false);
   const [brainContext, setBrainContext] = useState("");
   const [brainSnapshot, setBrainSnapshot] = useState(null);
   const [brainScope, setBrainScope] = useState(null);
@@ -403,8 +406,11 @@ export default function AiLabView() {
     </nav>
     <div className={styles.layout}>
       <div className={styles.workspace} hidden={view !== "assistant"} ref={chatAnchor}>
-        <AiConnectedBriefing onContextChange={setConnectedContext} onAskAI={askConnectedAi}/>
-        <AiLabChat reportContext={safeReportContext} connectedContext={connectedContext} commandContext={commandContext} brainContext={brainContext} suggestedPrompt={suggestedPrompt}/>
+        <Ai360Panel onContextChange={setIq360Context} onAskAI={askConnectedAi}/>
+        <div className={styles.subNav}><button type="button" aria-expanded={showLegacyBriefing}
+          onClick={() => setShowLegacyBriefing(current => !current)}>{showLegacyBriefing ? "− Hide" : "+ Open"} detailed weekly metric briefing</button></div>
+        {showLegacyBriefing && <AiConnectedBriefing onContextChange={setConnectedContext} onAskAI={askConnectedAi}/>}
+        <AiLabChat reportContext={safeReportContext} connectedContext={showLegacyBriefing ? connectedContext : iq360Context} commandContext={commandContext} brainContext={brainContext} suggestedPrompt={suggestedPrompt}/>
       </div>
       <div className={styles.workspace} hidden={view !== "performance"}>
         <div className={styles.subNav} role="group" aria-label="Performance analysis">

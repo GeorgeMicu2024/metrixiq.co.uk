@@ -24,7 +24,7 @@ export default function AiPredictivePanel({ analysis, onAskAI = () => {} }) {
     <header className={styles.header}>
       <div><span className={styles.kicker}>IQ PREDICTIVE INTELLIGENCE</span>
         <h3>What could happen next? <span aria-hidden="true">✦</span></h3>
-        <p>One-week statistical outlook · {prediction.site} · historical, unweighted metrics</p></div>
+        <p>Predictive V2 · walk-forward model selection · {prediction.site} · historical, unweighted metrics</p></div>
       <span className={styles.tag}>{available}/4 estimates available</span>
     </header>
     <div className={styles.summary}>
@@ -44,6 +44,11 @@ export default function AiPredictivePanel({ analysis, onAskAI = () => {} }) {
           <details className={styles.details}><summary>Evidence & model limitations</summary>
             <p>{item.model}. {item.reason}</p>
             <p>Walk-forward checks: {item.backtest.holdouts} · mean absolute error {showNumber(item.backtest.meanAbsoluteError, item.unit)} · no-change baseline {showNumber(item.backtest.persistenceBaselineError, item.unit)}.</p>
+            <p>Chosen method: {item.backtest.selectedModel === "damped_trend" ? "Trend" : "No-change baseline"} · selected historical error {showNumber(item.backtest.selectedMeanAbsoluteError, item.unit)}{item.backtest.improvementPercent === null ? "" : ` · trend error improvement ${item.backtest.improvementPercent}%`}.</p>
+            {item.evaluationHistory.length > 0 && <div className={styles.checks}><strong>Previous unseen-week checks</strong>
+              <table><thead><tr><th>Week</th><th>Estimated</th><th>Actual</th></tr></thead><tbody>
+                {item.evaluationHistory.map(check => <tr key={check.week}><td>{check.week}</td><td>{showNumber(check.selectedEstimate, item.unit)}</td><td>{showNumber(check.actual, item.unit)}</td></tr>)}
+              </tbody></table></div>}
             <p>Numeric records per week: {item.sourceRows.join(" / ")}. Neither estimate nor band is a calibrated probability.</p>
           </details>
         </>}
