@@ -1,9 +1,9 @@
 export const NAV_GROUPS = [
   // Frequently used pages stay visible; the remaining sections start collapsed.
-  { label: "QUICK ACCESS", items: [["dashboard", "Home"], ["daily-dispatch", "Daily Dispatch"], ["check-lor", "CHECK LOR"], ["site-scorecards", "Site Scorecards"], ["driver-scorecards", "Driver Scorecards"], ["intelligence", "AI Analyst"]] },
+  { label: "QUICK ACCESS", items: [["dashboard", "Home"], ["daily-dispatch", "Daily Dispatch"], ["check-lor", "CHECK LOR"], ["site-scorecards", "Site Scorecards"], ["driver-scorecards", "Driver Scorecards"], ["performance", "Driver Feedback"], ["intelligence", "AI Analyst"]] },
   { label: "QUALITY & COMPLIANCE", items: [["iadc", "IADC"], ["pod", "POD"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"]] },
   { label: "OPERATIONS & MESSAGES", items: [["command-center", "Command Center"], ["manager-chat", "Manager Chat"], ["notifications", "Notifications"]] },
-  { label: "PEOPLE & FEEDBACK", items: [["driver-master", "Driver Master"], ["drivers", "Drivers"], ["performance", "Driver Feedback"], ["team", "Team & Access"]] },
+  { label: "PEOPLE & FEEDBACK", items: [["driver-master", "Driver Master"], ["drivers", "Drivers"], ["team", "Team & Access"]] },
   { label: "AI & REPORTS", items: [["ai-lab", "AI Lab"], ["simulator", "What-if Simulator"], ["management-views", "Management Views"], ["reports", "Report Builder"]] },
   { label: "DATA & TOOLS", items: [["imports", "Import Center"], ["data-quality", "Data Quality"], ["audit", "Audit Center"], ["integrations", "Integration Hub"], ["reliability", "Reliability Center"], ["developer-platform", "Integration & API"]] },
   { label: "ADMINISTRATION", items: [["portfolio", "Enterprise Portfolio"], ["enterprise-settings", "Enterprise Settings"], ["billing", "Plans & Billing"], ["settings", "Settings"], ["admin", "Super Admin"]] },
