@@ -44,8 +44,14 @@ test("IQ chat context contains operator review counts, no identifiers, notes or 
   const summary = summarizeLearning([one("coverage_drop"), one("lor_discrepancy", "needs_review")], "DZM1", issues);
   const output = appendApprovedLearningContext(JSON.stringify({ site: "DZM1", officialScore: 80.49 }), summary);
   const parsed = JSON.parse(output);
-  assert.equal(parsed.report.officialScore, 80.49);
+  assert.equal(parsed.site, "DZM1");
+  assert.equal(parsed.officialScore, 80.49);
   assert.equal(parsed.userReviewedChecks.history.length, 2);
   assert(!/1793920000000|SECRET|customer|driver|tracking/i.test(output));
   assert.match(parsed.userReviewedChecks.caution, /not verified/);
+  assert.equal(appendApprovedLearningContext(JSON.stringify({ site: "DLS2" }), summary), JSON.stringify({ site: "DLS2" }));
+  const longReport = JSON.stringify({ site: "DZM1", note: "a".repeat(5760) });
+  const bounded = appendApprovedLearningContext(longReport, summary);
+  assert(bounded.length < 6000);
+  assert.equal(JSON.parse(bounded).site, "DZM1");
 });
