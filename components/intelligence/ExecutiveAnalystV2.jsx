@@ -47,6 +47,8 @@ export default function ExecutiveAnalystV2({ organizationId, siteFilter = "all",
   const [question, setQuestion] = useState("");
   const [week, setWeek] = useState("");
   const [answer, setAnswer] = useState(null);
+  const [analysing, setAnalysing] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
   const [history, setHistory] = useState([]);
   const [copyNotice, setCopyNotice] = useState("");
   const [aiConsent, setAiConsent] = useState(false);
@@ -54,6 +56,8 @@ export default function ExecutiveAnalystV2({ organizationId, siteFilter = "all",
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState("");
   const aiAbort = useRef(null);
+  const analysisRun = useRef(0);
+  const answerRef = useRef(null);
   const site = siteFilter || "all";
 
   useEffect(() => {
@@ -62,25 +66,24 @@ export default function ExecutiveAnalystV2({ organizationId, siteFilter = "all",
     setLoading(true);
     setError("");
     fetchAnalystV3Data(getSupabaseBrowserClient(), organizationId, site)
-      .then((result) => { if (live) setData(prepareAnalystEvidence(result)); })
+      .then((result) => { if (live) { setData(prepareAnalystEvidence(result)); setAnswer(null); setAnalysisError(""); } })
       .catch((failure) => { if (live) { setData(null); setError(failure?.message || "Could not load analyst evidence."); } })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [organizationId, site, refreshKey]);
 
   const weeks = useMemo(() => availableWeeks(data || {}, site), [data, site]);
-  useEffect(() => { setWeek(weeks.at(-1) || ""); setAnswer(null); setCopyNotice(""); setAiText("");
+  useEffect(() => { analysisRun.current += 1; setAnalysing(false); setAnalysisError("");
+    setWeek(weeks.at(-1) || ""); setAnswer(null); setCopyNotice(""); setAiText("");
     aiAbort.current?.abort(); }, [site, weeks.join("|")]);
   useEffect(() => () => aiAbort.current?.abort(), []);
 
   const scope = useMemo(() => ({ site, weekLabel: week || null }), [site, week]);
   const overview = useMemo(() => data ? buildAnalystOverview(data, scope) : null, [data, scope]);
-  const initialAnswer = useMemo(() => {
-    if (!data) return null;
-    const prompt = site === "all" ? "Executive summary" : "Why did our score drop this week?";
-    return answerExecutiveQuestion(data, prompt, scope);
-  }, [data, scope, site]);
-  const result = answer || initialAnswer;
+  // Show the verified KPI snapshot immediately, but reserve the full answer
+  // panel for an explicit question. Previously the default answer was identical
+  // to the first Analyse result, making a successful click look broken.
+  const result = answer;
   const official = overview?.official || null;
   const fleet = overview?.pack?.fleet || null;
   const attention = official?.attention || [];
@@ -89,13 +92,33 @@ export default function ExecutiveAnalystV2({ organizationId, siteFilter = "all",
   function runQuestion(text = question) {
     const q = String(text || "").trim();
     if (!q || !data) return;
-    const next = answerExecutiveQuestion(data, q, scope);
+    const run = ++analysisRun.current;
     setQuestion(q);
-    setAnswer(next);
+    setAnswer(null);
+    setAnalysing(true);
+    setAnalysisError("");
     setCopyNotice("");
     setAiText(""); setAiError(""); aiAbort.current?.abort();
-    setHistory((current) => [{ id: Date.now() + "-" + Math.random(), site, week, question: q, result: next },
-      ...current].slice(0, 12));
+    // Let the working indicator paint before running the synchronous evidence
+    // calculations. Only the latest question may update the displayed answer.
+    window.setTimeout(() => {
+      if (run !== analysisRun.current) return;
+      try {
+        const next = { ...answerExecutiveQuestion(data, q, scope), askedQuestion: q,
+          analysedAt: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) };
+        if (run !== analysisRun.current) return;
+        setAnswer(next);
+        setHistory((current) => [{ id: Date.now() + "-" + Math.random(), site, week, question: q, result: next },
+          ...current].slice(0, 12));
+      } catch {
+        setAnalysisError("This question could not be processed from the selected reports. Refresh the evidence and try again.");
+      } finally {
+        if (run === analysisRun.current) {
+          setAnalysing(false);
+          window.requestAnimationFrame(() => answerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+        }
+      }
+    }, 25);
   }
 
   async function copyAnalysis() {
@@ -180,12 +203,18 @@ export default function ExecutiveAnalystV2({ organizationId, siteFilter = "all",
 
     <section className="analystx-scope" aria-label="Analysis scope">
       <div className="analystx-scope-identity"><span>ANALYSING</span><strong>{siteName(site)}</strong><small>Activity Site evidence</small></div>
-      <label><span>Reporting week</span><select value={week} onChange={(event) => { setWeek(event.target.value); setAnswer(null); setCopyNotice(""); }} disabled={!weeks.length}>
+      <label><span>Reporting week</span><select value={week} onChange={(event) => {
+        analysisRun.current += 1; setAnalysing(false); setAnalysisError("");
+        setWeek(event.target.value); setAnswer(null); setCopyNotice("");
+      }} disabled={!weeks.length}>
         {!weeks.length && <option value="">No imported weeks</option>}
         {weeks.map((value) => <option key={value} value={value}>{value}</option>)}
       </select></label>
       <span className="analystx-scope-note">Official DSP Scorecards are shown separately from calculated driver averages.</span>
-      <button type="button" onClick={() => setRefreshKey((current) => current + 1)} className="analystx-refresh">↻ Refresh data</button>
+      <button type="button" onClick={() => {
+        analysisRun.current += 1; setAnalysing(false); setAnswer(null); setAnalysisError("");
+        setRefreshKey((current) => current + 1);
+      }} className="analystx-refresh">↻ Refresh data</button>
     </section>
 
     <section className="analystx-kpis" aria-label="Verified scorecard snapshot">
@@ -203,20 +232,23 @@ export default function ExecutiveAnalystV2({ organizationId, siteFilter = "all",
             <textarea value={question} onChange={(event) => setQuestion(event.target.value)} rows={2} maxLength={900}
               aria-label="Question for MetrixIQ Analyst" placeholder="Why did DZM1 drop from W43 to W44? What should I check first?"
               onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); runQuestion(); } }}/>
-            <button type="submit" disabled={!question.trim() || !data}>Analyse <span>↗</span></button>
+            <button type="submit" disabled={!question.trim() || !data || analysing}>{analysing ? "Analysing…" : "Analyse"} <span>↗</span></button>
           </form>
           <div className="analystx-prompt-list" aria-label="Suggested questions">
             {ANALYST_SUGGESTIONS.map((suggestion) => <button type="button" key={suggestion} onClick={() => runQuestion(suggestion)}>{suggestion}</button>)}
           </div>
         </section>
 
-        <section className="analystx-answer" aria-live="polite">
+        <section className="analystx-answer" aria-live="polite" ref={answerRef}>
           <div className="analystx-answer-heading">
-            <div><span>{answer ? "QUESTION ANALYSED" : "WEEKLY DIAGNOSTIC"}</span><h2>{result?.title || "Ready to analyse your data"}</h2>
-              <small>{siteName(site)} · {week || "Latest available"}</small></div>
+            <div><span>{analysing ? "ANALYSING YOUR QUESTION" : result ? "QUESTION ANALYSED ✓" : "READY FOR YOUR QUESTION"}</span>
+              <h2>{analysing ? "Checking your imported reports…" : result?.title || "Your weekly intelligence is ready"}</h2>
+              <small>{siteName(site)} · {week || "Latest available"}{result?.analysedAt ? " · Answered at " + result.analysedAt : ""}</small></div>
             <button type="button" onClick={copyAnalysis} disabled={!result}>⧉ Copy</button>
           </div>
-          {result ? <>
+          {result?.askedQuestion && <div className="analystx-asked"><span>YOU ASKED</span><p>{result.askedQuestion}</p></div>}
+          {analysisError && <div className="analystx-analysis-error" role="alert">{analysisError}</div>}
+          {analysing ? <div className="analystx-working" role="status"><div className="auth-spinner"/><p>Comparing the available scorecards and checking supporting records…</p></div> : result ? <>
             <p className="analystx-conclusion">{result.answer}</p>
             {result.facts?.length > 0 && <div className="analystx-facts">
               <h3>What the records show</h3>
@@ -246,7 +278,15 @@ export default function ExecutiveAnalystV2({ organizationId, siteFilter = "all",
               {aiError && <p className="analystx-ai-error" role="alert">{aiError}</p>}
               <small>The model provider may retain prompts. No source files or individual driver details are sent. AI availability is not guaranteed.</small>
             </section>}
-          </> : <p className="analystx-conclusion">Import a weekly DSP Scorecard or select a site and week to begin.</p>}
+          </> : <div className="analystx-ready">
+            <p>Type your question above and press <strong>Analyse</strong>. Your answer will appear here, using the reporting week and station you selected.</p>
+            {official?.score != null && <div className="analystx-ready-snapshot">
+              <span>READY TO INVESTIGATE</span>
+              <strong>{official.site} {official.current.week_label} · {scoreText(official.score)}/100</strong>
+              <small>{official.attention.length ? official.attention.slice(0,3).map((item) => item.short).join(" · ") + " need reviewing" : "No prominent worsening KPI detected"}</small>
+            </div>}
+            <p className="analystx-ready-tip">Try: <button type="button" onClick={() => runQuestion("Why did our score drop this week?")}>Why did our score drop this week? →</button></p>
+          </div>}
           {copyNotice && <p className="analystx-copy-notice" role="status">{copyNotice}</p>}
         </section>
       </main>
