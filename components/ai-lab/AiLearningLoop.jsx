@@ -6,6 +6,19 @@ import { LEARNING_REASONS, normalizeLearningEntries, saveLearningDecision, summa
 import styles from "./AiLearningLoop.module.css";
 
 const storageKey = uid => "metrixiq-iq-learning-v1:" + uid;
+const cloudTable = "ai_lab_operator_feedback";
+
+function fromCloud(rows) {
+  return normalizeLearningEntries((rows || []).map(row => ({ ...row,
+    time: new Date(row.updated_at).getTime(),
+  })).sort((a, b) => a.time - b.time));
+}
+
+function toCloud(userId, entry) {
+  return { user_id: userId, site: entry.site, code: entry.code, week: entry.week,
+    year: entry.year, decision: entry.decision, reason: entry.reason,
+    updated_at: new Date(entry.time).toISOString() };
+}
 
 export default function AiLearningLoop({ site, week, year, issues, onChange = () => {} }) {
   const [userId, setUserId] = useState("");
@@ -13,16 +26,34 @@ export default function AiLearningLoop({ site, week, year, issues, onChange = ()
   const [error, setError] = useState("");
   const [reason, setReason] = useState("manual_review");
   const [editing, setEditing] = useState("");
+  const [cloudState, setCloudState] = useState("Connecting…");
+  const [localPending, setLocalPending] = useState([]);
 
   useEffect(() => {
     let active = true;
-    getSupabaseBrowserClient().auth.getUser().then(({ data }) => {
+    getSupabaseBrowserClient().auth.getUser().then(async ({ data }) => {
       if (!active) return;
       const uid = data?.user?.id;
       if (!uid) { setError("Sign in to save personal feedback."); return; }
       setUserId(uid);
-      try { setEntries(normalizeLearningEntries(JSON.parse(window.localStorage.getItem(storageKey(uid)) || "[]"))); }
-      catch { setError("Local feedback cannot be read in this browser."); }
+      let local = [];
+      try { local = normalizeLearningEntries(JSON.parse(window.localStorage.getItem(storageKey(uid)) || "[]")); }
+      catch { setError("Local feedback could not be read in this browser."); }
+      try {
+        const { data: rows, error: fetchError } = await getSupabaseBrowserClient().from(cloudTable)
+          .select("site,code,year,week,decision,reason,updated_at")
+          .eq("user_id", uid).order("updated_at", { ascending: false }).limit(80);
+        if (fetchError) throw fetchError;
+        if (!active) return;
+        const remote = fromCloud(rows);
+        const missing = local.filter(entry => !remote.some(saved =>
+          saved.site === entry.site && saved.code === entry.code && saved.week === entry.week && saved.year === entry.year));
+        setEntries(remote);
+        setLocalPending(missing);
+        setCloudState(missing.length ? "Cloud synced · previous browser reviews available to import" : "Cloud memory synced across devices");
+      } catch {
+        if (active) { setEntries(local); setCloudState("Cloud unavailable · local fallback only"); }
+      }
     }).catch(() => { if (active) setError("Could not verify the current user."); });
     return () => { active = false; };
   }, []);
@@ -30,14 +61,30 @@ export default function AiLearningLoop({ site, week, year, issues, onChange = ()
   const summary = useMemo(() => summarizeLearning(entries, site, issues), [entries, site, issues]);
   useEffect(() => { onChange(summary); }, [summary, onChange]);
 
-  function remember(code, decision) {
+  async function remember(code, decision) {
     if (!userId) return;
     try {
       const next = saveLearningDecision(entries, { site, week, year, code, decision, reason, time: Date.now() });
       window.localStorage.setItem(storageKey(userId), JSON.stringify(next));
       setEntries(next);
       setEditing(""); setError("");
-    } catch { setError("Feedback could not be saved locally. No operational data was changed."); }
+      const entry = next.at(-1);
+      const { error: saveError } = await getSupabaseBrowserClient().from(cloudTable)
+        .upsert(toCloud(userId, entry), { onConflict: "user_id,site,year,week,code" });
+      if (saveError) { setCloudState("Cloud unavailable · feedback saved locally only");return; }
+      setCloudState("Cloud memory synced across devices");
+    } catch { setError("Could not save feedback in this browser. No operational data was changed."); }
+  }
+
+  async function importLocalFeedback() {
+    if (!userId || !localPending.length) return;
+    try {
+      const { error: saveError } = await getSupabaseBrowserClient().from(cloudTable)
+        .upsert(localPending.map(row => toCloud(userId, row)), { onConflict: "user_id,site,year,week,code" });
+      if (saveError) throw saveError;
+      const merged = normalizeLearningEntries([...entries, ...localPending]);
+      setEntries(merged); setLocalPending([]); setCloudState("Cloud memory synced across devices");setError("");
+    } catch { setError("Could not import previous reviews. They remain available in this browser."); }
   }
 
   return <section className={styles.loop} aria-label="IQ Learning Loop">
@@ -61,7 +108,9 @@ export default function AiLearningLoop({ site, week, year, issues, onChange = ()
         </div>;
       })}
     </div>
+    {localPending.length > 0 && <button className={styles.import} type="button" onClick={importLocalFeedback}>
+      Import {localPending.length} previous browser reviews into private cloud memory</button>}
     {error && <p className={styles.error} role="alert">{error}</p>}
-    <p className={styles.footnote}>Private to this signed-in user and browser. No database writes, automatic AI training or changes to site performance data. Feedback can be updated at any time.</p>
+    <p className={styles.footnote}>{cloudState}. Your explicit feedback is stored in your private AI Lab memory; operational reports are never modified. No automatic model training.</p>
   </section>;
 }

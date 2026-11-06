@@ -32,6 +32,7 @@ export default function Ai360Panel({ onContextChange = () => {}, onAskAI = () =>
   const [checkedAt, setCheckedAt] = useState("");
   const [details, setDetails] = useState(false);
   const [learning, setLearning] = useState(null);
+  const [daily, setDaily] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -55,15 +56,18 @@ export default function Ai360Panel({ onContextChange = () => {}, onAskAI = () =>
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    setResult(null); setPeriods([]); setPeriod(""); setCheckedAt(""); onContextChange("");
+    setResult(null); setPeriods([]); setPeriod(""); setCheckedAt(""); setDaily(null); onContextChange("");
     if (!selection) return () => controller.abort();
     const [organization, site] = selection.split("|");
     (async () => {
       setLoading(true); setError("");
       try {
-        const data = await getReport("/api/ai-lab/connected-360?" +
-          new URLSearchParams({ list: "weeks", organization, site }), await getToken(), controller.signal);
+        const token = await getToken();
+        const prefix = "/api/ai-lab/connected-360?";
+        const data = await getReport(prefix + new URLSearchParams({ list: "weeks", organization, site }), token, controller.signal);
+        const today = await getReport(prefix + new URLSearchParams({ list: "daily", organization, site }), token, controller.signal).catch(() => ({}));
         if (!active) return;
+        setDaily(today.daily || null);
         const available = Array.isArray(data.periods) ? data.periods : [];
         setPeriods(available);
         setPeriod(available[0] ? available[0].year + "-W" + available[0].week : "");
@@ -111,10 +115,10 @@ export default function Ai360Panel({ onContextChange = () => {}, onAskAI = () =>
   const orderedIssues = doctor ? orderIssuesWithLearning(doctor.issues, learning?.site === snapshot?.site ? learning : null) : [];
   return <section className={styles.panel} aria-label="IQ Connected 360 degrees">
     <header className={styles.header}>
-      <div><span className={styles.kicker}>METRIXIQ · IQ CONNECTED 360°</span>
-        <h2>Your operations intelligence <span aria-hidden="true">✦</span></h2>
-        <p>Official DSP Scorecards + weekly driver metrics + feedback + CHECK LOR + imports · read-only</p></div>
-      <span className={styles.badge}>SUPER ADMIN</span>
+      <div><span className={styles.kicker}>IQ CONNECTED 360°</span>
+        <h2>Daily Briefing <span aria-hidden="true">✦</span></h2>
+        <p>Your most important station checks, backed by read-only reports.</p></div>
+      <span className={styles.badge}>Verified sources</span>
     </header>
     <div className={styles.controls}>
       <label>Station<select value={selection} disabled={connecting || !sites.length} onChange={e => setSelection(e.target.value)}>
@@ -130,6 +134,8 @@ export default function Ai360Panel({ onContextChange = () => {}, onAskAI = () =>
     {(connecting || loading) && <p className={styles.status} role="status">Checking authorised operational sources…</p>}
     {error && <p className={styles.error} role="alert">{error}</p>}
     {snapshot && <div className={styles.content}>
+      {daily?.scorecard_year === snapshot.year && daily?.scorecard_week === snapshot.week &&
+        <div className={styles.automated}>✦ Scheduled UK morning snapshot available · {daily.briefing_date} · {daily.priorities?.length || 0} priority checks cached. Live changes still need manual verification.</div>}
       <div className={styles.intro}><div><span className={styles.kicker}>MORNING OPERATIONS BRIEFING</span>
         <h3>{snapshot.site} · W{snapshot.week} {snapshot.year}</h3><p>{morning.sourceLabel} · Checked at {checkedAt}</p></div>
         <div className={styles.overall}><small>Official DSP Score</small><strong>{snapshot.official?.score ?? "Unavailable"}</strong>
@@ -145,7 +151,8 @@ export default function Ai360Panel({ onContextChange = () => {}, onAskAI = () =>
           <div><strong>{item.title}</strong><p>{item.evidence}</p><small>Next: {item.next}</small></div>
           <button type="button" onClick={() => askIQ(item.title)}>Ask IQ ↗</button></article>)}
       </div>
-      <div className={styles.doctor}><div className={styles.sectionHead}><h3>IQ Data Doctor</h3>
+      <details className={styles.collapsible}><summary>IQ Data Doctor <span>{doctor.issues.length} quality checks</span></summary>
+      <div className={styles.doctor}><div className={styles.sectionHead}><h3>Data quality review</h3>
         <span>{doctor.counts.high} critical · {doctor.counts.review} review · {doctor.counts.info} info</span></div>
         <p>{doctor.statement}</p>
         {orderedIssues.slice(0, details ? 14 : 3).map(item => <article key={item.code} className={styles.qualityItem}>
@@ -153,17 +160,21 @@ export default function Ai360Panel({ onContextChange = () => {}, onAskAI = () =>
           {details && <small>{item.action}</small>}</article>)}
         {doctor.issues.length > 3 && <button className={styles.more} type="button" onClick={() => setDetails(current => !current)}>{details ? "Show fewer" : "Show all " + doctor.issues.length + " checks"}</button>}
       </div>
+      </details>
+      <details className={styles.collapsible}><summary>Teach IQ <span>Feedback & private memory</span></summary>
       <AiLearningLoop site={snapshot.site} week={snapshot.week} year={snapshot.year} issues={doctor.issues} onChange={setLearning}/>
+      </details>
+      <div className={styles.bottom}><button type="button" className={styles.ask} onClick={() => askIQ()}>✦ Discuss this briefing with IQ</button>
+        <small>You'll approve sharing this anonymous summary before IQ uses it in chat.</small></div>
+      <details className={styles.collapsible}><summary>Report sources & limitations <span>View coverage</span></summary>
       <div className={styles.sourceBar}>
         <span><b>{snapshot.driverMetrics.rows}</b> weekly metric rows</span>
         <span><b>{snapshot.feedback.rows}</b> feedback source rows</span>
         <span><b>{snapshot.lorHistory.cases}</b> CHECK LOR all-time cases</span>
         <span><b>{snapshot.imports.overlappingPeriod}</b> matching-period imports</span>
       </div>
-      <div className={styles.bottom}><button type="button" className={styles.ask} onClick={() => askIQ()}>✦ Discuss the full briefing with IQ</button>
-        <small>To send this anonymous context to the AI provider, explicitly approve report sharing in chat.</small></div>
-      <details className={styles.caveats}><summary>Sources and limitations ({snapshot.warnings.length})</summary>
-        <ul>{snapshot.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul></details>
+      <ul className={styles.limitations}>{snapshot.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
+      </details>
     </div>}
   </section>;
 }
