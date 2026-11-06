@@ -102,9 +102,11 @@ export default function Ai360Panel({ onContextChange = () => {}, onAskAI = () =>
 
   useEffect(() => {
     if (!result) return;
-    const base = connected360ChatContext(result.snapshot, result.doctor, result.briefing);
+    const index = periods.findIndex(row => row.year === result.snapshot.year && row.week === result.snapshot.week);
+    const previous = index >= 0 ? periods.slice(index + 1).find(row => Number.isFinite(row.score)) : null;
+    const base = connected360ChatContext(result.snapshot, result.doctor, result.briefing, previous);
     onContextChange(learning?.site === result.snapshot.site ? appendApprovedLearningContext(base, learning) : base);
-  }, [result, learning, onContextChange]);
+  }, [result, learning, periods, onContextChange]);
 
   function askIQ(topic = "the most important findings") {
     if (!result) return;
