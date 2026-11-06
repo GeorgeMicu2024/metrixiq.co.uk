@@ -6,6 +6,7 @@ import { summarizeMetricMatrix } from "../../lib/ai-lab/metric-summary.mjs";
 import { AI_LAB_STATE_TABLE, normalizeChatHistory } from "../../lib/ai-lab/user-state.mjs";
 import { sanitizeLearningNote } from "../../lib/ai-lab/brain-insights.mjs";
 import { ASSISTANT_STARTERS, assistantFollowUps } from "../../lib/ai-lab/assistant-experience.mjs";
+import { connectedEvidence, localEvidenceAnswer, needsStationEvidence } from "../../lib/ai-lab/grounded-chat.mjs";
 import styles from "./AiLabChat.module.css";
 
 const CHAT_KEY = "metrixiq.aiLab.chatHistory.v1";
@@ -42,9 +43,10 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
   const [livePeriod, setLivePeriod] = useState("W44");
   const [liveBusy, setLiveBusy] = useState(false);
   const [liveReport, setLiveReport] = useState("");
-  const [activeSource, setActiveSource] = useState("wave");
+  const [activeSource, setActiveSource] = useState("connected");
   const uploadedContext = metricSummary ? JSON.stringify({ ...JSON.parse(metricSummary), station: reportSite || "not provided", period: reportPeriod || "not provided", scopeSource: "Station and period are user-entered, not verified from the file" }) : "";
   const activeContext = activeSource === "connected" ? connectedContext : activeSource === "live" ? liveReport : activeSource === "upload" ? uploadedContext : activeSource === "command" ? commandContext : activeSource === "brain" ? brainContext : reportContext;
+  const evidence = activeSource === "connected" ? connectedEvidence(connectedContext) : null;
   const [messages, setMessages] = useState([]);
   const [cloudUserId, setCloudUserId] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -67,9 +69,21 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
   const scrollRef = useRef(null);
   const inputRef = useRef(null);
   const handledPromptId = useRef("");
+  // Conversation continuity is scoped to the currently consented evidence.
+  // Never replay old report-derived replies from saved history to an AI provider.
+  const modelHistoryRef = useRef([]);
+  const modelScopeRef = useRef("");
 
-  useEffect(() => { setIncludeReport(false); setActiveSource("wave"); }, [reportContext]);
-  useEffect(() => { setIncludeReport(false); }, [connectedContext]);
+  useEffect(() => {
+    setIncludeReport(false);
+    if (reportContext) setActiveSource("wave");
+    else setActiveSource(current => current === "wave" ? "connected" : current);
+  }, [reportContext]);
+  useEffect(() => {
+    setIncludeReport(false);
+    if (connectedContext) setActiveSource(current => current === "wave" && !reportContext ? "connected" : current);
+    else setActiveSource(current => current === "connected" ? "wave" : current);
+  }, [connectedContext, reportContext]);
   useEffect(() => { setIncludeReport(false); }, [commandContext]);
   useEffect(() => { setIncludeReport(false); }, [brainContext]);
   useEffect(() => {
@@ -191,11 +205,25 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
   async function sendMessage() {
     const question = input.trim().slice(0, 2000);
     if (!question || working || reportBusy || liveBusy || !loaded) return;
+    if (needsStationEvidence(question) && !(includeReport && activeContext)) {
+      const response = activeSource === "connected" && evidence ? localEvidenceAnswer(connectedContext)
+        : activeContext
+          ? "Your selected report is ready, but sharing is off. Enable **Share selected report summary with AI** to discuss actual figures. I won't guess your station's performance."
+          : "I don't have a verified station report selected yet. Open **Intelligence → Daily Briefing**, choose your station and week, and return to Ask IQ. I won't invent results.";
+      setMessages(current => [...current,
+        { id: makeId(), role: "user", content: question },
+        { id: makeId(), role: "assistant", content: response },
+      ].slice(-32));
+      // Keep the drafted question so one consent click and Send can continue it.
+      setError("");
+      return;
+    }
     const user = { id: makeId(), role: "user", content: question };
     const assistantId = makeId();
     const draft = { id: assistantId, role: "assistant", content: "" };
-    const history = messages.filter(item => item.content.trim()).slice(-9)
-      .map(item => ({ role: item.role, content: item.content.slice(0, 1300) }));
+    const scope = includeReport && activeContext ? activeSource + ":" + activeContext : "general";
+    if (modelScopeRef.current !== scope) { modelScopeRef.current = scope; modelHistoryRef.current = []; }
+    const history = modelHistoryRef.current.slice(-9);
     setInput("");
     setError("");
     setMemoryStatus("");
@@ -259,6 +287,8 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
         reader.releaseLock();
       }
       if (!full.trim()) throw new Error("The model returned no readable response. Please try a shorter question.");
+      if (modelScopeRef.current === scope) modelHistoryRef.current = [...history,
+        { role: "user", content: question }, { role: "assistant", content: full.slice(0, 1300) }].slice(-10);
     } catch (cause) {
       if (controller.signal.aborted) {
         if (!full) setMessages(current => current.filter(item => item.id !== assistantId));
@@ -307,6 +337,8 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
 
   function clearChat() {
     if (!window.confirm("Clear your private AI Lab chat history on all synced devices?")) return;
+    modelHistoryRef.current = [];
+    modelScopeRef.current = "";
     setMessages([]);
     setError("");
   }
@@ -376,6 +408,16 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
       </div>}
     </div>
     <div className={styles.composer}>
+      {evidence && <div className={styles.evidenceStrip}>
+        <div><strong>● Verified MetrixIQ data · {evidence.site} W{evidence.week} {evidence.year}</strong>
+          <small>Official score: {evidence.score == null ? "unavailable" : evidence.score.toFixed(2)}{evidence.tier ? " · " + evidence.tier : ""}
+            {evidence.previous && evidence.score != null ? " · " + (evidence.score - evidence.previous.score >= 0 ? "+" : "") + (evidence.score - evidence.previous.score).toFixed(2) + " vs W" + evidence.previous.week : ""}</small>
+        </div>
+        <label className={styles.check}><input type="checkbox" checked={includeReport} disabled={working}
+          onChange={event => setIncludeReport(event.target.checked)}/>
+          Use verified report data in IQ answers <span>(anonymised summary)</span>
+        </label>
+      </div>}
       <details className={styles.reportTools}>
         <summary>Live report analysis · DCR / POD / IADC / CDF / Concessions</summary>
         <p>Authorised read-only summaries only. Choose a station and an exact Amazon week label. No raw driver/customer records are shared with the AI.</p>
@@ -416,7 +458,7 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
       </details>
       <p className={styles.small}>{includeReport && activeContext
         ? "AI evidence: " + (activeSource === "connected" ? "selected Connected Intelligence weekly briefing" : activeSource === "live" ? "authorised read-only aggregate" : activeSource === "upload" ? "uploaded numeric summary" : activeSource === "command" ? "authorised multi-report Command Center analysis" : activeSource === "brain" ? "authorised historical AI Brain aggregates" : "selected Wave Plan preview")
-        : "General guidance · no report shared with AI"}
+        : evidence ? "Verified station data is loaded locally; AI sharing is off until you enable it above." : "General guidance · no report shared with AI"}
         {connectedContext && activeSource !== "connected" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("connected"); setIncludeReport(false); }}>Use Connected Briefing</button>}
         {reportContext && activeSource !== "wave" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("wave"); setIncludeReport(false); }}>Use Wave Plan context</button>}
         {commandContext && activeSource !== "command" && <button type="button" className={styles.chip} onClick={() => { setActiveSource("command"); setIncludeReport(false); }}>Use AI Command Center context</button>}
@@ -434,10 +476,10 @@ export default function AiLabChat({ reportContext = "", connectedContext = "", c
       <div className={styles.meta}>
         {suggestedPrompt?.source === "connected" && activeSource === "connected" && !includeReport &&
           <p className={styles.small} role="status">IQ Action Center context is ready. Tick “Share selected report summary with AI” to include the evidence; otherwise IQ can only give general advice.</p>}
-        <label className={styles.check}>
+        {!evidence && <label className={styles.check}>
           <input type="checkbox" checked={includeReport} disabled={!activeContext || working} onChange={event => setIncludeReport(event.target.checked)}/>
           Share selected report summary with AI {activeContext ? "(no names/TRIDs)" : "(prepare a report first)"}
-        </label>
+        </label>}
         <label className={styles.check}>
           <input type="checkbox" checked={includeMemory} disabled={working || !cloudUserId} onChange={event => {setIncludeMemory(event.target.checked);setMemoryStatus("");}}/>
           Use my approved knowledge in AI replies (private memory)

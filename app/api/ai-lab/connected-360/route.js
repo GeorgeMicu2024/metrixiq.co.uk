@@ -57,11 +57,16 @@ export async function GET(request) {
 
     if (params.get("list") === "weeks") {
       const { data, error } = await client.from("site_scorecards")
-        .select("year,week,week_label").eq("organization_id", organization).eq("site", site)
+        .select("year,week,week_label,overall_score,standing,metrics").eq("organization_id", organization).eq("site", site)
         .order("year", { ascending: false }).order("week", { ascending: false }).limit(30);
       if (error) return errorResponse("Official reporting periods unavailable.", 503);
       const periods = (data || []).filter(row => Number.isInteger(row.year) && Number.isInteger(row.week) && row.week >= 1 && row.week <= 53)
-        .map(row => ({ year: row.year, week: row.week, label: "W" + row.week }));
+        .map(row => {
+          const official = buildConnected360({ site, year: row.year, week: row.week, card: row }).official;
+          return { year: row.year, week: row.week, label: "W" + row.week,
+            score: official?.score ?? null, standing: official?.standing ?? null,
+            metrics: official?.metrics ?? {} };
+        });
       return Response.json({ periods }, { headers: HEADERS });
     }
 

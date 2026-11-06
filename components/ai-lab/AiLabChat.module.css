@@ -61,6 +61,11 @@
 .reportTools label{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0;align-items:center}
 .reportTools input,.reportTools select{max-width:100%;box-sizing:border-box;padding:8px;border:1px solid #cfdee6;border-radius:8px;background:white;color:#17374f}
 .reportPreview{max-height:180px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f7f9;padding:10px;border-radius:8px;font-size:11px}
+.evidenceStrip{display:grid;gap:8px;border:1px solid #b8ddd6;border-radius:11px;background:#f0faf6;padding:11px 12px;margin-bottom:11px;color:#164f49}
+.evidenceStrip strong{display:block;font-size:12px;line-height:1.4}
+.evidenceStrip small{display:block;color:#496b71;font-size:11px;line-height:1.4;margin-top:3px}
+.evidenceStrip .check{font-weight:750;color:#176758}
+.evidenceStrip .check span{font-weight:450;color:#638079}
 @media(max-width:600px){.input{font-size:16px}.title{align-items:flex-start}.message{box-sizing:border-box;max-width:100%}.check{min-width:0}.check input{flex-shrink:0}.reportTools input,.reportTools select{font-size:16px}}
 
 /* Compact, readable conversation on phones; desktop presentation is unchanged. */
@@ -74,5 +79,6 @@
   .messages{gap:10px;min-height:190px;max-height:min(48dvh,410px);padding:12px}
   .message{line-height:1.55;padding:10px 11px}
   .composer{padding:11px 12px}
+  .evidenceStrip{padding:9px 10px;margin-bottom:8px;gap:6px}
   .privacy{padding:9px 12px;font-size:10px}
 }
