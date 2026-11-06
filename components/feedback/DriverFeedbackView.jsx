@@ -310,10 +310,13 @@ export default function DriverFeedbackView({
                   </p>
                   <div className="feedback-actions">
                     <button type="button" className="feedback-copy-main" onClick={() => copyMessage(draft, driverName(selectedRow))}>⧉ Copy message</button>
-                    <a className="feedback-share-main" href={`https://wa.me/?text=${encodeURIComponent(draft)}`} target="_blank" rel="noopener noreferrer">↗ Open WhatsApp</a>
+                    <a className="feedback-share-main" href={`whatsapp://send?text=${encodeURIComponent(draft)}`}>↗ Open WhatsApp App</a>
                     <button type="button" onClick={() => { setEditedFor(""); setEditedMessage(""); }}>Reset text</button>
                   </div>
-                  <p className="feedback-whatsapp-hint">Opens WhatsApp with this message ready. Choose the driver and press Send; nothing is sent automatically.</p>
+                  <p className="feedback-whatsapp-hint">
+                    Opens the installed WhatsApp app with this message ready. On Mac, allow the browser to open WhatsApp if asked; choose the driver and press Send.
+                    {" "}<a href={`https://wa.me/?text=${encodeURIComponent(draft)}`} target="_blank" rel="noopener noreferrer">Use WhatsApp Web instead</a>.
+                  </p>
                   {notice && <p className="feedback-notice" role="status">{notice}</p>}
                 </>
               ) : <p className="feedback-no-results">Choose a driver to prepare a message.</p>}

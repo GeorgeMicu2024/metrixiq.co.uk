@@ -12,13 +12,15 @@ test("Driver Feedback appears immediately after Driver Scorecards exactly once",
   assert.equal(NAV_GROUPS.flatMap((group) => group.items).filter(([id]) => id === "performance").length, 1);
 });
 
-test("Driver Feedback opens WhatsApp with the edited message, without auto-sending", async () => {
+test("Driver Feedback launches the installed WhatsApp app and retains a web fallback", async () => {
   const source = await readFile(new URL("../components/feedback/DriverFeedbackView.jsx", import.meta.url), "utf8");
+  assert.match(source, /href=\{`whatsapp:\/\/send\?text=\$\{encodeURIComponent\(draft\)\}`\}/);
+  assert.match(source, /Open WhatsApp App/);
   assert.match(source, /href=\{`https:\/\/wa\.me\/\?text=\$\{encodeURIComponent\(draft\)\}`\}/);
   assert.match(source, /target="_blank" rel="noopener noreferrer"/);
-  assert.match(source, /Choose the driver and press Send; nothing is sent automatically/);
+  assert.match(source, /choose the driver and press Send/);
 
   const message = "Week 44 — Good work!\nNext: POD & IADC ✅";
-  const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+  const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
   assert.equal(new URL(url).searchParams.get("text"), message);
 });
