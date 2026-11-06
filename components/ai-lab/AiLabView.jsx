@@ -584,7 +584,8 @@ export default function AiLabView() {
           <p className={styles.muted}>AI buttons prepare a question in the chat. To share the private aggregate findings with the model, you must explicitly tick “Share selected report summary with AI”. No operational data is edited.</p>
         </div>
       </section>}
-      <section className={styles.card + " " + styles.full}>
+      <details className={styles.extras + " " + styles.full}><summary>Approved format memory <span>{templates.length} saved · {cloudState}</span></summary>
+      <section className={styles.card}>
         <div className={styles.cardHead}><div><h2>Approved format memory</h2><p>{templates.length} approved templates · {cloudState}</p></div><button type="button" className={styles.button + " " + styles.secondary} disabled={!templates.length} onClick={exportMemory}>↓ Export memory</button></div>
         <div className={styles.cardBody}>
           {templates.length ? <div className={styles.learned}>{templates.map(template => <div className={styles.template} key={template.id}>
@@ -594,6 +595,7 @@ export default function AiLabView() {
         </div>
         <footer className={styles.footnote}>Privacy: approved column layouts are saved privately for this Super Admin account. Uploaded reports, parcel IDs, driver details and site data are not stored in memory.</footer>
       </section>
+      </details>
       </div>
     </div>
   </div>;

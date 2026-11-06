@@ -22,6 +22,7 @@
 .assistantIntro{border:1px solid #dcebe7;background:#f4fbf8;border-radius:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 15px;color:#496c72;font-size:12px}
 .assistantIntro button,.optionalTool button{border:1px solid #cbe5df;color:#0e766d;background:#fff;border-radius:8px;font:inherit;font-size:11px;font-weight:800;padding:9px 11px;cursor:pointer}
 .optionalTool{margin:12px 0}
+.extras{border:1px solid #dce7ed;background:#f9fcfc;border-radius:13px;overflow:hidden}.extras>summary{cursor:pointer;padding:14px 17px;color:#205066;font-size:12px;font-weight:850;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.extras>summary span{font-size:10px;color:#76909c;font-weight:700}.extras .card{border:0;border-top:1px solid #e6eef2;border-radius:0;box-shadow:none}
 .workspace[hidden],.filesWorkspace[hidden]{display:none!important}
 .card{background:#fff;border:1px solid #dce7ed;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(15,44,68,.035)}
 .cardHead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:18px 20px;border-bottom:1px solid #e5eef3}
