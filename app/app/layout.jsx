@@ -12,6 +12,7 @@ import "../automation-workflows-v8.css";
 import "../integration-delivery-v9.css";
 import "../account-settings.css";
 import "../driver-feedback.css";
+import "../analyst-v3.css";
 
 export const metadata = {
   robots: {
