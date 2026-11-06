@@ -54,7 +54,7 @@ export default function AiLearningLoop({ site, week, year, issues, onChange = ()
       } catch {
         if (active) { setEntries(local); setCloudState("Cloud unavailable · local fallback only"); }
       }
-    }).catch(() => { if (active) setError("Could not verify the current user."); });
+    }).catch(() => { if (active) { setError("Could not verify the current user.");setCloudState("Private memory unavailable"); } });
     return () => { active = false; };
   }, []);
 
@@ -63,17 +63,21 @@ export default function AiLearningLoop({ site, week, year, issues, onChange = ()
 
   async function remember(code, decision) {
     if (!userId) return;
+    let entry;
     try {
       const next = saveLearningDecision(entries, { site, week, year, code, decision, reason, time: Date.now() });
       window.localStorage.setItem(storageKey(userId), JSON.stringify(next));
       setEntries(next);
+      setLocalPending(current => current.filter(item => !(item.site === site && item.week === week && item.year === year && item.code === code)));
       setEditing(""); setError("");
-      const entry = next.at(-1);
+      entry = next.at(-1);
+    } catch { setError("Could not save feedback in this browser. No operational data was changed.");return; }
+    try {
       const { error: saveError } = await getSupabaseBrowserClient().from(cloudTable)
         .upsert(toCloud(userId, entry), { onConflict: "user_id,site,year,week,code" });
       if (saveError) { setCloudState("Cloud unavailable · feedback saved locally only");return; }
       setCloudState("Cloud memory synced across devices");
-    } catch { setError("Could not save feedback in this browser. No operational data was changed."); }
+    } catch { setCloudState("Cloud unavailable · feedback saved locally only"); }
   }
 
   async function importLocalFeedback() {
