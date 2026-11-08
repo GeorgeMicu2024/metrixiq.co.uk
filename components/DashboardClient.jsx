@@ -27,6 +27,7 @@ import MentorView from "./operations/MentorView";
 import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
 import CheckLorView from "./lor/CheckLorView";
+import NdnrView from "./ndnr/NdnrView";
 import { NAV_ICONS as icon, NAV_ITEMS as nav, NAV_GROUPS } from "./dashboard/navigation";
 import { avg, initials } from "./dashboard/utils";
 import { loadWorkspaceContext, loadWorkspaceShellContext, refreshWorkspacePerformance } from "../lib/data/workspace";
@@ -63,7 +64,7 @@ import { activateWorkspaceMode, createBillingCheckout } from "../lib/data/billin
 
 const AiLabView = dynamic(() => import("./ai-lab/AiLabView"), { loading: () => <div className="panel" style={{ padding: 24 }}>Opening AI Lab…</div> });
 
-const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dcr","cc","cdf","mentor","check-lor"]);
+const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dcr","cc","cdf","mentor","check-lor","ndnr"]);
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -620,6 +621,7 @@ export default function DashboardClient() {
     case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={(intent) => { setImportIntent(intent || null); navigate("imports"); }} onSiteFilterChange={setSiteFilter} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} drivers={drivers} />; break;
     case "check-lor": view = <CheckLorView organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} canManage={platformAdmin || ["owner", "admin", "manager"].includes(String(session?.role || "").toLowerCase())} />; break;
+    case "ndnr": view = <NdnrView siteFilter={siteFilter} drivers={drivers} />; break;
     case "evidence": view = <EvidenceIncidentCenter organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} initialDriverId={selectedDriver?.dbId || ""} canManage={platformAdmin || permissions?.manage_incidents} onOpenDriver={openDriver} onOpenCoaching={() => navigate("coaching")} />; break;
     case "manager-control": view = <ActionCenterV2 organizationId={workspace?.organization?.id} siteFilter={siteFilter} canManage={platformAdmin || permissions?.manage_workflows} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
     case "automation": view = <AutomationCenter organizationId={workspace?.organization?.id} sites={sites} drivers={drivers} canManage={platformAdmin || permissions?.manage_automations} canApprove={platformAdmin || permissions?.approve_workflows} onOpenDriver={openDriver} onNavigate={navigate} />; break;
