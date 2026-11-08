@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { buildLorDriverNames, collectLorTransporterIds } from "../../lib/lor/driverMatching.mjs";
+import { createLorPng, groupLorDrivers, lorDriverKey } from "../../lib/lor/lorPngExport.mjs";
 import "./CheckLorView.css";
 
 const clean = value => String(value ?? "").trim();
@@ -67,6 +68,9 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [reviewReady, setReviewReady] = useState(false);
+  const [hiddenDriverKeys, setHiddenDriverKeys] = useState([]);
+  const [showHidden, setShowHidden] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   useEffect(() => {
@@ -82,9 +86,13 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
   }, [organizationId, supabase]);
 
   const driverByTrid = useMemo(() => buildLorDriverNames(drivers), [drivers]);
+  const hiddenDriverSet = useMemo(() => new Set(hiddenDriverKeys), [hiddenDriverKeys]);
+  const visibleDriverGroups = useMemo(() => groupLorDrivers(results, hiddenDriverKeys), [results, hiddenDriverKeys]);
+  const hiddenDriverCount = useMemo(() => new Set(results.filter(row => hiddenDriverSet.has(lorDriverKey(row))).map(lorDriverKey)).size, [results, hiddenDriverSet]);
   const current = results.find(r => r.tracking_id === selected);
   const currentHistory = saved.filter(r => current && (r.transporter_id === current.transporter_id || r.tracking_id === current.tracking_id));
   const filtered = results.filter(r =>
+    hiddenDriverSet.has(lorDriverKey(r)) === showHidden &&
     (filter === "all" || r.verdict === filter) &&
     [r.driver_name, r.tracking_id, r.reason, r.transporter_id].join(" ").toLowerCase().includes(query.toLowerCase())
   );
@@ -168,6 +176,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
       }
       if (!unique.size) throw new Error("No valid UK tracking IDs found. Please check the Amazon report headers.");
       setResults([...unique.values()]); setSelected([...unique.keys()][0]); setReviewReady(true);
+      setHiddenDriverKeys([]); setShowHidden(false);
       setMessage(unique.size + " risk parcels matched. Route RTS is not proof of a physical station scan.");
     } catch (e) { setError(e.message || "Unable to read files."); }
     finally { setLoading(false); }
@@ -202,8 +211,53 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     setLoading(false);
   }
 
+  function hideDriver(row) {
+    const key = lorDriverKey(row);
+    setHiddenDriverKeys(keys => keys.includes(key) ? keys : [...keys, key]);
+    if (current && lorDriverKey(current) === key) {
+      setSelected(results.find(item => lorDriverKey(item) !== key && !hiddenDriverSet.has(lorDriverKey(item)))?.tracking_id || "");
+    }
+  }
+
+  function restoreDriver(row) {
+    const key = lorDriverKey(row);
+    setHiddenDriverKeys(keys => keys.filter(item => item !== key));
+    if (hiddenDriverCount <= 1) setShowHidden(false);
+  }
+
+  async function saveAllPng() {
+    if (!visibleDriverGroups.length || exporting) return;
+    setExporting(true); setError(""); setMessage("");
+    try {
+      const site = siteFilter === "all" ? "ALL SITES" : siteFilter;
+      const blob = await createLorPng(visibleDriverGroups, { site });
+      const filename = `${site.replace(/\s+/g, "_")}_Potential_LOR_${new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" })}.png`;
+      const file = new File([blob], filename, { type: "image/png" });
+      if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: `${site} Potential LOR`, text: "Driver parcel status review" });
+          setMessage("PNG ready. On iPhone, use Save Image or Save to Files in the share sheet.");
+          return;
+        } catch (shareError) {
+          if (shareError?.name === "AbortError") return;
+        }
+      }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url; link.download = filename;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setMessage("One PNG downloaded with all visible drivers. Hidden drivers were excluded.");
+    } catch (exportError) {
+      setError(exportError?.message || "Could not export LOR PNG.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function clearUploads() {
     setRiskFile(null); setCsvFiles([]); setResults([]); setSelected(""); setReviewReady(false);
+    setHiddenDriverKeys([]); setShowHidden(false);
     setMessage("Temporary source files cleared from this session.");
   }
 
@@ -228,8 +282,13 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     </section>
     <div className="lor-columns">
       <section className="lor-card lor-results"><div className="lor-section-title"><h2>LOR Investigation Results ({results.length})</h2><input aria-label="Search investigation" placeholder="Search driver, tracking ID or reason…" value={query} onChange={e=>setQuery(e.target.value)}/><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All statuses</option><option value="station-check">Needs station check</option><option value="investigation">Investigation</option><option value="confirmed-return">Confirmed return</option><option value="confirmed-loss">Confirmed loss</option></select></div>
+        <div className="lor-export-toolbar">
+          <button type="button" className="lor-export-button" onClick={saveAllPng} disabled={!visibleDriverGroups.length || exporting || loading}>{exporting ? "Creating PNG…" : "↓ Save All PNG"}</button>
+          <button type="button" className="lor-hidden-button" onClick={() => setShowHidden(value => !value)} disabled={!hiddenDriverCount && !showHidden} aria-pressed={showHidden}>{showHidden ? "Show active drivers" : `Hidden (${hiddenDriverCount})`}</button>
+          <small>One image with all visible drivers. Hide excludes a driver from this report and export only.</small>
+        </div>
         <div className="lor-table-scroll"><table><thead><tr><th>Driver</th><th>Tracking ID</th><th>Last attempt</th><th>Attempt date</th><th>Route CSV status</th><th>Station scan</th><th>Verdict</th><th>Actions</th></tr></thead><tbody>
-          {filtered.map(r => <tr key={r.tracking_id} className={selected===r.tracking_id?"selected":""}><td><b>{r.driver_name}</b></td><td className="lor-tracking">{r.tracking_id}</td><td>{r.reason || "—"}</td><td className="lor-date">{showDateTime(r.last_scan)}</td><td><span className={"lor-pill "+(r.route_status==="Returned to station"?"green":"red")}>{r.route_status}</span></td><td>{r.verdict==="confirmed-return"?"Manager confirmed":r.rts_at?"Not confirmed":"Not found"}</td><td><span className={"lor-pill "+badge(r.verdict)}>{verdictLabel[r.verdict]}</span></td><td><button className="lor-small" onClick={()=>setSelected(r.tracking_id)}>View</button></td></tr>)}
+          {filtered.map(r => <tr key={r.tracking_id} className={selected===r.tracking_id?"selected":""}><td><div className="lor-driver-cell"><b>{r.driver_name}</b><button type="button" className="lor-driver-hide" onClick={() => showHidden ? restoreDriver(r) : hideDriver(r)}>{showHidden ? "Restore" : "Hide"}</button></div></td><td className="lor-tracking">{r.tracking_id}</td><td>{r.reason || "—"}</td><td className="lor-date">{showDateTime(r.last_scan)}</td><td><span className={"lor-pill "+(r.route_status==="Returned to station"?"green":"red")}>{r.route_status}</span></td><td>{r.verdict==="confirmed-return"?"Manager confirmed":r.rts_at?"Not confirmed":"Not found"}</td><td><span className={"lor-pill "+badge(r.verdict)}>{verdictLabel[r.verdict]}</span></td><td><button className="lor-small" onClick={()=>setSelected(r.tracking_id)}>View</button></td></tr>)}
           {!filtered.length && <tr><td colSpan="8" className="lor-empty">{reviewReady?"No matching parcels":"Upload reports and run LOR Check to see results."}</td></tr>}
         </tbody></table></div></section>
       <div className="lor-side-stack"><aside className="lor-card lor-history"><h2>◴ Driver LOR History</h2>
