@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { buildLorDriverNames, collectLorTransporterIds } from "../../lib/lor/driverMatching.mjs";
 import "./CheckLorView.css";
 
 const clean = value => String(value ?? "").trim();
@@ -80,7 +81,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     return () => { active = false; };
   }, [organizationId, supabase]);
 
-  const driverByTrid = useMemo(() => new Map(drivers.map(d => [norm(d.id || d.trid), d.name]).filter(pair => pair[0])), [drivers]);
+  const driverByTrid = useMemo(() => buildLorDriverNames(drivers), [drivers]);
   const current = results.find(r => r.tracking_id === selected);
   const currentHistory = saved.filter(r => current && (r.transporter_id === current.transporter_id || r.tracking_id === current.tracking_id));
   const filtered = results.filter(r =>
@@ -110,7 +111,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     rts: results.filter(r => r.route_status === "Returned to station").length,
     noRts: results.filter(r => r.route_status !== "Returned to station").length,
     verified: results.filter(r => r.verdict === "confirmed-return").length,
-    drivers: new Set(results.map(r => r.transporter_id).filter(Boolean)).size,
+    drivers: new Set(results.filter(r => r.transporter_id && r.driver_name !== "Unmatched driver").map(r => r.transporter_id)).size,
   };
 
   async function runCheck() {
@@ -119,11 +120,24 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     try {
       const riskRows = await readWorkbook(riskFile);
       const packageRows = (await Promise.all(csvFiles.map(readWorkbook))).flat();
+      const driverNames = new Map(driverByTrid);
+      const trids = collectLorTransporterIds(riskRows, packageRows, row => value(row, "trid"));
+      if (organizationId) {
+        // Look up drivers from the organization-wide directory, not the station-filtered scorecards.
+        for (let index = 0; index < trids.length; index += 100) {
+          const { data, error: driverError } = await supabase.from("drivers")
+            .select("trid,full_name")
+            .eq("organization_id", organizationId)
+            .in("trid", trids.slice(index, index + 100));
+          if (driverError) throw new Error("Unable to match driver IDs: " + driverError.message);
+          for (const [trid, name] of buildLorDriverNames([], data || [])) driverNames.set(trid, name);
+        }
+      }
       const packageMap = new Map();
       for (const row of packageRows) {
         const id = tracking(value(row, "tracking"));
         if (!id) continue;
-        const entry = { status: value(row, "status"), reason: value(row, "reason"), scan: value(row, "scan"), route: value(row, "route"), trid: value(row, "trid"), site: value(row, "site") };
+        const entry = { status: value(row, "status"), reason: value(row, "reason"), scan: value(row, "scan"), route: value(row, "route"), trid: value(row, "trid"), name: value(row, "name"), site: value(row, "site") };
         packageMap.set(id, [...(packageMap.get(id) || []), entry]);
       }
       const unique = new Map();
@@ -136,7 +150,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
         const lastRts = [...matches].reverse().find(m => statusIsRts(m.status));
         const previous = saved.find(s => s.tracking_id === id);
         const trid = riskTrid && riskTrid !== "UNASSIGNED" ? riskTrid : norm(latest?.trid);
-        const name = driverByTrid.get(trid) || (value(row, "name") || "Unmatched driver");
+        const name = driverNames.get(trid) || value(row, "name") || latest?.name || "Unmatched driver";
         const code = norm(value(row, "site") || latest?.site || siteFilter);
         const result = {
           tracking_id: id, transporter_id: trid, driver_name: name,
