@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ndnrRoute, ndnrTracking, parseNdnrReport, matchNdnrParcels, groupNdnrByRoute, isNdnrReturnScan } from "../lib/ndnr/ndnrMatching.mjs";
+import { ndnrRoute, ndnrTracking, parseNdnrReport, matchNdnrParcels, groupNdnrByRoute, isNdnrReturnScan, applyNdnrDriverAssignments } from "../lib/ndnr/ndnrMatching.mjs";
 import { buildNdnrExportSvg } from "../lib/ndnr/ndnrPngExport.mjs";
 import { NAV_GROUPS } from "../components/dashboard/navigation.js";
 
@@ -86,4 +86,22 @@ test("NDNR is a distinct quick-access tab immediately below CHECK LOR", () => {
   const quick = NAV_GROUPS.find(group => group.label === "QUICK ACCESS").items.map(item => item[0]);
   assert.equal(quick.indexOf("ndnr"), quick.indexOf("check-lor") + 1);
   assert.equal(NAV_GROUPS.flatMap(group => group.items).filter(item => item[0] === "ndnr").length, 1);
+});
+
+test("an Amazon unassigned parcel can be named manually without changing scans or other routes", () => {
+  const report = parseNdnrReport("Route: CA__A195 (1 parcel)\nUK5070846798\nRoute: CA__A196 (1 parcel)\nUK5071077343");
+  const csv = [
+    { "Scannable Id": "UK5070846798", "Route Code": "CA_A195", "Transporter Name": "", "Transporter Id": "unassigned", "Package Status": "Returned to station", "Time of last scan": "2026-11-08 18:32:39" },
+    csvRow("UK5071077343", "CA_A196", "Andreea Ciobotaru"),
+  ];
+  const original = matchNdnrParcels(report, csv);
+  assert.equal(original[0].driver_name, "Unassigned driver");
+  assert.equal(original[0].state, "returned");
+  const assigned = applyNdnrDriverAssignments(original, { CA_A195: " Constantin  Viasu " });
+  assert.equal(assigned[0].driver_name, "Constantin  Viasu");
+  assert.equal(assigned[0].driver_assigned, true);
+  assert.equal(assigned[0].state, "returned");
+  assert.equal(assigned[1].driver_name, "Andreea Ciobotaru");
+  assert.equal(original[0].driver_name, "Unassigned driver");
+  assert.equal(applyNdnrDriverAssignments(original, {})[0].driver_name, "Unassigned driver");
 });

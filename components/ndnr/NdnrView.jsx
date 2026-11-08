@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { groupNdnrByRoute, matchNdnrParcels, parseNdnrReport } from "../../lib/ndnr/ndnrMatching.mjs";
+import { applyNdnrDriverAssignments, groupNdnrByRoute, matchNdnrParcels, parseNdnrReport } from "../../lib/ndnr/ndnrMatching.mjs";
 import { createNdnrPng } from "../../lib/ndnr/ndnrPngExport.mjs";
 import "./NdnrView.css";
 
@@ -50,10 +50,18 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
   const [filter, setFilter] = useState("all");
   const [hiddenKeys, setHiddenKeys] = useState([]);
   const [showHidden, setShowHidden] = useState(false);
+  const [routeAssignments, setRouteAssignments] = useState({});
+  const [editingRoute, setEditingRoute] = useState("");
+  const [driverDraft, setDriverDraft] = useState("");
   const ocrToken = useRef(0);
   const report = useMemo(() => parseNdnrReport(reportText), [reportText]);
   const hidden = useMemo(() => new Set(hiddenKeys), [hiddenKeys]);
-  const groups = useMemo(() => groupNdnrByRoute(rows), [rows]);
+  const assignedRows = useMemo(() => applyNdnrDriverAssignments(rows, routeAssignments), [rows, routeAssignments]);
+  const groups = useMemo(() => groupNdnrByRoute(assignedRows), [assignedRows]);
+  const driverSuggestions = useMemo(() => [...new Set([
+    ...drivers.map(driver => String(driver.full_name || driver.name || driver.driver_name || "").trim()),
+    ...rows.map(row => row.driver_name),
+  ].filter(name => name && name !== "Unassigned driver"))].sort((a, b) => a.localeCompare(b)), [drivers, rows]);
   const displayed = useMemo(() => groups.filter(group => hidden.has(group.key) === showHidden).map(group => ({
     ...group, parcels: group.parcels.filter(row => (filter === "all" || row.state === filter) &&
       [row.tracking_id, row.route_code, row.driver_name, row.status, row.reason].join(" ").toLowerCase().includes(search.toLowerCase())),
@@ -67,7 +75,7 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
   async function handleScreenshot(file) {
     const token = ++ocrToken.current;
     setScreenshot(file || null);
-    setReportText(""); setRows([]); setError(""); setMessage("");
+    setReportText(""); setRows([]); setRouteAssignments({}); setEditingRoute(""); setError(""); setMessage("");
     if (!file) return;
     setOcrBusy(true); setOcrProgress(0);
     let worker;
@@ -91,7 +99,7 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
 
   function editReport(text) {
     ++ocrToken.current;
-    setReportText(text); setRows([]); setError(""); setMessage("");
+    setReportText(text); setRows([]); setRouteAssignments({}); setEditingRoute(""); setError(""); setMessage("");
     setOcrBusy(false); setOcrProgress(null);
   }
 
@@ -106,7 +114,7 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
         String(driver.full_name || driver.name || driver.driver_name || "").trim(),
       ]).filter(([id, name]) => id && name));
       const next = matchNdnrParcels(report, packageRows, names);
-      setRows(next); setCsvCount(packageRows.length); setHiddenKeys([]); setShowHidden(false); setSearch(""); setFilter("all");
+      setRows(next); setCsvCount(packageRows.length); setHiddenKeys([]); setShowHidden(false); setSearch(""); setFilter("all"); setRouteAssignments({}); setEditingRoute("");
       const confirmed = next.filter(row => row.state === "returned").length;
       setMessage(`${next.length} NDNR parcels checked: ${confirmed} returned with RTS scan + timestamp; ${next.length - confirmed} still need checking.`);
     } catch (caught) { setError(caught.message || "Unable to match packages."); }
@@ -140,7 +148,27 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
   function clearAll() {
     ++ocrToken.current;
     setScreenshot(null); setReportText(""); setPackageFiles([]); setRows([]); setCsvCount(0);
-    setHiddenKeys([]); setShowHidden(false); setError(""); setMessage(""); setOcrBusy(false); setOcrProgress(null);
+    setHiddenKeys([]); setShowHidden(false); setRouteAssignments({}); setEditingRoute(""); setError(""); setMessage(""); setOcrBusy(false); setOcrProgress(null);
+  }
+
+  function startDriverAssignment(route) {
+    setEditingRoute(route);
+    setDriverDraft(routeAssignments[route] || "");
+  }
+
+  function saveDriverAssignment(event) {
+    event.preventDefault();
+    const name = driverDraft.trim().replace(/\s+/g, " ");
+    if (!name || !editingRoute) return;
+    setRouteAssignments(current => ({ ...current, [editingRoute]: name }));
+    setHiddenKeys([]); setShowHidden(false);
+    setMessage(`${editingRoute} assigned to ${name} for this NDNR report only. Amazon's original CSV remains unchanged.`);
+    setEditingRoute(""); setDriverDraft("");
+  }
+
+  function clearDriverAssignment(route) {
+    setRouteAssignments(current => { const next = { ...current }; delete next[route]; return next; });
+    setHiddenKeys([]); setShowHidden(false); setEditingRoute("");
   }
 
   return <main className="ndnr-page">
@@ -156,7 +184,7 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
         {report.warnings.map((warning, index) => <div className="ndnr-warning" key={index}>{warning}</div>)}
       </div>
       <div className="ndnr-card ndnr-upload-card"><h2><span>2</span> Packages / Route CSV</h2><p>Select Amazon Packages exports for the same day. Multiple CSV/XLSX files are supported.</p>
-        <label className="ndnr-drop"><strong>▣ &nbsp; Choose package files</strong><small>{packageFiles.length ? packageFiles.map(file => file.name).join(", ") : "CSV, XLS or XLSX"}</small><input type="file" accept=".csv,.xls,.xlsx" multiple onChange={event => { setPackageFiles(Array.from(event.target.files || [])); setRows([]); }} /></label>
+        <label className="ndnr-drop"><strong>▣ &nbsp; Choose package files</strong><small>{packageFiles.length ? packageFiles.map(file => file.name).join(", ") : "CSV, XLS or XLSX"}</small><input type="file" accept=".csv,.xls,.xlsx" multiple onChange={event => { setPackageFiles(Array.from(event.target.files || [])); setRows([]); setRouteAssignments({}); setEditingRoute(""); }} /></label>
         <div className="ndnr-check-help"><b>Return scan rule</b><p>Amazon status <strong>Returned to station</strong> + scan timestamp = <strong>RTS scanned</strong>. Otherwise the parcel stays open.</p></div>
       </div>
       <div className="ndnr-card ndnr-run-card"><h2>3. Check Returns</h2><p>Match UK tracking IDs, route codes, drivers and their last Amazon scan.</p>
@@ -180,8 +208,20 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
       <select aria-label="Filter NDNR status" value={filter} onChange={event => setFilter(event.target.value)}><option value="all">All statuses</option><option value="awaiting">Awaiting return</option><option value="returned">RTS scanned</option><option value="review">Needs review</option></select></div></div>
       <div className="ndnr-display-tools"><button type="button" onClick={() => setShowHidden(value => !value)} disabled={!hiddenKeys.length && !showHidden}>{showHidden ? "Show active" : `Hidden (${hiddenKeys.length})`}</button><small>Hide excludes a driver from this screen and PNG only; Restore brings them back.</small></div>
       {displayed.map(group => <section className="ndnr-route" key={group.key}>
-        <header><div><strong>{group.route} · {group.driver}</strong><small>{group.parcels.length} parcels{group.parcels.some(parcel => parcel.driver_inferred) ? " · some driver names inferred from route" : ""}</small></div>
-          <button type="button" onClick={() => setHiddenKeys(keys => hidden.has(group.key) ? keys.filter(k => k !== group.key) : [...keys, group.key])}>{showHidden ? "Restore" : "Hide"}</button></header>
+        <header><div><strong>{group.route} · {group.driver}</strong><small>{group.parcels.length} parcels{group.parcels.some(parcel => parcel.driver_assigned) ? " · Manually assigned for this report" : group.parcels.some(parcel => parcel.driver_inferred) ? " · Some driver names inferred from route" : ""}</small></div>
+          <div className="ndnr-route-actions">
+            {(group.driver === "Unassigned driver" || group.parcels.some(parcel => parcel.driver_assigned || parcel.driver_inferred)) && <button type="button" onClick={() => startDriverAssignment(group.route)}>{routeAssignments[group.route] ? "Edit driver" : "Assign driver"}</button>}
+            {routeAssignments[group.route] && <button type="button" onClick={() => clearDriverAssignment(group.route)}>Reset</button>}
+            <button type="button" onClick={() => setHiddenKeys(keys => hidden.has(group.key) ? keys.filter(k => k !== group.key) : [...keys, group.key])}>{showHidden ? "Restore" : "Hide"}</button>
+          </div></header>
+        {editingRoute === group.route && <form className="ndnr-assign-form" onSubmit={saveDriverAssignment}>
+          <label htmlFor="ndnr-assigned-name">Driver for {group.route}</label>
+          <input id="ndnr-assigned-name" list="ndnr-driver-suggestions" value={driverDraft} onChange={event => setDriverDraft(event.target.value)} placeholder="Search or type full driver name" autoFocus />
+          <datalist id="ndnr-driver-suggestions">{driverSuggestions.map(name => <option key={name} value={name} />)}</datalist>
+          <button type="submit" disabled={!driverDraft.trim()}>Save driver</button>
+          <button type="button" onClick={() => setEditingRoute("")}>Cancel</button>
+          <small>Use this when Amazon CSV says "unassigned". Applies only to this report, not future routes.</small>
+        </form>}
         <div className="ndnr-table-wrap"><table><thead><tr><th>Tracking ID</th><th>CSV status</th><th>Last scan</th><th>Return check</th></tr></thead><tbody>
           {group.parcels.map(parcel => <tr key={parcel.tracking_id}><td data-label="Tracking ID"><b>{parcel.tracking_id}</b>{parcel.route_mismatch && <small className="ndnr-mismatch">Route differs from CSV ({parcel.csv_route})</small>}</td><td data-label="CSV status">{parcel.status}</td><td data-label="Last scan">{displayDateTime(parcel.last_scan)}</td><td data-label="Return check"><span className={`ndnr-badge ${parcel.state}`}>{stateLabel(parcel.state)}</span></td></tr>)}
         </tbody></table></div>
