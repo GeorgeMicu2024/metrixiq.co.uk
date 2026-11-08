@@ -6,8 +6,8 @@ import vm from "node:vm";
 const source = fs.readFileSync(new URL("../components/sites/WavePlanView.jsx", import.meta.url), "utf8");
 const helpers = source.slice(source.indexOf("const COLORS="), source.indexOf("async function imageCanvas"));
 const context = vm.createContext({});
-vm.runInContext(`${helpers}\nconst dcslDsp=s=>/\\b(?:DCSL|DANUBE\\s+COURIER\\s+SERVICES\\s+LTD)\\b/i.test(String(s||""));\nthis.parsers={dzm1WorkbookRows,dzm1HeaderWorkbookRows,dzm1ThreePadRows};`, context);
-const { dzm1WorkbookRows, dzm1HeaderWorkbookRows, dzm1ThreePadRows } = context.parsers;
+vm.runInContext(`${helpers}\nconst dcslDsp=s=>/\\b(?:DCSL|DANUBE\\s+COURIER\\s+SERVICES\\s+LTD)\\b/i.test(String(s||""));\nthis.parsers={dzm1WorkbookRows,dzm1HeaderWorkbookRows,dzm1ThreePadRows,dzm1DCSLSectionRows};`, context);
+const { dzm1WorkbookRows, dzm1HeaderWorkbookRows, dzm1ThreePadRows, dzm1DCSLSectionRows } = context.parsers;
 
 const row = (index, values, sheet = "DZM1") => {
   const cells = [];
@@ -74,7 +74,36 @@ test("DZM1 uses a merged loading time only within its numbered wave", () => {
   assert.deepEqual(Array.from(parsed, x=>x.cells[1]), ["12:35","12:35","12:55","12:55"]);
 });
 
+test("DZM1 reads compact DCSL sections with the time in each Wave heading", () => {
+  const rows = [
+    row(1, {0:"DZM1 Cycle 1 - Wave Plan - DCSL - 08/11/2026"}),
+    row(3, {0:"Wave 4 - 11:45 AM - Launchpad A (Holding Lane E-G) - 2 routes"}),
+    row(4, {0:"Route Code",1:"Bags",2:"OVs",3:"Staging Location"}),
+    row(5, {0:"CA_A194",1:"7",2:"16",3:"STG-C.2"}),
+    row(6, {0:"CA_A195",1:"7",2:"25",3:"STG-C.3"}),
+    row(8, {0:"Wave 5 - 12:10 PM - Launchpad A (Holding Lane E-G) - 1 routes"}),
+    row(9, {0:"Route Code",1:"Bags",2:"OVs",3:"Staging Location"}),
+    row(10,{0:"CA_A198",1:"4",2:"12",3:"STG-C.1"}),
+  ];
+  const parsed=dzm1DCSLSectionRows(rows);
+  assert.deepEqual(Array.from(parsed,x=>x.cells[0]),["CA_A194","CA_A195","CA_A198"]);
+  assert.deepEqual(Array.from(parsed,x=>x.cells[1]),["11:45 AM","11:45 AM","12:10 PM"]);
+  assert.deepEqual(Array.from(parsed,x=>x.explicitWave),["WAVE4","WAVE4","WAVE5"]);
+  assert.ok(parsed.every(x=>x.launchPad==="A"&&x.holdingLane==="E-G"));
+  assert.equal(parsed[0].cells[2],"STG-C.2");
+});
+
+test("DZM1 section parser rejects a worksheet without a DCSL-only title", () => {
+  const rows=[
+    row(1,{0:"DZM1 Cycle 1 - Wave Plan - Other DSP"}),
+    row(3,{0:"Wave 4 - 11:45 AM - Launchpad A (Holding Lane E-G) - 1 routes"}),
+    row(5,{0:"CA_A194",3:"STG-C.2"}),
+  ];
+  assert.equal(dzm1DCSLSectionRows(rows).length,0);
+});
+
 test("DZM1 Smart Upload compares supported Excel layouts", () => {
   assert.match(source, /dzmCandidates\.sort\(/);
   assert.match(source, /dzm1HeaderWorkbookRows\(raw\)/);
+  assert.match(source, /dzm1DCSLSectionRows\(raw\)/);
 });
