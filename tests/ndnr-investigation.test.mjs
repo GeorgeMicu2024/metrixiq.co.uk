@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ndnrRoute, ndnrTracking, parseNdnrReport, matchNdnrParcels, groupNdnrByRoute, isNdnrReturnScan, applyNdnrDriverAssignments } from "../lib/ndnr/ndnrMatching.mjs";
+import { ndnrRoute, ndnrTracking, parseNdnrReport, matchNdnrParcels, groupNdnrByRoute, isNdnrReturnScan, applyNdnrDriverAssignments, findNdnrDriverSuggestions } from "../lib/ndnr/ndnrMatching.mjs";
 import { buildNdnrExportSvg } from "../lib/ndnr/ndnrPngExport.mjs";
 import { NAV_GROUPS } from "../components/dashboard/navigation.js";
 
@@ -104,4 +104,16 @@ test("an Amazon unassigned parcel can be named manually without changing scans o
   assert.equal(assigned[1].driver_name, "Andreea Ciobotaru");
   assert.equal(original[0].driver_name, "Unassigned driver");
   assert.equal(applyNdnrDriverAssignments(original, {})[0].driver_name, "Unassigned driver");
+});
+
+test("NDNR driver search includes cross-station Driver Master records and matches surnames", () => {
+  const directory = [
+    { name: "Constantin Bogdan Nita", site: "DLS2" },
+    { name: "Connor David J Rudd", site: "DZM1" },
+    { name: "Constantin Viasu", site: "DLS2" },
+    { name: "Vasile Catalin Condurache", site: "DZM1" },
+  ];
+  assert.deepEqual(findNdnrDriverSuggestions(directory, "Viasu").map(row => row.name), ["Constantin Viasu"]);
+  assert.ok(findNdnrDriverSuggestions(directory, "Con").some(row => row.name === "Constantin Viasu"));
+  assert.deepEqual(findNdnrDriverSuggestions(directory, "").map(row => row.name), []);
 });

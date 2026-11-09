@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { applyNdnrDriverAssignments, groupNdnrByRoute, matchNdnrParcels, parseNdnrReport } from "../../lib/ndnr/ndnrMatching.mjs";
+import { getSupabaseBrowserClient } from "../../lib/supabase/client";
+import { applyNdnrDriverAssignments, findNdnrDriverSuggestions, groupNdnrByRoute, matchNdnrParcels, parseNdnrReport } from "../../lib/ndnr/ndnrMatching.mjs";
 import { createNdnrPng } from "../../lib/ndnr/ndnrPngExport.mjs";
 import "./NdnrView.css";
 
@@ -34,7 +35,7 @@ function stateLabel(state) {
   return state === "returned" ? "RTS scanned" : state === "review" ? "Check scan time" : "Awaiting return";
 }
 
-export default function NdnrView({ siteFilter = "all", drivers = [] }) {
+export default function NdnrView({ organizationId, siteFilter = "all", drivers = [] }) {
   const [screenshot, setScreenshot] = useState(null);
   const [reportText, setReportText] = useState("");
   const [packageFiles, setPackageFiles] = useState([]);
@@ -53,15 +54,40 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
   const [routeAssignments, setRouteAssignments] = useState({});
   const [editingRoute, setEditingRoute] = useState("");
   const [driverDraft, setDriverDraft] = useState("");
+  const [masterDrivers, setMasterDrivers] = useState([]);
+  const [directoryError, setDirectoryError] = useState("");
   const ocrToken = useRef(0);
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+
+  useEffect(() => {
+    let active = true;
+    if (!organizationId) { setMasterDrivers([]); return; }
+    setDirectoryError("");
+    supabase.from("drivers").select("trid,full_name,site").eq("organization_id", organizationId)
+      .order("full_name", { ascending: true }).limit(2000)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) { setDirectoryError("Driver Master suggestions unavailable. You can still type a name manually."); setMasterDrivers([]); }
+        else setMasterDrivers(data || []);
+      });
+    return () => { active = false; };
+  }, [organizationId, supabase]);
   const report = useMemo(() => parseNdnrReport(reportText), [reportText]);
   const hidden = useMemo(() => new Set(hiddenKeys), [hiddenKeys]);
   const assignedRows = useMemo(() => applyNdnrDriverAssignments(rows, routeAssignments), [rows, routeAssignments]);
   const groups = useMemo(() => groupNdnrByRoute(assignedRows), [assignedRows]);
-  const driverSuggestions = useMemo(() => [...new Set([
-    ...drivers.map(driver => String(driver.full_name || driver.name || driver.driver_name || "").trim()),
-    ...rows.map(row => row.driver_name),
-  ].filter(name => name && name !== "Unassigned driver"))].sort((a, b) => a.localeCompare(b)), [drivers, rows]);
+  const driverSuggestions = useMemo(() => {
+    const unique = new Map();
+    for (const item of [...masterDrivers, ...drivers, ...rows]) {
+      const name = String(item.full_name || item.name || item.driver_name || "").trim();
+      if (!name || name === "Unassigned driver") continue;
+      const site = String(item.site || "").trim().toUpperCase();
+      const key = name.toUpperCase();
+      if (!unique.has(key)) unique.set(key, { name, site });
+    }
+    return [...unique.values()];
+  }, [masterDrivers, drivers, rows]);
+  const suggestedDrivers = useMemo(() => findNdnrDriverSuggestions(driverSuggestions, driverDraft), [driverSuggestions, driverDraft]);
   const displayed = useMemo(() => groups.filter(group => hidden.has(group.key) === showHidden).map(group => ({
     ...group, parcels: group.parcels.filter(row => (filter === "all" || row.state === filter) &&
       [row.tracking_id, row.route_code, row.driver_name, row.status, row.reason].join(" ").toLowerCase().includes(search.toLowerCase())),
@@ -216,11 +242,14 @@ export default function NdnrView({ siteFilter = "all", drivers = [] }) {
           </div></header>
         {editingRoute === group.route && <form className="ndnr-assign-form" onSubmit={saveDriverAssignment}>
           <label htmlFor="ndnr-assigned-name">Driver for {group.route}</label>
-          <input id="ndnr-assigned-name" list="ndnr-driver-suggestions" value={driverDraft} onChange={event => setDriverDraft(event.target.value)} placeholder="Search or type full driver name" autoFocus />
-          <datalist id="ndnr-driver-suggestions">{driverSuggestions.map(name => <option key={name} value={name} />)}</datalist>
+          <div className="ndnr-driver-search"><input id="ndnr-assigned-name" value={driverDraft} onChange={event => setDriverDraft(event.target.value)} autoComplete="off" placeholder="Search first name or surname" autoFocus />
+            {suggestedDrivers.length > 0 && <div className="ndnr-driver-options" role="listbox" aria-label="Drivers from Driver Master">
+              {suggestedDrivers.map(driver => <button key={`${driver.name}|${driver.site}`} type="button" role="option" aria-selected={driverDraft === driver.name} onClick={() => setDriverDraft(driver.name)}><strong>{driver.name}</strong>{driver.site && <small>{driver.site}</small>}</button>)}
+            </div>}
+          </div>
           <button type="submit" disabled={!driverDraft.trim()}>Save driver</button>
           <button type="button" onClick={() => setEditingRoute("")}>Cancel</button>
-          <small>Use this when Amazon CSV says "unassigned". Applies only to this report, not future routes.</small>
+          <small>{directoryError || "Suggestions include all drivers in your organisation, across stations. Assignment applies to this report only."}</small>
         </form>}
         <div className="ndnr-table-wrap"><table><thead><tr><th>Tracking ID</th><th>CSV status</th><th>Last scan</th><th>Return check</th></tr></thead><tbody>
           {group.parcels.map(parcel => <tr key={parcel.tracking_id}><td data-label="Tracking ID"><b>{parcel.tracking_id}</b>{parcel.route_mismatch && <small className="ndnr-mismatch">Route differs from CSV ({parcel.csv_route})</small>}</td><td data-label="CSV status">{parcel.status}</td><td data-label="Last scan">{displayDateTime(parcel.last_scan)}</td><td data-label="Return check"><span className={`ndnr-badge ${parcel.state}`}>{stateLabel(parcel.state)}</span></td></tr>)}
