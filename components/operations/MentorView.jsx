@@ -5,6 +5,7 @@ import { TARGETS, targetLabel } from "../../lib/config/performance";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { fetchMentorDailyRows, fetchMentorReconciliationRows, setMentorDailyVisibility } from "../../lib/data/mentorDaily";
 import MentorMappingPanel from "./MentorMappingPanel";
+import { fetchMentorMappingDrivers, reassignMentorMapping } from "../../lib/data/mentorMapping";
 import {
   ErrorBox,
   Loading,
@@ -135,14 +136,14 @@ function ReportSortHeader({ columnKey, label, sort, onSort, tone = "risk" }) {
   );
 }
 
-function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, onRestore, visibilityBusy = "", compact = false }) {
+function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, onRestore, visibilityBusy = "", onEdit, compact = false }) {
   return (
     <div className={compact ? "mentor-report-scroll compact" : "mentor-report-scroll"}>
       <table className="mentor-report-table">
         <thead>
           <tr>
             <th className="mentor-head index">#</th>
-            {(onHide || onRestore) && <th className="mentor-head numeric">Visibility</th>}
+            {(onHide || onRestore) && <th className="mentor-head numeric">Actions</th>}
             {REPORT_COLUMNS.map(([key, label]) => (
               <ReportSortHeader
                 key={key}
@@ -164,6 +165,7 @@ function MentorReportTable({ rows, sort, onSort, onOpenDriver, onHide, onRestore
                   {item.row?.is_hidden
                     ? <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onRestore?.(item)}>Restore</button>
                     : <button type="button" className="btn ghost" disabled={visibilityBusy === item.row?.id} onClick={() => onHide?.(item)}>Hide</button>}
+                  {onEdit && <button type="button" className="btn ghost" onClick={() => onEdit(item)} style={{ marginLeft: 6 }}>Edit</button>}
                 </td>
               )}
               <td className="mentor-name-cell">
@@ -254,6 +256,11 @@ export default function MentorView({
   const [mappingRefresh, setMappingRefresh] = useState(0);
   const [showHidden, setShowHidden] = useState(false);
   const [visibilityBusy, setVisibilityBusy] = useState("");
+  const [editingItem, setEditingItem] = useState(null);
+  const [editDriverQuery, setEditDriverQuery] = useState("");
+  const [editDrivers, setEditDrivers] = useState([]);
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -514,6 +521,40 @@ export default function MentorView({
       setVisibilityBusy("");
     }
   }
+  async function openMappingEditor(item) {
+    setEditingItem(item);
+    setEditDriverQuery("");
+    setEditError("");
+    try {
+      setEditDrivers(await fetchMentorMappingDrivers(getSupabaseBrowserClient(), organizationId));
+    } catch (error) {
+      setEditError(error?.message || "Could not load drivers.");
+    }
+  }
+
+  async function saveMappingCorrection(driverId) {
+    if (!editingItem || editBusy) return;
+    const key = String(editingItem.row?.source_identity_key || "").trim();
+    const source = reconciliationRows.find((row) =>
+      String(row.payload?.driver?.mentorHash || row.payload?.driver?.details?.mentor?.identityKey || "").trim() === key
+    );
+    if (!source) {
+      setEditError("No editable source mapping was found for this row. Use Driver Mapping to review its original source.");
+      return;
+    }
+    setEditBusy(true);
+    setEditError("");
+    try {
+      await reassignMentorMapping(getSupabaseBrowserClient(), organizationId, source.id, driverId);
+      setEditingItem(null);
+      setMappingRefresh((value) => value + 1);
+    } catch (error) {
+      setEditError(error?.message || "Could not update this mapping.");
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
   const searchedRows = activeRows.filter((item) =>
     [
       item.firstName,
@@ -652,6 +693,7 @@ export default function MentorView({
             onOpenDriver={onOpenDriver}
             onHide={(item) => setDailyItemHidden(item, true)}
             onRestore={(item) => setDailyItemHidden(item, false)}
+            onEdit={openMappingEditor}
             visibilityBusy={visibilityBusy}
           />
           <section className={"mentor-no-trip "+(noTripRows.length ? "has-missing" : "")}>
@@ -697,6 +739,32 @@ export default function MentorView({
             </button>
             <span>{dailyMap.filter((item) => item.row?.is_hidden).length} hidden account(s)</span>
           </div>
+
+          {editingItem && (
+            <div className="mentor-create-backdrop" role="presentation" onMouseDown={() => !editBusy && setEditingItem(null)}>
+              <div className="mentor-create-modal" role="dialog" aria-modal="true" aria-label="Edit eMentor driver mapping" onMouseDown={(event) => event.stopPropagation()}>
+                <div className="mentor-create-title">
+                  <div><b>Edit eMentor Mapping</b><small>{editingItem.firstName} {editingItem.lastName} · Score {editingItem.score ?? "—"}</small></div>
+                  <button type="button" disabled={editBusy} onClick={() => setEditingItem(null)}>×</button>
+                </div>
+                <label>Choose correct driver
+                  <input autoFocus type="search" value={editDriverQuery} onChange={(event) => setEditDriverQuery(event.target.value)} placeholder="Search driver name or TRID…" />
+                </label>
+                {editError && <div className="mentor-mapping-error">{editError}</div>}
+                <div style={{ maxHeight: 260, overflowY: "auto" }}>
+                  {editDrivers.filter((driver) => `${driver.full_name || ""} ${driver.trid || ""}`.toLowerCase().includes(editDriverQuery.trim().toLowerCase())).slice(0, 30).map((driver) => (
+                    <button key={driver.id} type="button" className="btn ghost" disabled={editBusy} onClick={() => saveMappingCorrection(driver.id)} style={{ display: "block", width: "100%", textAlign: "left", marginBottom: 4 }}>
+                      {driver.full_name} {driver.site ? `· ${driver.site}` : ""}
+                    </button>
+                  ))}
+                </div>
+                <div className="mentor-create-actions">
+                  <button type="button" className="btn ghost" disabled={editBusy} onClick={() => setEditingItem(null)}>Cancel</button>
+                  <button type="button" className="btn ghost" disabled={editBusy} onClick={() => { if (window.confirm("Unlink this eMentor identity? Scores will be preserved.")) saveMappingCorrection(null); }}>Unlink</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <MentorMappingPanel organizationId={organizationId} reportDate={selectedDate} siteFilter={siteFilter} snapshotIdentityKeys={selectedDailyRows.map((row) => row.source_identity_key)} onChanged={() => setMappingRefresh((value) => value + 1)} />
 
