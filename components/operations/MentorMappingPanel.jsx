@@ -32,7 +32,7 @@ function isPositiveTripEvidenceOnly(row) {
 export default function MentorMappingPanel({ organizationId, reportDate, onChanged, siteFilter, snapshotIdentityKeys = [] }) {
   const [rows, setRows] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("open");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [driverQueries, setDriverQueries] = useState({});
@@ -93,7 +93,6 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
   const actionable = useMemo(() => {
     const snapshotKeys = new Set(snapshotIdentityKeys.map((key) => String(key || "").trim()));
     return reconciled.filter((r) => {
-      if (r.status === "resolved") return true;
       if (isPositiveTripEvidenceOnly(r)) return false;
       if (r.status === "open" || r.status === "ignored") return true;
       if (String(siteFilter || "").toUpperCase() !== "DZM1" || r.status !== "resolved") return false;
