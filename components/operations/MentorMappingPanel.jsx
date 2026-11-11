@@ -8,6 +8,7 @@ import {
   fetchMentorMappingDrivers,
   fetchMentorMappingRows,
   resolveMentorMapping,
+  reassignMentorMapping,
 } from "../../lib/data/mentorMapping";
 
 function mentorEvidence(row) {
@@ -36,6 +37,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
   const [error, setError] = useState("");
   const [driverQueries, setDriverQueries] = useState({});
   const [createFor, setCreateFor] = useState(null);
+  const [editingId, setEditingId] = useState(null);
   const [newDriver, setNewDriver] = useState({ full_name: "", trid: "", site: "" });
 
   async function load() {
@@ -91,6 +93,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
   const actionable = useMemo(() => {
     const snapshotKeys = new Set(snapshotIdentityKeys.map((key) => String(key || "").trim()));
     return reconciled.filter((r) => {
+      if (r.status === "resolved") return true;
       if (isPositiveTripEvidenceOnly(r)) return false;
       if (r.status === "open" || r.status === "ignored") return true;
       if (String(siteFilter || "").toUpperCase() !== "DZM1" || r.status !== "resolved") return false;
@@ -101,13 +104,13 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
 
   const counts = useMemo(() => ({
     all: actionable.length,
-    open: actionable.filter((r) => r.status === "open" || r.status === "resolved").length,
+    open: actionable.filter((r) => r.status === "open").length,
     hidden: actionable.filter((r) => r.status === "ignored").length,
   }), [actionable]);
 
   const visible = filter === "all"
     ? actionable
-    : actionable.filter((r) => filter === "hidden" ? r.status === "ignored" : (r.status === "open" || r.status === "resolved"));
+    : actionable.filter((r) => filter === "hidden" ? r.status === "ignored" : r.status === "open");
 
   async function createAndResolve() {
     if (!createFor || !newDriver.full_name.trim()) return;
@@ -141,6 +144,17 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
     finally { setBusy(""); }
   }
 
+  async function changeMapping(row, driverId) {
+    setBusy(row.id); setError("");
+    try {
+      await reassignMentorMapping(getSupabaseBrowserClient(), organizationId, row.id, driverId);
+      setEditingId(null);
+      setDriverQueries((current) => ({ ...current, [row.id]: "" }));
+      await load(); onChanged?.();
+    } catch (e) { setError(e?.message || "Could not correct eMentor mapping."); }
+    finally { setBusy(""); }
+  }
+
   if (!actionable.length) return null;
 
   return (
@@ -149,7 +163,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
         <div>
           <span className="page-kicker">IMPORT RECONCILIATION</span>
           <h2>Driver Mapping</h2>
-          <p>Review rows that could not be matched automatically. Manual mappings are reused on future imports.</p>
+          <p>Review unmatched accounts or open All to edit and unlink saved mappings. Changes apply to future imports.</p>
         </div>
         <div className="mentor-mapping-counts">
           <b>{actionable.length} source account{actionable.length === 1 ? "" : "s"} to review</b>
@@ -176,12 +190,17 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                     ? <button type="button" disabled={busy === row.id} onClick={() => classify(row, "open")}>Unhide</button>
                     : <button type="button" disabled={busy === row.id} onClick={() => classify(row, "ignored")}>Hide</button>}
                 </td>
-                <td><b>{row.raw_name || "Unknown / encrypted"}</b>{row.status === "resolved" && <small style={{ display: "block" }}>Previously linked · missing from report</small>}</td>
+                <td><b>{row.raw_name || "Unknown / encrypted"}</b>{row.status === "resolved" && <small style={{ display: "block" }}>Linked to {drivers.find((driver) => driver.id === row.matched_driver_id)?.full_name || "saved driver"}</small>}</td>
                 <td><code>{row.raw_trid || row.payload?.driver?.mentorHash || "—"}</code></td>
                 <td>{row.site || "—"}</td>
                 <td><b>{mentorEvidence(row).hasScore ? row.payload?.score : mentorEvidence(row).trips != null ? "Trip only" : "—"}</b></td>
                 <td>
-                  <div className="mentor-driver-combobox">
+                  {row.status === "resolved" && editingId !== row.id ? (
+                    <div className="mentor-mapping-actions">
+                      <button type="button" disabled={!!busy} onClick={() => { setEditingId(row.id); setDriverQueries((current) => ({ ...current, [row.id]: "" })); }}>Edit Mapping</button>
+                      <button type="button" disabled={!!busy} onClick={() => { if (window.confirm("Unlink this eMentor account? Existing scores will be kept, but the driver association will be cleared.")) changeMapping(row, null); }}>Unlink</button>
+                    </div>
+                  ) : <div className="mentor-driver-combobox">
                     <input
                       type="search"
                       autoComplete="off"
@@ -206,7 +225,8 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                               disabled={busy === row.id}
                               onClick={() => {
                                 setDriverQueries((current) => ({ ...current, [row.id]: driver.full_name || driver.trid || "" }));
-                                resolve(row, driver.id);
+                                if (row.status === "resolved") changeMapping(row, driver.id);
+                                else resolve(row, driver.id);
                               }}
                             >
                               <b>{driver.full_name}</b>
@@ -223,7 +243,7 @@ export default function MentorMappingPanel({ organizationId, reportDate, onChang
                         }}><b>+ Create new driver</b><span>Create and permanently link this eMentor account</span></button>
                       </div>
                     )}
-                  </div>
+                  </div>}
                 </td>
               </tr>
             ))}
