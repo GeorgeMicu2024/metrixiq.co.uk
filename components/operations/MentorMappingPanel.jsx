@@ -32,7 +32,7 @@ function isPositiveTripEvidenceOnly(row) {
 export default function MentorMappingPanel({ organizationId, reportDate, onChanged, siteFilter, snapshotIdentityKeys = [] }) {
   const [rows, setRows] = useState([]);
   const [drivers, setDrivers] = useState([]);
-  const [filter, setFilter] = useState("open");
+  const [filter, setFilter] = useState("all");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [driverQueries, setDriverQueries] = useState({});
