@@ -724,7 +724,7 @@ async function atlasImageRows(file,onProgress){
        passes.push(atlasRowsFromOcrData(result.data));
        // Never pair independent column lists in an actual transfer sheet: it
        // can silently assign a tracking ID to a different driver.
-       if(!/TRANSFER\\s*SHEET|PRESENCE\\s*CONFIRMATION/i.test(String(result.data?.text||"")))
+       if(!/TRANSFER\s*SHEET|PRESENCE\s*CONFIRMATION/i.test(String(result.data?.text||"")))
          passes.push(atlasColumnRowsFromOcrData(result.data));
      }
    }catch(e){lastError=e;console.warn("Atlas OCR pass failed",mode,e)}
