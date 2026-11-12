@@ -643,31 +643,68 @@ function atlasRowsFromOcrData(data){
 }
 // Amazon Transfer Sheet: Route Code and Tracking ID are in separate columns.
 // Match using their original vertical positions rather than assigning by list order.
+// Strict positional OCR for the Amazon Transfer Sheet (route column left of tracking).
+// Never match independent route and tracking lists by ordinal position.
+const atlasTransferRoute=value=>{
+ const m=clean(value).toUpperCase().match(/\b(CA|CB|SA)[_\s-]*A?[_\s-]*(\d{1,3})\b/);
+ return m?m[1]+"_A"+Number(m[2]):"";
+};
+const atlasTransferTracking=value=>{
+ const compact=clean(value).toUpperCase().replace(/\s+/g,"");
+ const m=compact.match(/\bU[KX]([0-9OQDILSZGBT]{10})\b/);
+ if(!m)return"";
+ const digits=m[1].replace(/[OQD]/g,"0").replace(/[IL]/g,"1").replace(/Z/g,"2").replace(/E/g,"3").replace(/S/g,"5").replace(/G/g,"6").replace(/T/g,"7").replace(/B/g,"8");
+ return /^\d{10}$/.test(digits)?"UK"+digits:"";
+};
+const atlasTransferExpected=data=>{
+ const v=String(data?.text||"");
+ const m=v.match(/\bTOTAL\s*(?:PACKAGES\s*)?[:\-]\s*(\d{1,3})\s*PACKAGES?\b/i)||v.match(/\bTOTAL\s+PACKAGES\s*[:\-]\s*(\d{1,3})\b/i);
+ return m?Number(m[1]):null;
+};
+const atlasIsTransferSheet=data=>/TRANSFER\s*SHEET|PRESENCE\s*CONFIRMATION|PACKAGES?\s*ON\s*THIS\s*ROUTE/i.test(String(data?.text||""));
 function atlasTransferSheetRowsFromOcrData(data){
- const content=String(data?.text||"");
- if(!/TRANSFER\s*SHEET|PRESENCE\s*CONFIRMATION|PACKAGES?\s*ON\s*THIS\s*ROUTE/i.test(content))return [];
- const routes=[],tracking=[];
+ if(!atlasIsTransferSheet(data))return [];
+ const routes=[],trackings=[],lines=[];
  for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){
   const value=clean(line?.text||(line?.words||[]).map(w=>w?.text||"").join(" "));
-  const bbox=line?.bbox,route=deh1RouteOf([value])||routeOf([value]),id=atlasTrackingOf(value);
-  if(route&&id){tracking.push({route,id,y:bboxY(bbox),h:bboxH(bbox),x:bboxX(bbox),direct:true});continue}
-  if(route)routes.push({route,y:bboxY(bbox),h:bboxH(bbox),x:bboxX(bbox)});
-  if(id)tracking.push({id,y:bboxY(bbox),h:bboxH(bbox),x:bboxX(bbox)});
+  const bbox=line?.bbox,words=line?.words||[];
+  if(!bbox)continue;
+  lines.push({value,y:bboxY(bbox),x:bboxX(bbox),h:bboxH(bbox)});
+  // Use actual word coordinates where available, not the centre of the entire
+  // OCR line (which may contain both table columns).
+  const byWord=words.filter(w=>w?.bbox).map(w=>({value:clean(w.text),x:bboxX(w.bbox),y:bboxY(w.bbox),h:bboxH(w.bbox)}));
+  const tokens=byWord.length?byWord:[{value,x:bboxX(bbox),y:bboxY(bbox),h:bboxH(bbox)}];
+  for(const token of tokens){
+   const route=atlasTransferRoute(token.value),id=atlasTransferTracking(token.value);
+   if(route)routes.push({...token,route});
+   if(id)trackings.push({...token,id});
+  }
+  // A line can contain whole column values when words were not segmented.
+  if(!byWord.length){
+   const route=atlasTransferRoute(value),id=atlasTransferTracking(value);
+   if(route&&!routes.some(r=>r.route===route&&Math.abs(r.y-bboxY(bbox))<3))routes.push({route,x:bboxX(bbox)-70,y:bboxY(bbox),h:bboxH(bbox)});
+   if(id&&!trackings.some(t=>t.id===id&&Math.abs(t.y-bboxY(bbox))<3))trackings.push({id,x:bboxX(bbox)+70,y:bboxY(bbox),h:bboxH(bbox)});
+  }
  }
- routes.sort((a,b)=>a.y-b.y);
- const intervals=routes.slice(1).map((r,i)=>r.y-routes[i].y).filter(n=>n>2).sort((a,b)=>a-b);
- const rowHeight=intervals.length?intervals[Math.floor(intervals.length/2)]:0;
- const used=new Set(),out=[];
- for(const shipment of tracking.sort((a,b)=>a.y-b.y)){
-  if(shipment.direct){out.push({tracking:shipment.id,route:shipment.route,wave:"",sourceY:shipment.y,transferSheet:true});continue}
-  const possible=routes.map((r,index)=>({r,index,distance:Math.abs(r.y-shipment.y)}))
-   .filter(x=>!used.has(x.index)&&x.r.x<shipment.x&&x.distance<=Math.max(14,Math.min(55,rowHeight?rowHeight*.46:Math.max(shipment.h,x.r.h)*1.1)))
-   .sort((a,b)=>a.distance-b.distance);
-  if(!possible.length)continue;
-  used.add(possible[0].index);
-  out.push({tracking:shipment.id,route:possible[0].r.route,wave:"",sourceY:shipment.y,transferSheet:true});
+ // If line-level OCR split route tokens ("CA_" and "A31"), join neighbours
+ // on the same text baseline, but not across rows.
+ for(const line of lines){
+  const route=atlasTransferRoute(line.value),id=atlasTransferTracking(line.value);
+  if(route&&!routes.some(r=>r.route===route&&Math.abs(r.y-line.y)<7))routes.push({route,x:line.x-40,y:line.y,h:line.h});
+  if(id&&!trackings.some(t=>t.id===id&&Math.abs(t.y-line.y)<7))trackings.push({id,x:line.x+40,y:line.y,h:line.h});
  }
- return out;
+ const distinctRoutes=[...new Map(routes.map(r=>[r.route+"|"+Math.round(r.y/8),r])).values()];
+ const distinctIds=[...new Map(trackings.map(t=>[t.id+"|"+Math.round(t.y/8),t])).values()];
+ const out=[];
+ for(const t of distinctIds.sort((a,b)=>a.y-b.y)){
+  const candidates=distinctRoutes.filter(r=>Math.abs(r.y-t.y)<=Math.max(14,Math.min(28,(r.h+t.h)*.8))&&r.x<t.x+5)
+   .sort((a,b)=>Math.abs(a.y-t.y)-Math.abs(b.y-t.y)||a.x-b.x);
+  // Only accept a clearly paired route from the same visual table row.
+  if(!candidates.length)continue;
+  if(candidates.length>1&&candidates[0].route!==candidates[1].route&&Math.abs(candidates[0].y-t.y)+4>=Math.abs(candidates[1].y-t.y))continue;
+  out.push({tracking:t.id,route:candidates[0].route,wave:"",sourceY:t.y,transferSheet:true});
+ }
+ return [...new Map(out.map(r=>[r.tracking+"|"+r.route,r])).values()];
 }
 const atlasColumnRowsFromOcrData=data=>{
  const chunks=[];
@@ -714,33 +751,50 @@ function atlasEnhancedCanvas(source){
 async function atlasImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
- const passes=[];let rawCanvas=null,lastError=null;
+ const passes=[],transferPasses=[];let rawCanvas=null,lastError=null,transferDetected=false,expectedCount=null;
  const run=async(source,mode)=>{
-   try{
-     try{await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
-     const result=await worker.recognize(source,{}, {text:true,blocks:true});
-     const transfer=atlasTransferSheetRowsFromOcrData(result.data);
-     if(transfer.length){passes.push(transfer)}else{
-       passes.push(atlasRowsFromOcrData(result.data));
-       // Never pair independent column lists in an actual transfer sheet: it
-       // can silently assign a tracking ID to a different driver.
-       if(!/TRANSFER\s*SHEET|PRESENCE\s*CONFIRMATION/i.test(String(result.data?.text||"")))
-         passes.push(atlasColumnRowsFromOcrData(result.data));
-     }
-   }catch(e){lastError=e;console.warn("Atlas OCR pass failed",mode,e)}
+  try{
+   try{await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
+   const result=await worker.recognize(source,{}, {text:true,blocks:true});
+   const data=result.data,transfer=atlasIsTransferSheet(data);
+   if(transfer){transferDetected=true;transferPasses.push(atlasTransferSheetRowsFromOcrData(data));expectedCount=atlasTransferExpected(data)??expectedCount}
+   else passes.push(atlasRowsFromOcrData(data),atlasColumnRowsFromOcrData(data));
+  }catch(e){lastError=e;console.warn("Atlas OCR pass failed",mode,e)}
  };
  try{
-   try{rawCanvas=await deh1RawCanvas(file)}catch(e){lastError=e;console.warn("Atlas canvas prep failed",e)}
-   await run(file,"6");
-   await run(file,"11");
-   const enhanced=rawCanvas?atlasEnhancedCanvas(rawCanvas):null;
-   if(enhanced)await run(enhanced,"6");
+  try{rawCanvas=await deh1RawCanvas(file)}catch(e){lastError=e;console.warn("Atlas canvas prep failed",e)}
+  await run(file,"6");await run(file,"11");
+  const enhanced=rawCanvas?atlasEnhancedCanvas(rawCanvas):null;
+  if(enhanced)await run(enhanced,"6");
  }finally{await worker.terminate()}
+ if(transferDetected){
+  // Reconcile OCR passes by route, never append conflicting readings as extra
+  // packages. If OCR proposes competing tracking numbers, require review.
+  const votes=new Map(),routes=new Set();
+  for(const pass of transferPasses){
+   for(const r of pass){routes.add(r.route);const k=r.route+"|"+r.tracking;votes.set(k,(votes.get(k)||0)+1)}
+  }
+  const byRoute=new Map();
+  for(const [key,n] of votes){
+   const split=key.indexOf("|"),route=key.slice(0,split),tracking=key.slice(split+1),arr=byRoute.get(route)||[];
+   arr.push({route,tracking,votes:n});byRoute.set(route,arr);
+  }
+  const rows=[],warnings=[];
+  for(const [route,choices] of byRoute){
+   choices.sort((a,b)=>b.votes-a.votes);
+   if(choices.length>1&&choices[0].votes===choices[1].votes){warnings.push(route+": conflicting tracking IDs across OCR passes");continue}
+   if(choices.length>1)warnings.push(route+": multiple tracking IDs detected; check the original");
+   rows.push({route,tracking:choices[0].tracking,wave:"",sourceY:0,transferSheet:true});
+  }
+  if(expectedCount!=null&&rows.length!==expectedCount)warnings.push("Transfer Sheet total "+expectedCount+" packages, but only "+rows.length+" verified");
+  if(!rows.length&&lastError)throw lastError;
+  rows.warnings=warnings;rows.expectedCount=expectedCount;rows.transferSheet=true;
+  return rows;
+ }
  const rows=mergeAtlasRows(...passes);
  if(!rows.length&&lastError)throw lastError;
  return rows;
 }
-
 export default function WavePlanView({site="DLS2",drivers=[]}){
  const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Atlas Transfer Details – DCSL\nTotal packages: {count}\n\nTracking ID - Route Code - Driver Name\n\n{rows}\n\nIMPORTANT: All Atlas packages must be manually scanned in the Amazon Flex app before leaving the station. Do not leave the site until every Atlas package has been scanned and confirmed in the app.\n\nPlease confirm receipt."),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[atlasStatus,setAtlasStatus]=useState({type:"idle",message:"Upload a photo or paste an Atlas message."}),[atlasLastFile,setAtlasLastFile]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium"),[dehTimeOverrides,setDehTimeOverrides]=useState({}),[dehEditorWave,setDehEditorWave]=useState("WAVE6"),[dehFontPx,setDehFontPx]=useState(13),[dehFontFamily,setDehFontFamily]=useState("Inter"),[dehBold,setDehBold]=useState(false),[dehItalic,setDehItalic]=useState(false),[dehUnderline,setDehUnderline]=useState(false);
  const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),atlasImageInput=useRef(null),atlasRouteInput=useRef(null),sheetRef=useRef(null);
@@ -851,7 +905,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
        return;
      }
      setAtlasText(rows.map(r=>[r.tracking,r.route,r.wave].filter(Boolean).join(" - ")).join("\n"));
-     setAtlasStatus({type:"warning",message:"Recognised "+rows.length+" package"+(rows.length===1?"":"s")+". Verify the Tracking ID / Route pairs against the transfer sheet before copying."});
+     setAtlasStatus({type:rows.warnings?.length?"error":"warning",message:"Recognised "+rows.length+" package"+(rows.length===1?"":"s")+(rows.expectedCount!=null?" of "+rows.expectedCount+" expected":"")+". "+(rows.warnings?.length?rows.warnings.join("; ")+". Correct missing or conflicting rows in Manual input / OCR text before copying.":"Verify each Tracking ID / Route pair against the transfer sheet before copying.")});
    }catch(e){
      console.error("Atlas image OCR failed",e);
      setAtlasText("");
