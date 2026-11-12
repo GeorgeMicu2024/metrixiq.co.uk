@@ -101,6 +101,33 @@ function dzm1WorkbookRows(rows){
  }
  return out;
 }
+// DZM1 DCSL allocation exports: DSP | Route Code | Staging Loc | Wave Time.
+// Wave Time is the actual loading time; derive wave numbers from unique clock
+// times rather than requiring a separate Wave column.
+function dzm1AllocationWorkbookRows(rows){
+ const candidates=[],headersBySheet=new Map();
+ for(const row of rows){
+  const sheet=row.sheet||"Wave",cells=row.cells||[],names=cells.map(v=>norm(v).replace(/\\s+/g," "));
+  const indexOf=(...aliases)=>names.findIndex(v=>aliases.includes(v));
+  const routeIndex=indexOf("ROUTE CODE","ROUTE ID"),timeIndex=indexOf("WAVE TIME","LOADING TIME");
+  const stageIndex=indexOf("STAGING LOC","STAGING LOCATION","STAGING");
+  const dspIndex=indexOf("DSP","DSP NAME");
+  if(routeIndex>=0&&timeIndex>=0&&stageIndex>=0&&dspIndex>=0){
+   headersBySheet.set(sheet,{route:routeIndex,time:timeIndex,stage:stageIndex,dsp:dspIndex});continue;
+  }
+  const h=headersBySheet.get(sheet);if(!h||!dcslDsp(cells[h.dsp]))continue;
+  const route=routeOf([cells[h.route]]),time=timeOf([cells[h.time]]),stage=stageOf([cells[h.stage]])||stageLoose(cells[h.stage]);
+  if(!route||!time||!stage)continue;
+  const minutes=toMinutes(time);if(minutes==null)continue;
+  candidates.push({row,route,time,stage,minutes});
+ }
+ const unique=[...new Set(candidates.map(c=>c.minutes))].sort((a,b)=>a-b);
+ return candidates.map(({row,route,time,stage,minutes})=>{
+  const wave="WAVE"+(unique.indexOf(minutes)+1);
+  return {...row,cells:[route,time,stage,wave,"DCSL"],directLoadTime:true,
+   explicitWave:wave,sourceY:row.row,dcslHint:true};
+ });
+}
 // DCSL-specific spreadsheets can have a conventional header table instead of
 // the Amazon matrix. Read named columns; never infer a load time from parking.
 function dzm1HeaderWorkbookRows(rows){
@@ -712,7 +739,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
          rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress);
        }else{
          const raw=await workbookRows(file);
-         const dzmCandidates=norm(site)==="DZM1"?[dzm1DCSLSectionRows(raw),dzm1ThreePadRows(raw),dzm1WorkbookRows(raw),dzm1HeaderWorkbookRows(raw)]:[];
+         const dzmCandidates=norm(site)==="DZM1"?[dzm1AllocationWorkbookRows(raw),dzm1DCSLSectionRows(raw),dzm1ThreePadRows(raw),dzm1WorkbookRows(raw),dzm1HeaderWorkbookRows(raw)]:[];
          const matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?dzmCandidates.sort((a,b)=>new Set(b.map(r=>routeOf(r.cells))).size-new Set(a.map(r=>routeOf(r.cells))).size)[0]:[];
          rows=norm(site)==="DZM1"?matrix:(matrix.length?matrix:raw);
        }
