@@ -748,6 +748,83 @@ function atlasEnhancedCanvas(source){
  }
  ctx.putImageData(img,0,0);return canvas;
 }
+// Detect the blue header and horizontal row dividers in an Amazon Transfer Sheet.
+// OCR the two cells independently; the page-wide OCR often merges neighbouring rows.
+function atlasTransferCellBounds(canvas){
+ const width=canvas?.width||0,height=canvas?.height||0;if(width<450||height<200)return [];
+ const ctx=canvas.getContext("2d",{willReadFrequently:true});if(!ctx)return [];
+ const img=ctx.getImageData(0,0,width,height).data;
+ const rgb=(x,y)=>{const p=(y*width+x)*4;return [img[p],img[p+1],img[p+2]]};
+ const blueScore=y=>{
+  let hits=0,n=0;
+  for(let x=Math.floor(width*.08);x<width*.94;x+=Math.max(2,Math.floor(width/150))){
+   const [r,g,b]=rgb(x,y);n++;if(b>125&&b>r*1.5&&b>g*1.15&&r<110)hits++;
+  }
+  return n?hits/n:0;
+ };
+ let blueEnd=-1;
+ for(let y=0;y<height*.78;y+=2){
+  if(blueScore(y)>.42)blueEnd=y;
+  if(blueEnd>=0&&y-blueEnd>12)break;
+ }
+ if(blueEnd<0)return [];
+ const darkRatio=y=>{
+  let dark=0,n=0;
+  for(let x=Math.floor(width*.035);x<width*.97;x+=Math.max(2,Math.floor(width/180))){
+   const [r,g,b]=rgb(x,y);n++;if(Math.max(r,g,b)<110)dark++;
+  }
+  return n?dark/n:0;
+ };
+ const separators=[];
+ for(let y=blueEnd+5;y<Math.min(height-4,blueEnd+height*.7);y++){
+  if(darkRatio(y)<.58)continue;
+  if(separators.length&&y-separators[separators.length-1]<4)continue;
+  separators.push(y);
+ }
+ const edges=[blueEnd,...separators],cells=[];
+ for(let i=1;i<edges.length;i++){
+  const top=edges[i-1],bottom=edges[i],rh=bottom-top;
+  if(rh<22||rh>Math.max(150,height*.18))continue;
+  const inset=Math.max(3,Math.round(rh*.1));
+  cells.push({top:top+inset,bottom:bottom-inset,routeLeft:Math.floor(width*.029),routeRight:Math.floor(width*.31),trackingLeft:Math.floor(width*.33),trackingRight:Math.floor(width*.69)});
+ }
+ return cells.length>=2&&cells.length<=100?cells:[];
+}
+function atlasTransferCellCanvas(canvas,left,right,top,bottom){
+ const out=document.createElement("canvas"),w=Math.max(1,right-left),h=Math.max(1,bottom-top),scale=3;
+ out.width=w*scale;out.height=h*scale;const ctx=out.getContext("2d",{willReadFrequently:true});
+ if(!ctx)return null;ctx.fillStyle="#fff";ctx.fillRect(0,0,out.width,out.height);
+ ctx.imageSmoothingEnabled=true;ctx.drawImage(canvas,left,top,w,h,0,0,out.width,out.height);
+ const pixels=ctx.getImageData(0,0,out.width,out.height),d=pixels.data;
+ for(let i=0;i<d.length;i+=4){
+  const gray=.2126*d[i]+.7152*d[i+1]+.0722*d[i+2];
+  const v=gray<175?Math.max(0,gray*.72):255;
+  d[i]=v;d[i+1]=v;d[i+2]=v;d[i+3]=255;
+ }
+ ctx.putImageData(pixels,0,0);return out;
+}
+async function atlasTransferCellsOcr(canvas,worker,onProgress){
+ const cells=atlasTransferCellBounds(canvas),rows=[],warnings=[];
+ if(!cells.length)return {rows,warnings,detected:false};
+ for(let i=0;i<cells.length;i++){
+  const c=cells[i],routeCanvas=atlasTransferCellCanvas(canvas,c.routeLeft,c.routeRight,c.top,c.bottom),
+   idCanvas=atlasTransferCellCanvas(canvas,c.trackingLeft,c.trackingRight,c.top,c.bottom);
+  const read=async(source,whitelist)=>{
+   if(!source)return "";
+   await worker.setParameters({tessedit_pageseg_mode:"7",tessedit_char_whitelist:whitelist,preserve_interword_spaces:"0"});
+   const result=await worker.recognize(source,{}, {text:true,blocks:false});
+   return clean(result.data?.text);
+  };
+  try{
+   const rawRoute=await read(routeCanvas,"CASB_0123456789"),rawId=await read(idCanvas,"UK0123456789");
+   const route=atlasTransferRoute(rawRoute),tracking=atlasTransferTracking(rawId);
+   if(route&&tracking)rows.push({route,tracking,wave:"",sourceY:c.top,transferSheet:true,cellOcr:true});
+   else warnings.push("Row "+(i+1)+": "+(!route?"route":"")+( !route&&!tracking?" and ":"")+(!tracking?"tracking ID":"")+" not recognised");
+  }catch(e){warnings.push("Row "+(i+1)+": cell scan failed")}
+  onProgress?.(70+Math.round((i+1)/cells.length*25));
+ }
+ return {rows,warnings,detected:true};
+}
 async function atlasImageRows(file,onProgress){
  const {createWorker}=await import("tesseract.js");
  const worker=await createWorker("eng",1,{logger:m=>m.status==="recognizing text"&&onProgress?.(Math.round((m.progress||0)*100))});
@@ -766,7 +843,18 @@ async function atlasImageRows(file,onProgress){
   await run(file,"6");await run(file,"11");
   const enhanced=rawCanvas?atlasEnhancedCanvas(rawCanvas):null;
   if(enhanced)await run(enhanced,"6");
- }finally{await worker.terminate()}
+ }finally{}
+ if(transferDetected&&rawCanvas){
+  const cropped=await atlasTransferCellsOcr(rawCanvas,worker,onProgress);
+  if(cropped.detected){
+   const warnings=[...cropped.warnings],rows=cropped.rows;
+   // Use only matching, independently scanned cells; no full-page guessed ID
+   // can overwrite a cell result or add a phantom package.
+   if(expectedCount!=null&&rows.length!==expectedCount)warnings.push("Transfer Sheet total "+expectedCount+" packages; "+rows.length+" matched");
+   rows.warnings=warnings;rows.expectedCount=expectedCount;rows.transferSheet=true;
+   await worker.terminate();return rows;
+  }
+ }
  if(transferDetected){
   // Reconcile OCR passes by route, never append conflicting readings as extra
   // packages. If OCR proposes competing tracking numbers, require review.
@@ -789,11 +877,11 @@ async function atlasImageRows(file,onProgress){
   if(expectedCount!=null&&rows.length!==expectedCount)warnings.push("Transfer Sheet total "+expectedCount+" packages, but only "+rows.length+" verified");
   if(!rows.length&&lastError)throw lastError;
   rows.warnings=warnings;rows.expectedCount=expectedCount;rows.transferSheet=true;
-  return rows;
+  await worker.terminate();return rows;
  }
  const rows=mergeAtlasRows(...passes);
  if(!rows.length&&lastError)throw lastError;
- return rows;
+ await worker.terminate();return rows;
 }
 export default function WavePlanView({site="DLS2",drivers=[]}){
  const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Atlas Transfer Details – DCSL\nTotal packages: {count}\n\nTracking ID - Route Code - Driver Name\n\n{rows}\n\nIMPORTANT: All Atlas packages must be manually scanned in the Amazon Flex app before leaving the station. Do not leave the site until every Atlas package has been scanned and confirmed in the app.\n\nPlease confirm receipt."),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[atlasStatus,setAtlasStatus]=useState({type:"idle",message:"Upload a photo or paste an Atlas message."}),[atlasLastFile,setAtlasLastFile]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium"),[dehTimeOverrides,setDehTimeOverrides]=useState({}),[dehEditorWave,setDehEditorWave]=useState("WAVE6"),[dehFontPx,setDehFontPx]=useState(13),[dehFontFamily,setDehFontFamily]=useState("Inter"),[dehBold,setDehBold]=useState(false),[dehItalic,setDehItalic]=useState(false),[dehUnderline,setDehUnderline]=useState(false);
