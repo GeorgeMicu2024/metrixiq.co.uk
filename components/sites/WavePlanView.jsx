@@ -107,7 +107,7 @@ function dzm1WorkbookRows(rows){
 function dzm1AllocationWorkbookRows(rows){
  const candidates=[],headersBySheet=new Map();
  for(const row of rows){
-  const sheet=row.sheet||"Wave",cells=row.cells||[],names=cells.map(v=>norm(v).replace(/\\s+/g," "));
+  const sheet=row.sheet||"Wave",cells=row.cells||[],names=cells.map(v=>norm(v).replace(/\s+/g," "));
   const indexOf=(...aliases)=>names.findIndex(v=>aliases.includes(v));
   const routeIndex=indexOf("ROUTE CODE","ROUTE ID"),timeIndex=indexOf("WAVE TIME","LOADING TIME");
   const stageIndex=indexOf("STAGING LOC","STAGING LOCATION","STAGING");
