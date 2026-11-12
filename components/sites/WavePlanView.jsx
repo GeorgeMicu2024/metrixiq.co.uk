@@ -38,7 +38,7 @@ const toMinutes=v=>{const m=clean(v).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);if(!
 const formatMinutes=n=>{n=(n+1440)%1440;let h=Math.floor(n/60),m=n%60,a=h>=12?"PM":"AM";return `${h%12||12}:${String(m).padStart(2,"0")} ${a}`};
 const adjustTime=(v,delta)=>{const n=toMinutes(v);return n==null?clean(v):formatMinutes(n+delta)};
 const deh1GateFallback=v=>{const n=toMinutes(v);if(n==null)return"";const m=(n-25+1440)%1440;return `${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`};
-async function workbookRows(file){const b=await file.arrayBuffer(),wb=XLSX.read(b,{type:"array",cellStyles:true}),rows=[];for(const sheetName of wb.SheetNames){const sheet=wb.Sheets[sheetName],range=XLSX.utils.decode_range(sheet["!ref"]||"A1");XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet:sheetName,row:i+1,cells,rowColour:excelRowColour(sheet,range.s.r+i,range)}))}return rows}
+async function workbookRows(file){const isTsv=/\.tsv$/i.test(file.name||"");const wb=isTsv?XLSX.read(await file.text(),{type:"string",FS:"\t"}):XLSX.read(await file.arrayBuffer(),{type:"array",cellStyles:true}),rows=[];for(const sheetName of wb.SheetNames){const sheet=wb.Sheets[sheetName],range=XLSX.utils.decode_range(sheet["!ref"]||"A1");XLSX.utils.sheet_to_json(sheet,{header:1,defval:"",raw:false}).forEach((cells,i)=>rows.push({sheet:sheetName,row:i+1,cells,rowColour:excelRowColour(sheet,range.s.r+i,range)}))}return rows}
 // DZM1 Amazon matrix contains two independent route tables (B:I and M:T).
 // Only DCSL rows are eligible; never infer a missing route's load time.
 // DZM1 alternate Amazon dispatch format: three side-by-side launch-pad blocks
