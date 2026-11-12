@@ -786,7 +786,7 @@ function atlasTransferCellBounds(canvas){
   const top=edges[i-1],bottom=edges[i],rh=bottom-top;
   if(rh<22||rh>Math.max(150,height*.18))continue;
   const inset=Math.max(3,Math.round(rh*.1));
-  cells.push({top:top+inset,bottom:bottom-inset,routeLeft:Math.floor(width*.029),routeRight:Math.floor(width*.31),trackingLeft:Math.floor(width*.33),trackingRight:Math.floor(width*.69)});
+  cells.push({top:top+inset,bottom:bottom-inset,routeLeft:Math.floor(width*.029),routeRight:Math.floor(width*.125),trackingLeft:Math.floor(width*.33),trackingRight:Math.floor(width*.69)});
  }
  return cells.length>=2&&cells.length<=100?cells:[];
 }
@@ -884,7 +884,7 @@ async function atlasImageRows(file,onProgress){
  await worker.terminate();return rows;
 }
 export default function WavePlanView({site="DLS2",drivers=[]}){
- const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Atlas Transfer Details – DCSL\nTotal packages: {count}\n\nTracking ID - Route Code - Driver Name\n\n{rows}\n\nIMPORTANT: All Atlas packages must be manually scanned in the Amazon Flex app before leaving the station. Do not leave the site until every Atlas package has been scanned and confirmed in the app.\n\nPlease confirm receipt."),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[atlasStatus,setAtlasStatus]=useState({type:"idle",message:"Upload a photo or paste an Atlas message."}),[atlasLastFile,setAtlasLastFile]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium"),[dehTimeOverrides,setDehTimeOverrides]=useState({}),[dehEditorWave,setDehEditorWave]=useState("WAVE6"),[dehFontPx,setDehFontPx]=useState(13),[dehFontFamily,setDehFontFamily]=useState("Inter"),[dehBold,setDehBold]=useState(false),[dehItalic,setDehItalic]=useState(false),[dehUnderline,setDehUnderline]=useState(false);
+ const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Atlas Transfer Details – DCSL\nTotal packages: {count}\n\nTracking ID - Route Code - Driver Name\n\n{rows}\n\nIMPORTANT: All Atlas packages must be manually scanned in the Amazon Flex app before leaving the station. Do not leave the site until every Atlas package has been scanned and confirmed in the app.\n\nPlease confirm receipt."),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasExpectedCount,setAtlasExpectedCount]=useState(null),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[atlasStatus,setAtlasStatus]=useState({type:"idle",message:"Upload a photo or paste an Atlas message."}),[atlasLastFile,setAtlasLastFile]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium"),[dehTimeOverrides,setDehTimeOverrides]=useState({}),[dehEditorWave,setDehEditorWave]=useState("WAVE6"),[dehFontPx,setDehFontPx]=useState(13),[dehFontFamily,setDehFontFamily]=useState("Inter"),[dehBold,setDehBold]=useState(false),[dehItalic,setDehItalic]=useState(false),[dehUnderline,setDehUnderline]=useState(false);
  const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),atlasImageInput=useRef(null),atlasRouteInput=useRef(null),sheetRef=useRef(null);
  const [dragging,setDragging]=useState(false),[uploadStatus,setUploadStatus]=useState([]),[editorTab,setEditorTab]=useState("waves");
  const [editNamesOpen,setEditNamesOpen]=useState(false),[editDraft,setEditDraft]=useState({});
@@ -984,7 +984,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  };
  const loadAtlasImage=async file=>{
    if(!file)return;
-   setAtlasLastFile(file);setAtlasImageName(file.name);setAtlasOcrProgress(0);setAtlasStatus({type:"reading",message:"Scanning Amazon Transfer Sheet: Tracking IDs and routes…"});
+   setAtlasLastFile(file);setAtlasImageName(file.name);setAtlasExpectedCount(null);setAtlasOcrProgress(0);setAtlasStatus({type:"reading",message:"Scanning Amazon Transfer Sheet: Tracking IDs and routes…"});
    try{
      const rows=await atlasImageRows(file,setAtlasOcrProgress);
      if(!rows.length){
@@ -992,6 +992,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
        setAtlasStatus({type:"error",message:"No valid Tracking ID + Route rows were detected. Try a straighter photo or crop to the table area."});
        return;
      }
+     setAtlasExpectedCount(rows.expectedCount??null);
      setAtlasText(rows.map(r=>[r.tracking,r.route,r.wave].filter(Boolean).join(" - ")).join("\n"));
      setAtlasStatus({type:rows.warnings?.length?"error":"warning",message:"Recognised "+rows.length+" package"+(rows.length===1?"":"s")+(rows.expectedCount!=null?" of "+rows.expectedCount+" expected":"")+". "+(rows.warnings?.length?rows.warnings.join("; ")+". Correct missing or conflicting rows in Manual input / OCR text before copying.":"Verify each Tracking ID / Route pair against the transfer sheet before copying.")});
    }catch(e){
@@ -1205,7 +1206,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
     <button type="button" className="btn primary" onClick={()=>atlasImageInput.current?.click()}>📷 Upload Transfer Sheet</button>
     <button type="button" className="btn ghost" onClick={()=>atlasRouteInput.current?.click()}>{routeFile?"✓ Route Plan loaded":"↥ Load Route Plan"}</button>
     <button type="button" className="btn ghost" disabled={!atlasLastFile||atlasOcrProgress!=null} onClick={()=>atlasLastFile&&loadAtlasImage(atlasLastFile)}>↻ Retry OCR</button>
-    <button type="button" className="btn ghost" onClick={()=>{setAtlasText("");setAtlasImageName("");setAtlasLastFile(null);setAtlasStatus({type:"idle",message:"Upload a photo or paste an Atlas message."});if(atlasImageInput.current)atlasImageInput.current.value=""}}>Clear</button>
+    <button type="button" className="btn ghost" onClick={()=>{setAtlasText("");setAtlasImageName("");setAtlasLastFile(null);setAtlasExpectedCount(null);setAtlasStatus({type:"idle",message:"Upload a photo or paste an Atlas message."});if(atlasImageInput.current)atlasImageInput.current.value=""}}>Clear</button>
   </div>
   <div className="atlas-workspace">
     <div className="atlas-recognised">
@@ -1216,9 +1217,10 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
     <div className="atlas-copy-card">
       <div className="atlas-section-title"><div><h3>Message ready to copy</h3><p>Driver names are pulled from the loaded Route Plan.</p></div></div>
       <textarea className="atlas-copy-preview" value={atlasOutput} onChange={e=>{const value=e.target.value;setAtlasTemplate(value.replace(atlasDriverRows,"{rows}").replace(String(atlasRows.length),"{count}"))}}/>
-      <button className="btn primary atlas-copy-btn" disabled={!atlasRows.length} onClick={()=>navigator.clipboard.writeText(atlasOutput)}>Copy message</button>
+      <button className="btn primary atlas-copy-btn" disabled={!atlasRows.length||(atlasExpectedCount!=null&&atlasRows.length!==atlasExpectedCount)} onClick={()=>navigator.clipboard.writeText(atlasOutput)}>Copy message</button>
     </div>
   </div>
+  {atlasExpectedCount!=null&&atlasRows.length!==atlasExpectedCount&&<div className="atlas-inline-warning">Transfer Sheet requires {atlasExpectedCount} packages, but only {atlasRows.length} are in the message. Add or correct the missing rows before copying.</div>}
   {atlasRows.some(r=>!r.name)&&<div className="atlas-inline-warning">{routeFile?"Some recognised routes do not have a driver match. Check the Route Plan or driver mapping.":"Load the Route Plan to convert recognised routes into driver names."}</div>}
   <details className="atlas-template atlas-template-collapsed"><summary>Message template</summary><textarea value={atlasTemplate} onChange={e=>setAtlasTemplate(e.target.value)}/><small>Use <b>{"{count}"}</b> for total shipments and <b>{"{rows}"}</b> where the converted list should appear.</small></details>
 </section>:<>
