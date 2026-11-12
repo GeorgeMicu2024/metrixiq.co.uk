@@ -128,6 +128,27 @@ function dzm1AllocationWorkbookRows(rows){
    explicitWave:wave,sourceY:row.row,dcslHint:true};
  });
 }
+// DLS4 wave allocation exported as TSV/XLSX: DSP, Route Code, Wave (load clock), Staging Location.
+function dls4AllocationRows(rows){
+ const headers=new Map(),found=[];
+ for(const row of rows){
+  const sheet=row.sheet||"Wave",c=row.cells||[],names=c.map(v=>norm(v).replace(/\s+/g," "));
+  const at=(...options)=>names.findIndex(v=>options.includes(v));
+  const route=at("ROUTE CODE","ROUTE ID"),wave=at("WAVE","WAVE TIME","LOADING TIME"),
+   staging=at("STAGING LOCATION","STAGING LOC"),dsp=at("DSP","DSP NAME");
+  if(route>=0&&wave>=0&&staging>=0&&dsp>=0){headers.set(sheet,{route,wave,staging,dsp});continue}
+  const h=headers.get(sheet);if(!h||!dcslDsp(c[h.dsp]))continue;
+  const code=routeOf([c[h.route]]),time=timeOf([c[h.wave]]),
+   stage=stageOf([c[h.staging]])||stageLoose(c[h.staging]),minutes=toMinutes(time);
+  if(code&&time&&stage&&minutes!=null)found.push({row,code,time,stage,minutes});
+ }
+ const distinct=[...new Set(found.map(r=>r.minutes))].sort((a,b)=>a-b);
+ return found.map(({row,code,time,stage,minutes})=>({
+  ...row,cells:[code,time,stage,"WAVE"+(distinct.indexOf(minutes)+1),"DCSL"],
+  directLoadTime:true,explicitWave:"WAVE"+(distinct.indexOf(minutes)+1),
+  sourceY:row.row,dcslHint:true
+ }));
+}
 // DCSL-specific spreadsheets can have a conventional header table instead of
 // the Amazon matrix. Read named columns; never infer a load time from parking.
 function dzm1HeaderWorkbookRows(rows){
@@ -740,8 +761,8 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
        }else{
          const raw=await workbookRows(file);
          const dzmCandidates=norm(site)==="DZM1"?[dzm1AllocationWorkbookRows(raw),dzm1DCSLSectionRows(raw),dzm1ThreePadRows(raw),dzm1WorkbookRows(raw),dzm1HeaderWorkbookRows(raw)]:[];
-         const matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?dzmCandidates.sort((a,b)=>new Set(b.map(r=>routeOf(r.cells))).size-new Set(a.map(r=>routeOf(r.cells))).size)[0]:[];
-         rows=norm(site)==="DZM1"?matrix:(matrix.length?matrix:raw);
+         const matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?dzmCandidates.sort((a,b)=>new Set(b.map(r=>routeOf(r.cells))).size-new Set(a.map(r=>routeOf(r.cells))).size)[0]:norm(site)==="DLS4"?dls4AllocationRows(raw):[];
+         rows=norm(site)==="DZM1"||norm(site)==="DLS4"?matrix:(matrix.length?matrix:raw);
        }
        const sourceOffset=i*100000;
        batches.push((rows||[]).map(row=>({...row,
