@@ -641,6 +641,34 @@ function atlasRowsFromOcrData(data){
  }
  return [...out.values()].sort((a,b)=>(a.sourceY||999999)-(b.sourceY||999999));
 }
+// Amazon Transfer Sheet: Route Code and Tracking ID are in separate columns.
+// Match using their original vertical positions rather than assigning by list order.
+function atlasTransferSheetRowsFromOcrData(data){
+ const content=String(data?.text||"");
+ if(!/TRANSFER\s*SHEET|PRESENCE\s*CONFIRMATION|PACKAGES?\s*ON\s*THIS\s*ROUTE/i.test(content))return [];
+ const routes=[],tracking=[];
+ for(const block of data?.blocks||[])for(const paragraph of block?.paragraphs||[])for(const line of paragraph?.lines||[]){
+  const value=clean(line?.text||(line?.words||[]).map(w=>w?.text||"").join(" "));
+  const bbox=line?.bbox,route=deh1RouteOf([value])||routeOf([value]),id=atlasTrackingOf(value);
+  if(route&&id){tracking.push({route,id,y:bboxY(bbox),h:bboxH(bbox),x:bboxX(bbox),direct:true});continue}
+  if(route)routes.push({route,y:bboxY(bbox),h:bboxH(bbox),x:bboxX(bbox)});
+  if(id)tracking.push({id,y:bboxY(bbox),h:bboxH(bbox),x:bboxX(bbox)});
+ }
+ routes.sort((a,b)=>a.y-b.y);
+ const intervals=routes.slice(1).map((r,i)=>r.y-routes[i].y).filter(n=>n>2).sort((a,b)=>a-b);
+ const rowHeight=intervals.length?intervals[Math.floor(intervals.length/2)]:0;
+ const used=new Set(),out=[];
+ for(const shipment of tracking.sort((a,b)=>a.y-b.y)){
+  if(shipment.direct){out.push({tracking:shipment.id,route:shipment.route,wave:"",sourceY:shipment.y,transferSheet:true});continue}
+  const possible=routes.map((r,index)=>({r,index,distance:Math.abs(r.y-shipment.y)}))
+   .filter(x=>!used.has(x.index)&&x.r.x<shipment.x&&x.distance<=Math.max(14,Math.min(55,rowHeight?rowHeight*.46:Math.max(shipment.h,x.r.h)*1.1)))
+   .sort((a,b)=>a.distance-b.distance);
+  if(!possible.length)continue;
+  used.add(possible[0].index);
+  out.push({tracking:shipment.id,route:possible[0].r.route,wave:"",sourceY:shipment.y,transferSheet:true});
+ }
+ return out;
+}
 const atlasColumnRowsFromOcrData=data=>{
  const chunks=[];
  const push=value=>{const text=clean(value);if(text)chunks.push(text)};
@@ -691,8 +719,14 @@ async function atlasImageRows(file,onProgress){
    try{
      try{await worker.setParameters({tessedit_pageseg_mode:mode,tessedit_char_whitelist:"",preserve_interword_spaces:"1"})}catch{}
      const result=await worker.recognize(source,{}, {text:true,blocks:true});
-     passes.push(atlasRowsFromOcrData(result.data));
-     passes.push(atlasColumnRowsFromOcrData(result.data));
+     const transfer=atlasTransferSheetRowsFromOcrData(result.data);
+     if(transfer.length){passes.push(transfer)}else{
+       passes.push(atlasRowsFromOcrData(result.data));
+       // Never pair independent column lists in an actual transfer sheet: it
+       // can silently assign a tracking ID to a different driver.
+       if(!/TRANSFER\\s*SHEET|PRESENCE\\s*CONFIRMATION/i.test(String(result.data?.text||"")))
+         passes.push(atlasColumnRowsFromOcrData(result.data));
+     }
    }catch(e){lastError=e;console.warn("Atlas OCR pass failed",mode,e)}
  };
  try{
@@ -708,7 +742,7 @@ async function atlasImageRows(file,onProgress){
 }
 
 export default function WavePlanView({site="DLS2",drivers=[]}){
- const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Good morning,\n\nPlease find below the list of your Atlas shipment of the day - Total Tracking IDs: {count}\n\nTracking ID - Route code - Driver Name\n\n{rows}\n\nBest regards,"),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[atlasStatus,setAtlasStatus]=useState({type:"idle",message:"Upload a photo or paste an Atlas message."}),[atlasLastFile,setAtlasLastFile]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium"),[dehTimeOverrides,setDehTimeOverrides]=useState({}),[dehEditorWave,setDehEditorWave]=useState("WAVE6"),[dehFontPx,setDehFontPx]=useState(13),[dehFontFamily,setDehFontFamily]=useState("Inter"),[dehBold,setDehBold]=useState(false),[dehItalic,setDehItalic]=useState(false),[dehUnderline,setDehUnderline]=useState(false);
+ const [tab,setTab]=useState("wave"),[routeFile,setRouteFile]=useState(null),[waveFile,setWaveFile]=useState(null),[routeRows,setRouteRows]=useState([]),[waveRows,setWaveRows]=useState([]),[generated,setGenerated]=useState(false),[atlasTemplate,setAtlasTemplate]=useState("Good morning,\n\nPlease find below the Atlas transfer details for DCSL.\nTotal packages: {count}\n\nTracking ID - Route Code - Driver Name\n\n{rows}\n\nPlease confirm receipt.\nThank you."),[history,setHistory]=useState([]),[atlasText,setAtlasText]=useState(""),[atlasImageName,setAtlasImageName]=useState(""),[atlasOcrProgress,setAtlasOcrProgress]=useState(null),[atlasStatus,setAtlasStatus]=useState({type:"idle",message:"Upload a photo or paste an Atlas message."}),[atlasLastFile,setAtlasLastFile]=useState(null),[adjust,setAdjust]=useState(-20),[overrides,setOverrides]=useState({}),[dismissedConflicts,setDismissedConflicts]=useState(new Set()),[ocrProgress,setOcrProgress]=useState(null),[hiddenWaves,setHiddenWaves]=useState(new Set()),[planFontSize,setPlanFontSize]=useState("medium"),[dehTimeOverrides,setDehTimeOverrides]=useState({}),[dehEditorWave,setDehEditorWave]=useState("WAVE6"),[dehFontPx,setDehFontPx]=useState(13),[dehFontFamily,setDehFontFamily]=useState("Inter"),[dehBold,setDehBold]=useState(false),[dehItalic,setDehItalic]=useState(false),[dehUnderline,setDehUnderline]=useState(false);
  const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),atlasImageInput=useRef(null),atlasRouteInput=useRef(null),sheetRef=useRef(null);
  const [dragging,setDragging]=useState(false),[uploadStatus,setUploadStatus]=useState([]),[editorTab,setEditorTab]=useState("waves");
  const [editNamesOpen,setEditNamesOpen]=useState(false),[editDraft,setEditDraft]=useState({});
@@ -808,7 +842,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  };
  const loadAtlasImage=async file=>{
    if(!file)return;
-   setAtlasLastFile(file);setAtlasImageName(file.name);setAtlasOcrProgress(0);setAtlasStatus({type:"reading",message:"Scanning Tracking ID, Route and Wave columns…"});
+   setAtlasLastFile(file);setAtlasImageName(file.name);setAtlasOcrProgress(0);setAtlasStatus({type:"reading",message:"Scanning Amazon Transfer Sheet: Tracking IDs and routes…"});
    try{
      const rows=await atlasImageRows(file,setAtlasOcrProgress);
      if(!rows.length){
@@ -817,7 +851,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
        return;
      }
      setAtlasText(rows.map(r=>[r.tracking,r.route,r.wave].filter(Boolean).join(" - ")).join("\n"));
-     setAtlasStatus({type:rows.length>=8?"success":"warning",message:"Recognised "+rows.length+" shipment"+(rows.length===1?"":"s")+". "+(rows.length>=8?"Ready to match drivers.":"Review the recognised rows before copying.")});
+     setAtlasStatus({type:"warning",message:"Recognised "+rows.length+" package"+(rows.length===1?"":"s")+". Verify the Tracking ID / Route pairs against the transfer sheet before copying."});
    }catch(e){
      console.error("Atlas image OCR failed",e);
      setAtlasText("");
@@ -1026,7 +1060,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
   <div className="atlas-toolbar">
     <input ref={atlasImageInput} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>loadAtlasImage(e.target.files?.[0])}/>
     <input ref={atlasRouteInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/>
-    <button type="button" className="btn primary" onClick={()=>atlasImageInput.current?.click()}>📷 Upload Atlas photo</button>
+    <button type="button" className="btn primary" onClick={()=>atlasImageInput.current?.click()}>📷 Upload Transfer Sheet</button>
     <button type="button" className="btn ghost" onClick={()=>atlasRouteInput.current?.click()}>{routeFile?"✓ Route Plan loaded":"↥ Load Route Plan"}</button>
     <button type="button" className="btn ghost" disabled={!atlasLastFile||atlasOcrProgress!=null} onClick={()=>atlasLastFile&&loadAtlasImage(atlasLastFile)}>↻ Retry OCR</button>
     <button type="button" className="btn ghost" onClick={()=>{setAtlasText("");setAtlasImageName("");setAtlasLastFile(null);setAtlasStatus({type:"idle",message:"Upload a photo or paste an Atlas message."});if(atlasImageInput.current)atlasImageInput.current.value=""}}>Clear</button>
@@ -1034,7 +1068,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
   <div className="atlas-workspace">
     <div className="atlas-recognised">
       <div className="atlas-section-title"><div><h3>Recognised shipments</h3><p>{atlasRows.length?atlasRows.length+" rows detected from the Atlas source.":"Nothing recognised yet."}</p></div><span>{routeFile?routeFile.name:"No Route Plan"}</span></div>
-      {atlasRows.length?<div className="atlas-table-wrap"><table className="atlas-table"><thead><tr><th>Tracking ID</th><th>Route</th><th>Wave</th><th>Driver</th><th>Status</th></tr></thead><tbody>{atlasRows.map((r,i)=><tr key={r.tracking+"-"+i}><td>{r.tracking}</td><td><b>{r.route}</b></td><td>{r.wave||"—"}</td><td>{r.name||"Driver not found"}</td><td><span className={"atlas-row-status "+(r.name?"ok":"warn")}>{r.name?"Matched":"Review"}</span></td></tr>)}</tbody></table></div>:<div className="atlas-empty-state"><b>Upload a photo to scan the transfer sheet</b><span>Tracking ID and Route are the required fields. Wave is captured when available.</span></div>}
+      {atlasRows.length?<div className="atlas-table-wrap"><table className="atlas-table"><thead><tr><th>Tracking ID</th><th>Route</th><th>Wave</th><th>Driver</th><th>Status</th></tr></thead><tbody>{atlasRows.map((r,i)=><tr key={r.tracking+"-"+i}><td>{r.tracking}</td><td><b>{r.route}</b></td><td>{r.wave||"—"}</td><td>{r.name||"Driver not found"}</td><td><span className={"atlas-row-status "+(r.name?"ok":"warn")}>{r.name?"Matched":"Review"}</span></td></tr>)}</tbody></table></div>:<div className="atlas-empty-state"><b>Upload an Amazon Transfer Sheet screenshot</b><span>Tracking IDs and route codes are matched by table row. Verify the preview before copying.</span></div>}
       <details className="atlas-manual"><summary>Manual input / OCR text</summary><textarea value={atlasText} onChange={e=>setAtlasText(e.target.value)} placeholder="UK tracking - Route - Wave, or paste the normal Atlas message…"/></details>
     </div>
     <div className="atlas-copy-card">
