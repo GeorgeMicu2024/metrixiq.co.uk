@@ -131,19 +131,19 @@ export default function Dls4PodYesterday({ organizationId }) {
     </header>
     {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
     {notice && <p role="status" style={{ color: "#047857" }}>{notice}</p>}
-    <div ref={imageRef} style={{ background: "#fff", padding: 24, borderRadius: 16, border: "1px solid #dce5ef", width: "100%", boxSizing: "border-box" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", borderBottom: "3px solid #15283d", paddingBottom: 14, marginBottom: 12 }}>
-        <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>DLS4 · DCSL</div><h2 style={{ fontSize: 28, margin: "4px 0 0" }}>POD Daily Ranking</h2><div style={{ fontSize: 13, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
-        <div style={{ textAlign: "right" }}><b style={{ fontSize: 24 }}>{report.length}</b><div style={{ fontSize: 12 }}>Drivers</div><b style={{ fontSize: 17 }}>{mean === null ? "—" : mean.toFixed(2) + "%"}</b><div style={{ fontSize: 12 }}>Unweighted average</div></div>
+    <div ref={imageRef} style={{ background: "#fff", padding: "16px 18px", borderRadius: 12, border: "1px solid #dce5ef", width: "100%", maxWidth: 650, margin: "0 auto", boxSizing: "border-box" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", borderBottom: "3px solid #15283d", paddingBottom: 9, marginBottom: 8 }}>
+        <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>DLS4 · DCSL</div><h2 style={{ fontSize: 22, margin: "3px 0 0" }}>POD Daily Ranking</h2><div style={{ fontSize: 11, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
+        <div style={{ textAlign: "right" }}><b style={{ fontSize: 20 }}>{report.length}</b><div style={{ fontSize: 12 }}>Drivers</div><b style={{ fontSize: 15 }}>{mean === null ? "—" : mean.toFixed(2) + "%"}</b><div style={{ fontSize: 12 }}>Unweighted average</div></div>
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-        <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: 9 }}>#</th><th style={{ padding: 9 }}>Driver</th><th style={{ padding: 9, textAlign: "right" }}>SWC-POD</th></tr></thead>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+        <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: "5px 7px", width: 24 }}>#</th><th style={{ padding: "5px 7px" }}>Driver</th><th style={{ padding: "5px 7px", textAlign: "right", width: 80 }}>SWC-POD</th></tr></thead>
         <tbody>{report.map((r, i) => <tr key={r.transporter_id} style={{ background: i % 2 ? "#f7f9fc" : "#fff", borderBottom: "1px solid #e6edf4" }}>
-          <td style={{ padding: "7px 9px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "7px 9px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "7px 9px", textAlign: "right", fontWeight: 800, color: r.pod_percent === null ? "#64748b" : Number(r.pod_percent) < 99 ? "#b91c1c" : "#166534" }}>{r.pod_percent === null ? "—" : Number(r.pod_percent).toFixed(2) + "%"}</td>
+          <td style={{ padding: "4px 7px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "4px 7px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "4px 7px", textAlign: "right", fontWeight: 800, color: r.pod_percent === null ? "#64748b" : Number(r.pod_percent) < 99 ? "#b91c1c" : "#166534" }}>{r.pod_percent === null ? "—" : Number(r.pod_percent).toFixed(2) + "%"}</td>
         </tr>)}</tbody>
       </table>
       {!report.length && <p style={{ padding: 20, textAlign: "center", color: "#64748b" }}>Import a DLS4 Quality Overview CSV to create the daily ranking.</p>}
-      <p style={{ margin: "14px 0 0", color: "#64748b", fontSize: 11 }}>Source: Amazon Quality Overview · SWC-POD · Sorted ascending · All reported drivers</p>
+      <p style={{ margin: "8px 0 0", color: "#64748b", fontSize: 9 }}>Source: Amazon Quality Overview · SWC-POD · Sorted ascending · All reported drivers</p>
     </div>
   </section>;
 }
