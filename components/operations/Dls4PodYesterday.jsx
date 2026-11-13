@@ -99,7 +99,7 @@ export default function Dls4PodYesterday({ organizationId }) {
     "• Check the picture and retake it if needed.",
     "",
     "*Every photo matters. Let's improve today!* 💪",
-  ].join("\\n") : "";
+  ].join("\n") : "";
 
   async function copyPodMessage() {
     if (!podMessage) return;
