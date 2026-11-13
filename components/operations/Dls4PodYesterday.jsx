@@ -110,7 +110,16 @@ export default function Dls4PodYesterday({ organizationId }) {
     setExporting(true); setError("");
     try {
       const { toPng } = await import("html-to-image");
-      const url = await toPng(imageRef.current, { pixelRatio: 3, backgroundColor: "#ffffff", cacheBust: true });
+      const exportWidth = 580;
+      const exportHeight = imageRef.current.scrollHeight;
+      const url = await toPng(imageRef.current, {
+        pixelRatio: 2,
+        width: exportWidth,
+        height: exportHeight,
+        backgroundColor: "#ffffff",
+        cacheBust: true,
+        style: { width: exportWidth + "px", maxWidth: "none", minWidth: exportWidth + "px", margin: "0", overflow: "visible" },
+      });
       const a = document.createElement("a");
       a.href = url; a.download = "DLS4_POD_" + selectedDate + ".png";
       document.body.appendChild(a); a.click(); a.remove();
@@ -131,13 +140,13 @@ export default function Dls4PodYesterday({ organizationId }) {
     </header>
     {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
     {notice && <p role="status" style={{ color: "#047857" }}>{notice}</p>}
-    <div ref={imageRef} style={{ background: "#fff", padding: "14px 14px", borderRadius: 12, border: "1px solid #dce5ef", width: "100%", maxWidth: 450, margin: "0 auto", boxSizing: "border-box" }}>
+    <div ref={imageRef} style={{ background: "#fff", padding: "14px 14px", borderRadius: 12, border: "1px solid #dce5ef", width: "100%", maxWidth: 580, margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", borderBottom: "3px solid #15283d", paddingBottom: 9, marginBottom: 8 }}>
         <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>DLS4 · DCSL</div><h2 style={{ fontSize: 22, margin: "3px 0 0" }}>POD Daily Ranking</h2><div style={{ fontSize: 11, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
         <div style={{ textAlign: "right" }}><b style={{ fontSize: 20 }}>{report.length}</b><div style={{ fontSize: 12 }}>Drivers</div><b style={{ fontSize: 15 }}>{mean === null ? "—" : mean.toFixed(2) + "%"}</b><div style={{ fontSize: 12 }}>Unweighted average</div></div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-        <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: "6px 5px", width: 22 }}>#</th><th style={{ padding: "6px 5px" }}>Driver</th><th style={{ padding: "6px 5px", textAlign: "right", width: 78 }}>SWC-POD</th></tr></thead>
+        <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: "6px 5px", width: 22 }}>#</th><th style={{ padding: "6px 5px" }}>Driver</th><th style={{ padding: "6px 5px", textAlign: "right", width: 95 }}>SWC-POD</th></tr></thead>
         <tbody>{report.map((r, i) => <tr key={r.transporter_id} style={{ background: i % 2 ? "#f7f9fc" : "#fff", borderBottom: "1px solid #e6edf4" }}>
           <td style={{ padding: "6px 5px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "6px 5px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "6px 5px", textAlign: "right", fontWeight: 800, color: r.pod_percent === null ? "#64748b" : Number(r.pod_percent) < 99 ? "#b91c1c" : "#166534" }}>{r.pod_percent === null ? "—" : Number(r.pod_percent).toFixed(2) + "%"}</td>
         </tr>)}</tbody>
