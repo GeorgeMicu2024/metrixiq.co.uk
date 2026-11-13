@@ -90,7 +90,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   const avg = report.filter((r) => r[metricKey] !== null);
   const mean = avg.length ? avg.reduce((sum, r) => sum + Number(r[metricKey]), 0) / avg.length : null;
 
-  const belowTarget = avg.filter((r) => Number(r.pod_percent) < 100).length;
+  const belowTarget = avg.filter((r) => Number(r[metricKey]) < 100).length;
   const podMessage = report.length ? (isDcr ? [
     "📦 *DCR Yesterday – " + site + "*",
     "",
@@ -205,7 +205,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
         <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: "6px 5px", width: 22 }}>#</th><th style={{ padding: "6px 5px" }}>Driver</th><th style={{ padding: "6px 5px", textAlign: "right", width: 95 }}>{isDcr ? "DCR" : "SWC-POD"}</th></tr></thead>
         <tbody>{report.map((r, i) => <tr key={r.transporter_id} style={{ background: i % 2 ? "#f7f9fc" : "#fff", borderBottom: "1px solid #e6edf4" }}>
-          <td style={{ padding: "6px 5px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "6px 5px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "6px 5px", textAlign: "right", fontWeight: 800, color: r.pod_percent === null ? "#64748b" : Number(r.pod_percent) < 99 ? "#b91c1c" : "#166534" }}>{r.pod_percent === null ? "—" : Number(r.pod_percent).toFixed(2) + "%"}</td>
+          <td style={{ padding: "6px 5px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "6px 5px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "6px 5px", textAlign: "right", fontWeight: 800, color: r[metricKey] === null ? "#64748b" : Number(r[metricKey]) < 99 ? "#b91c1c" : "#166534" }}>{r[metricKey] === null ? "—" : Number(r[metricKey]).toFixed(2) + "%"}</td>
         </tr>)}</tbody>
       </table>
       {!report.length && <p style={{ padding: 20, textAlign: "center", color: "#64748b" }}>Import a {site} Quality Overview CSV to create the daily ranking.</p>}
