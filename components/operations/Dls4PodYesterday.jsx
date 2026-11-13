@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 
-// DLS4-only report; driver names resolve across the organization because away-team drivers retain their home site.
+// Site-scoped POD report; names resolve across the organization for away-team drivers.
 function parseCsv(text) {
   const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
   const split = (line) => {
@@ -42,7 +42,7 @@ function parseCsv(text) {
   return entries;
 }
 
-export default function Dls4PodYesterday({ organizationId }) {
+export default function Dls4PodYesterday({ organizationId, site = "DLS4" }) {
   const [rows, setRows] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [date, setDate] = useState("");
@@ -59,7 +59,7 @@ export default function Dls4PodYesterday({ organizationId }) {
     if (!organizationId) return;
     const client = getSupabaseBrowserClient();
     const [report, roster] = await Promise.all([
-      client.from("dls4_pod_daily").select("report_date,transporter_id,packages_delivered,pod_percent").eq("organization_id", organizationId).order("report_date", { ascending: false }).limit(1500),
+      client.from("dls4_pod_daily").select("report_date,transporter_id,packages_delivered,pod_percent").eq("organization_id", organizationId).eq("site", site).order("report_date", { ascending: false }).limit(1500),
       client.from("drivers").select("trid,full_name,site").eq("organization_id", organizationId),
     ]);
     if (report.error) throw report.error;
@@ -73,7 +73,7 @@ export default function Dls4PodYesterday({ organizationId }) {
     reload().catch((e) => { if (active) setError(e.message || "Could not load POD data."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [organizationId]);
+  }, [organizationId, site]);
 
   const dates = useMemo(() => [...new Set(rows.map((r) => r.report_date))].sort().reverse(), [rows]);
   const selectedDate = dates.includes(date) ? date : (dates[0] || "");
@@ -86,7 +86,7 @@ export default function Dls4PodYesterday({ organizationId }) {
 
   const belowTarget = avg.filter((r) => Number(r.pod_percent) < 100).length;
   const podMessage = report.length ? [
-    "📸 *POD Yesterday – DLS4*",
+    "📸 *POD Yesterday – " + site + "*",
     "",
     "Yesterday's average POD was *" + (mean === null ? "N/A" : mean.toFixed(2) + "%") + "* (" + selectedDate + ").",
     "*" + belowTarget + " of " + report.length + " drivers* scored below 100% POD.",
@@ -118,16 +118,16 @@ export default function Dls4PodYesterday({ organizationId }) {
     if (!file || !organizationId) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      if (!/DLS4/i.test(file.name)) throw new Error("For safety, use a DLS4 Quality Overview CSV filename.");
+      if (!file.name.toUpperCase().includes(site.toUpperCase())) throw new Error("The CSV filename must contain the selected site: " + site);
       const parsed = parseCsv(await file.text());
       const client = getSupabaseBrowserClient();
       const reportDate = parsed[0].report_date;
-      const { data: existing, error: existingError } = await client.from("dls4_pod_daily").select("transporter_id").eq("organization_id", organizationId).eq("report_date", reportDate);
+      const { data: existing, error: existingError } = await client.from("dls4_pod_daily").select("transporter_id").eq("organization_id", organizationId).eq("site", site).eq("report_date", reportDate);
       if (existingError) throw existingError;
       if ((existing || []).some((r) => !parsed.some((p) => p.transporter_id === r.transporter_id))) {
         throw new Error("This date already contains other drivers. Import cancelled to avoid mixing two reports.");
       }
-      const { error: saveError } = await client.from("dls4_pod_daily").upsert(parsed.map((r) => ({ ...r, organization_id: organizationId })), { onConflict: "organization_id,report_date,transporter_id" });
+      const { error: saveError } = await client.from("dls4_pod_daily").upsert(parsed.map((r) => ({ ...r, organization_id: organizationId, site })), { onConflict: "organization_id,site,report_date,transporter_id" });
       if (saveError) throw saveError;
       await reload();
       setDate(reportDate);
@@ -152,20 +152,20 @@ export default function Dls4PodYesterday({ organizationId }) {
         style: { width: exportWidth + "px", maxWidth: "none", minWidth: exportWidth + "px", margin: "0", overflow: "visible" },
       });
       const a = document.createElement("a");
-      a.href = url; a.download = "DLS4_POD_" + selectedDate + ".png";
+      a.href = url; a.download = site + "_POD_" + selectedDate + ".png";
       document.body.appendChild(a); a.click(); a.remove();
     } catch (e) { setError(e.message || "Could not save the image."); }
     finally { setExporting(false); }
   }
 
-  if (loading) return <div className="panel">Loading DLS4 POD report…</div>;
+  if (loading) return <div className="panel">Loading POD report…</div>;
   return <section style={{ padding: "22px", maxWidth: 1120, margin: "0 auto", color: "#15283d" }}>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap", alignItems: "center", marginBottom: 18 }}>
-      <div><small style={{ color: "#64748b", fontWeight: 800 }}>DLS4 · DAILY QUALITY</small><h1 style={{ margin: "5px 0" }}>POD Yesterday</h1><p style={{ margin: 0, color: "#64748b" }}>All drivers · lowest SWC-POD first · one WhatsApp image</p></div>
+      <div><small style={{ color: "#64748b", fontWeight: 800 }}>{site} · DAILY QUALITY</small><h1 style={{ margin: "5px 0" }}>POD Yesterday</h1><p style={{ margin: 0, color: "#64748b" }}>All drivers · lowest SWC-POD first · one WhatsApp image</p></div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <select aria-label="Report date" value={selectedDate} onChange={(e) => setDate(e.target.value)}>{dates.length ? dates.map((d) => <option key={d} value={d}>{d}</option>) : <option value="">No reports</option>}</select>
         <input ref={inputRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => importFile(e.target.files?.[0])} />
-        <button className="btn primary" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? "Importing…" : "Import DLS4 CSV"}</button>
+        <button className="btn primary" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? "Importing…" : "Import {site} CSV"}</button>
         <button className="btn" disabled={!report.length || exporting} onClick={saveImage}>{exporting ? "Saving…" : "Save Image"}</button>
         <button className="btn" disabled={!report.length} onClick={copyPodMessage}>{messageCopied ? "Copy Again" : "Copy POD Message"}</button>
       </div>
@@ -178,7 +178,7 @@ export default function Dls4PodYesterday({ organizationId }) {
     </div>}
     <div ref={imageRef} style={{ background: "#fff", padding: "14px 14px", borderRadius: 12, border: "1px solid #dce5ef", width: "100%", maxWidth: 580, margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", borderBottom: "3px solid #15283d", paddingBottom: 9, marginBottom: 8 }}>
-        <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>DLS4 · DCSL</div><h2 style={{ fontSize: 22, margin: "3px 0 0" }}>POD Daily Ranking</h2><div style={{ fontSize: 11, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
+        <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>{site} · DCSL</div><h2 style={{ fontSize: 22, margin: "3px 0 0" }}>POD Daily Ranking</h2><div style={{ fontSize: 11, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
         <div style={{ textAlign: "right" }}><b style={{ fontSize: 20 }}>{report.length}</b><div style={{ fontSize: 12 }}>Drivers</div><b style={{ fontSize: 15 }}>{mean === null ? "—" : mean.toFixed(2) + "%"}</b><div style={{ fontSize: 12 }}>Unweighted average</div></div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
