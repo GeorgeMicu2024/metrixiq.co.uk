@@ -1,7 +1,7 @@
 export const NAV_GROUPS = [
   // Frequently used pages stay visible; the remaining sections start collapsed.
   { label: "QUICK ACCESS", items: [["dashboard", "Home"], ["daily-dispatch", "Daily Dispatch"], ["check-lor", "CHECK LOR"], ["ndnr", "NDNR"], ["check-mentor", "CHECK eMentor"], ["site-scorecards", "Site Scorecards"], ["driver-scorecards", "Driver Scorecards"], ["performance", "Driver Feedback"], ["intelligence", "AI Analyst"]] },
-  { label: "QUALITY & COMPLIANCE", items: [["iadc", "IADC"], ["pod", "POD"], ["dls4-pod-yesterday", "POD Yesterday"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"]] },
+  { label: "QUALITY & COMPLIANCE", items: [["iadc", "IADC"], ["pod", "POD"], ["dls4-pod-yesterday", "POD Yesterday"], ["dcr-yesterday", "DCR Yesterday"], ["dcr", "DCR"], ["cc", "Customer Compliance"], ["cdf", "CDF Feedback"], ["mentor", "Mentor"], ["concessions", "Concessions"]] },
   { label: "OPERATIONS & MESSAGES", items: [["command-center", "Command Center"], ["manager-chat", "Manager Chat"], ["notifications", "Notifications"]] },
   { label: "PEOPLE & FEEDBACK", items: [["driver-master", "Driver Master"], ["drivers", "Drivers"], ["team", "Team & Access"]] },
   { label: "AI & REPORTS", items: [["ai-lab", "AI Lab"], ["simulator", "What-if Simulator"], ["management-views", "Management Views"], ["reports", "Report Builder"]] },
@@ -14,7 +14,7 @@ export const NAV_LABELS = Object.freeze(Object.fromEntries(NAV_ITEMS));
 
 export const NAV_ICONS = Object.freeze({
   dashboard:"⌂","command-center":"▦","manager-control":"◉",automation:"⌁","mobile-manager":"▥","site-operations":"▣",
-  "daily-dispatch":"＋","driver-master":"♙","site-scorecards":"▤","driver-scorecards":"◫",drivers:"◎",performance:"✉",iadc:"✓",dwc:"◇",pod:"◫","dls4-pod-yesterday":"▤",dcr:"↗",cc:"◎",cdf:"◈",
+  "daily-dispatch":"＋","driver-master":"♙","site-scorecards":"▤","driver-scorecards":"◫",drivers:"◎",performance:"✉",iadc:"✓",dwc:"◇",pod:"◫","dls4-pod-yesterday":"▤","dcr-yesterday":"↗",dcr:"↗",cc:"◎",cdf:"◈",
   mentor:"◇",concessions:"◆","check-lor":"⌕",ndnr:"▣","check-mentor":"✓",evidence:"⌕",coaching:"✓","manager-chat":"✉",notifications:"♢",intelligence:"✦",
   "ai-lab":"✧",simulator:"≈",imports:"⇧","data-quality":"⌁","management-views":"☷",audit:"◴",integrations:"⇄",
   reliability:"◌","developer-platform":"⌘",portfolio:"▦","enterprise-settings":"⚙",reports:"▤",
