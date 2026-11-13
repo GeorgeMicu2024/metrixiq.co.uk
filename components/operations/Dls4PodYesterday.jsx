@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 
-const SITE = "DLS4";
+// DLS4-only report; driver names resolve across the organization because away-team drivers retain their home site.
 function parseCsv(text) {
   const lines = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).filter(Boolean);
   const split = (line) => {
@@ -64,7 +64,7 @@ export default function Dls4PodYesterday({ organizationId }) {
     if (report.error) throw report.error;
     if (roster.error) throw roster.error;
     setRows(report.data || []);
-    setDrivers((roster.data || []).filter((driver) => String(driver.site || "").toUpperCase() === SITE));
+    setDrivers(roster.data || []);
   }
   useEffect(() => {
     let active = true;
@@ -137,9 +137,9 @@ export default function Dls4PodYesterday({ organizationId }) {
         <div style={{ textAlign: "right" }}><b style={{ fontSize: 24 }}>{report.length}</b><div style={{ fontSize: 12 }}>Drivers</div><b style={{ fontSize: 17 }}>{mean === null ? "—" : mean.toFixed(2) + "%"}</b><div style={{ fontSize: 12 }}>Unweighted average</div></div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-        <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: 9 }}>#</th><th style={{ padding: 9 }}>Driver</th><th style={{ padding: 9, textAlign: "right" }}>Delivered</th><th style={{ padding: 9, textAlign: "right" }}>SWC-POD</th></tr></thead>
+        <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: 9 }}>#</th><th style={{ padding: 9 }}>Driver</th><th style={{ padding: 9, textAlign: "right" }}>SWC-POD</th></tr></thead>
         <tbody>{report.map((r, i) => <tr key={r.transporter_id} style={{ background: i % 2 ? "#f7f9fc" : "#fff", borderBottom: "1px solid #e6edf4" }}>
-          <td style={{ padding: "7px 9px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "7px 9px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "7px 9px", textAlign: "right" }}>{r.packages_delivered}</td><td style={{ padding: "7px 9px", textAlign: "right", fontWeight: 800, color: r.pod_percent === null ? "#64748b" : Number(r.pod_percent) < 99 ? "#b91c1c" : "#166534" }}>{r.pod_percent === null ? "—" : Number(r.pod_percent).toFixed(2) + "%"}</td>
+          <td style={{ padding: "7px 9px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "7px 9px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "7px 9px", textAlign: "right", fontWeight: 800, color: r.pod_percent === null ? "#64748b" : Number(r.pod_percent) < 99 ? "#b91c1c" : "#166534" }}>{r.pod_percent === null ? "—" : Number(r.pod_percent).toFixed(2) + "%"}</td>
         </tr>)}</tbody>
       </table>
       {!report.length && <p style={{ padding: 20, textAlign: "center", color: "#64748b" }}>Import a DLS4 Quality Overview CSV to create the daily ranking.</p>}
