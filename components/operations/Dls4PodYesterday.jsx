@@ -53,6 +53,7 @@ export default function Dls4PodYesterday({ organizationId }) {
   const inputRef = useRef(null);
   const imageRef = useRef(null);
   const [exporting, setExporting] = useState(false);
+  const [messageCopied, setMessageCopied] = useState(false);
 
   async function reload() {
     if (!organizationId) return;
@@ -82,6 +83,36 @@ export default function Dls4PodYesterday({ organizationId }) {
   })).sort((a, b) => (a.pod_percent ?? 101) - (b.pod_percent ?? 101) || a.name.localeCompare(b.name)), [rows, selectedDate, names]);
   const avg = report.filter((r) => r.pod_percent !== null);
   const mean = avg.length ? avg.reduce((sum, r) => sum + Number(r.pod_percent), 0) / avg.length : null;
+
+  const belowTarget = avg.filter((r) => Number(r.pod_percent) < 100).length;
+  const podMessage = report.length ? [
+    "📸 *POD Yesterday – DLS4*",
+    "",
+    "Yesterday's average POD was *" + (mean === null ? "N/A" : mean.toFixed(2) + "%") + "* (" + selectedDate + ").",
+    "*" + belowTarget + " of " + report.length + " drivers* scored below 100% POD.",
+    "",
+    "Please aim for *100% POD* every day:",
+    "• Make sure the parcel is clearly visible.",
+    "• Avoid blurry or dark photos.",
+    "• Take the photo at the delivery location, never inside the van.",
+    "• Step back to show the parcel and its surroundings.",
+    "• Check the picture and retake it if needed.",
+    "",
+    "*Every photo matters. Let's improve today!* 💪",
+  ].join("\\n") : "";
+
+  async function copyPodMessage() {
+    if (!podMessage) return;
+    try {
+      await navigator.clipboard.writeText(podMessage);
+      setMessageCopied(true);
+      setNotice("POD message copied. Paste it into WhatsApp.");
+      setError("");
+    } catch {
+      setMessageCopied(false);
+      setError("Copy was blocked by the browser. Select and copy the message below.");
+    }
+  }
 
   async function importFile(file) {
     if (!file || !organizationId) return;
@@ -136,10 +167,15 @@ export default function Dls4PodYesterday({ organizationId }) {
         <input ref={inputRef} type="file" accept=".csv,text/csv" hidden onChange={(e) => importFile(e.target.files?.[0])} />
         <button className="btn primary" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? "Importing…" : "Import DLS4 CSV"}</button>
         <button className="btn" disabled={!report.length || exporting} onClick={saveImage}>{exporting ? "Saving…" : "Save Image"}</button>
+        <button className="btn" disabled={!report.length} onClick={copyPodMessage}>{messageCopied ? "Copy Again" : "Copy POD Message"}</button>
       </div>
     </header>
     {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
     {notice && <p role="status" style={{ color: "#047857" }}>{notice}</p>}
+    {report.length > 0 && <div style={{ maxWidth: 580, margin: "0 auto 14px", padding: 12, background: "#fff", border: "1px solid #dce5ef", borderRadius: 10 }}>
+      <div style={{ fontWeight: 800, marginBottom: 7 }}>Daily WhatsApp Message</div>
+      <textarea readOnly aria-label="Daily POD WhatsApp message" value={podMessage} onFocus={(e) => e.target.select()} style={{ width: "100%", minHeight: 245, padding: 10, fontSize: 13, lineHeight: 1.5, border: "1px solid #dce5ef", borderRadius: 8, resize: "vertical", boxSizing: "border-box" }} />
+    </div>}
     <div ref={imageRef} style={{ background: "#fff", padding: "14px 14px", borderRadius: 12, border: "1px solid #dce5ef", width: "100%", maxWidth: 580, margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", borderBottom: "3px solid #15283d", paddingBottom: 9, marginBottom: 8 }}>
         <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>DLS4 · DCSL</div><h2 style={{ fontSize: 22, margin: "3px 0 0" }}>POD Daily Ranking</h2><div style={{ fontSize: 11, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
