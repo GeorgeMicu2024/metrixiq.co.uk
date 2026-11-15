@@ -130,24 +130,32 @@ function dzm1AllocationWorkbookRows(rows){
 }
 // DLS4 wave allocation exported as TSV/XLSX: DSP, Route Code, Wave (load clock), Staging Location.
 function dls4AllocationRows(rows){
+ // Accept both headed exports and Amazon's headerless six-column TSV:
+ // DSP | Route Code | Service Type | Loading Time | Staging | Parcel Count.
  const headers=new Map(),found=[];
  for(const row of rows){
   const sheet=row.sheet||"Wave",c=row.cells||[],names=c.map(v=>norm(v).replace(/\s+/g," "));
   const at=(...options)=>names.findIndex(v=>options.includes(v));
   const route=at("ROUTE CODE","ROUTE ID"),wave=at("WAVE","WAVE TIME","LOADING TIME"),
-   staging=at("STAGING LOCATION","STAGING LOC"),dsp=at("DSP","DSP NAME");
+   staging=at("STAGING LOCATION","STAGING LOC","STAGING"),dsp=at("DSP","DSP NAME");
   if(route>=0&&wave>=0&&staging>=0&&dsp>=0){headers.set(sheet,{route,wave,staging,dsp});continue}
-  const h=headers.get(sheet);if(!h||!dcslDsp(c[h.dsp]))continue;
-  const code=routeOf([c[h.route]]),time=timeOf([c[h.wave]]),
-   stage=stageOf([c[h.staging]])||stageLoose(c[h.staging]),minutes=toMinutes(time);
+  const h=headers.get(sheet);
+  const headerless=!h&&c.length>=5&&dcslDsp(c[0])&&routeOf([c[1]])&&timeOf([c[3]]);
+  if(!h&&!headerless)continue;
+  const dspValue=headerless?c[0]:c[h.dsp];
+  if(!dcslDsp(dspValue))continue;
+  const code=routeOf([headerless?c[1]:c[h.route]]),time=timeOf([headerless?c[3]:c[h.wave]]),
+   rawStage=headerless?c[4]:c[h.staging],
+   stage=stageOf([rawStage])||stageLoose(rawStage),minutes=toMinutes(time);
   if(code&&time&&stage&&minutes!=null)found.push({row,code,time,stage,minutes});
  }
- // DLS4 has a single operational group; the confirmed loading is 10:20.
- return found.map(({row,code,stage})=>({
-  ...row,cells:[code,"10:20",stage,"WAVE1","DCSL"],
-  directLoadTime:true,explicitWave:"WAVE1",
-  sourceY:row.row,dcslHint:true
- }));
+ const uniqueTimes=[...new Set(found.map(item=>item.minutes))].sort((a,b)=>a-b);
+ return found.map(({row,code,time,stage,minutes})=>{
+  const wave="WAVE"+(uniqueTimes.indexOf(minutes)+1);
+  return {...row,cells:[code,time,stage,wave,"DCSL"],
+   directLoadTime:true,explicitWave:wave,
+   sourceY:row.row,dcslHint:true};
+ });
 }
 // DCSL-specific spreadsheets can have a conventional header table instead of
 // the Amazon matrix. Read named columns; never infer a load time from parking.
