@@ -26,9 +26,8 @@ export default function Dzm1DeliveryConcessions({organizationId}) {
         if(r["service area"].toUpperCase()!=="DZM1"||r.dsp.toUpperCase()!=="DCSL")throw Error("File contains records outside DZM1/DCSL.");
         const date=r["concession date"].slice(0,10);
         if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date)))throw Error("Invalid Concession Date.");
-        const dt=new Date(date+"T00:00:00Z");const weekday=(dt.getUTCDay()+6)%7;dt.setUTCDate(dt.getUTCDate()-weekday+3);
-        const isoYear=dt.getUTCFullYear();const jan4=new Date(Date.UTC(isoYear,0,4));jan4.setUTCDate(jan4.getUTCDate()-((jan4.getUTCDay()+6)%7)+3);const isoWeek=1+Math.round((dt-jan4)/604800000);
-        if(isoYear!==year||isoWeek!==Number(match[2]))throw Error("Concession Date outside "+year+"-"+week+": "+date);
+        // Amazon's W-number is the report period; concession dates can precede that week.
+        // Keep date validation, but do not reject legitimate prior-week concessions.
         const tracking=r["tracking number"],trid=r.da.toUpperCase();
         if(!tracking||!trid)throw Error("Missing tracking number or DA.");
         if(ids.has(tracking))throw Error("Duplicate tracking number in CSV.");ids.add(tracking);
