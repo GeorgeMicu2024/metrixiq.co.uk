@@ -11,8 +11,12 @@ function csvRows(text) {
   return lines.map((line)=>{const c=split(line);return Object.fromEntries(headers.map((h,i)=>[h,c[i]||""]));});
 }
 export default function Dzm1DeliveryConcessions({organizationId}) {
-  const [rows,setRows]=useState([]),[error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
-  async function refresh(){if(!organizationId)return;const {data,error}=await getSupabaseBrowserClient().from("dzm1_delivery_concessions_weekly").select("week_label,driver_trid,driver_name,concessions_count,source_file").eq("organization_id",organizationId).order("week_label",{ascending:false}).order("concessions_count",{ascending:false});if(error)throw error;setRows(data||[]);}
+  const [rows,setRows]=useState([]),[snapshots,setSnapshots]=useState([]),[error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false);
+  async function refresh(){if(!organizationId)return;const {data,error}=await getSupabaseBrowserClient().from("dzm1_delivery_concessions_weekly").select("week_label,driver_trid,driver_name,concessions_count,source_file").eq("organization_id",organizationId).order("week_label",{ascending:false}).order("concessions_count",{ascending:false});if(error)throw error;setRows(data||[]);
+    const {data:original,error:originalError}=await getSupabaseBrowserClient().from("concessions_weekly_snapshots").select("week_label,driver_trid,dnr").eq("organization_id",organizationId).eq("site","DZM1");
+    if(originalError)throw originalError;
+    setSnapshots(original||[]);
+  }
   useEffect(()=>{refresh().catch(e=>setError(e.message));},[organizationId]);
   async function upload(file){
     if(!file||!organizationId)return;setBusy(true);setError("");setNotice("");
@@ -44,12 +48,23 @@ export default function Dzm1DeliveryConcessions({organizationId}) {
     }catch(e){setError(e.message||"Import failed");}finally{setBusy(false);}
   }
   const latest=rows[0]?.week_label||"";const weekly=rows.filter(r=>r.week_label===latest);const total=weekly.reduce((n,r)=>n+Number(r.concessions_count),0);
+  const originalByDriver=new Map();
+  for(const r of snapshots.filter(r=>r.week_label===latest)){const key=String(r.driver_trid||"").trim().toUpperCase();if(key)originalByDriver.set(key,(originalByDriver.get(key)||0)+Number(r.dnr||0));}
+  const originalTotal=[...originalByDriver.values()].reduce((a,b)=>a+b,0);
+  const possibleOverlap=weekly.reduce((sum,r)=>sum+Math.min(Number(r.concessions_count),originalByDriver.get(String(r.driver_trid).trim().toUpperCase())||0),0);
   return <section className="panel" style={{padding:20,marginBottom:20}}>
     <div style={{display:"flex",justifyContent:"space-between",gap:14,alignItems:"center",flexWrap:"wrap"}}>
       <div><h2 style={{margin:0}}>DZM1 · Delivery Concessions</h2><p style={{color:"#64748b",margin:"5px 0"}}>Separate per-parcel report, grouped by Concession Date and driver. Does not replace Associates Concessions.</p></div>
       <label className="btn primary" style={{cursor:busy?"wait":"pointer"}}>{busy?"Importing…":"Import Delivery Concessions CSV"}<input type="file" accept=".csv" disabled={busy} hidden onChange={e=>{upload(e.target.files?.[0]);e.target.value="";}}/></label>
     </div>
     {error&&<p role="alert" style={{color:"#b91c1c"}}>{error}</p>}{notice&&<p role="status" style={{color:"#047857"}}>{notice}</p>}
-    {latest?<><p><b>{latest}:</b> {total} concessions · {weekly.length} affected drivers</p><div style={{maxHeight:350,overflowY:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th style={{textAlign:"left"}}>Driver</th><th style={{textAlign:"right"}}>Concessions</th></tr></thead><tbody>{weekly.map(r=><tr key={r.driver_trid} style={{borderBottom:"1px solid #e2e8f0"}}><td style={{padding:7}}>{r.driver_name}</td><td style={{padding:7,textAlign:"right",fontWeight:700}}>{r.concessions_count}</td></tr>)}</tbody></table></div></>:<p style={{color:"#64748b"}}>No Delivery Concessions report imported yet.</p>}
+    {latest?<><p><b>{latest}:</b> {total} delivery concessions · {weekly.length} affected drivers</p>
+    <div style={{background:"#fff8e9",border:"1px solid #f0d7a2",borderRadius:10,padding:12,marginBottom:12}}>
+      <b>Reconciliation with existing Associates Concessions · {latest}</b>
+      <div style={{display:"flex",gap:22,flexWrap:"wrap",marginTop:8,fontSize:14}}>
+        <span>Existing DNR: <b>{originalTotal}</b></span><span>Delivery report: <b>{total}</b></span><span>Potential overlap (driver counts): <b>{possibleOverlap}</b></span>
+      </div>
+      <p style={{fontSize:12,margin:"8px 0 0",color:"#805900"}}>Not added to existing DNR. Matching driver totals cannot prove parcel-level duplicates because Associates snapshots do not contain tracking numbers. Review before merging.</p>
+    </div><div style={{maxHeight:350,overflowY:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th style={{textAlign:"left"}}>Driver</th><th style={{textAlign:"right"}}>Existing DNR</th><th style={{textAlign:"right"}}>Delivery report</th><th style={{textAlign:"right"}}>Potential overlap</th></tr></thead><tbody>{weekly.map(r=><tr key={r.driver_trid} style={{borderBottom:"1px solid #e2e8f0"}}><td style={{padding:7}}>{r.driver_name}</td><td style={{padding:7,textAlign:"right"}}>{originalByDriver.get(String(r.driver_trid).trim().toUpperCase())||0}</td><td style={{padding:7,textAlign:"right",fontWeight:700}}>{r.concessions_count}</td><td style={{padding:7,textAlign:"right",color:"#a16207"}}>{Math.min(Number(r.concessions_count),originalByDriver.get(String(r.driver_trid).trim().toUpperCase())||0)}</td></tr>)}</tbody></table></div></>:<p style={{color:"#64748b"}}>No Delivery Concessions report imported yet.</p>}
   </section>;
 }
