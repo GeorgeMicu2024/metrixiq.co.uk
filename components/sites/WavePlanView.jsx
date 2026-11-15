@@ -212,7 +212,7 @@ function dzm1DCSLSectionRows(rows){
    contexts.set(sheet,load?{wave:"WAVE"+Number(heading[1]),time:load,pad:pad?.[1]?.toUpperCase()||"",holding:holding?holding[1].toUpperCase()+"-"+holding[2].toUpperCase():""}:null);
    continue;
   }
-  const context=contexts.get(sheet),route=routeOf([cells[0]]),stage=clean(cells[3]);
+  const context=contexts.get(sheet),route=routeOf([cells[0]]),stage=clean(cells[3]||cells[2]);
   if(!context||!route||!stageLoose(stage)&&!stageOf([stage]))continue;
   out.push({...row,cells:[route,context.time,stage,context.wave,"DCSL"],
    directLoadTime:true,explicitWave:context.wave,launchPad:context.pad,
