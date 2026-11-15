@@ -27,7 +27,7 @@ export default function Dzm1DeliveryConcessions({organizationId}) {
         const date=r["concession date"].slice(0,10);
         if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date)))throw Error("Invalid Concession Date.");
         const dt=new Date(date+"T00:00:00Z");const weekday=(dt.getUTCDay()+6)%7;dt.setUTCDate(dt.getUTCDate()-weekday+3);
-        const isoYear=dt.getUTCFullYear();const jan4=new Date(Date.UTC(isoYear,0,4));const isoWeek=1+Math.round((dt-jan4)/604800000+(jan4.getUTCDay()+6)%7/7);
+        const isoYear=dt.getUTCFullYear();const jan4=new Date(Date.UTC(isoYear,0,4));jan4.setUTCDate(jan4.getUTCDate()-((jan4.getUTCDay()+6)%7)+3);const isoWeek=1+Math.round((dt-jan4)/604800000);
         if(isoYear!==year||isoWeek!==Number(match[2]))throw Error("Concession Date outside "+year+"-"+week+": "+date);
         const tracking=r["tracking number"],trid=r.da.toUpperCase();
         if(!tracking||!trid)throw Error("Missing tracking number or DA.");
