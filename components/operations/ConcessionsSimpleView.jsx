@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toBlob } from "html-to-image";
+import Dzm1DeliveryConcessions from "./Dzm1DeliveryConcessions";
 import {
   buildFourWeekConcessionMatrix,
   fetchConcessionSnapshots,
@@ -459,6 +460,7 @@ export default function ConcessionsSimpleView({
 
   return (
     <div className="cx5">
+      {site === "DZM1" && <Dzm1DeliveryConcessions organizationId={organizationId} />}
       <header className="cx5-heading">
         <div>
           <span className="page-kicker">QUALITY INTELLIGENCE</span>
