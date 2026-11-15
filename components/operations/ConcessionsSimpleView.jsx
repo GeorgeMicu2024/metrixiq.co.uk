@@ -99,6 +99,8 @@ export default function ConcessionsSimpleView({
   const [page, setPage] = useState(1);
   const [saveMessage, setSaveMessage] = useState("");
   const [latestSiteRoster, setLatestSiteRoster] = useState([]);
+  const [deliveryRows, setDeliveryRows] = useState([]);
+  const [deliveryRefresh, setDeliveryRefresh] = useState(0);
   const exportPageRefs = useRef([]);
 
   useEffect(() => {
@@ -132,6 +134,42 @@ export default function ConcessionsSimpleView({
       alive = false;
     };
   }, [organizationId, siteFilter, refreshKey]);
+
+  useEffect(() => {
+    let active = true;
+    if (!organizationId || String(siteFilter).toUpperCase() !== "DZM1") {
+      setDeliveryRows([]);
+      return () => { active = false; };
+    }
+    getSupabaseBrowserClient().from("dzm1_delivery_concessions_weekly")
+      .select("week_label,driver_trid,driver_name,concessions_count")
+      .eq("organization_id", organizationId)
+      .then(({ data, error }) => {
+        if (!active) return;
+        if (error) { console.error("DZM1 delivery reconciliation unavailable:", error.message); setDeliveryRows([]); }
+        else setDeliveryRows(data || []);
+      });
+    return () => { active = false; };
+  }, [organizationId, siteFilter, deliveryRefresh]);
+
+  // Reconcile at driver/week level using MAX, never SUM. Original snapshots
+  // remain unchanged; the derived totals and trends share this same view.
+  const effectiveRows = useMemo(() => {
+    if (String(siteFilter).toUpperCase() !== "DZM1" || !deliveryRows.length) return load.rows;
+    const map = new Map((load.rows || []).map(r => [r.week_label + "|" + String(r.driver_trid || "").trim().toUpperCase(), { ...r }]));
+    for (const r of deliveryRows) {
+      const trid = String(r.driver_trid || "").trim().toUpperCase();
+      const key = r.week_label + "|" + trid;
+      const existing = map.get(key);
+      const deliveryCount = Number(r.concessions_count || 0);
+      if (existing) {
+        map.set(key, { ...existing, dnr: Math.max(Number(existing.dnr || 0), deliveryCount) });
+      } else {
+        map.set(key, { site: "DZM1", week_label: r.week_label, driver_trid: trid, driver_name: r.driver_name || trid, dnr: deliveryCount, source_file: "DZM1 Delivery Concessions (reconciled)" });
+      }
+    }
+    return [...map.values()];
+  }, [load.rows, deliveryRows, siteFilter]);
 
   const globalSite = String(siteFilter || "all").trim().toUpperCase();
   const availableSites = useMemo(
@@ -204,8 +242,8 @@ export default function ConcessionsSimpleView({
   }, [organizationId, site, refreshKey]);
 
   const eightWeeks = useMemo(
-    () => latestConcessionWeeks(load.rows || [], site, 8),
-    [load.rows, site]
+    () => latestConcessionWeeks(effectiveRows || [], site, 8),
+    [effectiveRows, site]
   );
 
   const singleWeek = eightWeeks.includes(selectedWeek)
@@ -218,7 +256,7 @@ export default function ConcessionsSimpleView({
   );
 
   const matrix = useMemo(() => {
-    const snapshotMatrix = buildFourWeekConcessionMatrix(load.rows || [], site, weeks);
+    const snapshotMatrix = buildFourWeekConcessionMatrix(effectiveRows || [], site, weeks);
     const rosterDrivers = latestSiteRoster.length ? latestSiteRoster : drivers;
     if (!rosterDrivers?.length) return snapshotMatrix;
 
@@ -276,12 +314,12 @@ export default function ConcessionsSimpleView({
           b.affectedWeeks - a.affectedWeeks ||
           a.driver_name.localeCompare(b.driver_name)
       );
-  }, [load.rows, site, weeks, drivers, latestSiteRoster]);
+  }, [effectiveRows, site, weeks, drivers, latestSiteRoster]);
 
   const weekly = useMemo(
     () =>
       weeks.map((week, index) => {
-        const rows = (load.rows || []).filter(
+        const rows = (effectiveRows || []).filter(
           (row) =>
             row.site === site &&
             row.week_label === week &&
@@ -295,7 +333,7 @@ export default function ConcessionsSimpleView({
 
         const previousWeek = index > 0 ? weeks[index - 1] : null;
         const previousRows = previousWeek
-          ? (load.rows || []).filter(
+          ? (effectiveRows || []).filter(
               (row) =>
                 row.site === site &&
                 row.week_label === previousWeek &&
@@ -319,7 +357,7 @@ export default function ConcessionsSimpleView({
             previousAffected == null ? null : affected - previousAffected,
         };
       }),
-    [load.rows, site, weeks]
+    [effectiveRows, site, weeks]
   );
 
   const latestWeek = weeks[weeks.length - 1] || "";
@@ -460,7 +498,7 @@ export default function ConcessionsSimpleView({
 
   return (
     <div className="cx5">
-      {site === "DZM1" && <Dzm1DeliveryConcessions organizationId={organizationId} />}
+      {site === "DZM1" && <Dzm1DeliveryConcessions organizationId={organizationId} onImported={() => setDeliveryRefresh(v => v + 1)} />}
       <header className="cx5-heading">
         <div>
           <span className="page-kicker">QUALITY INTELLIGENCE</span>
