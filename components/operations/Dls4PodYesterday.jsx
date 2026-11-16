@@ -60,12 +60,13 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   const imageRef = useRef(null);
   const [exporting, setExporting] = useState(false);
   const [messageCopied, setMessageCopied] = useState(false);
+  const [exclusionBusy, setExclusionBusy] = useState("");
 
   async function reload() {
     if (!organizationId) return;
     const client = getSupabaseBrowserClient();
     const [report, roster] = await Promise.all([
-      client.from("dls4_pod_daily").select("report_date,transporter_id,packages_delivered,pod_percent,dcr_percent").eq("organization_id", organizationId).eq("site", site).order("report_date", { ascending: false }).limit(1500),
+      client.from("dls4_pod_daily").select("report_date,transporter_id,packages_delivered,pod_percent,dcr_percent,exclude_pod,exclude_dcr,exclusion_reason").eq("organization_id", organizationId).eq("site", site).order("report_date", { ascending: false }).limit(1500),
       client.from("drivers").select("trid,full_name,site").eq("organization_id", organizationId),
     ]);
     if (report.error) throw report.error;
@@ -84,7 +85,8 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   const dates = useMemo(() => [...new Set(rows.map((r) => r.report_date))].sort().reverse(), [rows]);
   const selectedDate = dates.includes(date) ? date : (dates[0] || "");
   const names = useMemo(() => new Map(drivers.map((d) => [String(d.trid || "").trim().toUpperCase(), d.full_name])), [drivers]);
-  const report = useMemo(() => rows.filter((r) => r.report_date === selectedDate).map((r) => ({
+  const excluded = useMemo(() => rows.filter((r) => r.report_date === selectedDate && (isDcr ? r.exclude_dcr : r.exclude_pod)).map((r) => ({ ...r, name: names.get(String(r.transporter_id).toUpperCase()) || r.transporter_id })), [rows, selectedDate, isDcr, names]);
+  const report = useMemo(() => rows.filter((r) => r.report_date === selectedDate && !(isDcr ? r.exclude_dcr : r.exclude_pod)).map((r) => ({
     ...r, name: names.get(String(r.transporter_id).toUpperCase()) || r.transporter_id,
   })).sort((a, b) => (a[metricKey] ?? 101) - (b[metricKey] ?? 101) || a.name.localeCompare(b.name)), [rows, selectedDate, names, metricKey]);
   const avg = report.filter((r) => r[metricKey] !== null);
@@ -122,7 +124,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   ]).join("\n") : "";
 
   const history = useMemo(() => {
-    const valid = rows.filter((r) => r[metricKey] !== null && r[metricKey] !== undefined && Number.isFinite(Number(r[metricKey])));
+    const valid = rows.filter((r) => !(isDcr ? r.exclude_dcr : r.exclude_pod) && r[metricKey] !== null && r[metricKey] !== undefined && Number.isFinite(Number(r[metricKey])));
     const datesAvailable = [...new Set(valid.map((r) => r.report_date))].sort().reverse();
     const priorDate = datesAvailable.find((d) => d < selectedDate);
     const prior = priorDate ? valid.filter((r) => r.report_date === priorDate) : [];
@@ -153,7 +155,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
       return { id, name: names.get(id) || id, average7: avgOf(recent), average30: avgOf(records), belowDays: records.filter((r) => Number(r[metricKey]) < 100).length, days: records.length, streak };
     }).sort((a,b) => b.belowDays - a.belowDays || (a.average30 ?? 101) - (b.average30 ?? 101));
     return { priorDate, comparable: common.length, change, last7Days: new Set(last7.map((r) => r.report_date)).size, last30Days: new Set(last30.map((r) => r.report_date)).size, average7: avgOf(last7), average30: avgOf(last30), driversHistory };
-  }, [rows, metricKey, selectedDate, avg.length, names]);
+  }, [rows, metricKey, selectedDate, avg.length, names, isDcr]);
   const fullScores = avg.length - belowTarget;
   const statBox = { borderRadius: 12, padding: "14px 16px", background: "#f2f6fa", flex: "1 1 0", minWidth: 0 };
   const panelBox = { background: "#fff", border: "1px solid #dce5ef", borderRadius: 16, padding: 16, boxShadow: "0 4px 15px rgba(25,50,80,0.04)" };
@@ -193,6 +195,27 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
       setNotice(parsed.length + " drivers imported for " + reportDate + ".");
     } catch (e) { setError(e.message || "Import failed."); }
     finally { setBusy(false); if (inputRef.current) inputRef.current.value = ""; }
+  }
+
+  async function setExcluded(driver, exclude, both = false) {
+    if (!organizationId || !selectedDate) return;
+    const reason = exclude ? window.prompt("Reason: Van Breakdown, Route Cancelled, No Deliveries or Other", "Van Breakdown – No Deliveries Completed") : null;
+    if (exclude && !reason?.trim()) return;
+    setExclusionBusy(driver.transporter_id); setError(""); setNotice("");
+    try {
+      const client = getSupabaseBrowserClient();
+      const changes = { exclusion_reason: exclude ? reason.trim() : null, exclusion_updated_at: new Date().toISOString() };
+      if (both) { changes.exclude_pod = exclude; changes.exclude_dcr = exclude; }
+      else changes[isDcr ? "exclude_dcr" : "exclude_pod"] = exclude;
+      const { data, error: updateError } = await client.from("dls4_pod_daily").update(changes)
+        .eq("organization_id", organizationId).eq("site", site).eq("report_date", selectedDate)
+        .eq("transporter_id", driver.transporter_id).select("transporter_id");
+      if (updateError) throw updateError;
+      if (!data?.length) throw new Error("No row updated. Check your access permissions.");
+      await reload();
+      setNotice(driver.name + (exclude ? " excluded from " + (both ? "POD and DCR" : metricName) : " restored to " + (both ? "POD and DCR" : metricName)) + " for " + selectedDate + ".");
+    } catch (e) { setError(e.message || "Could not update exclusion."); }
+    finally { setExclusionBusy(""); }
   }
 
   async function saveImage() {
@@ -250,6 +273,25 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
             <button className="btn" disabled={!report.length} onClick={copyPodMessage}>Copy</button>
           </div>
           <textarea readOnly aria-label="Daily quality WhatsApp message" value={podMessage} onFocus={(e) => e.target.select()} style={{ width: "100%", minHeight: 280, padding: 13, fontSize: 14, lineHeight: 1.55, background: "#f4fbfa", border: "1px solid #cce9e3", borderRadius: 10, resize: "vertical", boxSizing: "border-box" }} />
+        </div>
+        <div style={panelBox}>
+          <strong style={{ fontSize: 17 }}>⚙️ Report exclusions · {metricName}</strong>
+          <p style={{ fontSize: 12, color: "#64748b" }}>Exclude exceptional cases without deleting the Amazon source data. Changes also affect daily averages, ranking, messages and history.</p>
+          {report.map((r) => <div key={r.transporter_id} style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #edf2f7", fontSize: 12 }}>
+            <span>{r.name} · {formatScore(r[metricKey])}</span>
+            <span style={{ display: "flex", gap: 5 }}>
+              <button className="btn" disabled={!!exclusionBusy} onClick={() => setExcluded(r, true)} style={{ fontSize: 11 }}>Exclude {metricName}</button>
+              <button className="btn" disabled={!!exclusionBusy} onClick={() => setExcluded(r, true, true)} style={{ fontSize: 11 }}>Both</button>
+            </span>
+          </div>)}
+          {excluded.length > 0 && <div style={{ marginTop: 12, fontWeight: 700, fontSize: 12 }}>Excluded ({excluded.length})</div>}
+          {excluded.map((r) => <div key={r.transporter_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 0", fontSize: 12 }}>
+            <span>{r.name} · {r.exclusion_reason || "Excluded"}</span>
+            <span style={{ display: "flex", gap: 5 }}>
+              <button className="btn" disabled={!!exclusionBusy} onClick={() => setExcluded(r, false)} style={{ fontSize: 11 }}>Restore {metricName}</button>
+              <button className="btn" disabled={!!exclusionBusy} onClick={() => setExcluded(r, false, true)} style={{ fontSize: 11 }}>Both</button>
+            </span>
+          </div>)}
         </div>
         <div style={panelBox}>
           <strong style={{ fontSize: 17 }}>🎯 Drivers Below 100%</strong>
