@@ -61,6 +61,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   const [exporting, setExporting] = useState(false);
   const [messageCopied, setMessageCopied] = useState(false);
   const [exclusionBusy, setExclusionBusy] = useState("");
+  const [showExclusionEditor, setShowExclusionEditor] = useState(false);
 
   async function reload() {
     if (!organizationId) return;
@@ -158,7 +159,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   }, [rows, metricKey, selectedDate, avg.length, names, isDcr]);
   const fullScores = avg.length - belowTarget;
   const statBox = { borderRadius: 12, padding: "14px 16px", background: "#f2f6fa", flex: "1 1 0", minWidth: 0 };
-  const panelBox = { background: "#fff", border: "1px solid #dce5ef", borderRadius: 16, padding: 16, boxShadow: "0 4px 15px rgba(25,50,80,0.04)" };
+  const panelBox = { background: "#fff", border: "1px solid #dce5ef", borderRadius: 18, padding: 20, boxShadow: "0 8px 24px rgba(25,50,80,0.055)" };
   const formatScore = (v) => v === null || v === undefined ? "—" : Number(v).toFixed(2) + "%";
 
   async function copyPodMessage() {
@@ -223,7 +224,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
     setExporting(true); setError("");
     try {
       const { toPng } = await import("html-to-image");
-      const exportWidth = 580;
+      const exportWidth = 900;
       const exportHeight = imageRef.current.scrollHeight;
       const url = await toPng(imageRef.current, {
         pixelRatio: 2,
@@ -241,11 +242,11 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   }
 
   if (loading) return <div className="panel">Loading daily quality report…</div>;
-  return <section style={{ padding: "22px", maxWidth: 1500, margin: "0 auto", color: "#15283d" }}>
+  return <section style={{ padding: "24px clamp(16px, 3vw, 48px)", maxWidth: 1840, margin: "0 auto", color: "#15283d" }}>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center", marginBottom: 20 }}>
       <div>
         <small style={{ color: "#64748b", fontWeight: 800 }}>{site} · DAILY QUALITY</small>
-        <h1 style={{ margin: "5px 0", fontSize: 30 }}>{isDcr ? "📦" : "📸"} {metricName} Yesterday</h1>
+        <h1 style={{ margin: "5px 0", fontSize: 34, letterSpacing: "-0.8px" }}>{isDcr ? "📦" : "📸"} {metricName} Yesterday</h1>
         <p style={{ margin: 0, color: "#64748b" }}>Daily performance · WhatsApp message · driver history</p>
       </div>
       <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
@@ -258,7 +259,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
     </header>
     {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
     {notice && <p role="status" style={{ color: "#047857" }}>{notice}</p>}
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,440px),1fr))", gap: 16, alignItems: "start" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,530px),1fr))", gap: 20, alignItems: "start" }}>
       <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
         <div style={panelBox}>
           <div style={{ display: "flex", gap: 10 }}>
@@ -275,9 +276,9 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
           <textarea readOnly aria-label="Daily quality WhatsApp message" value={podMessage} onFocus={(e) => e.target.select()} style={{ width: "100%", minHeight: 280, padding: 13, fontSize: 14, lineHeight: 1.55, background: "#f4fbfa", border: "1px solid #cce9e3", borderRadius: 10, resize: "vertical", boxSizing: "border-box" }} />
         </div>
         <div style={panelBox}>
-          <strong style={{ fontSize: 17 }}>⚙️ Report exclusions · {metricName}</strong>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><strong style={{ fontSize: 17 }}>⚙️ Report exclusions · {metricName}</strong><button className="btn" onClick={() => setShowExclusionEditor(v => !v)}>{showExclusionEditor ? "Hide editor" : "Manage exclusions"} · {excluded.length}</button></div>
           <p style={{ fontSize: 12, color: "#64748b" }}>Exclude exceptional cases without deleting the Amazon source data. Changes also affect daily averages, ranking, messages and history.</p>
-          {report.map((r) => <div key={r.transporter_id} style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #edf2f7", fontSize: 12 }}>
+          {showExclusionEditor && report.map((r) => <div key={r.transporter_id} style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #edf2f7", fontSize: 12 }}>
             <span>{r.name} · {formatScore(r[metricKey])}</span>
             <span style={{ display: "flex", gap: 5 }}>
               <button className="btn" disabled={!!exclusionBusy} onClick={() => setExcluded(r, true)} style={{ fontSize: 11 }}>Exclude {metricName}</button>
@@ -285,6 +286,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
             </span>
           </div>)}
           {excluded.length > 0 && <div style={{ marginTop: 12, fontWeight: 700, fontSize: 12 }}>Excluded ({excluded.length})</div>}
+          {!showExclusionEditor && !excluded.length && <p style={{ fontSize: 12, color: "#64748b" }}>No exclusions for this report. Select Manage exclusions to edit.</p>}
           {excluded.map((r) => <div key={r.transporter_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 0", fontSize: 12 }}>
             <span>{r.name} · {r.exclusion_reason || "Excluded"}</span>
             <span style={{ display: "flex", gap: 5 }}>
@@ -327,19 +329,19 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ ...panelBox, padding: 12 }}>
-          <div ref={imageRef} style={{ background: "#fff", padding: "14px 14px", borderRadius: 12, width: "100%", maxWidth: 580, margin: "0 auto", boxSizing: "border-box" }}>
+          <div ref={imageRef} style={{ background: "#fff", padding: "22px 28px", borderRadius: 12, width: "100%", maxWidth: 900, margin: "0 auto", boxSizing: "border-box" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", borderBottom: "3px solid #15283d", paddingBottom: 9, marginBottom: 8 }}>
               <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>{site} · DCSL</div><h2 style={{ fontSize: 22, margin: "3px 0 0" }}>🏆 {metricName} Daily Ranking</h2><div style={{ fontSize: 11, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
               <div style={{ textAlign: "right" }}><b style={{ fontSize: 20 }}>{report.length}</b><div style={{ fontSize: 12 }}>Drivers</div><b style={{ fontSize: 15 }}>{formatScore(mean)}</b><div style={{ fontSize: 12 }}>Unweighted average</div></div>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 15 }}>
               <thead><tr style={{ background: "#eaf0f7", textAlign: "left" }}><th style={{ padding: "6px 5px", width: 22 }}>#</th><th style={{ padding: "6px 5px" }}>Driver</th><th style={{ padding: "6px 5px", textAlign: "right", width: 95 }}>{isDcr ? "DCR" : "SWC-POD"}</th></tr></thead>
               <tbody>{report.map((r, i) => <tr key={r.transporter_id} style={{ background: i % 2 ? "#f7f9fc" : "#fff", borderBottom: "1px solid #e6edf4" }}>
                 <td style={{ padding: "6px 5px", fontWeight: 700 }}>{i + 1}</td><td style={{ padding: "6px 5px", fontWeight: 700 }}>{r.name}</td><td style={{ padding: "6px 5px", textAlign: "right", fontWeight: 800, color: r[metricKey] === null ? "#64748b" : Number(r[metricKey]) < 100 ? "#b91c1c" : "#166534" }}>{formatScore(r[metricKey])}</td>
               </tr>)}</tbody>
             </table>
             {!report.length && <p style={{ padding: 20, textAlign: "center", color: "#64748b" }}>Import a {site} Quality Overview CSV to create the daily ranking.</p>}
-            <p style={{ margin: "8px 0 0", color: "#64748b", fontSize: 10 }}>Source: Amazon Quality Overview · {isDcr ? "DCR" : "SWC-POD"} · Sorted ascending · All reported drivers</p>
+            <p style={{ margin: "8px 0 0", color: "#64748b", fontSize: 10 }}>Source: Amazon Quality Overview · {isDcr ? "DCR" : "SWC-POD"} · Sorted ascending · Excluded drivers omitted</p>
           </div>
         </div>
       </div>
