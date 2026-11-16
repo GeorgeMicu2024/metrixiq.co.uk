@@ -242,7 +242,7 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   }
 
   if (loading) return <div className="panel">Loading daily quality report…</div>;
-  return <section style={{ padding: "24px clamp(16px, 3vw, 48px)", maxWidth: 1840, margin: "0 auto", color: "#15283d", background: "linear-gradient(180deg, #f5f9fc 0%, #edf3f8 100%)", minHeight: "100%" }}>
+  return <section style={{ padding: "clamp(18px, 2.4vw, 38px) clamp(18px, 3vw, 54px)", width: "100%", maxWidth: "none", boxSizing: "border-box", margin: "0 auto", color: "#15283d", background: "linear-gradient(180deg, #f5f9fc 0%, #edf3f8 100%)", minHeight: "100%" }}>
     <header style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", alignItems: "center", marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid #dbe6ef" }}>
       <div>
         <small style={{ color: "#64748b", fontWeight: 800 }}>{site} · DAILY QUALITY</small>
@@ -259,13 +259,13 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
     </header>
     {error && <p role="alert" style={{ color: "#b91c1c" }}>{error}</p>}
     {notice && <p role="status" style={{ color: "#047857" }}>{notice}</p>}
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,530px),1fr))", gap: 20, alignItems: "start" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(min(100%,580px),1fr))", gap: 24, alignItems: "start" }}>
       <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
         <div style={panelBox}>
-          <div style={{ display: "flex", gap: 10 }}>
-            <div style={{ ...statBox, background: "#edf8f4" }}><div style={{ fontSize: 12, fontWeight: 800 }}>🎯 {metricName} Average</div><strong style={{ fontSize: 27 }}>{formatScore(mean)}</strong><div style={{ fontSize: 11, color: "#64748b" }}>Unweighted · {avg.length} scores</div></div>
-            <div style={statBox}><div style={{ fontSize: 12, fontWeight: 800 }}>👥 Drivers</div><strong style={{ fontSize: 27 }}>{report.length}</strong><div style={{ fontSize: 11, color: "#64748b" }}>Imported rows</div></div>
-            <div style={{ ...statBox, background: "#fff0f1" }}><div style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c" }}>⚠ Below 100%</div><strong style={{ fontSize: 27, color: "#b91c1c" }}>{belowTarget}</strong><div style={{ fontSize: 11, color: "#b91c1c" }}>{avg.length ? (100 * belowTarget / avg.length).toFixed(1) + "%" : "No scores"}</div></div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ ...statBox, background: "linear-gradient(135deg,#e9f9f1,#dcf5e9)", border: "1px solid #cdebdc" }}><div style={{ fontSize: 12, fontWeight: 800 }}>🎯 {metricName} Average</div><strong style={{ fontSize: 27 }}>{formatScore(mean)}</strong><div style={{ fontSize: 11, color: "#64748b" }}>Unweighted · {avg.length} scores</div></div>
+            <div style={{ ...statBox, background: "linear-gradient(135deg,#f1f6ff,#e8f0ff)", border: "1px solid #dfe8f8" }}><div style={{ fontSize: 12, fontWeight: 800 }}>👥 Drivers</div><strong style={{ fontSize: 27 }}>{report.length}</strong><div style={{ fontSize: 11, color: "#64748b" }}>Imported rows</div></div>
+            <div style={{ ...statBox, background: "linear-gradient(135deg,#fff4f3,#ffeaeb)", border: "1px solid #f9e0e2" }}><div style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c" }}>⚠ Below 100%</div><strong style={{ fontSize: 27, color: "#b91c1c" }}>{belowTarget}</strong><div style={{ fontSize: 11, color: "#b91c1c" }}>{avg.length ? (100 * belowTarget / avg.length).toFixed(1) + "%" : "No scores"}</div></div>
           </div>
         </div>
         <div style={panelBox}>
@@ -273,11 +273,11 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
             <strong style={{ fontSize: 17 }}>💬 Daily WhatsApp Message</strong>
             <button className="btn" disabled={!report.length} onClick={copyPodMessage}>Copy</button>
           </div>
-          <textarea readOnly aria-label="Daily quality WhatsApp message" value={podMessage} onFocus={(e) => e.target.select()} style={{ width: "100%", minHeight: 280, padding: 13, fontSize: 14, lineHeight: 1.55, background: "#f4fbfa", border: "1px solid #cce9e3", borderRadius: 10, resize: "vertical", boxSizing: "border-box" }} />
+          <textarea readOnly aria-label="Daily quality WhatsApp message" value={podMessage} onFocus={(e) => e.target.select()} style={{ width: "100%", minHeight: 245, padding: 18, fontSize: 14, lineHeight: 1.55, background: "linear-gradient(135deg,#f5fcfa,#edf8f7)", border: "1px solid #cce9e3", borderRadius: 14, resize: "vertical", boxSizing: "border-box" }} />
         </div>
         <div style={panelBox}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><strong style={{ fontSize: 17 }}>⚙️ Report exclusions · {metricName}</strong><button className="btn" onClick={() => setShowExclusionEditor(v => !v)}>{showExclusionEditor ? "Hide editor" : "Manage exclusions"} · {excluded.length}</button></div>
-          <p style={{ fontSize: 12, color: "#64748b" }}>Exclude exceptional cases without deleting the Amazon source data. Changes also affect daily averages, ranking, messages and history.</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><strong style={{ fontSize: 17, letterSpacing: "-0.2px" }}>⚙️ Report exclusions · {metricName}</strong><button className="btn" onClick={() => setShowExclusionEditor(v => !v)}>{showExclusionEditor ? "Hide editor" : "Manage exclusions"} · {excluded.length}</button></div>
+          <p style={{ fontSize: 12, lineHeight: 1.5, color: "#64748b" }}>Exclude exceptional cases without deleting the Amazon source data. Changes also affect daily averages, ranking, messages and history.</p>
           {showExclusionEditor && report.map((r) => <div key={r.transporter_id} style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between", padding: "5px 0", borderBottom: "1px solid #edf2f7", fontSize: 12 }}>
             <span>{r.name} · {formatScore(r[metricKey])}</span>
             <span style={{ display: "flex", gap: 5 }}>
@@ -328,10 +328,10 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
         </div>
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ ...panelBox, padding: 12 }}>
-          <div ref={imageRef} style={{ background: "#fff", padding: "22px 28px", borderRadius: 14, width: "100%", maxWidth: 900, margin: "0 auto", boxSizing: "border-box" }}>
+        <div style={{ ...panelBox, padding: 16, border: "1px solid #d5e4ed", boxShadow: "0 12px 32px rgba(15,40,65,0.08)" }}>
+          <div ref={imageRef} style={{ background: "#fff", padding: "24px 30px", borderRadius: 14, width: "100%", maxWidth: "100%", margin: "0 auto", boxSizing: "border-box" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", borderBottom: "3px solid #0d9488", paddingBottom: 9, marginBottom: 8 }}>
-              <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800 }}>{site} · DCSL</div><h2 style={{ fontSize: 24, margin: "3px 0 0", letterSpacing: "-0.5px" }}>🏆 {metricName} Daily Ranking</h2><div style={{ fontSize: 11, color: "#64748b" }}>Report date: {selectedDate || "—"}</div></div>
+              <div><div style={{ fontSize: 13, color: "#64748b", fontWeight: 800, letterSpacing: "0.5px" }}>{site} · DCSL</div><h2 style={{ fontSize: 24, margin: "3px 0 0", letterSpacing: "-0.5px" }}>🏆 {metricName} Daily Ranking</h2><div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Report date: {selectedDate || "—"}</div></div>
               <div style={{ textAlign: "right" }}><b style={{ fontSize: 20 }}>{report.length}</b><div style={{ fontSize: 12 }}>Drivers</div><b style={{ fontSize: 15 }}>{formatScore(mean)}</b><div style={{ fontSize: 12 }}>Unweighted average</div></div>
             </div>
             <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, fontSize: 15, tableLayout: "fixed" }}>
