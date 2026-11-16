@@ -92,14 +92,15 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const affected = new Set(selected.map((e)=>e.driver_id||e.trid_raw).filter(Boolean)).size;
   const dnr = selected.filter((e)=>e.dnr_concession).length;
   const over25 = selected.filter((e)=>e.scanned_over_25m).length;
-  const dzm1 = String(siteFilter).trim().toUpperCase() === "DZM1";
+  const exportSite = String(siteFilter || "").trim().toUpperCase();
+  const canExport = exportSite !== "ALL" && Boolean(exportSite);
   const feedbackRows = useMemo(()=>groupCdf(selected),[events,week]);
   const pages = Math.max(1,Math.ceil(feedbackRows.length/CDF_EXPORT_PAGE_SIZE));
   const currentPage = Math.min(feedbackPage,pages-1);
   const [preparedPhotos,setPreparedPhotos]=useState([]);
   const [preparingPhotos,setPreparingPhotos]=useState(false);
   useEffect(()=>{
-    if (!dzm1 || !feedbackRows.length) {setPreparedPhotos([]);return;}
+    if (!canExport || !feedbackRows.length) {setPreparedPhotos([]);return;}
     let cancelled=false;
     const task=async()=>{
       setPreparingPhotos(true);
@@ -111,7 +112,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
         for(let index=0;index<nodes.length;index++){
           const blob=await toBlob(nodes[index],{width:CDF_EXPORT_WIDTH,pixelRatio:CDF_EXPORT_PIXEL_RATIO,backgroundColor:"#fff"});
           if(!blob)throw new Error("Image generation failed.");
-          result.push(new File([blob],`DZM1-CDF-${week}-page-${index+1}.png`,{type:"image/png"}));
+          result.push(new File([blob],`${exportSite}-CDF-${week}-page-${index+1}.png`,{type:"image/png"}));
           if(cancelled)return;
         }
         if(!cancelled)setPreparedPhotos(result);
@@ -120,18 +121,18 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
     };
     task();
     return ()=>{cancelled=true;};
-  },[dzm1,week,feedbackRows.length,pages]);
+  },[canExport,exportSite,week,feedbackRows]);
   async function saveAllPhotos() {
     if (!preparedPhotos.length || exporting) return;
     if (navigator.canShare?.({files:preparedPhotos}) && typeof navigator.share==="function") {
       try {
-        await navigator.share({files:preparedPhotos,title:`DZM1 CDF Feedback ${week} — ${preparedPhotos.length} photos`});
+        await navigator.share({files:preparedPhotos,title:`${exportSite} CDF Feedback ${week} — ${preparedPhotos.length} photos`});
         return;
       } catch(error) {
         if(error?.name==="AbortError")return;
       }
     }
-    window.alert("This browser cannot save several separate images in one action. On iPhone Safari, use Share and choose Save Images. You can also save each page with the individual buttons.");
+    for (const file of preparedPhotos) downloadPage(file);
   }
 
 
@@ -142,7 +143,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
     if (!node) throw new Error("Feedback page not found.");
     const blob=await toBlob(node,{width:CDF_EXPORT_WIDTH,pixelRatio:CDF_EXPORT_PIXEL_RATIO,backgroundColor:"#fff"});
     if (!blob) throw new Error("Could not render feedback image.");
-    return new File([blob],`DZM1-CDF-${week}-page-${pageIndex+1}.png`,{type:"image/png"});
+    return new File([blob],`${exportSite}-CDF-${week}-page-${pageIndex+1}.png`,{type:"image/png"});
   }
   function downloadPage(file) {
     const url=URL.createObjectURL(file);
@@ -161,7 +162,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
       const file=await renderFeedbackPage(pageIndex);
       if (share && navigator.canShare?.({files:[file]}) && typeof navigator.share==="function") {
         try {
-          await navigator.share({files:[file],title:`DZM1 CDF Feedback ${week} — Page ${pageIndex+1}`});
+          await navigator.share({files:[file],title:`${exportSite} CDF Feedback ${week} — Page ${pageIndex+1}`});
           return;
         } catch(error) {
           if (error?.name==="AbortError") return;
@@ -199,7 +200,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
       let y=0;
       for(const image of images){ctx.drawImage(image,0,y);y+=image.height;}
       const blob=await new Promise((resolve,reject)=>combined.toBlob(value=>value?resolve(value):reject(new Error("Image export failed")),"image/png"));
-      downloadPage(new File([blob],`DZM1-CDF-${week}-all-pages.png`,{type:"image/png"}));
+      downloadPage(new File([blob],`${exportSite}-CDF-${week}-all-pages.png`,{type:"image/png"}));
     } catch(error) {window.alert(error?.message || "Could not download complete CDF image");}
     finally {setExporting(false);}
   }
@@ -213,9 +214,9 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   if(load.error)return <ErrorPanel error={load.error}/>;
 
   return <>
-    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{dzm1 && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage)}>{exporting?"Preparing photo…":`Save Page ${currentPage+1}`}</button>}{dzm1 && <button className="btn" style={{background:"#25D366",color:"#fff"}} disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage,true)}>WhatsApp</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
+    <div className="page-heading scorecard-page-heading"><div><span className="page-kicker">CUSTOMER EXPERIENCE</span><h1>CDF feedback</h1><p>Negative customer feedback, root causes and driver-level evidence.</p></div><div className="scorecard-filter-row"><select aria-label="Select CDF week" value={week} onChange={(e)=>setWeek(e.target.value)}>{weeks.map((w)=><option key={w}>{w}</option>)}</select>{canExport && <button className="btn" disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage)}>{exporting?"Preparing photo…":`Save Page ${currentPage+1}`}</button>}{canExport && <button className="btn" style={{background:"#25D366",color:"#fff"}} disabled={!feedbackRows.length || exporting} onClick={()=>exportFeedbackPage(currentPage,true)}>WhatsApp</button>}<button className="btn primary" onClick={onImport}>Import CDF</button></div></div>
 
-    {dzm1 && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+    {canExport && <section className="panel" style={{padding:14,marginBottom:12,display:"flex",justifyContent:"space-between",gap:12,alignItems:"center",flexWrap:"wrap"}}>
       <div><b>Driver feedback export · {week}</b><div style={{fontSize:12,color:"#657589"}}>{feedbackRows.length} drivers · Up to 20 drivers per image · separate PNG photos · header and footer on every page</div></div>
       <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
         <button className="btn primary" disabled={!preparedPhotos.length || preparingPhotos || exporting} onClick={saveAllPhotos}>{preparingPhotos?"Preparing photos…":`Save All Photos (${preparedPhotos.length || pages})`}</button>
@@ -230,10 +231,10 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
         <button className="btn" disabled={currentPage===pages-1} onClick={()=>setFeedbackPage(p=>Math.min(pages-1,p+1))}>Next</button>
       </div>
     </section>}
-    {dzm1 && <div ref={exportContainerRef} style={{position:"absolute",left:"-100000px",top:0,width:CDF_EXPORT_WIDTH,pointerEvents:"none"}}>
+    {canExport && <div ref={exportContainerRef} style={{position:"absolute",left:"-100000px",top:0,width:CDF_EXPORT_WIDTH,pointerEvents:"none"}}>
       {Array.from({length:pages},(_,pageIndex)=><div key={pageIndex} data-cdf-page="" style={{width:CDF_EXPORT_WIDTH,boxSizing:"border-box",overflow:"hidden",background:"#fff",color:"#122a42",fontFamily:"Arial,sans-serif",padding:28}}>
         <div style={{padding:20,background:"#e6f5f4",borderLeft:"8px solid #009c94",display:"flex",justifyContent:"space-between"}}>
-          <div><b style={{color:"#00867d",letterSpacing:2}}>METRIXIQ · DZM1</b><div style={{fontSize:40,fontWeight:900,marginTop:6}}>CDF Driver Feedback</div><div style={{fontSize:21,marginTop:6}}>{week} · {selected.length} reports · {feedbackRows.length} drivers</div></div>
+          <div><b style={{color:"#00867d",letterSpacing:2}}>METRIXIQ · {exportSite}</b><div style={{fontSize:40,fontWeight:900,marginTop:6}}>CDF Driver Feedback</div><div style={{fontSize:21,marginTop:6}}>{week} · {selected.length} reports · {feedbackRows.length} drivers</div></div>
           <b>Page {pageIndex+1} / {pages}</b>
         </div>
         <div style={{display:"grid",gridTemplateColumns:CDF_EXPORT_COLUMNS,gap:12,padding:14,boxSizing:"border-box",background:"#10364c",color:"#fff",fontSize:23,fontWeight:800,marginTop:15}}>
@@ -246,7 +247,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
           <div style={{minWidth:0,overflowWrap:"anywhere"}}>{driver.tips.map((tip,j)=><div key={j} style={{marginBottom:4}}>• {tip}</div>)}</div>
         </div>)}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:20,padding:"16px 18px",background:"#e6f5f4",borderTop:"3px solid #009c94",fontSize:16,color:"#173d4b"}}>
-          <div><b>METRIXIQ · DZM1 · CDF Feedback · {week}</b><div style={{fontSize:13,color:"#63788b",marginTop:4}}>Customer feedback is not automatically a confirmed driver fault. Review the evidence before assigning responsibility.</div></div>
+          <div><b>METRIXIQ · {exportSite} · CDF Feedback · {week}</b><div style={{fontSize:13,color:"#63788b",marginTop:4}}>Customer feedback is not automatically a confirmed driver fault. Review the evidence before assigning responsibility.</div></div>
           <b>Page {pageIndex+1} / {pages}</b>
         </div>
       </div>)}
