@@ -713,7 +713,7 @@ export default function DashboardClient() {
       </div>}
     </div>
   </div>
-</header><main className="app-main">{view}</main></div>{siteManageOpen&&isSiteManager&&<div role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!siteManageBusy){setSiteManageOpen(false);setSitePendingDisable("");}}} style={{position:"fixed",inset:0,zIndex:1600,background:"rgba(5,18,31,.66)",display:"grid",placeItems:"center",padding:14}}>
+</header><main className="app-main" style={["dls4-pod-yesterday", "dcr-yesterday"].includes(active) ? { maxWidth: "none", width: "100%", padding: 0, boxSizing: "border-box" } : undefined}>{view}</main></div>{siteManageOpen&&isSiteManager&&<div role="presentation" onMouseDown={e=>{if(e.target===e.currentTarget&&!siteManageBusy){setSiteManageOpen(false);setSitePendingDisable("");}}} style={{position:"fixed",inset:0,zIndex:1600,background:"rgba(5,18,31,.66)",display:"grid",placeItems:"center",padding:14}}>
   <section className="panel" role="dialog" aria-modal="true" aria-labelledby="manage-sites-title" style={{width:"min(620px,100%)",maxHeight:"min(88dvh,800px)",overflowY:"auto",padding:16}}>
     <div className="panel-head"><div><span className="page-kicker">SITE MANAGEMENT</span><h2 id="manage-sites-title">Manage sites</h2><p>Deactivate a site to hide it from the station selector. All drivers, scorecards and historical records are preserved.</p></div><button type="button" className="btn ghost compact" aria-label="Close site management" disabled={Boolean(siteManageBusy)} onClick={()=>{setSiteManageOpen(false);setSitePendingDisable("");}}>×</button></div>
     {siteManageError&&<div className="mgrv2-notice error" role="alert">{siteManageError}</div>}
