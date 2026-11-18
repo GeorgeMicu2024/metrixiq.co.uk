@@ -25,6 +25,7 @@ import PodQualityView from "./operations/PodQualityView";
 import Dls4PodYesterday from "./operations/Dls4PodYesterday";
 import CustomerComplianceView from "./operations/CustomerComplianceView";
 import MentorView from "./operations/MentorView";
+import DailyConcessionsView from "./operations/DailyConcessionsView";
 import ConcessionsView from "./operations/ConcessionsView";
 import CoachingV3 from "./coaching/CoachingV3";
 import CheckLorView from "./lor/CheckLorView";
@@ -66,7 +67,7 @@ import { activateWorkspaceMode, createBillingCheckout } from "../lib/data/billin
 
 const AiLabView = dynamic(() => import("./ai-lab/AiLabView"), { loading: () => <div className="panel" style={{ padding: 24 }}>Opening AI Lab…</div> });
 
-const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dls4-pod-yesterday","dcr-yesterday","dcr","cc","cdf","mentor","check-lor","ndnr","check-mentor"]);
+const SITE_SCOPED_VIEWS = new Set(["daily-dispatch","site-operations","iadc","pod","dls4-pod-yesterday","dcr-yesterday","dcr","cc","cdf","mentor","check-lor","ndnr","check-mentor","daily-concessions"]);
 
 export default function DashboardClient() {
   const router = useRouter();
@@ -623,6 +624,7 @@ export default function DashboardClient() {
     case "cc": view = <CustomerComplianceView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImported={imported} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
     case "cdf": view = <CdfView organizationId={workspace?.organization?.id} onImport={() => navigate("imports")} siteFilter={siteFilter} />; break;
     case "mentor": view = <MentorView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} onImport={(intent) => { setImportIntent(intent || null); navigate("imports"); }} onSiteFilterChange={setSiteFilter} siteFilter={siteFilter} refreshKey={operationalRefreshKey} />; break;
+    case "daily-concessions": view = <DailyConcessionsView key={workspace?.organization?.id+":"+siteFilter} organizationId={workspace?.organization?.id} site={siteFilter} />; break;
     case "concessions": view = <ConcessionsView organizationId={workspace?.organization?.id} onOpenDriver={openDriver} siteFilter={siteFilter} onSiteFilterChange={setSiteFilter} refreshKey={operationalRefreshKey} drivers={drivers} />; break;
     case "check-lor": view = <CheckLorView organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} canManage={platformAdmin || ["owner", "admin", "manager"].includes(String(session?.role || "").toLowerCase())} />; break;
     case "ndnr": view = <NdnrView organizationId={workspace?.organization?.id} siteFilter={siteFilter} drivers={drivers} />; break;
