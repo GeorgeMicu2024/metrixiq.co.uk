@@ -153,6 +153,37 @@ function drawMobileScorecardPng({
  * scorecard data remains available in the app and complete PDF export.
  * Show the score prominently, with six delivery metrics in two legible rows.
  */
+function drawDetailedScorecardPng({site,week,year,headlineScore,standing,pageRows,totalDrivers,page,pageCount,summary,category}) {
+  const canvas=document.createElement("canvas");
+  const W=1600, H=360+pageRows.length*42+86;
+  canvas.width=W*2; canvas.height=H*2;
+  const c=canvas.getContext("2d"); if(!c) throw new Error("Canvas unavailable");
+  c.scale(2,2); c.textBaseline="middle";
+  const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
+  const txt=(v,x,y,size=19,color="#10233e",align="center",weight=700,max=1000)=>{c.fillStyle=color;c.font=weight+" "+size+"px Arial";c.textAlign=align;c.fillText(String(v??"—"),x,y,max);};
+  const tiers={"fantastic-plus":"#087f36",fantastic:"#21a64b",great:"#2175bd",fair:"#e8a521",poor:"#cf3035"};
+  const tones={good:"#d8f2d7",warn:"#fff0a6",bad:"#ffd6d6",neutral:"#ffffff"};
+  rect(0,0,W,H,"#fff");rect(0,0,W,92,"#071d39");
+  txt("DRIVER PERFORMANCE REPORT – "+site,24,30,31,"#fff","left");
+  txt(week+" · "+year+"   •   Total Drivers: "+totalDrivers,24,65,20,"#dce9f7","left");
+  txt("OVERALL SCORE",980,24,15,"#fff");txt(headlineScore==null?"—":Number(headlineScore).toFixed(2),980,60,33,"#fff");
+  txt("SITE RANK",1200,24,15,"#fff");txt(summary.rank,1200,60,30,"#fff");
+  rect(1320,12,260,68,"#087f36");txt("TIER",1450,29,15,"#fff");txt(standing,1450,57,24,"#fff");
+  const groups=Object.entries(tiers);
+  groups.forEach(([key,color],i)=>{const x=20+i*312;rect(x,106,300,76,color);txt(key.replace(/-/g," ").toUpperCase(),x+150,126,17,"#fff");txt(summary.counts[key]??0,x+150,159,30,"#fff");});
+  const kpis=[["DELIVERED",summary.delivered],["CONCESSIONS",summary.concessions],["DCR",summary.dcr],["POD",summary.pod],["CC",summary.cc],["FICO",summary.fico]];
+  kpis.forEach(([label,value],i)=>{const x=20+i*260;rect(x,195,250,87,"#edf3fa");txt(label,x+125,215,17);txt(value,x+125,252,29,"#087f36");});
+  const cols=[["#","rank",55],["TIER","tierLabel",170],["DRIVER NAME","name",265],["SCORE","score",95],["FICO","fico",90,"ficoTone"],["DELIVERED","delivered",100],["CON","concessions",65,"conTone"],["DCR","dcr",100,"dcrTone"],["DSC DPMO","dsc",105,"dscTone"],["LoR","lor",65,"lorTone"],["POD","pod",95,"podTone"],["CC","cc",95,"ccTone"],["ESC","ce",80,"ceTone"],["FEEDBACK","cdf",120,"cdfTone"],["PSB","psb",60,"psbTone"]];
+  const scale=(W-40)/cols.reduce((a,v)=>a+v[2],0);
+  rect(20,294,W-40,28,"#071d39");txt(category||"DRIVER RANKING",32,308,17,"#fff","left");
+  let x=20;cols.forEach(([label,key,w])=>{w*=scale;rect(x,322,w-1,38,"#14375d");txt(label,x+w/2,341,14,"#fff");x+=w;});
+  pageRows.forEach((row,i)=>{let x=20;const y=360+i*42;cols.forEach(([label,key,w,tone])=>{w*=scale;const tier=key==="tierLabel"||key==="score";rect(x,y,w-1,41,tier?(tiers[row.tier]||"#64748b"):tone?(tones[row[tone]]||"#fff"):(i%2?"#f0f4f8":"#fff"));txt(row[key],key==="name"?x+8:x+w/2,y+21,key==="name"?18:17,tier?"#fff":"#10233e",key==="name"?"left":"center",700,w-12);x+=w;});});
+  const y=360+pageRows.length*42;rect(0,y,W,86,"#071d39");
+  groups.forEach(([key,color],i)=>{rect(24+i*220,y+14,15,15,color);txt(key.replace(/-/g," ").toUpperCase(),45+i*220,y+22,13,"#fff","left");});
+  txt("Page "+page+" of "+pageCount,24,y+58,17,"#fff","left");txt("Generated "+new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),W-24,y+58,17,"#fff","right");
+  return canvas.toDataURL("image/png");
+}
+
 function drawFullScorecardPhotoPng({
   site, week, year, headlineScore, standing, pageRows,
   totalDrivers, page, pageCount, firstRank, lastRank,
@@ -1330,14 +1361,18 @@ export default function DriverScorecardsV22({
   const rankedPhotoRows = [...enrichedRows].sort(
     (a, b) => (a.currentRank || Infinity) - (b.currentRank || Infinity)
   );
-  const fullPhotoPages = splitScorecardPhotoPages(rankedPhotoRows, { preferredPages: fullPhotoCount });
+  const detailedExport = ["DLS4","DZM1"].includes(period?.site);
+  const photoPageSize = detailedExport ? 20 : 12;
+  const fullPhotoPages = detailedExport ? Array.from({length:Math.ceil(rankedPhotoRows.length/20)},(_,i)=>({page:i+1,start:i*20+1,end:Math.min((i+1)*20,rankedPhotoRows.length),rows:rankedPhotoRows.slice(i*20,(i+1)*20)})) : splitScorecardPhotoPages(rankedPhotoRows, { preferredPages: fullPhotoCount });
+  const avgMetric = (key, percent=false) => {const values=enrichedRows.map(row=>num(key==="fico"?(row.mentor_score??row.ementor??row.fico):row[key])).filter(v=>v!=null);if(!values.length)return "—";const avg=values.reduce((a,b)=>a+(percent?normalizePercent(b):b),0)/values.length;return percent?avg.toFixed(2)+"%":avg.toFixed(0);};
+  const detailedSummary={counts:groupCounts,delivered,concessions,dcr:avgMetric("dcr",true),pod:avgMetric("pod",true),cc:avgMetric("cc",true),fico:avgMetric("fico"),rank:period?.card?.site_rank??"—"};
   const rankPhotoGroups = groupOrder.map((group) => ({
     ...group,
     rows: rankedPhotoRows.filter((row) => row.sourceRank.cls === group.cls),
   }));
   const selectedPhotoGroup = rankPhotoGroups.find((group) => group.cls === mobilePhotoTier)
     || rankPhotoGroups[0];
-  const selectedPhotoPages = Math.max(1, Math.ceil((selectedPhotoGroup?.rows.length || 0) / 12));
+  const selectedPhotoPages = Math.max(1, Math.ceil((selectedPhotoGroup?.rows.length || 0) / photoPageSize));
 
   const preparePhotoRows = (sourceRows) => sourceRows.map((row) => {
     const fico = num(row.mentor_score ?? row.ementor ?? row.fico);
@@ -1379,7 +1414,8 @@ export default function DriverScorecardsV22({
       };
     });
   };
-  const renderFullPhoto = (pageItem) => drawFullScorecardPhotoPng({
+  const renderFullPhoto = (pageItem) => (detailedExport ? drawDetailedScorecardPng : drawFullScorecardPhotoPng)({
+    summary: detailedSummary,
     site: period?.site || "All sites",
     week: period?.weekLabel || "Week",
     year: period?.year || "",
@@ -1394,14 +1430,16 @@ export default function DriverScorecardsV22({
   });
 
   const renderPhoto = (items, category, total, page, pageCount) =>
-    drawMobileScorecardPng({
+    (detailedExport ? drawDetailedScorecardPng : drawMobileScorecardPng)({
+      summary: detailedSummary,
+      headlineScore,
       site: period?.site || "All sites",
       week: period?.weekLabel || "Week",
       year: period?.year || "",
       officialScore: headlineScore,
       standing: overallStanding,
       category,
-      pageRows: preparePhotoRows(items),
+      pageRows: detailedExport ? prepareFullPhotoRows(items) : preparePhotoRows(items),
       totalDrivers,
       groupCount: total,
       page,
@@ -1463,6 +1501,7 @@ export default function DriverScorecardsV22({
         // Release the browser event loop between large PNG canvases.
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
+      if (detailedExport) { for (const file of files) { const url = URL.createObjectURL(new Blob([file.bytes], {type:"image/png"})); const a=document.createElement("a"); a.href=url; a.download=file.name; document.body.appendChild(a); a.click(); a.remove(); window.setTimeout(()=>URL.revokeObjectURL(url),60000); } setShareImageProgress("Prepared "+files.length+" PNG images."); return; }
       const url = URL.createObjectURL(buildImageZip(files));
       const link = document.createElement("a");
       link.href = url;
@@ -1529,7 +1568,7 @@ export default function DriverScorecardsV22({
     }
     try {
       const page = Math.min(Math.max(mobilePhotoPage, 1), selectedPhotoPages);
-      const rows = group.rows.slice((page - 1) * 12, page * 12);
+      const rows = group.rows.slice((page - 1) * photoPageSize, page * photoPageSize);
       const dataUrl = renderPhoto(rows, group.label, group.rows.length, page, selectedPhotoPages);
       setMobilePhotoPreview({
         dataUrl,
@@ -1575,8 +1614,8 @@ export default function DriverScorecardsV22({
   function exportWhatsAppPng() {
     try {
       setShareImageError("");
-      const rows = shareRows.slice(0, 12);
-      const dataUrl = renderPhoto(rows, "Team overview", shareRows.length, 1, Math.max(1, Math.ceil(shareRows.length / 12)));
+      const rows = shareRows.slice(0, photoPageSize);
+      const dataUrl = renderPhoto(rows, "Team overview", shareRows.length, 1, Math.max(1, Math.ceil(shareRows.length / photoPageSize)));
       setMobilePhotoPreview({
         dataUrl, fileName: `${photoBaseName()}-overview.png`, label: "Team overview",
       });
@@ -1593,12 +1632,12 @@ export default function DriverScorecardsV22({
     try {
       const files = [];
       const groups = rankPhotoGroups.filter((group) => group.rows.length > 0);
-      const totalPages = groups.reduce((sum, group) => sum + Math.ceil(group.rows.length / 12), 0);
+      const totalPages = groups.reduce((sum, group) => sum + Math.ceil(group.rows.length / photoPageSize), 0);
       let count = 0;
       for (const group of groups) {
-        const pageCount = Math.ceil(group.rows.length / 12);
+        const pageCount = Math.ceil(group.rows.length / photoPageSize);
         for (let page = 1; page <= pageCount; page += 1) {
-          const rows = group.rows.slice((page - 1) * 12, page * 12);
+          const rows = group.rows.slice((page - 1) * photoPageSize, page * photoPageSize);
           const dataUrl = renderPhoto(rows, group.label, group.rows.length, page, pageCount);
           const binary = atob(dataUrl.split(",")[1]);
           const bytes = new Uint8Array(binary.length);
@@ -2342,7 +2381,7 @@ export default function DriverScorecardsV22({
             </div>
             <div className="scorex3-share-actions">
               <button type="button" className="btn primary scorex3-ranks-export" onClick={exportRankImagesZip} disabled={shareImageBusy}>
-                {shareImageBusy ? "Preparing…" : "Download rank photos ZIP"}
+                {shareImageBusy ? "Preparing…" : (detailedExport ? "Export by tier · PNG" : "Download rank photos ZIP")}
               </button>
               <button type="button" className="btn primary scorex3-full-png-export" onClick={exportFullScorecardPhotosZip} disabled={shareImageBusy || !fullPhotoPages.length}>
                 {shareImageBusy ? "Preparing photos…" : "Download full team · " + fullPhotoPages.length + " PNGs"}
@@ -2392,12 +2431,12 @@ export default function DriverScorecardsV22({
               <span>
                 {totalDrivers} drivers split into {fullPhotoPages.length} balanced PNGs
                 {fullPhotoPages.length ? " (" + fullPhotoPages.map((item) => item.rows.length).join(" / ") + " drivers)" : ""}.
-                Larger images for WhatsApp: Score, FICO, Delivered, CON, DCR, POD, CC, DSC and LoR. Full details stay in PDF.
+                {detailedExport ? "Detailed scorecard: all quality metrics including escalations, feedback and PSB." : "Larger images for WhatsApp: Score, FICO, Delivered, CON, DCR, POD, CC, DSC and LoR. Full details stay in PDF."}
               </span>
             </div>
             <label>
               <span>Image size for WhatsApp</span>
-              <select value={fullPhotoCount} disabled={shareImageBusy} onChange={(event) => {
+              <select value={fullPhotoCount} disabled={shareImageBusy || detailedExport} onChange={(event) => {
                 setFullPhotoCount(Number(event.target.value));
                 setFullPhotoPage(1);
                 setMobilePhotoPreview(null);
