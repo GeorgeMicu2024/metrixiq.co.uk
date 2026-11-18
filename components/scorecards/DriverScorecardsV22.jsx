@@ -162,7 +162,7 @@ function drawDetailedScorecardPng({site,week,year,headlineScore,standing,pageRow
   const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
   const txt=(v,x,y,size=19,color="#10233e",align="center",weight=700,max=1000)=>{c.fillStyle=color;c.font=weight+" "+size+"px Arial";c.textAlign=align;c.fillText(String(v??"—"),x,y,max);};
   const tiers={"fantastic-plus":"#175aa8",fantastic:"#38a9e0",great:"#218452",fair:"#e88a24",poor:"#cf3035"};
-  const tones={good:"#d8f2d7",warn:"#fff0a6",bad:"#ffd6d6",neutral:"#ffffff"};
+  const tones={good:"#a9e5b4",warn:"#ffe184",bad:"#ffb9bf",neutral:"#ffffff"};
   rect(0,0,W,H,"#fff");rect(0,0,W,92,"#071d39");
   txt("DRIVER PERFORMANCE REPORT – "+site,24,30,31,"#fff","left");
   txt(week+" · "+year+"   •   Total Drivers: "+totalDrivers,24,65,20,"#dce9f7","left");
@@ -177,7 +177,7 @@ function drawDetailedScorecardPng({site,week,year,headlineScore,standing,pageRow
   const scale=(W-40)/cols.reduce((a,v)=>a+v[2],0);
   rect(20,294,W-40,28,"#071d39");txt(category||"DRIVER RANKING",32,308,17,"#fff","left");
   let x=20;cols.forEach(([label,key,w])=>{w*=scale;rect(x,322,w-1,38,"#14375d");txt(label,x+w/2,341,14,"#fff");x+=w;});
-  pageRows.forEach((row,i)=>{let x=20;const y=360+i*42;cols.forEach(([label,key,w,tone])=>{w*=scale;const tier=key==="tierLabel"||key==="score";rect(x,y,w-1,41,tier?(tiers[row.tier]||"#64748b"):tone?(tones[row[tone]]||"#fff"):(i%2?"#f0f4f8":"#fff"));txt(row[key],key==="name"?x+8:x+w/2,y+21,key==="name"?18:17,tier?"#fff":"#10233e",key==="name"?"left":"center",700,w-12);x+=w;});});
+  pageRows.forEach((row,i)=>{let x=20;const y=360+i*42;cols.forEach(([label,key,w,tone])=>{w*=scale;const tier=key==="tierLabel"||key==="score";rect(x,y,w-1,41,tier?(tiers[row.tier]||"#64748b"):tone?(tones[row[tone]]||"#fff"):(i%2?"#f0f4f8":"#fff"));txt(row[key],key==="name"?x+8:x+w/2,y+21,key==="name"?18:17,tier?"#fff":tone?({good:"#075529",warn:"#714000",bad:"#991b2b"}[row[tone]]||"#10233e"):"#10233e",key==="name"?"left":"center",700,w-12);x+=w;});});
   const y=360+pageRows.length*42;rect(0,y,W,86,"#071d39");
   groups.forEach(([key,color],i)=>{rect(24+i*220,y+14,15,15,color);txt(key.replace(/-/g," ").toUpperCase(),45+i*220,y+22,13,"#fff","left");});
   txt("Page "+page+" of "+pageCount,24,y+58,17,"#fff","left");txt("Generated "+new Date().toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}),W-24,y+58,17,"#fff","right");
