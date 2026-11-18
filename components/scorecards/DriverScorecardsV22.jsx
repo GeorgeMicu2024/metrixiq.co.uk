@@ -161,14 +161,14 @@ function drawDetailedScorecardPng({site,week,year,headlineScore,standing,pageRow
   c.scale(2,2); c.textBaseline="middle";
   const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
   const txt=(v,x,y,size=19,color="#10233e",align="center",weight=700,max=1000)=>{c.fillStyle=color;c.font=weight+" "+size+"px Arial";c.textAlign=align;c.fillText(String(v??"—"),x,y,max);};
-  const tiers={"fantastic-plus":"#087f36",fantastic:"#21a64b",great:"#2175bd",fair:"#e8a521",poor:"#cf3035"};
+  const tiers={"fantastic-plus":"#175aa8",fantastic:"#38a9e0",great:"#218452",fair:"#e88a24",poor:"#cf3035"};
   const tones={good:"#d8f2d7",warn:"#fff0a6",bad:"#ffd6d6",neutral:"#ffffff"};
   rect(0,0,W,H,"#fff");rect(0,0,W,92,"#071d39");
   txt("DRIVER PERFORMANCE REPORT – "+site,24,30,31,"#fff","left");
   txt(week+" · "+year+"   •   Total Drivers: "+totalDrivers,24,65,20,"#dce9f7","left");
   txt("OVERALL SCORE",980,24,15,"#fff");txt(headlineScore==null?"—":Number(headlineScore).toFixed(2),980,60,33,"#fff");
   txt("SITE RANK",1200,24,15,"#fff");txt(summary.rank,1200,60,30,"#fff");
-  rect(1320,12,260,68,"#087f36");txt("TIER",1450,29,15,"#fff");txt(standing,1450,57,24,"#fff");
+  rect(1320,12,260,68,tiers[String(standing).toLowerCase().replace(/\s+/g,"-")]||"#64748b");txt("TIER",1450,29,15,"#fff");txt(standing,1450,57,24,"#fff");
   const groups=Object.entries(tiers);
   groups.forEach(([key,color],i)=>{const x=20+i*312;rect(x,106,300,76,color);txt(key.replace(/-/g," ").toUpperCase(),x+150,126,17,"#fff");txt(summary.counts[key]??0,x+150,159,30,"#fff");});
   const kpis=[["DELIVERED",summary.delivered],["CONCESSIONS",summary.concessions],["DCR",summary.dcr],["POD",summary.pod],["CC",summary.cc],["FICO",summary.fico]];
