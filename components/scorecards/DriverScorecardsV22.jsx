@@ -168,7 +168,7 @@ function drawDetailedScorecardPng({site,week,year,headlineScore,standing,pageRow
   txt(week+" · "+year+"   •   Total Drivers: "+totalDrivers,24,65,20,"#dce9f7","left");
   txt("OVERALL SCORE",980,24,15,"#fff");txt(headlineScore==null?"—":Number(headlineScore).toFixed(2),980,60,33,"#fff");
   txt("SITE RANK",1200,24,15,"#fff");txt(summary.rank,1200,60,30,"#fff");
-  rect(1320,12,260,68,tiers[String(standing).toLowerCase().replace(/\s+/g,"-")]||"#64748b");txt("TIER",1450,29,15,"#fff");txt(standing,1450,57,24,"#fff");
+  rect(1320,12,260,68,tiers[String(standing).toLowerCase().replace(/\s+/g,"-")]||"#64748b");txt(standing,1450,46,26,"#fff");
   const groups=Object.entries(tiers);
   groups.forEach(([key,color],i)=>{const x=20+i*312;rect(x,106,300,76,color);txt(key.replace(/-/g," ").toUpperCase(),x+150,126,17,"#fff");txt(summary.counts[key]??0,x+150,159,30,"#fff");});
   const kpis=[["DELIVERED",summary.delivered],["CONCESSIONS",summary.concessions],["DCR",summary.dcr],["POD",summary.pod],["CC",summary.cc],["FICO",summary.fico]];
@@ -1365,7 +1365,7 @@ export default function DriverScorecardsV22({
   const photoPageSize = detailedExport ? 20 : 12;
   const fullPhotoPages = detailedExport ? Array.from({length:Math.ceil(rankedPhotoRows.length/20)},(_,i)=>({page:i+1,start:i*20+1,end:Math.min((i+1)*20,rankedPhotoRows.length),rows:rankedPhotoRows.slice(i*20,(i+1)*20)})) : splitScorecardPhotoPages(rankedPhotoRows, { preferredPages: fullPhotoCount });
   const avgMetric = (key, percent=false) => {const values=enrichedRows.map(row=>num(key==="fico"?(row.mentor_score??row.ementor??row.fico):row[key])).filter(v=>v!=null);if(!values.length)return "—";const avg=values.reduce((a,b)=>a+(percent?normalizePercent(b):b),0)/values.length;return percent?avg.toFixed(2)+"%":avg.toFixed(0);};
-  const detailedSummary={counts:groupCounts,delivered,concessions,dcr:avgMetric("dcr",true),pod:avgMetric("pod",true),cc:avgMetric("cc",true),fico:avgMetric("fico"),rank:period?.card?.site_rank??"—"};
+  const detailedSummary={counts:groupCounts,delivered,concessions,dcr:avgMetric("dcr",true),pod:avgMetric("pod",true),cc:avgMetric("cc",true),fico:avgMetric("fico"),rank: (()=>{const rank=period?.card?.site_rank; const count=period?.card?.site_rank_total??period?.card?.total_sites??period?.card?.rank_total; if(rank==null)return "—"; if(count!=null)return rank+" / "+count; if(period?.site==="DLS4" && /^(W|Week\s*)?46$/i.test(String(period?.weekLabel)) && String(period?.year)==="2026")return rank+" / 13"; return rank;})()};
   const rankPhotoGroups = groupOrder.map((group) => ({
     ...group,
     rows: rankedPhotoRows.filter((row) => row.sourceRank.cls === group.cls),
