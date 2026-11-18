@@ -66,14 +66,29 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   async function reload() {
     if (!organizationId) return;
     const client = getSupabaseBrowserClient();
-    const [report, roster] = await Promise.all([
-      client.from("dls4_pod_daily").select("report_date,transporter_id,packages_delivered,pod_percent,dcr_percent,exclude_pod,exclude_dcr,exclusion_reason").eq("organization_id", organizationId).eq("site", site).order("report_date", { ascending: false }).limit(1500),
-      client.from("drivers").select("trid,full_name,site").eq("organization_id", organizationId),
-    ]);
-    if (report.error) throw report.error;
-    if (roster.error) throw roster.error;
-    setRows(report.data || []);
-    setDrivers(roster.data || []);
+    const reportRows = [];
+    // PostgREST caps responses; use deterministic pages so history is not silently truncated.
+    for (let offset = 0; offset < 1500; offset += 500) {
+      const report = await client.from("dls4_pod_daily")
+        .select("report_date,transporter_id,packages_delivered,pod_percent,dcr_percent,exclude_pod,exclude_dcr,exclusion_reason")
+        .eq("organization_id", organizationId).eq("site", site)
+        .order("report_date", { ascending: false }).order("transporter_id", { ascending: true })
+        .range(offset, offset + 499);
+      if (report.error) throw report.error;
+      reportRows.push(...(report.data || []));
+      if ((report.data || []).length < 500) break;
+    }
+    // Resolve only IDs in the report, organization-wide, including away-team drivers.
+    const trids = [...new Set(reportRows.map(row => String(row.transporter_id || "").trim().toUpperCase()).filter(Boolean))];
+    const rosterRows = [];
+    for (let offset = 0; offset < trids.length; offset += 100) {
+      const roster = await client.from("drivers").select("trid,full_name,site")
+        .eq("organization_id", organizationId).in("trid", trids.slice(offset, offset + 100));
+      if (roster.error) throw roster.error;
+      rosterRows.push(...(roster.data || []));
+    }
+    setRows(reportRows);
+    setDrivers(rosterRows);
   }
   useEffect(() => {
     let active = true;
@@ -86,9 +101,9 @@ export default function Dls4PodYesterday({ organizationId, site = "DLS4", metric
   const dates = useMemo(() => [...new Set(rows.map((r) => r.report_date))].sort().reverse(), [rows]);
   const selectedDate = dates.includes(date) ? date : (dates[0] || "");
   const names = useMemo(() => new Map(drivers.map((d) => [String(d.trid || "").trim().toUpperCase(), d.full_name])), [drivers]);
-  const excluded = useMemo(() => rows.filter((r) => r.report_date === selectedDate && (isDcr ? r.exclude_dcr : r.exclude_pod)).map((r) => ({ ...r, name: names.get(String(r.transporter_id).toUpperCase()) || r.transporter_id })), [rows, selectedDate, isDcr, names]);
+  const excluded = useMemo(() => rows.filter((r) => r.report_date === selectedDate && (isDcr ? r.exclude_dcr : r.exclude_pod)).map((r) => ({ ...r, name: names.get(String(r.transporter_id).trim().toUpperCase()) || r.transporter_id })), [rows, selectedDate, isDcr, names]);
   const report = useMemo(() => rows.filter((r) => r.report_date === selectedDate && !(isDcr ? r.exclude_dcr : r.exclude_pod)).map((r) => ({
-    ...r, name: names.get(String(r.transporter_id).toUpperCase()) || r.transporter_id,
+    ...r, name: names.get(String(r.transporter_id).trim().toUpperCase()) || r.transporter_id,
   })).sort((a, b) => (a[metricKey] ?? 101) - (b[metricKey] ?? 101) || a.name.localeCompare(b.name)), [rows, selectedDate, names, metricKey]);
   const avg = report.filter((r) => r[metricKey] !== null);
   const mean = avg.length ? avg.reduce((sum, r) => sum + Number(r[metricKey]), 0) / avg.length : null;
