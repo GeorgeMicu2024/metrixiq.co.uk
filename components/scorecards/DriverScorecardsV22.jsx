@@ -409,7 +409,7 @@ export default function DriverScorecardsV22({
   const load = useLoad(async () => {
     const supabase = getSupabaseBrowserClient();
     const [scorecardData, overrides, concessionSnapshots] = await Promise.all([
-      fetchDriverScorecardStartupData(supabase, organizationId),
+      fetchDriverScorecardStartupData(supabase, organizationId, siteFilter),
       fetchMetricOverrides(supabase, organizationId, "active"),
       fetchDriverScorecardConcessionSnapshots(supabase, organizationId),
     ]);
@@ -419,37 +419,21 @@ export default function DriverScorecardsV22({
       overrides,
       concessionSnapshots,
     };
-  }, [organizationId]);
+  }, [organizationId, siteFilter]);
 
-  // Show the newest scorecards immediately. Complete historical weeks arrive
-  // without blocking the page, while retaining the full archive and exports.
-  const [archive, setArchive] = useState({ organizationId: "", rows: null, loading: false, error: "" });
-  useEffect(() => {
-    if (load.loading || !load.data || !organizationId) return;
-    let alive = true;
-    setArchive({ organizationId, rows: null, loading: true, error: "" });
-    const timer = window.setTimeout(() => {
-      fetchWeeklyScorecardRows(getSupabaseBrowserClient(), organizationId)
-        .then((result) => {
-          if (!alive) return;
-          setArchive({
-            organizationId,
-            rows: applyMetricOverrides(result.rows || [], load.data.overrides || []),
-            loading: false,
-            error: "",
-          });
-        })
-        .catch((error) => {
-          if (!alive) return;
-          setArchive({ organizationId, rows: null, loading: false,
-            error: error?.message || "Could not load older scorecards." });
-        });
-    }, 300);
-    return () => { alive = false; window.clearTimeout(timer); };
-  }, [organizationId, load.loading, load.data]);
-
-  const rows = archive.organizationId === organizationId && archive.rows
-    ? archive.rows : load.data?.rows || [];
+  // Load historical periods on demand instead of scanning the entire organization.
+  const [archive, setArchive] = useState({ scope: "", data: {} });
+  const [archiveStatus, setArchiveStatus] = useState({ key: "", loading: false, error: "" });
+  const [archiveRetry, setArchiveRetry] = useState(0);
+  const archiveScope = String(organizationId || "") + "::" + siteFilter;
+  const cachedPeriods = archive.scope === archiveScope ? archive.data : {};
+  const rows = useMemo(() => {
+    const merged = new Map();
+    for (const row of [...(load.data?.rows || []), ...Object.values(cachedPeriods).flat()]) {
+      merged.set([row.driver_id,row.site,row.week_label,row.period_end].join("::"),row);
+    }
+    return [...merged.values()];
+  }, [load.data, archive, archiveScope]);
   const cards = load.data?.cards || [];
   const concessionSnapshotMap = useMemo(
     () => buildDriverScorecardConcessionMap(load.data?.concessionSnapshots || []),
@@ -812,6 +796,28 @@ export default function DriverScorecardsV22({
   }, [periodMap, periodKey]);
 
   const period = periodMap.find((item) => item.key === periodKey) || periodMap[0] || null;
+  const historicalKey = period?.key || "";
+  const historicalSite = period?.site || "";
+  const historicalWeek = period?.weekLabel || "";
+  const historicalYear = period?.year || null;
+  const historicalLoaded = Boolean(period?.rows.length) || Object.prototype.hasOwnProperty.call(cachedPeriods,historicalKey);
+  useEffect(() => {
+    if (load.loading || !load.data || !organizationId || !historicalKey || historicalLoaded) return;
+    let alive = true;
+    const requestKey = archiveScope + "::" + historicalKey;
+    setArchiveStatus({key:requestKey,loading:true,error:""});
+    fetchWeeklyScorecardRows(getSupabaseBrowserClient(), organizationId, {site:historicalSite, weekLabels:[historicalWeek], year:historicalYear})
+      .then(result => {
+        if (!alive) return;
+        const fetched = applyMetricOverrides(result.rows || [], load.data.overrides || []);
+        setArchive(current => ({scope:archiveScope,data:{...(current.scope===archiveScope?current.data:{}),[historicalKey]:fetched}}));
+        setArchiveStatus({key:requestKey,loading:false,error:""});
+      }).catch(error => {
+        if (alive) setArchiveStatus({key:requestKey,loading:false,error:error?.message || "Could not load historical scorecard."});
+      });
+    return () => { alive = false; };
+  }, [organizationId,archiveScope,historicalKey,historicalSite,historicalWeek,historicalYear,historicalLoaded,load.loading,load.data,archiveRetry]);
+
   const previousPeriod = useMemo(() => {
     if (!period) return null;
     const sameSite = periodMap.filter((item) => item.site === period.site);
@@ -1761,13 +1767,6 @@ export default function DriverScorecardsV22({
 
   if (load.loading) return <LoadingPanel text="Loading recent driver scorecards…" />;
   if (load.error) return <ErrorPanel error={load.error} />;
-  if (period && !period.rows.length && archive.organizationId === organizationId && archive.loading) {
-    return <LoadingPanel text="Loading drivers from the historical scorecard…" />;
-  }
-  if (period && !period.rows.length && archive.organizationId === organizationId && archive.error) {
-    return <ErrorPanel error={archive.error} />;
-  }
-
   if (!periodMap.length) {
     return <>
       <div className="page-heading">
@@ -1922,6 +1921,7 @@ export default function DriverScorecardsV22({
       </div>
     </section>
 
+    {period && !historicalLoaded && <div className="panel" style={{padding:16,marginBottom:12}}>{archiveStatus.key===archiveScope+"::"+historicalKey && archiveStatus.error ? <><span role="alert">{archiveStatus.error}</span> <button className="btn" onClick={()=>setArchiveRetry(x=>x+1)}>Retry selected week</button></> : <span>Loading drivers for {historicalWeek} · {historicalSite}…</span>}</div>}
     <section className="scorex3-register">
       <div className="scorex3-register-head">
         <div>
