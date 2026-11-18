@@ -723,6 +723,7 @@ export default function DriverScorecardsV22({
   const [shareImageProgress, setShareImageProgress] = useState("");
   const [mobilePhotoTier, setMobilePhotoTier] = useState("fantastic-plus");
   const [portraitExport, setPortraitExport] = useState(true);
+  const [exportSelection,setExportSelection]=useState("tiers");
   const [mobilePhotoPage, setMobilePhotoPage] = useState(1);
   const [fullPhotoPage, setFullPhotoPage] = useState(1);
   const [fullPhotoCount, setFullPhotoCount] = useState(4);
@@ -1581,6 +1582,24 @@ export default function DriverScorecardsV22({
     }
   }
 
+  async function downloadSimpleExport() {
+    if (shareImageBusy) return;
+    if(exportSelection==="all") return exportFullScorecardPhotosZip();
+    if(exportSelection==="tiers") return exportRankImagesZip();
+    const group=rankPhotoGroups.find(g=>g.cls===exportSelection);
+    if(!group?.rows.length)return;
+    setShareImageBusy(true);setShareImageError("");setShareImageProgress("");
+    try {
+      const count=Math.ceil(group.rows.length/photoPageSize);
+      for(let page=1;page<=count;page++){
+        const dataUrl=renderPhoto(group.rows.slice((page-1)*photoPageSize,page*photoPageSize),group.label,group.rows.length,page,count);
+        const a=document.createElement("a");a.href=dataUrl;a.download=photoBaseName()+"-"+group.cls+"-"+page+".png";document.body.appendChild(a);a.click();a.remove();
+        await new Promise(resolve=>setTimeout(resolve,0));
+      }
+      setShareImageProgress("Prepared "+count+" PNG photos. If your browser blocks multiple downloads, use Preview to save individual pages.");
+    }catch(error){setShareImageError(error?.message||"Download failed.");}finally{setShareImageBusy(false);}
+  }
+
   function previewRankPhoto() {
     setPhotoShareTip("");
     const group = selectedPhotoGroup;
@@ -2383,6 +2402,34 @@ export default function DriverScorecardsV22({
             <article className="attention"><span>Attention</span><strong>{attentionCount}</strong></article>
           </section>
 
+          {detailedExport ? (
+            <div style={{display:"grid",gap:12,padding:"16px",background:"#f5f8fc",borderRadius:12}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:12}}>
+                <label style={{flex:"1 1 180px",display:"grid",gap:5}}>Format
+                  <select value={portraitExport?"mobile":"desktop"} onChange={e=>{setPortraitExport(e.target.value==="mobile");setFullPhotoPage(1);setMobilePhotoPage(1);setMobilePhotoPreview(null);}}>
+                    <option value="mobile">Mobile HD · WhatsApp</option><option value="desktop">Desktop · Table</option>
+                  </select>
+                </label>
+                <label style={{flex:"1 1 180px",display:"grid",gap:5}}>Drivers
+                  <select value={exportSelection} onChange={e=>{const v=e.target.value;setExportSelection(v);if(v!=="all"&&v!=="tiers")setMobilePhotoTier(v);setMobilePhotoPage(1);setFullPhotoPage(1);setMobilePhotoPreview(null);}}>
+                    <option value="tiers">All tiers · separate images</option><option value="all">Full team</option>
+                    {rankPhotoGroups.filter(g=>g.rows.length).map(g=><option key={g.cls} value={g.cls}>{g.label} ({g.rows.length})</option>)}
+                  </select>
+                </label>
+                {exportSelection!=="tiers" && <label style={{flex:"1 1 100px",display:"grid",gap:5}}>Preview page
+                  <select value={exportSelection==="all"?Math.min(fullPhotoPage,Math.max(1,fullPhotoPages.length)):Math.min(mobilePhotoPage,selectedPhotoPages)} onChange={e=>exportSelection==="all"?setFullPhotoPage(Number(e.target.value)):setMobilePhotoPage(Number(e.target.value))}>
+                    {Array.from({length:exportSelection==="all"?fullPhotoPages.length:selectedPhotoPages},(_,i)=><option key={i+1} value={i+1}>{i+1}</option>)}
+                  </select>
+                </label>}
+              </div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                <button type="button" className="btn primary" disabled={shareImageBusy||!totalDrivers} onClick={downloadSimpleExport}>{shareImageBusy?"Preparing…":"Download PNG"}</button>
+                <button type="button" className="btn ghost" disabled={shareImageBusy||!totalDrivers} onClick={()=>exportSelection==="all"?previewFullScorecardPhoto():previewRankPhoto()}>Preview / Share</button>
+              </div>
+              <details><summary style={{cursor:"pointer"}}>More options</summary><div style={{display:"flex",gap:8,flexWrap:"wrap",paddingTop:8}}><button type="button" className="btn ghost" onClick={()=>exportSharePdf(true)}>Download PDF</button><button type="button" className="btn ghost" onClick={shareAllFullScorecardPhotos} disabled={shareImageBusy||!fullPhotoPages.length}>Share full team</button></div></details>
+              {exportSelection==="tiers" && <small>Preview shows the selected default tier. Choose a specific tier to preview its pages.</small>}
+            </div>
+          ) : <>
           <div className="scorex3-share-tabs">
             <div className="scorex3-share-scope-tabs">
             {[
@@ -2490,9 +2537,10 @@ export default function DriverScorecardsV22({
               {shareImageBusy ? "Preparing…" : "Download " + fullPhotoPages.length + " PNGs (ZIP)"}
             </button>
           </div>
+          </>}
           {shareImageError && <p className="scorex3-share-image-error" role="alert">{shareImageError}</p>}
           {shareImageProgress && <p className="scorex3-share-image-progress" role="status">{shareImageProgress}</p>}
-          <div className="scorex3-share-table-wrap">
+          <div className="scorex3-share-table-wrap" style={detailedExport?{display:"none"}:undefined}>
             <table className="scorex3-share-table">
               <thead>
                 <tr>
@@ -2543,7 +2591,7 @@ export default function DriverScorecardsV22({
           <footer className="scorex3-share-footer">
             <span>{shareRows.length} drivers · minimum FICO {TARGETS.mentor}+</span>
             <div>
-              <button type="button" className="btn ghost" onClick={copyShareSummary}>
+              <button type="button" className="btn ghost" style={detailedExport?{display:"none"}:undefined} onClick={copyShareSummary}>
                 {copyStatus || "Copy summary"}
               </button>
               <button type="button" className="btn primary" onClick={() => setShareOpen(false)}>Close</button>
