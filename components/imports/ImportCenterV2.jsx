@@ -213,8 +213,12 @@ export default function ImportCenterV2({
     try{
       const supabase=getSupabaseBrowserClient();
       const replaced=[];
+      const acceptedNames=new Set(accepted.map(file=>file.name));
+      const invalid=(preview.fileResults||[]).filter(file=>acceptedNames.has(file.name)&&file.status==="error"&&(/scorecard/i.test(file.name)||/scorecard integrity/i.test(file.error||"")));
+      if(invalid.length)throw new Error(invalid.map(file=>file.error||file.name).join("; "));
       for(const file of accepted){
         if(actions[fileFingerprint(file)]!=="replace")continue;
+        if(/scorecard/i.test(file.name)||preview.fileResults?.some(row=>row.name===file.name&&/scorecard/i.test(row.reportType||"")))continue;
         const matches=duplicateMatchesForFile(duplicates,file).filter((item)=>!item.metadata?.rolled_back);
         for(const match of matches.slice(0,1)){
           const result=await rollbackImportV2(supabase,match.id,"Replaced from Import Center V2");
@@ -231,6 +235,7 @@ export default function ImportCenterV2({
       const saved=await onImported(result,accepted,activitySite||null);
       setPreview(result);
       setPhase("done");
+      const integrityText=(saved?.scorecardIntegrity||[]).map(card=>" · "+card.site+" "+card.week+": "+card.imported+"/"+(card.expected??card.parsed)+" drivers saved and verified"+(card.expected==null?" (PDF total unverified)":" ✓")).join("");
       const rec=saved?.reconciliation;
       const reconciliationText=rec
         ?" · "+rec.accountedRows+"/"+rec.sourceRows+" accounted"+(rec.balanced?" ✓":" ⚠")+
@@ -241,7 +246,7 @@ export default function ImportCenterV2({
         "Saved "+(saved?.savedMetrics??saved?.savedDaily??0)+" metric / daily records · "+
         (saved?.savedScorecards??0)+" site scorecards · "+
         (saved?.savedFeedback??0)+" feedback events · "+
-        (saved?.unmatched??0)+" unmatched"+reconciliationText+
+        (saved?.unmatched??0)+" unmatched"+reconciliationText+integrityText+
         (replaced.length?" · "+replaced.length+" previous import replaced":"")+"."
       );
       await loadHistory();
