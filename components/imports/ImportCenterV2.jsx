@@ -246,7 +246,7 @@ export default function ImportCenterV2({
         "Saved "+(saved?.savedMetrics??saved?.savedDaily??0)+" metric / daily records · "+
         (saved?.savedScorecards??0)+" site scorecards · "+
         (saved?.savedFeedback??0)+" feedback events · "+
-        (saved?.unmatched??0)+" unmatched"+reconciliationText+integrityText+
+        (saved?.unmatched??0)+" unmatched"+reconciliationText+integrityText+(saved?.mentorConflicts?" · "+saved.mentorConflicts+" driver score conflicts held for review":"")+
         (replaced.length?" · "+replaced.length+" previous import replaced":"")+"."
       );
       await loadHistory();
