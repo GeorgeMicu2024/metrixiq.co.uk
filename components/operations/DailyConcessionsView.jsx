@@ -10,8 +10,13 @@ export default function DailyConcessionsView({organizationId,site}){
  const upload=useRef(null),report=useRef(null),generation=useRef(0);
  useEffect(()=>{generation.current++;setRows([]);setError("");setNotice("");setReview(false);setBusy(false)},[organizationId,site]);
  const day=date&&Number.isFinite(new Date(date+"T12:00:00").getTime())?new Date(date+"T12:00:00").toLocaleDateString("en-GB",{weekday:"long"}):"Daily";
- const positive=rows.filter(r=>Number(r.dnr)>0);
+ const positive=rows.filter(r=>Number(r.dnr)>0).sort((a,b)=>Number(b.dnr)-Number(a.dnr)||a.name.localeCompare(b.name));
  const total=positive.reduce((n,r)=>n+Number(r.dnr),0);
+ const [tab,setTab]=useState("report"),[draft,setDraft]=useState(""),[copied,setCopied]=useState("");
+ const message=notice&&date&&!review?("🚨 *"+day+" Concessions – "+site+"*\n\n"+(total===0?"No DNR concessions recorded in the uploaded report. Well done, team! Please maintain this standard.":"*"+total+" DNR "+(total===1?"concession":"concessions")+" across "+positive.length+" "+(positive.length===1?"driver":"drivers")+".*\n\nPlease pay more attention to where you leave parcels. Follow customer instructions, use Notify of Arrival, leave a clear note in the app explaining where the parcel was left and take a clear POD photo.\n\nQuality over speed. Every delivery matters.")):"";
+ useEffect(()=>{setDraft(message);setCopied("");},[message]);
+ async function copyMessage(){try{await navigator.clipboard.writeText(draft);setCopied("Message copied");}catch{setCopied("Copy unavailable — select and copy the text manually.");}}
+
  async function ingest(file){
   if(!file||!organizationId)return;
   const token=++generation.current;setBusy(true);setError("");setNotice("");setRows([]);setReview(false);
@@ -61,6 +66,8 @@ export default function DailyConcessionsView({organizationId,site}){
  <section className="panel" style={{padding:18,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}><input type="date" value={date} onChange={e=>{setDate(e.target.value);setReview(true)}}/><input ref={upload} type="file" accept=".csv,image/*" hidden onChange={e=>{ingest(e.target.files[0]);e.target.value=""}}/><button className="btn primary" disabled={busy} onClick={()=>upload.current.click()}>{busy?"Reading report…":"Import CSV / Screenshot"}</button><button className="btn" disabled={busy||review||!notice||!date} onClick={save}>Save Image</button><span>Drag & drop supported</span></section>
  {error&&<p role="alert" style={{color:red}}>{error}</p>}{notice&&<p>{notice}</p>}
  {review&&<section className="panel" style={{padding:16,marginTop:12}}><b>Review imported rows</b><p>Confirm names, DNR counts and date. Unresolved IDs must be corrected before export.</p>{rows.map((r,i)=><div key={r.id} style={{display:"flex",gap:8,margin:"6px 0"}}><input aria-label="Driver name" value={r.name} onChange={e=>update(i,"name",e.target.value)}/><input aria-label="DNR" type="number" min="0" step="1" value={r.dnr} onChange={e=>update(i,"dnr",e.target.value)}/></div>)}<button className="btn primary" disabled={!date||rows.some(r=>!r.name.trim()||r.name===r.id||!Number.isInteger(Number(r.dnr))||Number(r.dnr)<0||String(r.dnr).trim()==="")} onClick={()=>setReview(false)}>Confirm report</button></section>}
- {previewImage&&<section style={{maxWidth:1000,margin:"24px auto"}}><img src={previewImage} alt={day+" Concessions report"} style={{display:"block",width:"100%",height:"auto",borderRadius:14}}/></section>}
+ {notice&&<div style={{display:"flex",gap:8,marginTop:20}}><button className={"btn "+(tab==="report"?"primary":"")} onClick={()=>setTab("report")}>Report Image</button><button className={"btn "+(tab==="message"?"primary":"")} onClick={()=>setTab("message")}>Daily Message</button></div>}
+ {notice&&tab==="message"&&<section className="panel" style={{padding:20,margin:"16px auto",maxWidth:1000}}><h2>Daily WhatsApp Message</h2><p>Automatically generated for {day} · {date} · {site}</p>{review?<p>Confirm imported rows before generating the message.</p>:<><textarea aria-label="Daily WhatsApp message" value={draft} onChange={e=>{setDraft(e.target.value);setCopied("")}} rows={10} style={{width:"100%",padding:14,resize:"vertical",fontSize:15,lineHeight:1.6}}/><div style={{display:"flex",gap:10,alignItems:"center",marginTop:12}}><button className="btn primary" disabled={!draft.trim()} onClick={copyMessage}>Copy Message</button><button className="btn" onClick={()=>{setDraft(message);setCopied("")}}>Regenerate</button><span role="status">{copied}</span></div></>}</section>}
+ {tab==="report"&&previewImage&&<section style={{maxWidth:1000,margin:"24px auto"}}><img src={previewImage} alt={day+" Concessions report"} style={{display:"block",width:"100%",height:"auto",borderRadius:14}}/></section>}
  <p style={{color:"#64748b"}}>Report generator only · does not change weekly concessions or scorecards.</p></div>
 }
