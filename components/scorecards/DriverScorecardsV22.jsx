@@ -153,6 +153,27 @@ function drawMobileScorecardPng({
  * scorecard data remains available in the app and complete PDF export.
  * Show the score prominently, with six delivery metrics in two legible rows.
  */
+function drawPortraitScorecardPng({site,week,year,headlineScore,standing,pageRows,totalDrivers,page,pageCount,summary,category}) {
+  const W=960, header=284, rowH=154, H=header+pageRows.length*rowH+66;
+  const canvas=document.createElement("canvas"); const scale=Math.min(2,Math.sqrt(14500000/(W*H)));canvas.width=Math.floor(W*scale);canvas.height=Math.floor(H*scale);
+  const c=canvas.getContext("2d");if(!c)throw new Error("Canvas unavailable");c.scale(scale,scale);c.textBaseline="middle";
+  const rect=(x,y,w,h,color)=>{c.fillStyle=color;c.fillRect(x,y,w,h);};
+  const txt=(v,x,y,size=22,color="#10233e",align="center",max=900)=>{c.fillStyle=color;c.font="700 "+size+"px Arial";c.textAlign=align;c.fillText(String(v??"—"),x,y,max);};
+  const tiers={"fantastic-plus":"#175aa8",fantastic:"#38a9e0",great:"#218452",fair:"#e88a24",poor:"#cf3035"};
+  const tones={good:["#a9e5b4","#075529"],warn:["#ffe184","#714000"],bad:["#ffb9bf","#991b2b"],neutral:["#f0f4f8","#10233e"]};
+  rect(0,0,W,H,"#fff");rect(0,0,W,110,"#071d39");
+  txt("DRIVER PERFORMANCE REPORT – "+site,18,23,28,"#fff","left");txt(week+" · "+year+" · "+totalDrivers+" drivers",18,55,22,"#fff","left");
+  txt("SCORE "+(headlineScore==null?"—":Number(headlineScore).toFixed(2))+"  •  SITE RANK "+summary.rank,18,86,23,"#fff","left",570);
+  rect(650,48,292,48,tiers[String(standing).toLowerCase().replace(/\s+/g,"-")]||"#64748b");txt(standing,796,72,23,"#fff");
+  Object.entries(tiers).forEach(([key,color],i)=>{const x=12+i*188;rect(x,118,184,52,color);txt(key.replace(/-/g," ").toUpperCase(),x+92,133,14,"#fff");txt(summary.counts[key]??0,x+92,155,24,"#fff");});
+  [["DELIVERED",summary.delivered],["CON",summary.concessions],["DCR",summary.dcr],["POD",summary.pod],["CC",summary.cc],["FICO",summary.fico]].forEach(([label,value],i)=>{const x=12+i*156;rect(x,177,152,63,"#eaf1f8");txt(label,x+76,191,16);txt(value,x+76,219,25,"#075529");});
+  rect(0,249,W,35,"#071d39");txt(category||"DRIVER RANKING",15,266,22,"#fff","left");
+  const metrics=[["FICO","fico","ficoTone"],["DELIVERED","delivered"],["CON","concessions","conTone"],["DCR","dcr","dcrTone"],["POD","pod","podTone"],["CC","cc","ccTone"],["DSC DPMO","dsc","dscTone"],["LoR","lor","lorTone"],["FEEDBACK","cdf","cdfTone"],["ESCALATIONS","ce","ceTone"],["PSB","psb","psbTone"]];
+  pageRows.forEach((row,i)=>{const y=header+i*rowH,color=tiers[row.tier]||"#64748b";rect(0,y,W,rowH-3,"#e6edf5");rect(0,y,7,rowH-3,color);rect(10,y+4,940,42,"#ffffff");txt(row.rank,19,y+25,23,"#10233e","left",65);txt(row.name,86,y+25,26,"#10233e","left",500);rect(600,y+4,220,42,color);txt(row.tierLabel,710,y+25,21,"#fff");rect(824,y+4,126,42,color);txt(row.score,887,y+25,30,"#fff");
+  metrics.forEach(([label,key,tone],j)=>{const n=j<6?6:5,k=j<6?j:j-6,w=940/n,x=10+k*w,yy=y+50+(j<6?0:50);const [bg,ink]=tones[row[tone]]||tones.neutral;rect(x,yy,w-3,47,bg);txt(label,x+w/2,yy+11,14,ink);txt(row[key],x+w/2,yy+32,25,ink);});});
+  rect(0,H-66,W,66,"#071d39");txt("Page "+page+" of "+pageCount,16,H-35,21,"#fff","left");txt("Generated "+new Date().toLocaleDateString("en-GB"),W-16,H-35,19,"#fff","right");return canvas.toDataURL("image/png");
+}
+
 function drawDetailedScorecardPng({site,week,year,headlineScore,standing,pageRows,totalDrivers,page,pageCount,summary,category}) {
   const canvas=document.createElement("canvas");
   const W=1600, H=360+pageRows.length*42+86;
@@ -701,6 +722,7 @@ export default function DriverScorecardsV22({
   const [shareImageError, setShareImageError] = useState("");
   const [shareImageProgress, setShareImageProgress] = useState("");
   const [mobilePhotoTier, setMobilePhotoTier] = useState("fantastic-plus");
+  const [portraitExport, setPortraitExport] = useState(true);
   const [mobilePhotoPage, setMobilePhotoPage] = useState(1);
   const [fullPhotoPage, setFullPhotoPage] = useState(1);
   const [fullPhotoCount, setFullPhotoCount] = useState(4);
@@ -1362,8 +1384,8 @@ export default function DriverScorecardsV22({
     (a, b) => (a.currentRank || Infinity) - (b.currentRank || Infinity)
   );
   const detailedExport = ["DLS4","DZM1"].includes(period?.site);
-  const photoPageSize = detailedExport ? 20 : 12;
-  const fullPhotoPages = detailedExport ? Array.from({length:Math.ceil(rankedPhotoRows.length/20)},(_,i)=>({page:i+1,start:i*20+1,end:Math.min((i+1)*20,rankedPhotoRows.length),rows:rankedPhotoRows.slice(i*20,(i+1)*20)})) : splitScorecardPhotoPages(rankedPhotoRows, { preferredPages: fullPhotoCount });
+  const photoPageSize = detailedExport ? (portraitExport ? 8 : 20) : 12;
+  const fullPhotoPages = detailedExport ? Array.from({length:Math.ceil(rankedPhotoRows.length/photoPageSize)},(_,i)=>({page:i+1,start:i*photoPageSize+1,end:Math.min((i+1)*photoPageSize,rankedPhotoRows.length),rows:rankedPhotoRows.slice(i*photoPageSize,(i+1)*photoPageSize)})) : splitScorecardPhotoPages(rankedPhotoRows, { preferredPages: fullPhotoCount });
   const avgMetric = (key, percent=false) => {const values=enrichedRows.map(row=>num(key==="fico"?(row.mentor_score??row.ementor??row.fico):row[key])).filter(v=>v!=null);if(!values.length)return "—";const avg=values.reduce((a,b)=>a+(percent?normalizePercent(b):b),0)/values.length;return percent?avg.toFixed(2)+"%":avg.toFixed(0);};
   const detailedSummary={counts:groupCounts,delivered,concessions,dcr:avgMetric("dcr",true),pod:avgMetric("pod",true),cc:avgMetric("cc",true),fico:avgMetric("fico"),rank: (()=>{const rank=period?.card?.site_rank; const count=period?.card?.site_rank_total??period?.card?.total_sites??period?.card?.rank_total; if(rank==null)return "—"; if(count!=null)return rank+" / "+count; if(period?.site==="DLS4" && /^(W|Week\s*)?46$/i.test(String(period?.weekLabel)) && String(period?.year)==="2026")return rank+" / 13"; return rank;})()};
   const rankPhotoGroups = groupOrder.map((group) => ({
@@ -1414,7 +1436,7 @@ export default function DriverScorecardsV22({
       };
     });
   };
-  const renderFullPhoto = (pageItem) => (detailedExport ? drawDetailedScorecardPng : drawFullScorecardPhotoPng)({
+  const renderFullPhoto = (pageItem) => (detailedExport ? (portraitExport ? drawPortraitScorecardPng : drawDetailedScorecardPng) : drawFullScorecardPhotoPng)({
     summary: detailedSummary,
     site: period?.site || "All sites",
     week: period?.weekLabel || "Week",
@@ -1430,7 +1452,7 @@ export default function DriverScorecardsV22({
   });
 
   const renderPhoto = (items, category, total, page, pageCount) =>
-    (detailedExport ? drawDetailedScorecardPng : drawMobileScorecardPng)({
+    (detailedExport ? (portraitExport ? drawPortraitScorecardPng : drawDetailedScorecardPng) : drawMobileScorecardPng)({
       summary: detailedSummary,
       headlineScore,
       site: period?.site || "All sites",
@@ -2380,6 +2402,7 @@ export default function DriverScorecardsV22({
             ))}
             </div>
             <div className="scorex3-share-actions">
+              {detailedExport && <label>PNG format <select value={portraitExport ? "mobile" : "desktop"} onChange={event=>{setPortraitExport(event.target.value==="mobile");setFullPhotoPage(1);setMobilePhotoPage(1);setMobilePhotoPreview(null);}}><option value="mobile">Mobile HD · WhatsApp</option><option value="desktop">Desktop · Table</option></select></label>}
               <button type="button" className="btn primary scorex3-ranks-export" onClick={exportRankImagesZip} disabled={shareImageBusy}>
                 {shareImageBusy ? "Preparing…" : (detailedExport ? "Export by tier · PNG" : "Download rank photos ZIP")}
               </button>
