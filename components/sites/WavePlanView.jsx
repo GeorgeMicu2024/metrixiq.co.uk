@@ -1316,6 +1316,15 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
 .daily-dispatch .dls4-staging-b .dls4-staging-pill{background:#e7f1f9!important;color:#226b98!important}
 .daily-dispatch .dls4-unmatched{margin:14px 18px!important;padding:10px!important;background:#fff3dd!important;color:#825b18!important;font-weight:700!important}
 
+    /* DLS4: center and enlarge staging headings and parking time in preview and PNG exports. */
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-head{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;text-align:center!important;padding:17px 20px!important;gap:3px!important}
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-head>div{width:100%!important;text-align:center!important}
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-head h3{font-size:32px!important;line-height:1.12!important;letter-spacing:.035em!important;margin:0 0 5px!important}
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-head p{font-size:13px!important;letter-spacing:.04em!important}
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-dispatch-head .dls4-times{align-items:center!important;justify-content:center!important}
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-dispatch-head .dls4-time-card{min-width:220px!important;padding:14px 22px!important;text-align:center!important}
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-dispatch-head .dls4-time-card small{font-size:12px!important;letter-spacing:.13em!important;text-align:center!important}
+    .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-dispatch-head .dls4-time-card strong{font-size:43px!important;line-height:1.12!important;text-align:center!important}
     /* DDD2-only print/WhatsApp layout: keep the DLS2 layout untouched. */
     .daily-dispatch .dcsl-sheet section.ddd2-wave { background:#ffffff!important; border-bottom:5px solid #e1eaf1!important; }
     .daily-dispatch .dcsl-sheet section.ddd2-wave > header { background:#edf5ff; }
