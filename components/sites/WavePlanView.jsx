@@ -1405,6 +1405,17 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
 .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-b .dls4-route-table td{background:#a5c9f5!important;color:#142b4c!important;border-bottom-color:#477cbb!important}
 .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-a .dls4-route-table tr:nth-child(even) td{background:#98d987!important}
 .daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-b .dls4-route-table tr:nth-child(even) td{background:#96bfee!important}
+/* DLS4 only: restrained high-contrast dispatch palette; preserve DLS2 and other sites. */
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-a .dls4-staging-head{background:#226b4b!important;border:0!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-b .dls4-staging-head{background:#275b91!important;border:0!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-head h3,.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-head p{color:#ffffff!important;text-shadow:none!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-a .dls4-route-table th{background:#e4f0e9!important;color:#244c3a!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-b .dls4-route-table th{background:#e5edf6!important;color:#254c77!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-a .dls4-route-table td{background:#f7faf8!important;color:#1b2c29!important;border-bottom:1px solid #d9e7df!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-b .dls4-route-table td{background:#f7f9fc!important;color:#1b2b40!important;border-bottom:1px solid #dce5f0!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-a .dls4-route-table tr:nth-child(even) td{background:#edf5f0!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-b .dls4-route-table tr:nth-child(even) td{background:#edf2f8!important}
+.daily-dispatch .dcsl-sheet.dls4-sheet .dls4-staging-pill{background:transparent!important;border:0!important;padding:0!important;color:inherit!important;font-weight:800!important}
 /* DDD2-only print/WhatsApp layout: keep the DLS2 layout untouched. */
     .daily-dispatch .dcsl-sheet section.ddd2-wave { background:#ffffff!important; border-bottom:5px solid #e1eaf1!important; }
     .daily-dispatch .dcsl-sheet section.ddd2-wave > header { background:#edf5ff; }
