@@ -1190,18 +1190,30 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  };
  const exportDls4Wave=async(index)=>{
    if(norm(site)!=="DLS4"||!generated||!sheetRef.current)return;
-   const waves=Array.from(sheetRef.current.querySelectorAll("section.dls4-dispatch"));
-   const node=waves[index];
-   if(!node){alert("Wave "+(index+1)+" is not available. Check hidden waves and regenerate the plan.");return}
+   const sheet=sheetRef.current;
+   const waves=Array.from(sheet.querySelectorAll("section.dls4-dispatch"));
+   const wave=waves[index];
+   if(!wave){alert("Wave "+(index+1)+" is not available. Check hidden waves and regenerate the plan.");return}
+   const header=Array.from(sheet.children).find(child=>child.tagName==="HEADER");
+   const footer=Array.from(sheet.children).find(child=>child.tagName==="FOOTER");
+   if(!header){alert("DCSL header is missing. Please regenerate the plan.");return}
+   const exportSheet=document.createElement("div");
+   exportSheet.className=sheet.className;
+   exportSheet.style.cssText="width:920px;min-width:920px;max-width:920px;margin:0;transform:none;overflow:visible;position:absolute;left:-10000px;top:0;background:#ffffff";
+   exportSheet.appendChild(header.cloneNode(true));
+   exportSheet.appendChild(wave.cloneNode(true));
+   if(footer)exportSheet.appendChild(footer.cloneNode(true));
+   sheet.parentElement.appendChild(exportSheet);
    try{
      const {toPng}=await import("html-to-image");
      const width=920;
-     const dataUrl=await toPng(node,{pixelRatio:3,cacheBust:true,backgroundColor:"#f4f7fa",width,height:node.scrollHeight,style:{width:width+"px",minWidth:width+"px",maxWidth:width+"px",margin:"0",transform:"none",overflow:"visible"}});
+     const dataUrl=await toPng(exportSheet,{pixelRatio:3,cacheBust:true,backgroundColor:"#ffffff",width,height:exportSheet.scrollHeight,style:{width:width+"px",minWidth:width+"px",maxWidth:width+"px",margin:"0",transform:"none",overflow:"visible",position:"static",left:"auto",top:"auto"}});
      const link=document.createElement("a");
      link.href=dataUrl;
      link.download="DLS4-Wave-"+(index+1)+"-"+new Date().toISOString().slice(0,10)+".png";
      document.body.appendChild(link);link.click();link.remove();
    }catch(error){console.error("DLS4 wave image export failed",error);alert("Could not save Wave "+(index+1)+" image. Please try again.")}
+   finally{exportSheet.remove()}
  };
  const exportPng=async(share=false)=>{
    if(!sheetRef.current)return;
