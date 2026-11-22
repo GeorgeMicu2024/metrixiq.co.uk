@@ -896,8 +896,9 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
  const routeInput=useRef(null),waveInput=useRef(null),smartInput=useRef(null),atlasImageInput=useRef(null),atlasRouteInput=useRef(null),sheetRef=useRef(null);
  const [dragging,setDragging]=useState(false),[uploadStatus,setUploadStatus]=useState([]),[editorTab,setEditorTab]=useState("waves");
  const [editNamesOpen,setEditNamesOpen]=useState(false),[editDraft,setEditDraft]=useState({});
+ const [dls4Paste,setDls4Paste]=useState(""),[dls4PasteOpen,setDls4PasteOpen]=useState(false);
  useEffect(()=>{
-   setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);
+   setRouteFile(null);setWaveFile(null);setRouteRows([]);setWaveRows([]);setGenerated(false);setDls4Paste("");setDls4PasteOpen(false);
    setOverrides({});setDismissedConflicts(new Set());setHiddenWaves(new Set());setUploadStatus([]);
    setAdjust(norm(site)==="DDD2"?0:-20);
    setEditNamesOpen(false);setEditDraft({});
@@ -965,6 +966,34 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
    }
  };
 
+ const loadDls4PastedWave=()=>{
+   if(norm(site)!=="DLS4")return;
+   const source=dls4Paste.split(/\r?\n/),records=[],invalid=[],seen=new Set();
+   for(let index=0;index<source.length;index++){
+     const line=source[index].trim();
+     if(!line||!/^DCSL\s*\|/i.test(line))continue;
+     const columns=line.split("|").map(v=>v.trim());
+     const code=routeOf([columns[1]||""]);
+     const time=timeOf([columns[3]||""]);
+     const stage=stageOf([columns[4]||""])||stageLoose(columns[4]||"");
+     if(!code||!time||!stage){invalid.push(index+1);continue}
+     const key=norm(code);
+     if(seen.has(key)){invalid.push(index+1);continue}
+     seen.add(key);
+     records.push({cells:["DCSL",code,columns[2]||"",time,stage,columns[5]||""],sheet:"DLS4 Pasted Wave",row:index+1,sourceY:index+1});
+   }
+   if(!records.length){alert("No valid DCSL rows found. Paste the complete DSP | Route Code | Service Type | Time | Staging Location | Wave text.");return}
+   if(invalid.length){alert("Import stopped: "+invalid.length+" invalid or duplicate rows (lines "+invalid.slice(0,12).join(", ")+"). Correct the text before generating.");return}
+   const converted=dls4AllocationRows(records);
+   if(converted.length!==records.length){alert("Some pasted routes could not be recognised. Check the time and staging columns.");return}
+   setWaveRows(converted);
+   setWaveFile({name:"DLS4 Pasted Wave Plan ("+converted.length+" routes)"});
+   setGenerated(false);
+   setHiddenWaves(new Set());
+   setDehTimeOverrides({});
+   setUploadStatus(prev=>[...prev.filter(x=>x.kind!=="Wave Plan"),{name:"Pasted text · "+converted.length+" routes",kind:"Wave Plan"}].slice(-6));
+   setDls4PasteOpen(false);
+ };
  const smartLoad=async(files)=>{
    const list=[...(files||[])]; if(!list.length)return;
    const status=[],classified=[];
@@ -1271,6 +1300,14 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
      <div className="waveplan-file-icon">↥</div><div><b>Smart Upload</b><span>Drop Route Plan + one or more Wave Plan images here, or choose files</span><small>Multiple Wave Plan screenshots are merged into one dispatch plan automatically.</small></div><button className="btn primary" onClick={()=>smartInput.current?.click()}>Choose files</button>
      <div className="smart-upload-status">{routeFile?<span>✓ {routeFile.name} <b>Route Plan</b></span>:<span className="warn">Route Plan not loaded</span>}{waveFile?<span>✓ {waveFile.name} <b>Wave Plan</b></span>:<span className="warn">Wave Plan not loaded</span>}{uploadStatus.filter(x=>!["Route Plan","Wave Plan"].includes(x.kind)).map((x,i)=><span key={x.name+i} className={x.kind==="Needs review"?"warn":""}>✓ {x.name} <b>{x.kind}</b></span>)}</div>
      <div className="smart-upload-manual"><button onClick={()=>routeInput.current?.click()}>Route Plan {routeFile?"✓":""}</button><button onClick={()=>waveInput.current?.click()}>Wave Plan {waveFile?"✓":""}</button></div>
+     {norm(site)==="DLS4"&&<div className="dls4-paste-tool" style={{marginTop:12,padding:14,border:"1px solid #d9e3ee",borderRadius:10,background:"#f8fafc"}}>
+       <button type="button" className="btn ghost" onClick={()=>setDls4PasteOpen(open=>!open)}>{dls4PasteOpen?"Hide text import":"Paste Wave Plan Text (DLS4)"}</button>
+       {dls4PasteOpen&&<div style={{marginTop:12,display:"grid",gap:10}}>
+         <p style={{margin:0,fontSize:12,color:"#52667d"}}>Paste the Amazon message, including multiple parts. MetrixIQ reads Route Code, Time and Staging Location, then matches drivers from the Route Plan Excel.</p>
+         <textarea value={dls4Paste} onChange={e=>setDls4Paste(e.target.value)} rows={9} placeholder={"DSP | Route Code | Service Type | Time | Staging Location | Wave\\nDCSL | CA_A48 | Standard Parcel Away Team 30 | 08:20 AM | STG-A.1 |"} style={{width:"100%",minHeight:180,padding:12,border:"1px solid #cbd5e1",borderRadius:8,fontFamily:"monospace",fontSize:12}}/>
+         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}><button type="button" className="btn primary" disabled={!dls4Paste.trim()} onClick={loadDls4PastedWave}>Import Pasted Wave Plan</button><span style={{fontSize:12,color:"#52667d"}}>Replaces the current Wave Plan; Route Plan Excel stays loaded.</span></div>
+       </div>}
+     </div>}
      <input ref={routeInput} hidden type="file" accept=".xlsx,.xls,.csv" onChange={e=>load(e.target.files?.[0],setRouteFile,setRouteRows)}/><input ref={waveInput} hidden multiple type="file" accept=".xlsx,.xls,.csv,.tsv,image/png,image/jpeg,image/webp" onChange={e=>loadWaveFiles(e.target.files)}/>
    </section>
    {routeFile&&waveFile&&!routeSetMismatch&&routeCompatibility.total>0&&<section className="waveplan-file-match ok"><span>✓ Files matched</span><b>{effectiveRouteCompatibility.matched}/{effectiveRouteCompatibility.total} {deh1Recovery.eligible?"DCSL routes reconciled from Route Plan":"Wave Plan routes found in Route Plan"}</b><small>{routeFile.name} + {waveFile.name}</small></section>}
