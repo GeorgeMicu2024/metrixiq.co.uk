@@ -707,10 +707,26 @@ function atlasTransferSheetRowsFromOcrData(data){
  for(const t of distinctIds.sort((a,b)=>a.y-b.y)){
   const candidates=distinctRoutes.filter(r=>Math.abs(r.y-t.y)<=Math.max(14,Math.min(28,(r.h+t.h)*.8))&&r.x<t.x+5)
    .sort((a,b)=>Math.abs(a.y-t.y)-Math.abs(b.y-t.y)||a.x-b.x);
-  // Only accept a clearly paired route from the same visual table row.
-  if(!candidates.length)continue;
-  if(candidates.length>1&&candidates[0].route!==candidates[1].route&&Math.abs(candidates[0].y-t.y)+4>=Math.abs(candidates[1].y-t.y))continue;
-  out.push({tracking:t.id,route:candidates[0].route,wave:"",sourceY:t.y,transferSheet:true});
+  // Amazon Transfer Sheets may print several Tracking IDs under a single
+  // Route Code. The route cell is populated only on the first package row.
+  // Inherit the preceding route ONLY within its visual group, before the next
+  // distinct route heading; never pair unrelated routes by ordinal position.
+  let assigned=candidates[0]?.route||"";
+  if(candidates.length>1&&candidates[0].route!==candidates[1].route&&Math.abs(candidates[0].y-t.y)+4>=Math.abs(candidates[1].y-t.y))assigned="";
+  if(!assigned){
+   const headings=distinctRoutes.filter(r=>r.x<t.x+5).sort((a,b)=>a.y-b.y);
+   const previous=[...headings].reverse().find(r=>r.y<=t.y+Math.max(5,r.h*.3));
+   const next=headings.find(r=>previous&&r.y>previous.y+Math.max(10,previous.h*.4));
+   const priorIds=distinctIds.filter(other=>other.y>=((previous?.y??Infinity)-8)&&other.y<t.y-5);
+   // A grouped route may span two package rows; reject long-distance
+   // inheritance or ambiguous/missing headings rather than invent a match.
+   const rowSpacing=distinctIds.map((other,i,arr)=>i?other.y-arr[i-1].y:0).filter(v=>v>8).sort((a,b)=>a-b);
+   const typicalGap=rowSpacing[Math.floor(rowSpacing.length/2)]||Math.max(24,t.h*1.6);
+   const withinGroup=previous&&t.y-previous.y<=Math.max(typicalGap*1.65,t.h*2.1)&&(!next||t.y<next.y-Math.max(4,t.h*.2));
+   if(withinGroup&&priorIds.length<=1)assigned=previous.route;
+  }
+  if(!assigned)continue;
+  out.push({tracking:t.id,route:assigned,wave:"",sourceY:t.y,transferSheet:true});
  }
  return [...new Map(out.map(r=>[r.tracking+"|"+r.route,r])).values()];
 }
