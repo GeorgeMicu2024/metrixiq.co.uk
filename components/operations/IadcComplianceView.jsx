@@ -106,6 +106,26 @@ export default function IadcComplianceView({
   const [sortDir, setSortDir] = useState("asc");
   const [showTrid, setShowTrid] = useState(true);
   const [driverFilter, setDriverFilter] = useState("all");
+  const [hiddenDriverIds, setHiddenDriverIds] = useState([]);
+  const [showHiddenDrivers, setShowHiddenDrivers] = useState(false);
+  const isDls4Iadc = String(siteFilter).toUpperCase() === "DLS4" && tab === "iadc";
+  const hiddenStorageKey = `metrixiq:iadc:hidden:DLS4:${organizationId || "default"}`;
+  useEffect(() => {
+    if (String(siteFilter).toUpperCase() !== "DLS4" || !organizationId) return;
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(hiddenStorageKey) || "[]");
+      setHiddenDriverIds(Array.isArray(saved) ? saved.map(String) : []);
+    } catch { setHiddenDriverIds([]); }
+  }, [hiddenStorageKey, siteFilter, organizationId]);
+  const toggleHiddenDriver = (driverId) => {
+    if (!driverId) return;
+    setHiddenDriverIds((current) => {
+      const key = String(driverId);
+      const next = current.includes(key) ? current.filter((id) => id !== key) : [...current, key];
+      try { window.localStorage.setItem(hiddenStorageKey, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
   const [importing, setImporting] = useState(false);
   const [importMessage, setImportMessage] = useState("");
   const [importError, setImportError] = useState("");
@@ -355,6 +375,7 @@ export default function IadcComplianceView({
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const filtered = scoredRows.filter((row) => {
+      if (isDls4Iadc && !showHiddenDrivers && hiddenDriverIds.includes(String(row.driver_id))) return false;
       const score = Number(valueOf(row));
       const passesStatus =
         driverFilter === "all" ||
@@ -407,6 +428,9 @@ export default function IadcComplianceView({
     scoredRows,
     query,
     driverFilter,
+    isDls4Iadc,
+    showHiddenDrivers,
+    hiddenDriverIds,
     sortKey,
     sortDir,
     tab,
@@ -796,6 +820,9 @@ export default function IadcComplianceView({
           <option value="excellent">Excellent</option>
         </select>
 
+        {isDls4Iadc && <button type="button" className="btn" onClick={() => setShowHiddenDrivers((current) => !current)}>
+          {showHiddenDrivers ? "Hide excluded drivers" : `Show hidden (${hiddenDriverIds.length})`}
+        </button>}
         <span className="iadcpro-source">
           {visible.length} drivers
         </span>
@@ -935,6 +962,9 @@ export default function IadcComplianceView({
                           >
                             Open →
                           </button>
+                          {isDls4Iadc && row.driver_id && <button type="button" className="btn" style={{marginLeft:6}} onClick={() => toggleHiddenDriver(row.driver_id)}>
+                            {hiddenDriverIds.includes(String(row.driver_id)) ? "Unhide" : "Hide"}
+                          </button>}
                         </td>
                       </tr>
                     );
