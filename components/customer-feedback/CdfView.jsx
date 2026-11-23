@@ -95,7 +95,7 @@ export default function CdfView({ organizationId, onImport, siteFilter = "all" }
   const exportSite = String(siteFilter || "").trim().toUpperCase();
   const canExport = exportSite !== "ALL" && Boolean(exportSite);
   const feedbackRows = useMemo(()=>groupCdf(selected),[events,week]);
-  const exportPageSize = exportSite === "DLS4" ? 10 : CDF_EXPORT_PAGE_SIZE;
+  const exportPageSize = exportSite === "DLS4" ? 16 : CDF_EXPORT_PAGE_SIZE;
   const exportWidth = exportSite === "DLS4" ? 1850 : CDF_EXPORT_WIDTH;
   const exportColumns = exportSite === "DLS4" ? "55px 400px 90px 580px minmax(0, 1fr)" : CDF_EXPORT_COLUMNS;
   const pages = Math.max(1,Math.ceil(feedbackRows.length/exportPageSize));
