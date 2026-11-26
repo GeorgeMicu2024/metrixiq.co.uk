@@ -5,7 +5,6 @@ import { analyseFiles } from "../../lib/analyzer";
 import { IMPORT_ACCEPT } from "../../lib/imports/preflight";
 import {
   POD_EXPORT_PAGE_SIZE,
-  POD_EXPORT_SITE,
   POD_WHATSAPP_PAGE_SIZE,
   comparePodScores,
   paginatePodRows,
@@ -59,23 +58,17 @@ export default function PodQualityView({
   organizationId,
   onOpenDriver,
   onImported,
+  siteFilter,
   refreshKey = 0,
 }) {
   const load = useOperationalRows(organizationId, "pod", refreshKey);
+  const site = String(siteFilter || "").trim().toUpperCase();
   const rows = useMemo(() => {
-    // POD Quality is intentionally a DZM1-only workspace, independent of the
-    // station currently selected for other metrics in the global header.
-    const siteRows = filterRowsBySite(load.rows, POD_EXPORT_SITE);
-
-    // POD is site-specific. Some older imports were saved under the selected
-    // metric site even when the linked driver belongs to another station.
-    // Keep rows with no master-site assignment, but never surface a driver
-    // whose known master site conflicts with the site selected in the header.
-    return siteRows.filter((row) => {
+    return filterRowsBySite(load.rows, site).filter((row) => {
       const driverSite = String(row?.drivers?.site || "").trim().toUpperCase();
-      return !driverSite || driverSite === POD_EXPORT_SITE;
+      return !driverSite || driverSite === site;
     });
-  }, [load.rows]);
+  }, [load.rows, site]);
   const input = useRef(null);
 
   const [week, setWeek] = useState("");
@@ -292,10 +285,10 @@ export default function PodQualityView({
       }
 
       const filenameSite = inferSiteFromFile(file.name);
-      if (filenameSite && filenameSite !== POD_EXPORT_SITE) {
-        throw new Error(`This POD workspace accepts DZM1 only. File appears to be for ${filenameSite}.`);
+      if (filenameSite && filenameSite !== site) {
+        throw new Error(`This POD workspace accepts ${site} only. File appears to be for ${filenameSite}.`);
       }
-      const importSite = POD_EXPORT_SITE;
+      const importSite = site;
 
       const saved = await onImported?.(result, [file], importSite);
       if (saved && Number(saved.savedMetrics || 0) === 0) {
@@ -349,7 +342,7 @@ export default function PodQualityView({
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "metrixiq-pod-" + selectedWeek + ".csv";
+    anchor.download = "metrixiq-pod-" + site + "-" + selectedWeek + ".csv";
     anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 300);
   };
@@ -362,7 +355,7 @@ export default function PodQualityView({
     try {
       // Call share() directly from the click handler's user activation.
       // iOS displays its native sheet, including Save Image(s) to Photos.
-      navigator.share({ files, title: `POD Quality — DZM1 · ${selectedWeek}` })
+      navigator.share({ files, title: `POD Quality — ${site} · ${selectedWeek}` })
         .catch((error) => {
           if (error?.name !== "AbortError") {
             setShareMessage("Sharing was unavailable. Touch and hold the image below to save it to Photos.");
@@ -397,6 +390,7 @@ export default function PodQualityView({
         });
         return createPodPageImage({
           drivers,
+          site,
           week: selectedWeek,
           pageNumber,
           pageCount: imagePages.length,
@@ -427,8 +421,8 @@ export default function PodQualityView({
       <header className="podv2-head">
         <div>
           <span className="page-kicker">DELIVERY QUALITY</span>
-          <h1>POD Quality — DZM1</h1>
-          <p>Driver-level POD Quality from dedicated Amazon POD reports only. <strong>· DZM1 only</strong></p>
+          <h1>POD Quality — {site}</h1>
+          <p>Driver-level POD Quality from dedicated Amazon POD reports only. <strong>· {site}</strong></p>
         </div>
 
         <div className="podv2-actions">
@@ -537,7 +531,7 @@ export default function PodQualityView({
       {!weeks.length ? (
         <section className="panel podv2-empty podv2-no-data">
           <div className="podv2-empty-mark">POD</div>
-          <b>No detailed POD Quality report for this site (DZM1)</b>
+          <b>No detailed POD Quality report for this site ({site})</b>
           <p>
             Scorecard POD percentages are intentionally excluded here because they do not
             include opportunities, bypasses or reject reasons. Import the dedicated Amazon
@@ -644,7 +638,7 @@ export default function PodQualityView({
                 <div className="podv3-scorecard-heading">
                   <div>
                     <h2>Driver Scorecards</h2>
-                    <p>Scores, rejected photos and every recorded rejection reason · DZM1 only</p>
+                    <p>Scores, rejected photos and every recorded rejection reason · {site}</p>
                   </div>
                   <span>{exportPageSize} drivers per image</span>
                 </div>
@@ -750,7 +744,7 @@ export default function PodQualityView({
                 </div>
                 <footer className="podv3-pagination">
                   <span>
-                    {selectedWeek} · Showing {filtered.length ? pageOffset + 1 : 0}–{Math.min(pageOffset + exportPageSize, filtered.length)} of {filtered.length} DZM1 drivers
+                    {selectedWeek} · Showing {filtered.length ? pageOffset + 1 : 0}–{Math.min(pageOffset + exportPageSize, filtered.length)} of {filtered.length} {site} drivers
                   </span>
                   <div className="podv3-pagination-controls">
                     <button type="button" aria-label="Previous POD page" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>‹</button>

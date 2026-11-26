@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
   POD_EXPORT_PAGE_SIZE,
-  POD_EXPORT_SITE,
   POD_WHATSAPP_PAGE_SIZE,
   comparePodScores,
   paginatePodRows,
@@ -14,15 +13,15 @@ import { createPodPageImage, wrapPodImageText } from "../lib/pod/renderImage.mjs
 const read = (path) =>
   fs.readFileSync(new URL("../" + path, import.meta.url), "utf8");
 
-test("POD workspace and imports are isolated to DZM1", () => {
+test("POD workspace and imports are isolated to the selected site", () => {
   const view = read("components/operations/PodQualityView.jsx");
 
   assert.ok(view.includes("inferSiteFromFile"));
-  assert.equal(POD_EXPORT_SITE, "DZM1");
-  assert.ok(view.includes("filterRowsBySite(load.rows, POD_EXPORT_SITE)"));
-  assert.ok(view.includes("driverSite === POD_EXPORT_SITE"));
-  assert.ok(view.includes("filenameSite !== POD_EXPORT_SITE"));
-  assert.ok(view.includes("const importSite = POD_EXPORT_SITE"));
+  assert.ok(view.includes("siteFilter"));
+  assert.ok(view.includes("filterRowsBySite(load.rows, site)"));
+  assert.ok(view.includes("driverSite === site"));
+  assert.ok(view.includes("filenameSite !== site"));
+  assert.ok(view.includes("const importSite = site"));
   assert.ok(view.includes("onImported?.(result, [file], importSite)"));
   assert.ok(view.includes("no driver-level POD Quality rows were saved"));
 });
@@ -124,6 +123,7 @@ test("POD PNG renderer draws every driver and returns a shareable PNG File", () 
     }));
     const image = createPodPageImage({
       drivers,
+      site: "DLS4",
       week: "W43",
       pageNumber: 1,
       pageCount: 2,
@@ -132,7 +132,8 @@ test("POD PNG renderer draws every driver and returns a shareable PNG File", () 
       rejectedPhotos: 48,
     });
     assert.equal(image.file.type, "image/png");
-    assert.match(image.filename, /DZM1_W43_Page_1_of_2\.png$/);
+    assert.match(image.filename, /DLS4_W43_Page_1_of_2\.png$/);
+    assert.ok(drawn.includes("POD Quality — DLS4"));
     assert.equal(canvas.width, 1200);
     assert.ok(canvas.height > 2000 && canvas.height < 8000);
     assert.equal(drawn.filter((value) => /^Test Driver \d+$/.test(value)).length, 25);
