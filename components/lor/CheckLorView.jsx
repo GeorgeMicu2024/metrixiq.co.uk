@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { getSupabaseBrowserClient } from "../../lib/supabase/client";
 import { buildLorDriverNames, collectLorTransporterIds } from "../../lib/lor/driverMatching.mjs";
-import { createLorPng, groupLorDrivers, lorDriverKey } from "../../lib/lor/lorPngExport.mjs";
+import { createLorPng, groupLorDrivers, lorDriverKey, buildOutstandingMessage } from "../../lib/lor/lorPngExport.mjs";
 import "./CheckLorView.css";
 
 const clean = value => String(value ?? "").trim();
@@ -67,6 +67,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showOutstandingMessage, setShowOutstandingMessage] = useState(false);
   const [reviewReady, setReviewReady] = useState(false);
   const [hiddenDriverKeys, setHiddenDriverKeys] = useState([]);
   const [showHidden, setShowHidden] = useState(false);
@@ -232,7 +233,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     setExporting(true); setError(""); setMessage("");
     try {
       const site = siteFilter === "all" ? "ALL SITES" : siteFilter;
-      const blob = await createLorPng(groups, { site });
+      const blob = await createLorPng(groups, { site, outstanding });
       const filename = `${site.replace(/\s+/g, "_")}_${outstanding ? "Outstanding_LOR" : "Potential_LOR"}_${new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" })}.png`;
       const file = new File([blob], filename, { type: "image/png" });
       if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
@@ -287,9 +288,11 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
         <div className="lor-export-toolbar">
           <button type="button" className="lor-export-button" onClick={() => saveAllPng(false)} disabled={!visibleDriverGroups.length || exporting || loading}>{exporting ? "Creating PNG…" : "↓ Save All PNG"}</button>
           <button type="button" className="lor-export-button" onClick={() => saveAllPng(true)} disabled={!outstandingGroups.length || exporting || loading}>↓ Export Outstanding LOR ({outstandingGroups.reduce((sum, group) => sum + group.parcels.length, 0)})</button>
+          <button type="button" className="lor-export-button" disabled={!outstandingGroups.length} onClick={() => setShowOutstandingMessage(v => !v)}>Generate Message</button>
           <button type="button" className="lor-hidden-button" onClick={() => setShowHidden(value => !value)} disabled={!hiddenDriverCount && !showHidden} aria-pressed={showHidden}>{showHidden ? "Show active drivers" : `Hidden (${hiddenDriverCount})`}</button>
           <small>One image with all visible drivers. Hide excludes a driver from this report and export only.</small>
         </div>
+        {showOutstandingMessage && <div style={{padding:12}}><textarea aria-label="Outstanding LOR WhatsApp message" readOnly value={buildOutstandingMessage(outstandingGroups, siteFilter)} style={{width:"100%",minHeight:240}}/><button type="button" className="lor-export-button" onClick={async () => { try { await navigator.clipboard.writeText(buildOutstandingMessage(outstandingGroups, siteFilter)); setMessage("Message copied."); } catch { setError("Copy failed. Select the message and copy manually."); } }}>Copy Message</button></div>}
         <div className="lor-table-scroll"><table><thead><tr><th>Driver</th><th>Tracking ID</th><th>Last attempt</th><th>Attempt date</th><th>Route CSV status</th><th>Station scan</th><th>Verdict</th><th>Actions</th></tr></thead><tbody>
           {filtered.map(r => <tr key={r.tracking_id} className={selected===r.tracking_id?"selected":""}><td><div className="lor-driver-cell"><b>{r.driver_name}</b><button type="button" className="lor-driver-hide" onClick={() => showHidden ? restoreDriver(r) : hideDriver(r)}>{showHidden ? "Restore" : "Hide"}</button></div></td><td className="lor-tracking">{r.tracking_id}</td><td>{r.reason || "—"}</td><td className="lor-date">{showDateTime(r.last_scan)}</td><td><span className={"lor-pill "+(r.route_status==="Returned to station"?"green":"red")}>{r.route_status}</span></td><td>{r.verdict==="confirmed-return"?"Manager confirmed":r.rts_at?"Not confirmed":"Not found"}</td><td><span className={"lor-pill "+badge(r.verdict)}>{verdictLabel[r.verdict]}</span></td><td><button className="lor-small" onClick={()=>setSelected(r.tracking_id)}>View</button></td></tr>)}
           {!filtered.length && <tr><td colSpan="8" className="lor-empty">{reviewReady?"No matching parcels":"Upload reports and run LOR Check to see results."}</td></tr>}
