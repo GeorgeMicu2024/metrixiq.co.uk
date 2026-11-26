@@ -88,6 +88,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
   const driverByTrid = useMemo(() => buildLorDriverNames(drivers), [drivers]);
   const hiddenDriverSet = useMemo(() => new Set(hiddenDriverKeys), [hiddenDriverKeys]);
   const visibleDriverGroups = useMemo(() => groupLorDrivers(results, hiddenDriverKeys), [results, hiddenDriverKeys]);
+  const outstandingGroups = useMemo(() => groupLorDrivers(results.filter(r => r.verdict !== "confirmed-return" && (r.verdict === "confirmed-loss" || r.route_status !== "Returned to station")), hiddenDriverKeys), [results, hiddenDriverKeys]);
   const hiddenDriverCount = useMemo(() => new Set(results.filter(row => hiddenDriverSet.has(lorDriverKey(row))).map(lorDriverKey)).size, [results, hiddenDriverSet]);
   const current = results.find(r => r.tracking_id === selected);
   const currentHistory = saved.filter(r => current && (r.transporter_id === current.transporter_id || r.tracking_id === current.tracking_id));
@@ -225,13 +226,14 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     if (hiddenDriverCount <= 1) setShowHidden(false);
   }
 
-  async function saveAllPng() {
-    if (!visibleDriverGroups.length || exporting) return;
+  async function saveAllPng(outstanding = false) {
+    const groups = outstanding ? outstandingGroups : visibleDriverGroups;
+    if (!groups.length || exporting) return;
     setExporting(true); setError(""); setMessage("");
     try {
       const site = siteFilter === "all" ? "ALL SITES" : siteFilter;
-      const blob = await createLorPng(visibleDriverGroups, { site });
-      const filename = `${site.replace(/\s+/g, "_")}_Potential_LOR_${new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" })}.png`;
+      const blob = await createLorPng(groups, { site });
+      const filename = `${site.replace(/\s+/g, "_")}_${outstanding ? "Outstanding_LOR" : "Potential_LOR"}_${new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" })}.png`;
       const file = new File([blob], filename, { type: "image/png" });
       if (typeof navigator.share === "function" && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
         try {
@@ -247,7 +249,7 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
       link.href = url; link.download = filename;
       document.body.appendChild(link); link.click(); link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
-      setMessage("One PNG downloaded with all visible drivers. Hidden drivers were excluded.");
+      setMessage(outstanding ? "Outstanding LOR PNG downloaded. RTS and confirmed returns excluded; confirmed losses retained." : "One PNG downloaded with all visible drivers. Hidden drivers were excluded.");
     } catch (exportError) {
       setError(exportError?.message || "Could not export LOR PNG.");
     } finally {
@@ -283,7 +285,8 @@ export default function CheckLorView({ organizationId, siteFilter = "all", drive
     <div className="lor-columns">
       <section className="lor-card lor-results"><div className="lor-section-title"><h2>LOR Investigation Results ({results.length})</h2><input aria-label="Search investigation" placeholder="Search driver, tracking ID or reason…" value={query} onChange={e=>setQuery(e.target.value)}/><select value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">All statuses</option><option value="station-check">Needs station check</option><option value="investigation">Investigation</option><option value="confirmed-return">Confirmed return</option><option value="confirmed-loss">Confirmed loss</option></select></div>
         <div className="lor-export-toolbar">
-          <button type="button" className="lor-export-button" onClick={saveAllPng} disabled={!visibleDriverGroups.length || exporting || loading}>{exporting ? "Creating PNG…" : "↓ Save All PNG"}</button>
+          <button type="button" className="lor-export-button" onClick={() => saveAllPng(false)} disabled={!visibleDriverGroups.length || exporting || loading}>{exporting ? "Creating PNG…" : "↓ Save All PNG"}</button>
+          <button type="button" className="lor-export-button" onClick={() => saveAllPng(true)} disabled={!outstandingGroups.length || exporting || loading}>↓ Export Outstanding LOR ({outstandingGroups.reduce((sum, group) => sum + group.parcels.length, 0)})</button>
           <button type="button" className="lor-hidden-button" onClick={() => setShowHidden(value => !value)} disabled={!hiddenDriverCount && !showHidden} aria-pressed={showHidden}>{showHidden ? "Show active drivers" : `Hidden (${hiddenDriverCount})`}</button>
           <small>One image with all visible drivers. Hide excludes a driver from this report and export only.</small>
         </div>
