@@ -43,6 +43,23 @@ async function workbookRows(file){const isTsv=/\.tsv$/i.test(file.name||"");cons
 // Only DCSL rows are eligible; never infer a missing route's load time.
 // DZM1 alternate Amazon dispatch format: three side-by-side launch-pad blocks
 // A:D, F:I, K:N. Each block carries DSP, route, loading time, staging.
+function dzm1YardSectionRows(rows){
+ const states=new Map(),out=[];
+ for(const row of rows){
+  const c=row.cells||[];
+  for(const [offset,pad,lane] of [[0,"A","E-G"],[6,"B","C-D"],[12,"C","A-B"]]){
+   const key=(row.sheet||"Wave")+"|"+pad;
+   const heading=clean(c[offset]);
+   const match=heading.match(/^Wave\s+(\d+)\s*:\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+   if(match){states.set(key,{wave:"WAVE"+Number(match[1]),time:match[2].trim()});continue;}
+   if(/^Launchpad\b|^DSP$/i.test(heading)){states.delete(key);continue;}
+   const state=states.get(key),route=routeOf([c[offset+1]]),stage=clean(c[offset+4]);
+   if(!state||!dcslDsp(heading)||!route||!/^STG[- ]?[A-Z]\.\d+$/i.test(stage))continue;
+   out.push({...row,cells:[route,state.time,stage,state.wave,"DCSL"],directLoadTime:true,explicitWave:state.wave,launchPad:pad,holdingLane:lane,sourceY:row.row*3+offset/6,dcslHint:true});
+  }
+ }
+ return out;
+}
 function dzm1ThreePadRows(rows){
  // Amazon exports may start each five-column launch-pad block at A/F/K or B/H/N.
  // Select the layout using actual DCSL route + time pairs, not merely route text.
@@ -961,7 +978,7 @@ export default function WavePlanView({site="DLS2",drivers=[]}){
          rows=norm(site)==="DEH1"?await deh1ImageRows(file,progress):await imageRows(file,progress);
        }else{
          const raw=await workbookRows(file);
-         const dzmCandidates=norm(site)==="DZM1"?[dzm1AllocationWorkbookRows(raw),dzm1DCSLSectionRows(raw),dzm1ThreePadRows(raw),dzm1WorkbookRows(raw),dzm1HeaderWorkbookRows(raw)]:[];
+         const dzmCandidates=norm(site)==="DZM1"?[dzm1YardSectionRows(raw),dzm1AllocationWorkbookRows(raw),dzm1DCSLSectionRows(raw),dzm1ThreePadRows(raw),dzm1WorkbookRows(raw),dzm1HeaderWorkbookRows(raw)]:[];
          const matrix=norm(site)==="DEH1"?deh1WorkbookRows(raw):norm(site)==="DZM1"?dzmCandidates.sort((a,b)=>new Set(b.map(r=>routeOf(r.cells))).size-new Set(a.map(r=>routeOf(r.cells))).size)[0]:norm(site)==="DLS4"?dls4AllocationRows(raw):[];
          rows=norm(site)==="DZM1"||norm(site)==="DLS4"?matrix:(matrix.length?matrix:raw);
        }
